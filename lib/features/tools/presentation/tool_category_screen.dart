@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../data/local/app_database.dart';
+import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_category.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/tool_catalog.dart';
@@ -28,19 +31,21 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
   final FocusNode _searchFocus = FocusNode();
   String _query = '';
   late Set<String> _favoriteIds = widget.favoriteIds;
+  late final ToolUsageRepository _toolUsageRepository =
+      ToolUsageRepository(widget.db);
 
   Future<void> _openTool(ToolDefinition tool) async {
-    await widget.db.markRecent(tool.id);
+    unawaited(_toolUsageRepository.markRecent(tool.id).catchError((_) {}));
     if (!mounted) return;
     await openToolDetail(context: context, db: widget.db, tool: tool);
-    final favorites = await widget.db.favoriteToolIds();
+    final favorites = await _toolUsageRepository.favoriteIds();
     if (mounted) setState(() => _favoriteIds = favorites);
   }
 
   Future<void> _toggleFavorite(ToolDefinition tool) async {
     final next = !_favoriteIds.contains(tool.id);
-    await widget.db.setFavorite(tool.id, next);
-    final favorites = await widget.db.favoriteToolIds();
+    await _toolUsageRepository.setFavorite(tool.id, next);
+    final favorites = await _toolUsageRepository.favoriteIds();
     if (mounted) setState(() => _favoriteIds = favorites);
   }
 
@@ -54,7 +59,9 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
   Widget build(BuildContext context) {
     final tools = toolCatalog
         .where((tool) => tool.category == widget.category)
-        .where((tool) => _query.isEmpty || '${tool.title}${tool.description}'.contains(_query))
+        .where((tool) =>
+            _query.isEmpty ||
+            '${tool.title}${tool.description}'.contains(_query))
         .toList();
     final grouped = <String, List<ToolDefinition>>{};
     for (final tool in tools) {
@@ -68,21 +75,33 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
           children: [
             Row(
               children: [
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new)),
-                Expanded(child: Center(child: PageTitle(widget.category.title))),
-                IconButton(onPressed: _searchFocus.requestFocus, icon: const Icon(Icons.search)),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back_ios_new)),
+                Expanded(
+                    child: Center(child: PageTitle(widget.category.title))),
+                IconButton(
+                    onPressed: _searchFocus.requestFocus,
+                    icon: const Icon(Icons.search)),
               ],
             ),
             const SizedBox(height: 8),
             TextField(
               focusNode: _searchFocus,
               onChanged: (value) => setState(() => _query = value.trim()),
-              decoration: InputDecoration(hintText: '搜索${widget.category.title}工具', prefixIcon: const Icon(Icons.search)),
+              decoration: InputDecoration(
+                  hintText: '搜索${widget.category.title}工具',
+                  prefixIcon: const Icon(Icons.search)),
             ),
             const SizedBox(height: 16),
             if (tools.any((tool) => tool.featured)) ...[
-              SectionHeader(title: '常用工具', action: '更多', onActionTap: _searchFocus.requestFocus),
-              HorizontalToolList(tools: tools.where((tool) => tool.featured).toList(), onTap: _openTool),
+              SectionHeader(
+                  title: '常用工具',
+                  action: '更多',
+                  onActionTap: _searchFocus.requestFocus),
+              HorizontalToolList(
+                  tools: tools.where((tool) => tool.featured).toList(),
+                  onTap: _openTool),
               const SizedBox(height: 14),
             ],
             ...grouped.entries.map((entry) => Column(

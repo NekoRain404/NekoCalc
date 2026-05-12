@@ -1,15 +1,45 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# OS files
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+Thumbs.db
+
+# Dart / Flutter
+.dart_tool/
+.flutter/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+dist/
+
+# Android / Gradle output
+.gradle/
+.cxx/
+.externalNativeBuild/
+captures/
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+
+# Local SDK and machine-specific config
 local.properties
+android/local.properties
+*.jks
+*.keystore
+key.properties
+
+# IDE state
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/deploymentTargetSelector.xml
+.idea/markdown.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Generated reports
+android/build/reports/

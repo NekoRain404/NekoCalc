@@ -45,9 +45,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.percentage,
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'base', label: '基准值', unit: '', defaultValue: 200),
-      ToolInputDefinition(key: 'rate', label: '百分比', unit: '%', defaultValue: 15),
-      ToolInputDefinition(key: 'newValue', label: '新值', unit: '', defaultValue: 230),
+      ToolInputDefinition(
+          key: 'base', label: '基准值', unit: '', defaultValue: 200),
+      ToolInputDefinition(
+          key: 'rate', label: '百分比', unit: '%', defaultValue: 15),
+      ToolInputDefinition(
+          key: 'newValue', label: '新值', unit: '', defaultValue: 230),
     ],
     formula: '结果 = 基准值 × 百分比 / 100',
     explanation: '同时给出百分比结果和新旧值变化率。',
@@ -117,8 +120,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.probability,
     group: '概率',
     inputs: [
-      ToolInputDefinition(key: 'p1', label: '事件 A 概率', unit: '%', defaultValue: 30),
-      ToolInputDefinition(key: 'p2', label: '事件 B 概率', unit: '%', defaultValue: 40),
+      ToolInputDefinition(
+          key: 'p1', label: '事件 A 概率', unit: '%', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'p2', label: '事件 B 概率', unit: '%', defaultValue: 40),
     ],
     formula: 'P(A∩B)=P(A)P(B), P(A∪B)=P(A)+P(B)-P(A)P(B)',
     explanation: '按独立事件估算同时发生、至少发生一个和都不发生的概率。',
@@ -165,7 +170,8 @@ final List<ToolDefinition> toolCatalog = [
       ToolInputDefinition(key: 'a', label: 'z1 实部', unit: '', defaultValue: 3),
       ToolInputDefinition(key: 'b', label: 'z1 虚部', unit: 'i', defaultValue: 4),
       ToolInputDefinition(key: 'c', label: 'z2 实部', unit: '', defaultValue: 1),
-      ToolInputDefinition(key: 'd', label: 'z2 虚部', unit: 'i', defaultValue: -2),
+      ToolInputDefinition(
+          key: 'd', label: 'z2 虚部', unit: 'i', defaultValue: -2),
     ],
     formula: '(a+bi)(c+di)=(ac-bd)+(ad+bc)i',
     explanation: '输出复数加法、减法、乘法和 z1 的模长。',
@@ -208,7 +214,9 @@ final List<ToolDefinition> toolCatalog = [
     category: ToolCategory.math,
     kind: ToolKind.circle,
     group: '几何',
-    inputs: [ToolInputDefinition(key: 'r', label: '半径', unit: '', defaultValue: 5)],
+    inputs: [
+      ToolInputDefinition(key: 'r', label: '半径', unit: '', defaultValue: 5)
+    ],
     formula: 'A=πr², C=2πr',
     explanation: '圆形常用几何量快速计算。',
   ),
@@ -220,8 +228,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.scaleRatio,
     group: '常用',
     inputs: [
-      ToolInputDefinition(key: 'value', label: '原始值', unit: '', defaultValue: 120),
-      ToolInputDefinition(key: 'from', label: '原比例', unit: '', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'value', label: '原始值', unit: '', defaultValue: 120),
+      ToolInputDefinition(
+          key: 'from', label: '原比例', unit: '', defaultValue: 100),
       ToolInputDefinition(key: 'to', label: '目标比例', unit: '', defaultValue: 75),
     ],
     formula: 'new = value × target / source',
@@ -236,8 +246,16 @@ final List<ToolDefinition> toolCatalog = [
     group: '基础',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'current', label: '电流 I', unit: 'A', defaultValue: 0.02),
-      ToolInputDefinition(key: 'resistance', label: '电阻 R', unit: 'Ω', defaultValue: 220),
+      ToolInputDefinition(
+          key: 'current', label: '电流 I', unit: 'A', defaultValue: 0.02),
+      ToolInputDefinition(
+          key: 'resistance', label: '电阻 R', unit: 'Ω', defaultValue: 220),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '电阻公差',
+          unit: '%',
+          defaultValue: 5,
+          optional: true),
     ],
     formula: 'V = I × R, P = V × I',
     explanation: '输入电流与电阻，计算电压和功率。',
@@ -251,11 +269,24 @@ final List<ToolDefinition> toolCatalog = [
     group: '基础',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'vin', label: '输入电压 Vin', unit: 'V', defaultValue: 12),
-      ToolInputDefinition(key: 'r1', label: '上拉电阻 R1', unit: 'kΩ', defaultValue: 10),
-      ToolInputDefinition(key: 'r2', label: '下拉电阻 R2', unit: 'kΩ', defaultValue: 20),
-      ToolInputDefinition(key: 'load', label: '负载电阻 RL', unit: 'kΩ', defaultValue: 100, optional: true),
-      ToolInputDefinition(key: 'tol', label: '电阻公差', unit: '%', defaultValue: 1, optional: true),
+      ToolInputDefinition(
+          key: 'vin', label: '输入电压 Vin', unit: 'V', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'r1', label: '上拉电阻 R1', unit: 'kΩ', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'r2', label: '下拉电阻 R2', unit: 'kΩ', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'load',
+          label: '负载电阻 RL',
+          unit: 'kΩ',
+          defaultValue: 100,
+          optional: true),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '电阻公差',
+          unit: '%',
+          defaultValue: 1,
+          optional: true),
     ],
     formula: 'Vout = Vin × (R2 || RL) / (R1 + (R2 || RL))',
     explanation: '负载为空时按理想分压计算；填写负载后会计入并联影响。',
@@ -269,8 +300,16 @@ final List<ToolDefinition> toolCatalog = [
     group: '信号',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'r', label: '电阻 R', unit: 'kΩ', defaultValue: 10),
-      ToolInputDefinition(key: 'c', label: '电容 C', unit: 'nF', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'r', label: '电阻 R', unit: 'kΩ', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'c', label: '电容 C', unit: 'nF', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '元件公差',
+          unit: '%',
+          defaultValue: 5,
+          optional: true),
     ],
     formula: 'fc = 1 / (2πRC)',
     explanation: '计算 RC 滤波器截止频率和时间常数。',
@@ -283,7 +322,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.dbm,
     group: '信号',
     featured: true,
-    inputs: [ToolInputDefinition(key: 'dbm', label: '功率', unit: 'dBm', defaultValue: 10)],
+    inputs: [
+      ToolInputDefinition(
+          key: 'dbm', label: '功率', unit: 'dBm', defaultValue: 10)
+    ],
     formula: 'mW = 10^(dBm / 10)',
     explanation: '射频功率常用单位换算。',
   ),
@@ -295,8 +337,16 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.resistorNetwork,
     group: '基础',
     inputs: [
-      ToolInputDefinition(key: 'r1', label: 'R1', unit: 'Ω', defaultValue: 1000),
-      ToolInputDefinition(key: 'r2', label: 'R2', unit: 'Ω', defaultValue: 2200),
+      ToolInputDefinition(
+          key: 'r1', label: 'R1', unit: 'Ω', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'r2', label: 'R2', unit: 'Ω', defaultValue: 2200),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '电阻公差',
+          unit: '%',
+          defaultValue: 5,
+          optional: true),
     ],
     formula: 'Rs = R1 + R2, Rp = R1R2/(R1+R2)',
     explanation: '输出串联和并联等效电阻。',
@@ -309,8 +359,16 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.capacitorNetwork,
     group: '基础',
     inputs: [
-      ToolInputDefinition(key: 'c1', label: 'C1', unit: 'nF', defaultValue: 100),
-      ToolInputDefinition(key: 'c2', label: 'C2', unit: 'nF', defaultValue: 220),
+      ToolInputDefinition(
+          key: 'c1', label: 'C1', unit: 'nF', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'c2', label: 'C2', unit: 'nF', defaultValue: 220),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '电容公差',
+          unit: '%',
+          defaultValue: 10,
+          optional: true),
     ],
     formula: 'Cp = C1 + C2, Cs = C1C2/(C1+C2)',
     explanation: '输出并联和串联等效电容。',
@@ -325,6 +383,12 @@ final List<ToolDefinition> toolCatalog = [
     inputs: [
       ToolInputDefinition(key: 'l1', label: 'L1', unit: 'mH', defaultValue: 10),
       ToolInputDefinition(key: 'l2', label: 'L2', unit: 'mH', defaultValue: 22),
+      ToolInputDefinition(
+          key: 'tol',
+          label: '电感公差',
+          unit: '%',
+          defaultValue: 10,
+          optional: true),
     ],
     formula: 'Ls = L1 + L2, Lp = L1L2/(L1+L2)',
     explanation: '忽略互感影响，输出串联和并联等效电感。',
@@ -337,9 +401,18 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.ledResistor,
     group: '基础',
     inputs: [
-      ToolInputDefinition(key: 'vin', label: '电源电压', unit: 'V', defaultValue: 5),
-      ToolInputDefinition(key: 'vf', label: 'LED压降', unit: 'V', defaultValue: 2),
-      ToolInputDefinition(key: 'current', label: '目标电流', unit: 'mA', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'vin', label: '电源电压', unit: 'V', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'vf', label: 'LED压降', unit: 'V', defaultValue: 2),
+      ToolInputDefinition(
+          key: 'current', label: '目标电流', unit: 'mA', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'vfTol',
+          label: '压降误差',
+          unit: 'V',
+          defaultValue: 0.1,
+          optional: true),
     ],
     formula: 'R = (Vin - Vf) / I',
     explanation: '同时估算电阻功耗。',
@@ -352,9 +425,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.opAmpGain,
     group: '信号',
     inputs: [
-      ToolInputDefinition(key: 'rin', label: '输入电阻 Rin', unit: 'kΩ', defaultValue: 10),
-      ToolInputDefinition(key: 'rf', label: '反馈电阻 Rf', unit: 'kΩ', defaultValue: 100),
-      ToolInputDefinition(key: 'vin', label: '输入电压', unit: 'V', defaultValue: 0.2),
+      ToolInputDefinition(
+          key: 'rin', label: '输入电阻 Rin', unit: 'kΩ', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'rf', label: '反馈电阻 Rf', unit: 'kΩ', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'vin', label: '输入电压', unit: 'V', defaultValue: 0.2),
     ],
     formula: 'Av_non = 1 + Rf/Rin, Av_inv = -Rf/Rin',
     explanation: '输出同相与反相放大器的增益和输出电压。',
@@ -367,8 +443,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.adcResolution,
     group: '采样',
     inputs: [
-      ToolInputDefinition(key: 'vref', label: '参考电压', unit: 'V', defaultValue: 3.3),
-      ToolInputDefinition(key: 'bits', label: '位数', unit: 'bit', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'vref', label: '参考电压', unit: 'V', defaultValue: 3.3),
+      ToolInputDefinition(
+          key: 'bits', label: '位数', unit: 'bit', defaultValue: 12),
     ],
     formula: 'LSB = Vref / (2^N - 1)',
     explanation: '输出 LSB、半 LSB 量化误差和满量程码数。',
@@ -380,7 +458,10 @@ final List<ToolDefinition> toolCatalog = [
     category: ToolCategory.electronics,
     kind: ToolKind.rmsPeak,
     group: '信号',
-    inputs: [ToolInputDefinition(key: 'vrms', label: 'Vrms', unit: 'V', defaultValue: 1)],
+    inputs: [
+      ToolInputDefinition(
+          key: 'vrms', label: 'Vrms', unit: 'V', defaultValue: 1)
+    ],
     formula: 'Vpeak = Vrms × √2, Vpp = 2 × Vpeak',
     explanation: '按正弦波计算。',
   ),
@@ -392,8 +473,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.lcResonance,
     group: '信号',
     inputs: [
-      ToolInputDefinition(key: 'l', label: '电感 L', unit: 'μH', defaultValue: 10),
-      ToolInputDefinition(key: 'c', label: '电容 C', unit: 'nF', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'l', label: '电感 L', unit: 'μH', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'c', label: '电容 C', unit: 'nF', defaultValue: 100),
     ],
     formula: 'f0 = 1 / (2π√LC)',
     explanation: '用于 LC/RLC 电路的基础谐振频率估算。',
@@ -406,9 +489,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.dcdcFeedback,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'vref', label: '参考电压', unit: 'V', defaultValue: 0.8),
-      ToolInputDefinition(key: 'rtop', label: '上拉电阻', unit: 'kΩ', defaultValue: 100),
-      ToolInputDefinition(key: 'rbottom', label: '下拉电阻', unit: 'kΩ', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'vref', label: '参考电压', unit: 'V', defaultValue: 0.8),
+      ToolInputDefinition(
+          key: 'rtop', label: '上拉电阻', unit: 'kΩ', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'rbottom', label: '下拉电阻', unit: 'kΩ', defaultValue: 20),
     ],
     formula: 'Vout = Vref × (1 + Rtop / Rbottom)',
     explanation: '适用于常见 Buck/Boost 芯片反馈分压估算。',
@@ -421,9 +507,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.ldoPower,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'vin', label: '输入电压', unit: 'V', defaultValue: 5),
-      ToolInputDefinition(key: 'vout', label: '输出电压', unit: 'V', defaultValue: 3.3),
-      ToolInputDefinition(key: 'current', label: '负载电流', unit: 'mA', defaultValue: 200),
+      ToolInputDefinition(
+          key: 'vin', label: '输入电压', unit: 'V', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'vout', label: '输出电压', unit: 'V', defaultValue: 3.3),
+      ToolInputDefinition(
+          key: 'current', label: '负载电流', unit: 'mA', defaultValue: 200),
     ],
     formula: 'Pd = (Vin - Vout) × I, η = Vout / Vin',
     explanation: '用于 LDO 热设计和效率估算。',
@@ -436,7 +525,8 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.capacitorCharge,
     group: '信号',
     inputs: [
-      ToolInputDefinition(key: 'vin', label: '电源电压', unit: 'V', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'vin', label: '电源电压', unit: 'V', defaultValue: 5),
       ToolInputDefinition(key: 'r', label: '电阻', unit: 'kΩ', defaultValue: 10),
       ToolInputDefinition(key: 'c', label: '电容', unit: 'μF', defaultValue: 100),
       ToolInputDefinition(key: 'time', label: '时间', unit: 's', defaultValue: 1),
@@ -452,9 +542,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.batteryLife,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'capacity', label: '容量', unit: 'mAh', defaultValue: 3000),
-      ToolInputDefinition(key: 'current', label: '平均电流', unit: 'mA', defaultValue: 120),
-      ToolInputDefinition(key: 'efficiency', label: '效率', unit: '%', defaultValue: 90),
+      ToolInputDefinition(
+          key: 'capacity', label: '容量', unit: 'mAh', defaultValue: 3000),
+      ToolInputDefinition(
+          key: 'current', label: '平均电流', unit: 'mA', defaultValue: 120),
+      ToolInputDefinition(
+          key: 'efficiency', label: '效率', unit: '%', defaultValue: 90),
     ],
     formula: 'time = capacity / current × η',
     explanation: '用于便携设备、电池供电模块的续航粗估。',
@@ -467,9 +560,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.pcbCurrent,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'width', label: '线宽', unit: 'mm', defaultValue: 1),
-      ToolInputDefinition(key: 'copper', label: '铜厚', unit: 'oz', defaultValue: 1),
-      ToolInputDefinition(key: 'rise', label: '允许温升', unit: '℃', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'width', label: '线宽', unit: 'mm', defaultValue: 1),
+      ToolInputDefinition(
+          key: 'copper', label: '铜厚', unit: 'oz', defaultValue: 1),
+      ToolInputDefinition(
+          key: 'rise', label: '允许温升', unit: '℃', defaultValue: 10),
     ],
     formula: 'I ≈ k × area^0.725 × ΔT^0.44',
     explanation: '外层铜箔 IPC-2221 近似估算，仅用于快速选型。',
@@ -482,10 +578,14 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.wireVoltageDrop,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'current', label: '电流', unit: 'A', defaultValue: 5),
-      ToolInputDefinition(key: 'length', label: '单程长度', unit: 'm', defaultValue: 3),
-      ToolInputDefinition(key: 'area', label: '线芯截面积', unit: 'mm²', defaultValue: 1.5),
-      ToolInputDefinition(key: 'voltage', label: '系统电压', unit: 'V', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'current', label: '电流', unit: 'A', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'length', label: '单程长度', unit: 'm', defaultValue: 3),
+      ToolInputDefinition(
+          key: 'area', label: '线芯截面积', unit: 'mm²', defaultValue: 1.5),
+      ToolInputDefinition(
+          key: 'voltage', label: '系统电压', unit: 'V', defaultValue: 12),
     ],
     formula: 'R = ρ × 2L / A, Vdrop = I × R',
     explanation: '按铜导线 ρ≈0.0175 Ω·mm²/m 估算往返压降。',
@@ -513,9 +613,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.thermalRise,
     group: '电源',
     inputs: [
-      ToolInputDefinition(key: 'power', label: '功耗', unit: 'W', defaultValue: 1.2),
-      ToolInputDefinition(key: 'theta', label: '热阻', unit: '℃/W', defaultValue: 45),
-      ToolInputDefinition(key: 'ambient', label: '环境温度', unit: '℃', defaultValue: 25),
+      ToolInputDefinition(
+          key: 'power', label: '功耗', unit: 'W', defaultValue: 1.2),
+      ToolInputDefinition(
+          key: 'theta', label: '热阻', unit: '℃/W', defaultValue: 45),
+      ToolInputDefinition(
+          key: 'ambient', label: '环境温度', unit: '℃', defaultValue: 25),
     ],
     formula: 'ΔT = P × θ, Tj = Ta + ΔT',
     explanation: '用于器件结温和散热余量估算。',
@@ -529,11 +632,20 @@ final List<ToolDefinition> toolCatalog = [
     group: '传动',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'z1', label: '驱动齿数 Z1', unit: '齿', defaultValue: 20),
-      ToolInputDefinition(key: 'z2', label: '从动齿数 Z2', unit: '齿', defaultValue: 50),
-      ToolInputDefinition(key: 'rpm', label: '输入转速', unit: 'rpm', defaultValue: 1500),
-      ToolInputDefinition(key: 'torque', label: '输入扭矩', unit: 'N·m', defaultValue: 20),
-      ToolInputDefinition(key: 'efficiency', label: '效率', unit: '%', defaultValue: 95, optional: true),
+      ToolInputDefinition(
+          key: 'z1', label: '驱动齿数 Z1', unit: '齿', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'z2', label: '从动齿数 Z2', unit: '齿', defaultValue: 50),
+      ToolInputDefinition(
+          key: 'rpm', label: '输入转速', unit: 'rpm', defaultValue: 1500),
+      ToolInputDefinition(
+          key: 'torque', label: '输入扭矩', unit: 'N·m', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'efficiency',
+          label: '效率',
+          unit: '%',
+          defaultValue: 95,
+          optional: true),
     ],
     formula: 'i = Z2 / Z1, n2 = n1 / i, T2 = T1 × i × η',
     explanation: '外啮合单级齿轮旋转方向相反。',
@@ -547,8 +659,10 @@ final List<ToolDefinition> toolCatalog = [
     group: '传动',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'torque', label: '扭矩', unit: 'N·m', defaultValue: 10),
-      ToolInputDefinition(key: 'rpm', label: '转速', unit: 'rpm', defaultValue: 3000),
+      ToolInputDefinition(
+          key: 'torque', label: '扭矩', unit: 'N·m', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'rpm', label: '转速', unit: 'rpm', defaultValue: 3000),
     ],
     formula: 'P(kW) = T × n / 9550',
     explanation: '机械传动中常用的功率、转速、扭矩关系。',
@@ -561,8 +675,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.spring,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'k', label: '刚度 k', unit: 'N/mm', defaultValue: 12),
-      ToolInputDefinition(key: 'x', label: '压缩量 x', unit: 'mm', defaultValue: 8),
+      ToolInputDefinition(
+          key: 'k', label: '刚度 k', unit: 'N/mm', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'x', label: '压缩量 x', unit: 'mm', defaultValue: 8),
     ],
     formula: 'F = kx, E = 1/2kx²',
     explanation: '用于线性弹簧的基础载荷估算。',
@@ -575,9 +691,16 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.cylinder,
     group: '流体',
     inputs: [
-      ToolInputDefinition(key: 'pressure', label: '气压', unit: 'MPa', defaultValue: 0.6),
-      ToolInputDefinition(key: 'bore', label: '缸径', unit: 'mm', defaultValue: 32),
-      ToolInputDefinition(key: 'rod', label: '杆径', unit: 'mm', defaultValue: 12, optional: true),
+      ToolInputDefinition(
+          key: 'pressure', label: '气压', unit: 'MPa', defaultValue: 0.6),
+      ToolInputDefinition(
+          key: 'bore', label: '缸径', unit: 'mm', defaultValue: 32),
+      ToolInputDefinition(
+          key: 'rod',
+          label: '杆径',
+          unit: 'mm',
+          defaultValue: 12,
+          optional: true),
     ],
     formula: 'F = P × A',
     explanation: '输出推出力、拉回力和有效面积。',
@@ -590,8 +713,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.force,
     group: '基础',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '质量', unit: 'kg', defaultValue: 5),
-      ToolInputDefinition(key: 'acc', label: '加速度', unit: 'm/s²', defaultValue: 9.8),
+      ToolInputDefinition(
+          key: 'mass', label: '质量', unit: 'kg', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'acc', label: '加速度', unit: 'm/s²', defaultValue: 9.8),
     ],
     formula: 'F = m × a',
     explanation: '输出力，同时给出等效重量估算。',
@@ -604,9 +729,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.pulleyRatio,
     group: '传动',
     inputs: [
-      ToolInputDefinition(key: 'd1', label: '主动轮直径', unit: 'mm', defaultValue: 40),
-      ToolInputDefinition(key: 'd2', label: '从动轮直径', unit: 'mm', defaultValue: 80),
-      ToolInputDefinition(key: 'rpm', label: '输入转速', unit: 'rpm', defaultValue: 1500),
+      ToolInputDefinition(
+          key: 'd1', label: '主动轮直径', unit: 'mm', defaultValue: 40),
+      ToolInputDefinition(
+          key: 'd2', label: '从动轮直径', unit: 'mm', defaultValue: 80),
+      ToolInputDefinition(
+          key: 'rpm', label: '输入转速', unit: 'rpm', defaultValue: 1500),
     ],
     formula: 'n2 = n1 × D1 / D2',
     explanation: '忽略打滑时的皮带轮传动估算。',
@@ -619,8 +747,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.screwLead,
     group: '传动',
     inputs: [
-      ToolInputDefinition(key: 'lead', label: '导程', unit: 'mm/rev', defaultValue: 5),
-      ToolInputDefinition(key: 'rpm', label: '转速', unit: 'rpm', defaultValue: 600),
+      ToolInputDefinition(
+          key: 'lead', label: '导程', unit: 'mm/rev', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'rpm', label: '转速', unit: 'rpm', defaultValue: 600),
     ],
     formula: 'v = lead × rpm',
     explanation: '输出线速度和每秒位移。',
@@ -633,8 +763,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.pressureForce,
     group: '流体',
     inputs: [
-      ToolInputDefinition(key: 'pressure', label: '压力', unit: 'MPa', defaultValue: 0.6),
-      ToolInputDefinition(key: 'area', label: '面积', unit: 'cm²', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'pressure', label: '压力', unit: 'MPa', defaultValue: 0.6),
+      ToolInputDefinition(
+          key: 'area', label: '面积', unit: 'cm²', defaultValue: 10),
     ],
     formula: 'F = P × A',
     explanation: '用于液压、气动和压强估算。',
@@ -647,8 +779,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.friction,
     group: '受力',
     inputs: [
-      ToolInputDefinition(key: 'normal', label: '正压力', unit: 'N', defaultValue: 100),
-      ToolInputDefinition(key: 'mu', label: '摩擦系数', unit: '', defaultValue: 0.3),
+      ToolInputDefinition(
+          key: 'normal', label: '正压力', unit: 'N', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'mu', label: '摩擦系数', unit: '', defaultValue: 0.3),
     ],
     formula: 'Ff = μN',
     explanation: '输出静/动摩擦力的基础估算。',
@@ -661,9 +795,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.inclinedPlane,
     group: '受力',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '质量', unit: 'kg', defaultValue: 10),
-      ToolInputDefinition(key: 'angle', label: '角度', unit: 'deg', defaultValue: 30),
-      ToolInputDefinition(key: 'mu', label: '摩擦系数', unit: '', defaultValue: 0.2),
+      ToolInputDefinition(
+          key: 'mass', label: '质量', unit: 'kg', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'angle', label: '角度', unit: 'deg', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'mu', label: '摩擦系数', unit: '', defaultValue: 0.2),
     ],
     formula: 'F_parallel = mg sinθ, F_friction = μmg cosθ',
     explanation: '输出沿斜面分力、法向力和摩擦力。',
@@ -676,10 +813,14 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.beamBending,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'load', label: '集中载荷', unit: 'N', defaultValue: 100),
-      ToolInputDefinition(key: 'length', label: '跨度', unit: 'm', defaultValue: 1),
-      ToolInputDefinition(key: 'elastic', label: '弹性模量', unit: 'GPa', defaultValue: 200),
-      ToolInputDefinition(key: 'inertia', label: '惯性矩', unit: 'cm⁴', defaultValue: 8),
+      ToolInputDefinition(
+          key: 'load', label: '集中载荷', unit: 'N', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'length', label: '跨度', unit: 'm', defaultValue: 1),
+      ToolInputDefinition(
+          key: 'elastic', label: '弹性模量', unit: 'GPa', defaultValue: 200),
+      ToolInputDefinition(
+          key: 'inertia', label: '惯性矩', unit: 'cm⁴', defaultValue: 8),
     ],
     formula: 'δ = F L³ / (48 E I), Mmax = F L / 4',
     explanation: '简支梁中央集中载荷的基础估算，适合快速比较方案。',
@@ -692,9 +833,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.stressStrain,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'force', label: '轴向力', unit: 'N', defaultValue: 1000),
-      ToolInputDefinition(key: 'area', label: '截面积', unit: 'mm²', defaultValue: 50),
-      ToolInputDefinition(key: 'elastic', label: '弹性模量', unit: 'GPa', defaultValue: 200),
+      ToolInputDefinition(
+          key: 'force', label: '轴向力', unit: 'N', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'area', label: '截面积', unit: 'mm²', defaultValue: 50),
+      ToolInputDefinition(
+          key: 'elastic', label: '弹性模量', unit: 'GPa', defaultValue: 200),
     ],
     formula: 'σ = F/A, ε = σ/E',
     explanation: '输出工程应力、弹性应变和 MPa 结果。',
@@ -707,11 +851,16 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.sectionArea,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'diameter', label: '圆直径', unit: 'mm', defaultValue: 20),
-      ToolInputDefinition(key: 'outer', label: '管外径', unit: 'mm', defaultValue: 30),
-      ToolInputDefinition(key: 'inner', label: '管内径', unit: 'mm', defaultValue: 20),
-      ToolInputDefinition(key: 'width', label: '矩形宽', unit: 'mm', defaultValue: 40),
-      ToolInputDefinition(key: 'height', label: '矩形高', unit: 'mm', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'diameter', label: '圆直径', unit: 'mm', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'outer', label: '管外径', unit: 'mm', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'inner', label: '管内径', unit: 'mm', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'width', label: '矩形宽', unit: 'mm', defaultValue: 40),
+      ToolInputDefinition(
+          key: 'height', label: '矩形高', unit: 'mm', defaultValue: 10),
     ],
     formula: 'A圆=πd²/4, A管=π(D²-d²)/4, A矩形=wh',
     explanation: '用于材料重量、应力和流通截面的基础计算。',
@@ -724,8 +873,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.safetyFactor,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'strength', label: '材料强度', unit: 'MPa', defaultValue: 250),
-      ToolInputDefinition(key: 'stress', label: '工作应力', unit: 'MPa', defaultValue: 80),
+      ToolInputDefinition(
+          key: 'strength', label: '材料强度', unit: 'MPa', defaultValue: 250),
+      ToolInputDefinition(
+          key: 'stress', label: '工作应力', unit: 'MPa', defaultValue: 80),
     ],
     formula: 'n = strength / stress',
     explanation: '输出安全系数和常用设计判断。',
@@ -738,8 +889,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.flowVelocity,
     group: '流体',
     inputs: [
-      ToolInputDefinition(key: 'flow', label: '流量', unit: 'L/min', defaultValue: 30),
-      ToolInputDefinition(key: 'diameter', label: '管内径', unit: 'mm', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'flow', label: '流量', unit: 'L/min', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'diameter', label: '管内径', unit: 'mm', defaultValue: 20),
     ],
     formula: 'v = Q / A',
     explanation: '用于水路、气路和液压管径初选。',
@@ -752,10 +905,14 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.materialWeight,
     group: '结构',
     inputs: [
-      ToolInputDefinition(key: 'length', label: '长度', unit: 'mm', defaultValue: 1000),
-      ToolInputDefinition(key: 'width', label: '宽度', unit: 'mm', defaultValue: 100),
-      ToolInputDefinition(key: 'thickness', label: '厚度', unit: 'mm', defaultValue: 10),
-      ToolInputDefinition(key: 'density', label: '密度', unit: 'g/cm³', defaultValue: 7.85),
+      ToolInputDefinition(
+          key: 'length', label: '长度', unit: 'mm', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'width', label: '宽度', unit: 'mm', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'thickness', label: '厚度', unit: 'mm', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'density', label: '密度', unit: 'g/cm³', defaultValue: 7.85),
     ],
     formula: 'm = LWT × ρ',
     explanation: '适合钢板、铝板、塑料板等矩形材料估重。',
@@ -769,9 +926,12 @@ final List<ToolDefinition> toolCatalog = [
     group: '借贷',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'amount', label: '贷款金额', unit: '万元', defaultValue: 50),
-      ToolInputDefinition(key: 'rate', label: '年利率', unit: '%', defaultValue: 4.1),
-      ToolInputDefinition(key: 'years', label: '贷款年限', unit: '年', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'amount', label: '贷款金额', unit: '万元', defaultValue: 50),
+      ToolInputDefinition(
+          key: 'rate', label: '年利率', unit: '%', defaultValue: 4.1),
+      ToolInputDefinition(
+          key: 'years', label: '贷款年限', unit: '年', defaultValue: 20),
     ],
     formula: 'M = P × r(1+r)^n / ((1+r)^n - 1)',
     explanation: '当前实现等额本息，后续可扩展等额本金还款表。',
@@ -784,10 +944,14 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.annuity,
     group: '投资',
     inputs: [
-      ToolInputDefinition(key: 'payment', label: '每期投入', unit: '元', defaultValue: 1000),
-      ToolInputDefinition(key: 'rate', label: '年化收益', unit: '%', defaultValue: 5),
-      ToolInputDefinition(key: 'years', label: '年限', unit: '年', defaultValue: 10),
-      ToolInputDefinition(key: 'perYear', label: '每年期数', unit: '期', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'payment', label: '每期投入', unit: '元', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'rate', label: '年化收益', unit: '%', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'years', label: '年限', unit: '年', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'perYear', label: '每年期数', unit: '期', defaultValue: 12),
     ],
     formula: 'FV = PMT × ((1+r)^n - 1) / r',
     explanation: '适合基金定投、养老金和周期储蓄估算。',
@@ -800,9 +964,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.installment,
     group: '借贷',
     inputs: [
-      ToolInputDefinition(key: 'price', label: '商品价格', unit: '元', defaultValue: 6000),
-      ToolInputDefinition(key: 'fee', label: '总手续费率', unit: '%', defaultValue: 6),
-      ToolInputDefinition(key: 'months', label: '分期期数', unit: '期', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'price', label: '商品价格', unit: '元', defaultValue: 6000),
+      ToolInputDefinition(
+          key: 'fee', label: '总手续费率', unit: '%', defaultValue: 6),
+      ToolInputDefinition(
+          key: 'months', label: '分期期数', unit: '期', defaultValue: 12),
     ],
     formula: '月供 = 价格 × (1 + 手续费率) / 期数',
     explanation: '用于消费分期、信用卡分期和手续费比较。',
@@ -815,9 +982,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.breakEven,
     group: '商业',
     inputs: [
-      ToolInputDefinition(key: 'fixed', label: '固定成本', unit: '元', defaultValue: 50000),
-      ToolInputDefinition(key: 'price', label: '单价', unit: '元', defaultValue: 120),
-      ToolInputDefinition(key: 'variable', label: '单位变动成本', unit: '元', defaultValue: 70),
+      ToolInputDefinition(
+          key: 'fixed', label: '固定成本', unit: '元', defaultValue: 50000),
+      ToolInputDefinition(
+          key: 'price', label: '单价', unit: '元', defaultValue: 120),
+      ToolInputDefinition(
+          key: 'variable', label: '单位变动成本', unit: '元', defaultValue: 70),
     ],
     formula: 'Q = fixed / (price - variable)',
     explanation: '输出盈亏平衡销量和边际贡献率。',
@@ -830,10 +1000,14 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.electricityCost,
     group: '生活',
     inputs: [
-      ToolInputDefinition(key: 'power', label: '功率', unit: 'W', defaultValue: 800),
-      ToolInputDefinition(key: 'hours', label: '每日使用', unit: 'h', defaultValue: 3),
-      ToolInputDefinition(key: 'days', label: '天数', unit: '天', defaultValue: 30),
-      ToolInputDefinition(key: 'price', label: '电价', unit: '元/kWh', defaultValue: 0.6),
+      ToolInputDefinition(
+          key: 'power', label: '功率', unit: 'W', defaultValue: 800),
+      ToolInputDefinition(
+          key: 'hours', label: '每日使用', unit: 'h', defaultValue: 3),
+      ToolInputDefinition(
+          key: 'days', label: '天数', unit: '天', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'price', label: '电价', unit: '元/kWh', defaultValue: 0.6),
     ],
     formula: 'cost = P(kW) × h × days × price',
     explanation: '用于家电、设备和长期运行费用估算。',
@@ -847,9 +1021,12 @@ final List<ToolDefinition> toolCatalog = [
     group: '投资',
     featured: true,
     inputs: [
-      ToolInputDefinition(key: 'principal', label: '本金', unit: '元', defaultValue: 10000),
-      ToolInputDefinition(key: 'rate', label: '年化收益', unit: '%', defaultValue: 5),
-      ToolInputDefinition(key: 'years', label: '年限', unit: '年', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'principal', label: '本金', unit: '元', defaultValue: 10000),
+      ToolInputDefinition(
+          key: 'rate', label: '年化收益', unit: '%', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'years', label: '年限', unit: '年', defaultValue: 10),
     ],
     formula: 'FV = PV × (1 + r)^n',
     explanation: '按年复利计算未来价值和收益。',
@@ -862,8 +1039,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.profitMargin,
     group: '商业',
     inputs: [
-      ToolInputDefinition(key: 'cost', label: '成本', unit: '元', defaultValue: 80),
-      ToolInputDefinition(key: 'price', label: '售价', unit: '元', defaultValue: 120),
+      ToolInputDefinition(
+          key: 'cost', label: '成本', unit: '元', defaultValue: 80),
+      ToolInputDefinition(
+          key: 'price', label: '售价', unit: '元', defaultValue: 120),
     ],
     formula: '毛利率 = (售价 - 成本) / 售价',
     explanation: '同时输出利润、加价率与毛利率。',
@@ -876,8 +1055,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.roi,
     group: '投资',
     inputs: [
-      ToolInputDefinition(key: 'gain', label: '收益', unit: '元', defaultValue: 12500),
-      ToolInputDefinition(key: 'cost', label: '投入', unit: '元', defaultValue: 10000),
+      ToolInputDefinition(
+          key: 'gain', label: '收益', unit: '元', defaultValue: 12500),
+      ToolInputDefinition(
+          key: 'cost', label: '投入', unit: '元', defaultValue: 10000),
     ],
     formula: 'ROI = (收益 - 投入) / 投入',
     explanation: '用于快速评估投资回报。',
@@ -890,8 +1071,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.discount,
     group: '商业',
     inputs: [
-      ToolInputDefinition(key: 'price', label: '原价', unit: '元', defaultValue: 299),
-      ToolInputDefinition(key: 'discount', label: '折扣', unit: '%', defaultValue: 85),
+      ToolInputDefinition(
+          key: 'price', label: '原价', unit: '元', defaultValue: 299),
+      ToolInputDefinition(
+          key: 'discount', label: '折扣', unit: '%', defaultValue: 85),
     ],
     formula: '到手价 = 原价 × 折扣 / 100',
     explanation: '同时输出节省金额。',
@@ -904,8 +1087,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.tax,
     group: '商业',
     inputs: [
-      ToolInputDefinition(key: 'net', label: '税前金额', unit: '元', defaultValue: 1000),
-      ToolInputDefinition(key: 'rate', label: '税率', unit: '%', defaultValue: 13),
+      ToolInputDefinition(
+          key: 'net', label: '税前金额', unit: '元', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'rate', label: '税率', unit: '%', defaultValue: 13),
     ],
     formula: '税后 = 税前 × (1 + 税率)',
     explanation: '输出税额、含税金额和不含税反推。',
@@ -918,9 +1103,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.inflation,
     group: '投资',
     inputs: [
-      ToolInputDefinition(key: 'amount', label: '当前金额', unit: '元', defaultValue: 10000),
-      ToolInputDefinition(key: 'rate', label: '年通胀率', unit: '%', defaultValue: 3),
-      ToolInputDefinition(key: 'years', label: '年数', unit: '年', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'amount', label: '当前金额', unit: '元', defaultValue: 10000),
+      ToolInputDefinition(
+          key: 'rate', label: '年通胀率', unit: '%', defaultValue: 3),
+      ToolInputDefinition(
+          key: 'years', label: '年数', unit: '年', defaultValue: 10),
     ],
     formula: 'FV = PV × (1 + i)^n',
     explanation: '估算未来名义金额和购买力变化。',
@@ -933,11 +1121,16 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.npv,
     group: '投资',
     inputs: [
-      ToolInputDefinition(key: 'initial', label: '初始投入', unit: '元', defaultValue: 10000),
-      ToolInputDefinition(key: 'rate', label: '折现率', unit: '%', defaultValue: 8),
-      ToolInputDefinition(key: 'cf1', label: '第1期现金流', unit: '元', defaultValue: 4000),
-      ToolInputDefinition(key: 'cf2', label: '第2期现金流', unit: '元', defaultValue: 5000),
-      ToolInputDefinition(key: 'cf3', label: '第3期现金流', unit: '元', defaultValue: 6000),
+      ToolInputDefinition(
+          key: 'initial', label: '初始投入', unit: '元', defaultValue: 10000),
+      ToolInputDefinition(
+          key: 'rate', label: '折现率', unit: '%', defaultValue: 8),
+      ToolInputDefinition(
+          key: 'cf1', label: '第1期现金流', unit: '元', defaultValue: 4000),
+      ToolInputDefinition(
+          key: 'cf2', label: '第2期现金流', unit: '元', defaultValue: 5000),
+      ToolInputDefinition(
+          key: 'cf3', label: '第3期现金流', unit: '元', defaultValue: 6000),
     ],
     formula: 'NPV = Σ CFt/(1+r)^t - 初始投入',
     explanation: '轻量 NPV 估算，适合快速投资比较。',
@@ -946,24 +1139,36 @@ final List<ToolDefinition> toolCatalog = [
   _unitTool('area', '面积', 'm²、cm²、mm²、ft² 换算', ToolKind.area, 'm²', 1.2),
   _unitTool('volume', '体积', 'm³、L、mL 换算', ToolKind.volume, 'm³', 0.02),
   _unitTool('mass', '质量', 'kg、g、lb 换算', ToolKind.mass, 'kg', 5),
-  _unitTool('pressure', '压力', 'Pa、kPa、MPa、bar 换算', ToolKind.pressure, 'Pa', 101325),
+  _unitTool(
+      'pressure', '压力', 'Pa、kPa、MPa、bar 换算', ToolKind.pressure, 'Pa', 101325),
   _unitTool('speed', '速度', 'm/s、km/h、mph 换算', ToolKind.speed, 'm/s', 10),
   _unitTool('temperature', '温度', '℃、℉、K 换算', ToolKind.temperature, '℃', 25),
   _unitTool('voltage', '电压', 'V、mV、kV、μV 换算', ToolKind.voltage, 'V', 3.3),
-  _unitTool('frequency', '频率', 'Hz、kHz、MHz、GHz 换算', ToolKind.frequency, 'Hz', 1000),
-  _unitTool('data_size', '数据单位', 'B、KB、MB、GB 换算', ToolKind.dataSize, 'B', 1048576),
+  _unitTool(
+      'frequency', '频率', 'Hz、kHz、MHz、GHz 换算', ToolKind.frequency, 'Hz', 1000),
+  _unitTool(
+      'data_size', '数据单位', 'B、KB、MB、GB 换算', ToolKind.dataSize, 'B', 1048576),
   _unitTool('time_unit', '时间', 's、min、h、day 换算', ToolKind.timeUnit, 's', 3600),
-  _unitTool('acceleration', '加速度', 'm/s²、g、ft/s² 换算', ToolKind.accelerationUnit, 'm/s²', 9.80665),
+  _unitTool('acceleration', '加速度', 'm/s²、g、ft/s² 换算', ToolKind.accelerationUnit,
+      'm/s²', 9.80665),
   _unitTool('force_unit', '力', 'N、kN、kgf、lbf 换算', ToolKind.forceUnit, 'N', 100),
   _unitTool('power_unit', '功率', 'W、kW、hp 换算', ToolKind.powerUnit, 'W', 750),
-  _unitTool('energy_unit', '能量', 'J、kJ、Wh、kWh 换算', ToolKind.energyUnit, 'J', 3600),
-  _unitTool('angle_unit', '角度', 'deg、rad、turn 换算', ToolKind.angleUnit, 'deg', 180),
-  _unitTool('current_unit', '电流', 'A、mA、μA 换算', ToolKind.currentUnit, 'A', 0.02),
-  _unitTool('resistance_unit', '电阻', 'Ω、kΩ、MΩ 换算', ToolKind.resistanceUnit, 'Ω', 10000),
-  _unitTool('capacitance_unit', '电容', 'F、μF、nF、pF 换算', ToolKind.capacitanceUnit, 'F', 0.000001),
-  _unitTool('inductance_unit', '电感', 'H、mH、μH 换算', ToolKind.inductanceUnit, 'H', 0.001),
-  _unitTool('torque_unit', '扭矩', 'N·m、kgf·m、lbf·ft 换算', ToolKind.torqueUnit, 'N·m', 10),
-  _unitTool('flow_unit', '流量', 'L/min、m³/h、GPM 换算', ToolKind.flowUnit, 'L/min', 60),
+  _unitTool(
+      'energy_unit', '能量', 'J、kJ、Wh、kWh 换算', ToolKind.energyUnit, 'J', 3600),
+  _unitTool(
+      'angle_unit', '角度', 'deg、rad、turn 换算', ToolKind.angleUnit, 'deg', 180),
+  _unitTool(
+      'current_unit', '电流', 'A、mA、μA 换算', ToolKind.currentUnit, 'A', 0.02),
+  _unitTool('resistance_unit', '电阻', 'Ω、kΩ、MΩ 换算', ToolKind.resistanceUnit, 'Ω',
+      10000),
+  _unitTool('capacitance_unit', '电容', 'F、μF、nF、pF 换算', ToolKind.capacitanceUnit,
+      'F', 0.000001),
+  _unitTool('inductance_unit', '电感', 'H、mH、μH 换算', ToolKind.inductanceUnit, 'H',
+      0.001),
+  _unitTool('torque_unit', '扭矩', 'N·m、kgf·m、lbf·ft 换算', ToolKind.torqueUnit,
+      'N·m', 10),
+  _unitTool(
+      'flow_unit', '流量', 'L/min、m³/h、GPM 换算', ToolKind.flowUnit, 'L/min', 60),
   const ToolDefinition(
     id: 'motion',
     title: '速度时间距离',
@@ -972,8 +1177,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.motion,
     group: '运动',
     inputs: [
-      ToolInputDefinition(key: 'speed', label: '速度', unit: 'm/s', defaultValue: 12),
-      ToolInputDefinition(key: 'time', label: '时间', unit: 's', defaultValue: 30),
+      ToolInputDefinition(
+          key: 'speed', label: '速度', unit: 'm/s', defaultValue: 12),
+      ToolInputDefinition(
+          key: 'time', label: '时间', unit: 's', defaultValue: 30),
     ],
     formula: 's = v × t',
     explanation: '输出距离、公里每小时和平均速度。',
@@ -986,8 +1193,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.freeFall,
     group: '运动',
     inputs: [
-      ToolInputDefinition(key: 'height', label: '高度', unit: 'm', defaultValue: 20),
-      ToolInputDefinition(key: 'g', label: '重力加速度', unit: 'm/s²', defaultValue: 9.80665),
+      ToolInputDefinition(
+          key: 'height', label: '高度', unit: 'm', defaultValue: 20),
+      ToolInputDefinition(
+          key: 'g', label: '重力加速度', unit: 'm/s²', defaultValue: 9.80665),
     ],
     formula: 't = √(2h/g), v = gt',
     explanation: '忽略空气阻力时的自由落体估算。',
@@ -1000,9 +1209,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.workPower,
     group: '能量',
     inputs: [
-      ToolInputDefinition(key: 'force', label: '力', unit: 'N', defaultValue: 100),
-      ToolInputDefinition(key: 'distance', label: '位移', unit: 'm', defaultValue: 5),
-      ToolInputDefinition(key: 'time', label: '时间', unit: 's', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'force', label: '力', unit: 'N', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'distance', label: '位移', unit: 'm', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'time', label: '时间', unit: 's', defaultValue: 10),
     ],
     formula: 'W = F s, P = W / t',
     explanation: '用于机械做功和平均功率快速计算。',
@@ -1015,9 +1227,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.kineticEnergy,
     group: '能量',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '质量', unit: 'kg', defaultValue: 2),
-      ToolInputDefinition(key: 'speed', label: '速度', unit: 'm/s', defaultValue: 5),
-      ToolInputDefinition(key: 'height', label: '高度', unit: 'm', defaultValue: 3),
+      ToolInputDefinition(
+          key: 'mass', label: '质量', unit: 'kg', defaultValue: 2),
+      ToolInputDefinition(
+          key: 'speed', label: '速度', unit: 'm/s', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'height', label: '高度', unit: 'm', defaultValue: 3),
     ],
     formula: 'Ek = 1/2mv², Ep = mgh',
     explanation: '输出动能、势能和总机械能。',
@@ -1030,8 +1245,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.density,
     group: '物性',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '质量', unit: 'kg', defaultValue: 7.8),
-      ToolInputDefinition(key: 'volume', label: '体积', unit: 'm³', defaultValue: 0.001),
+      ToolInputDefinition(
+          key: 'mass', label: '质量', unit: 'kg', defaultValue: 7.8),
+      ToolInputDefinition(
+          key: 'volume', label: '体积', unit: 'm³', defaultValue: 0.001),
     ],
     formula: 'ρ = m / V',
     explanation: '输出密度和常见单位换算。',
@@ -1044,9 +1261,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.concentration,
     group: '化学',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '溶质量', unit: 'g', defaultValue: 5),
-      ToolInputDefinition(key: 'volume', label: '溶液体积', unit: 'L', defaultValue: 0.5),
-      ToolInputDefinition(key: 'molarMass', label: '摩尔质量', unit: 'g/mol', defaultValue: 58.44),
+      ToolInputDefinition(
+          key: 'mass', label: '溶质量', unit: 'g', defaultValue: 5),
+      ToolInputDefinition(
+          key: 'volume', label: '溶液体积', unit: 'L', defaultValue: 0.5),
+      ToolInputDefinition(
+          key: 'molarMass', label: '摩尔质量', unit: 'g/mol', defaultValue: 58.44),
     ],
     formula: 'c_mass = m/V, c_molar = m/(M V)',
     explanation: '输出 g/L、mg/mL 和 mol/L 浓度。',
@@ -1059,9 +1279,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.idealGas,
     group: '热学',
     inputs: [
-      ToolInputDefinition(key: 'n', label: '物质的量', unit: 'mol', defaultValue: 1),
-      ToolInputDefinition(key: 'temp', label: '温度', unit: 'K', defaultValue: 298.15),
-      ToolInputDefinition(key: 'volume', label: '体积', unit: 'L', defaultValue: 24),
+      ToolInputDefinition(
+          key: 'n', label: '物质的量', unit: 'mol', defaultValue: 1),
+      ToolInputDefinition(
+          key: 'temp', label: '温度', unit: 'K', defaultValue: 298.15),
+      ToolInputDefinition(
+          key: 'volume', label: '体积', unit: 'L', defaultValue: 24),
     ],
     formula: 'P = nRT / V',
     explanation: '使用 R=8.314 J/(mol·K)，体积按 L 输入。',
@@ -1074,9 +1297,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.heat,
     group: '热学',
     inputs: [
-      ToolInputDefinition(key: 'mass', label: '质量', unit: 'kg', defaultValue: 1),
-      ToolInputDefinition(key: 'specific', label: '比热容', unit: 'J/kg℃', defaultValue: 4186),
-      ToolInputDefinition(key: 'delta', label: '温度变化', unit: '℃', defaultValue: 10),
+      ToolInputDefinition(
+          key: 'mass', label: '质量', unit: 'kg', defaultValue: 1),
+      ToolInputDefinition(
+          key: 'specific', label: '比热容', unit: 'J/kg℃', defaultValue: 4186),
+      ToolInputDefinition(
+          key: 'delta', label: '温度变化', unit: '℃', defaultValue: 10),
     ],
     formula: 'Q = m c ΔT',
     explanation: '常用于水、金属和热管理的热量估算。',
@@ -1089,8 +1315,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.wavelength,
     group: '波动',
     inputs: [
-      ToolInputDefinition(key: 'speed', label: '波速', unit: 'm/s', defaultValue: 343),
-      ToolInputDefinition(key: 'frequency', label: '频率', unit: 'Hz', defaultValue: 1000),
+      ToolInputDefinition(
+          key: 'speed', label: '波速', unit: 'm/s', defaultValue: 343),
+      ToolInputDefinition(
+          key: 'frequency', label: '频率', unit: 'Hz', defaultValue: 1000),
     ],
     formula: 'λ = v / f',
     explanation: '适用于声波、电磁波和一般波动问题。',
@@ -1103,9 +1331,12 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.halfLife,
     group: '物理',
     inputs: [
-      ToolInputDefinition(key: 'initial', label: '初始量', unit: '', defaultValue: 100),
-      ToolInputDefinition(key: 'half', label: '半衰期', unit: 'h', defaultValue: 6),
-      ToolInputDefinition(key: 'time', label: '经过时间', unit: 'h', defaultValue: 18),
+      ToolInputDefinition(
+          key: 'initial', label: '初始量', unit: '', defaultValue: 100),
+      ToolInputDefinition(
+          key: 'half', label: '半衰期', unit: 'h', defaultValue: 6),
+      ToolInputDefinition(
+          key: 'time', label: '经过时间', unit: 'h', defaultValue: 18),
     ],
     formula: 'N = N0 × 0.5^(t/T)',
     explanation: '输出剩余量和衰减比例。',
@@ -1117,7 +1348,10 @@ final List<ToolDefinition> toolCatalog = [
     category: ToolCategory.science,
     kind: ToolKind.ph,
     group: '化学',
-    inputs: [ToolInputDefinition(key: 'h', label: '[H+]', unit: 'mol/L', defaultValue: 0.000001)],
+    inputs: [
+      ToolInputDefinition(
+          key: 'h', label: '[H+]', unit: 'mol/L', defaultValue: 0.000001)
+    ],
     formula: 'pH = -log10([H+])',
     explanation: '用于强酸强碱稀溶液的简化 pH 估算。',
   ),
@@ -1129,8 +1363,10 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.bmi,
     group: '生活',
     inputs: [
-      ToolInputDefinition(key: 'weight', label: '体重', unit: 'kg', defaultValue: 65),
-      ToolInputDefinition(key: 'height', label: '身高', unit: 'cm', defaultValue: 170),
+      ToolInputDefinition(
+          key: 'weight', label: '体重', unit: 'kg', defaultValue: 65),
+      ToolInputDefinition(
+          key: 'height', label: '身高', unit: 'cm', defaultValue: 170),
     ],
     formula: 'BMI = weight / height²',
     explanation: '输出 BMI 和常见区间判断。',
@@ -1143,31 +1379,52 @@ final List<ToolDefinition> toolCatalog = [
     kind: ToolKind.fuelEconomy,
     group: '生活',
     inputs: [
-      ToolInputDefinition(key: 'distance', label: '里程', unit: 'km', defaultValue: 520),
-      ToolInputDefinition(key: 'fuel', label: '燃油', unit: 'L', defaultValue: 38),
-      ToolInputDefinition(key: 'price', label: '油价', unit: '元/L', defaultValue: 8),
+      ToolInputDefinition(
+          key: 'distance', label: '里程', unit: 'km', defaultValue: 520),
+      ToolInputDefinition(
+          key: 'fuel', label: '燃油', unit: 'L', defaultValue: 38),
+      ToolInputDefinition(
+          key: 'price', label: '油价', unit: '元/L', defaultValue: 8),
     ],
     formula: 'L/100km = fuel / distance × 100',
     explanation: '输出百公里油耗、每公里成本和总费用。',
   ),
-  _textTool('base_convert', '进制转换', '二进制、十进制、十六进制转换', ToolCategory.programming, '编码', '输入整数、0x 或 0b 格式，输出常用进制。'),
-  _textTool('timestamp', '时间戳转换', 'Unix 时间戳与日期转换', ToolCategory.programming, '时间', '支持秒级和毫秒级时间戳。'),
-  _textTool('color_convert', 'RGB/HEX颜色', 'RGB 与 HEX 颜色转换', ToolCategory.programming, '编码', '输入 6 位 HEX，输出 RGB/ARGB。'),
-  _textTool('base64', 'Base64', 'Base64 编码解码', ToolCategory.programming, '编码', '自动识别普通文本或 Base64 文本。'),
-  _textTool('url_codec', 'URL编码', 'URL 编码与解码', ToolCategory.programming, '编码', '自动识别百分号编码并进行 URL 解码或编码。'),
-  _textTool('json_format', 'JSON格式化', 'JSON 格式化与校验', ToolCategory.programming, '数据', '输入 JSON 后输出格式化结果。'),
-  _textTool('ascii_unicode', 'ASCII/Unicode', '字符码点查询', ToolCategory.programming, '编码', '输出字符、十进制码点和 Unicode 表示。'),
-  _textTool('bitwise', '位运算', 'AND / OR / XOR / NOT 与移位', ToolCategory.programming, '数据', '输入两个整数，输出常用位运算结果。'),
-  _textTool('checksum', '校验和', '文本字节校验和', ToolCategory.programming, '数据', '计算 UTF-8 字节和、异或校验与长度。'),
-  _textTool('uuid', 'UUID生成', '生成 UUID v4', ToolCategory.programming, '编码', '离线生成随机 UUID v4，并输出大写和无连字符形式。'),
-  _textTool('jwt_decode', 'JWT解析', '解析 JWT Header / Payload', ToolCategory.programming, '数据', '离线解码 JWT，不校验签名，仅用于查看内容。'),
-  _textTool('query_params', 'Query参数', 'URL 查询参数解析', ToolCategory.programming, '数据', '解析 URL 或 query string，输出键值表和 JSON。'),
-  _textTool('html_entities', 'HTML实体', 'HTML 实体编码解码', ToolCategory.programming, '编码', '对 <、>、&、引号等常见 HTML 实体进行编码或解码。'),
-  _textTool('regex_test', '正则测试', '正则匹配预览', ToolCategory.programming, '数据', '第一行输入正则，后续输入测试文本，输出匹配位置。'),
-  _textTool('text_stats', '文本统计', '字符、词、行和字节统计', ToolCategory.programming, '数据', '统计字符数、片段数、行数和 UTF-8 字节数。'),
-  _textTool('csv_json', 'CSV转JSON', 'CSV / TSV 转 JSON', ToolCategory.programming, '数据', '首行作为表头，将 CSV 或 TSV 文本转换为 JSON 数组。'),
-  _textTool('fnv_crc', 'FNV/CRC32', 'FNV-1a 与 CRC32 哈希', ToolCategory.programming, '编码', '离线计算 FNV-1a 32 和 CRC32，适合快速校验。'),
-  _textTool('custom_formula', '自定义公式', '创建自己的公式工具', ToolCategory.custom, '公式', '支持 a、b、c 三个变量和常用数学函数。'),
+  _textTool('base_convert', '进制转换', '二进制、十进制、十六进制转换', ToolCategory.programming,
+      '编码', '输入整数、0x 或 0b 格式，输出常用进制。'),
+  _textTool('timestamp', '时间戳转换', 'Unix 时间戳与日期转换', ToolCategory.programming,
+      '时间', '支持秒级和毫秒级时间戳。'),
+  _textTool('color_convert', 'RGB/HEX颜色', 'RGB 与 HEX 颜色转换',
+      ToolCategory.programming, '编码', '输入 6 位 HEX，输出 RGB/ARGB。'),
+  _textTool('base64', 'Base64', 'Base64 编码解码', ToolCategory.programming, '编码',
+      '自动识别普通文本或 Base64 文本。'),
+  _textTool('url_codec', 'URL编码', 'URL 编码与解码', ToolCategory.programming, '编码',
+      '自动识别百分号编码并进行 URL 解码或编码。'),
+  _textTool('json_format', 'JSON格式化', 'JSON 格式化与校验', ToolCategory.programming,
+      '数据', '输入 JSON 后输出格式化结果。'),
+  _textTool('ascii_unicode', 'ASCII/Unicode', '字符码点查询',
+      ToolCategory.programming, '编码', '输出字符、十进制码点和 Unicode 表示。'),
+  _textTool('bitwise', '位运算', 'AND / OR / XOR / NOT 与移位',
+      ToolCategory.programming, '数据', '输入两个整数，输出常用位运算结果。'),
+  _textTool('checksum', '校验和', '文本字节校验和', ToolCategory.programming, '数据',
+      '计算 UTF-8 字节和、异或校验与长度。'),
+  _textTool('uuid', 'UUID生成', '生成 UUID v4', ToolCategory.programming, '编码',
+      '离线生成随机 UUID v4，并输出大写和无连字符形式。'),
+  _textTool('jwt_decode', 'JWT解析', '解析 JWT Header / Payload',
+      ToolCategory.programming, '数据', '离线解码 JWT，不校验签名，仅用于查看内容。'),
+  _textTool('query_params', 'Query参数', 'URL 查询参数解析', ToolCategory.programming,
+      '数据', '解析 URL 或 query string，输出键值表和 JSON。'),
+  _textTool('html_entities', 'HTML实体', 'HTML 实体编码解码', ToolCategory.programming,
+      '编码', '对 <、>、&、引号等常见 HTML 实体进行编码或解码。'),
+  _textTool('regex_test', '正则测试', '正则匹配预览', ToolCategory.programming, '数据',
+      '第一行输入正则，后续输入测试文本，输出匹配位置。'),
+  _textTool('text_stats', '文本统计', '字符、词、行和字节统计', ToolCategory.programming, '数据',
+      '统计字符数、片段数、行数和 UTF-8 字节数。'),
+  _textTool('csv_json', 'CSV转JSON', 'CSV / TSV 转 JSON',
+      ToolCategory.programming, '数据', '首行作为表头，将 CSV 或 TSV 文本转换为 JSON 数组。'),
+  _textTool('fnv_crc', 'FNV/CRC32', 'FNV-1a 与 CRC32 哈希',
+      ToolCategory.programming, '编码', '离线计算 FNV-1a 32 和 CRC32，适合快速校验。'),
+  _textTool('custom_formula', '自定义公式', '创建自己的公式工具', ToolCategory.custom, '公式',
+      '支持 a、b、c 三个变量和常用数学函数。'),
 ];
 
 ToolDefinition? toolById(String id) {
@@ -1198,7 +1455,8 @@ ToolDefinition _textTool(
   );
 }
 
-ToolDefinition _unitTool(String id, String title, String description, ToolKind kind, String unit, double value) {
+ToolDefinition _unitTool(String id, String title, String description,
+    ToolKind kind, String unit, double value) {
   return ToolDefinition(
     id: id,
     title: title,
@@ -1206,7 +1464,10 @@ ToolDefinition _unitTool(String id, String title, String description, ToolKind k
     category: ToolCategory.units,
     kind: kind,
     featured: true,
-    inputs: [ToolInputDefinition(key: 'value', label: '输入值', unit: unit, defaultValue: value)],
+    inputs: [
+      ToolInputDefinition(
+          key: 'value', label: '输入值', unit: unit, defaultValue: value)
+    ],
     formula: '目标值 = 输入值 × 单位倍率',
     explanation: '支持工程常用单位快速换算。',
   );

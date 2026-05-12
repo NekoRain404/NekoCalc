@@ -73,7 +73,8 @@ class TextToolController {
     final r = (value >> 16) & 0xff;
     final g = (value >> 8) & 0xff;
     final b = value & 0xff;
-    return TextToolOutput('rgb($r, $g, $b)', 'HEX: #${hex.toUpperCase()}\nRGB: $r, $g, $b\nARGB: 255, $r, $g, $b');
+    return TextToolOutput('rgb($r, $g, $b)',
+        'HEX: #${hex.toUpperCase()}\nRGB: $r, $g, $b\nARGB: 255, $r, $g, $b');
   }
 
   TextToolOutput _base64(String input) {
@@ -94,9 +95,11 @@ class TextToolController {
 
   TextToolOutput _urlCodec(String input) {
     if (input.contains('%')) {
-      return TextToolOutput(Uri.decodeComponent(input), '检测为 URL 编码文本，已执行 decodeComponent。');
+      return TextToolOutput(
+          Uri.decodeComponent(input), '检测为 URL 编码文本，已执行 decodeComponent。');
     }
-    return TextToolOutput(Uri.encodeComponent(input), '检测为普通文本，已执行 encodeComponent。');
+    return TextToolOutput(
+        Uri.encodeComponent(input), '检测为普通文本，已执行 encodeComponent。');
   }
 
   TextToolOutput _asciiUnicode(String input) {
@@ -105,11 +108,15 @@ class TextToolController {
       final hex = code.toRadixString(16).toUpperCase().padLeft(4, '0');
       return '$char  dec:$code  U+$hex';
     }).join('\n');
-    return TextToolOutput('${input.runes.length} 个码点', chars.isEmpty ? '请输入字符' : chars);
+    return TextToolOutput(
+        '${input.runes.length} 个码点', chars.isEmpty ? '请输入字符' : chars);
   }
 
   TextToolOutput _bitwise(String input) {
-    final parts = input.split(RegExp(r'[\s,]+')).where((part) => part.isNotEmpty).toList();
+    final parts = input
+        .split(RegExp(r'[\s,]+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
     if (parts.length < 2) throw const FormatException('请输入两个整数，例如 12 5');
     final a = _parseInt(parts[0]);
     final b = _parseInt(parts[1]);
@@ -144,34 +151,56 @@ class TextToolController {
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
     final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    final uuid = '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-    return TextToolOutput(uuid, 'UUID v4\n大写: ${uuid.toUpperCase()}\n无连字符: ${uuid.replaceAll('-', '')}');
+    final uuid =
+        '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+    return TextToolOutput(uuid,
+        'UUID v4\n大写: ${uuid.toUpperCase()}\n无连字符: ${uuid.replaceAll('-', '')}');
   }
 
   TextToolOutput _jwtDecode(String input) {
     final parts = input.split('.');
-    if (parts.length < 2) throw const FormatException('请输入 JWT，至少包含 header.payload');
+    if (parts.length < 2) {
+      throw const FormatException('请输入 JWT，至少包含 header.payload');
+    }
     final header = _decodeBase64UrlJson(parts[0]);
     final payload = _decodeBase64UrlJson(parts[1]);
     final payloadMap = json.decode(payload);
     final exp = payloadMap is Map && payloadMap['exp'] is num
-        ? DateTime.fromMillisecondsSinceEpoch((payloadMap['exp'] as num).toInt() * 1000).toLocal().toString()
+        ? DateTime.fromMillisecondsSinceEpoch(
+                (payloadMap['exp'] as num).toInt() * 1000)
+            .toLocal()
+            .toString()
         : '无';
-    return TextToolOutput('JWT 已解析', 'Header:\n$header\n\nPayload:\n$payload\n\n过期时间: $exp\n签名段: ${parts.length > 2 ? '${parts[2].length} chars' : '无'}');
+    return TextToolOutput('JWT 已解析',
+        'Header:\n$header\n\nPayload:\n$payload\n\n过期时间: $exp\n签名段: ${parts.length > 2 ? '${parts[2].length} chars' : '无'}');
   }
 
   TextToolOutput _queryParams(String input) {
-    final uri = input.contains('?') ? Uri.parse(input) : Uri.parse('https://local/?$input');
+    final uri = input.contains('?')
+        ? Uri.parse(input)
+        : Uri.parse('https://local/?$input');
     final entries = uri.queryParameters.entries.toList();
     if (entries.isEmpty) return const TextToolOutput('无参数', '没有解析到 query 参数。');
-    final jsonText = const JsonEncoder.withIndent('  ').convert(uri.queryParameters);
-    final table = entries.map((entry) => '${entry.key} = ${entry.value}').join('\n');
-    return TextToolOutput('${entries.length} 个参数', '$table\n\nJSON:\n$jsonText');
+    final jsonText =
+        const JsonEncoder.withIndent('  ').convert(uri.queryParameters);
+    final table =
+        entries.map((entry) => '${entry.key} = ${entry.value}').join('\n');
+    return TextToolOutput(
+        '${entries.length} 个参数', '$table\n\nJSON:\n$jsonText');
   }
 
   TextToolOutput _htmlEntities(String input) {
-    const entities = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
-    if (input.contains('&lt;') || input.contains('&amp;') || input.contains('&quot;') || input.contains('&#39;')) {
+    const entities = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    if (input.contains('&lt;') ||
+        input.contains('&amp;') ||
+        input.contains('&quot;') ||
+        input.contains('&#39;')) {
       var decoded = input;
       for (final entry in entities.entries) {
         decoded = decoded.replaceAll(entry.value, entry.key);
@@ -192,30 +221,41 @@ class TextToolController {
     final text = lines.skip(1).join('\n');
     final regex = RegExp(pattern, multiLine: true);
     final matches = regex.allMatches(text).toList();
-    final detail = matches.take(50).map((match) => '[${match.start}, ${match.end}) ${match.group(0)}').join('\n');
-    return TextToolOutput('${matches.length} 个匹配', detail.isEmpty ? '没有匹配项' : detail);
+    final detail = matches
+        .take(50)
+        .map((match) => '[${match.start}, ${match.end}) ${match.group(0)}')
+        .join('\n');
+    return TextToolOutput(
+        '${matches.length} 个匹配', detail.isEmpty ? '没有匹配项' : detail);
   }
 
   TextToolOutput _textStats(String input) {
     final runes = input.runes.length;
     final words = RegExp(r'[\w\u4e00-\u9fa5]+').allMatches(input).length;
-    final lines = input.isEmpty ? 0 : const LineSplitter().convert(input).length;
+    final lines =
+        input.isEmpty ? 0 : const LineSplitter().convert(input).length;
     final bytes = utf8.encode(input).length;
-    return TextToolOutput('$runes 字符', '字符数: $runes\n词/片段: $words\n行数: $lines\nUTF-8 字节: $bytes\n去空白字符: ${input.replaceAll(RegExp(r'\\s+'), '').runes.length}');
+    return TextToolOutput('$runes 字符',
+        '字符数: $runes\n词/片段: $words\n行数: $lines\nUTF-8 字节: $bytes\n去空白字符: ${input.replaceAll(RegExp(r'\\s+'), '').runes.length}');
   }
 
   TextToolOutput _csvJson(String input) {
-    final lines = const LineSplitter().convert(input).where((line) => line.trim().isNotEmpty).toList();
+    final lines = const LineSplitter()
+        .convert(input)
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
     if (lines.length < 2) throw const FormatException('至少需要表头和一行数据。');
     final delimiter = lines.first.contains('\t') ? '\t' : ',';
     final headers = _splitDelimited(lines.first, delimiter);
     final rows = lines.skip(1).map((line) {
       final cells = _splitDelimited(line, delimiter);
       return {
-        for (var i = 0; i < headers.length; i++) headers[i]: i < cells.length ? cells[i] : '',
+        for (var i = 0; i < headers.length; i++)
+          headers[i]: i < cells.length ? cells[i] : '',
       };
     }).toList();
-    return TextToolOutput('${rows.length} 行', const JsonEncoder.withIndent('  ').convert(rows));
+    return TextToolOutput(
+        '${rows.length} 行', const JsonEncoder.withIndent('  ').convert(rows));
   }
 
   TextToolOutput _fnvCrc(String input) {
@@ -231,13 +271,18 @@ class TextToolController {
       }
     }
     crc = crc ^ 0xffffffff;
-    return TextToolOutput('CRC32 = ${_hex32(crc)}', 'FNV-1a 32: ${_hex32(fnv)}\nCRC32: ${_hex32(crc)}\n长度: ${bytes.length} bytes');
+    return TextToolOutput('CRC32 = ${_hex32(crc)}',
+        'FNV-1a 32: ${_hex32(fnv)}\nCRC32: ${_hex32(crc)}\n长度: ${bytes.length} bytes');
   }
 
   int _parseInt(String input) {
     final normalized = input.toLowerCase();
-    if (normalized.startsWith('0x')) return int.parse(normalized.substring(2), radix: 16);
-    if (normalized.startsWith('0b')) return int.parse(normalized.substring(2), radix: 2);
+    if (normalized.startsWith('0x')) {
+      return int.parse(normalized.substring(2), radix: 16);
+    }
+    if (normalized.startsWith('0b')) {
+      return int.parse(normalized.substring(2), radix: 2);
+    }
     return int.parse(normalized);
   }
 
@@ -249,10 +294,14 @@ class TextToolController {
   }
 
   List<String> _splitDelimited(String line, String delimiter) {
-    return line.split(delimiter).map((cell) => cell.trim().replaceAll(RegExp(r'^"|"$'), '')).toList();
+    return line
+        .split(delimiter)
+        .map((cell) => cell.trim().replaceAll(RegExp(r'^"|"$'), ''))
+        .toList();
   }
 
-  String _hex32(int value) => '0x${(value & 0xffffffff).toRadixString(16).toUpperCase().padLeft(8, '0')}';
+  String _hex32(int value) =>
+      '0x${(value & 0xffffffff).toRadixString(16).toUpperCase().padLeft(8, '0')}';
 
   TextToolOutput _customFormula({
     required String formula,
@@ -268,7 +317,8 @@ class TextToolController {
         .replaceAll(RegExp(r'\bb\b'), bv.toString())
         .replaceAll(RegExp(r'\bc\b'), cv.toString());
     final result = ExpressionParser(expression, degreeMode: true).parse();
-    return TextToolOutput(result.toString(), '展开公式: $expression\n变量: a=$av, b=$bv, c=$cv');
+    return TextToolOutput(
+        result.toString(), '展开公式: $expression\n变量: a=$av, b=$bv, c=$cv');
   }
 }
 

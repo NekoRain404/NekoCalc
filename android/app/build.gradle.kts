@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.nekocalc"
+    namespace = "com.nekorain.nekocalc"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -19,11 +19,17 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.nekocalc"
+        applicationId = "com.nekorain.nekocalc"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 }
 

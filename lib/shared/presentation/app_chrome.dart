@@ -7,7 +7,8 @@ class PageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900));
+    return Text(text,
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900));
   }
 }
 
@@ -22,9 +23,14 @@ class NekoAppMark extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: dark ? scheme.primary.withValues(alpha: 0.16) : const Color(0xFFEDEBFF),
+        color: dark
+            ? scheme.primary.withValues(alpha: 0.16)
+            : const Color(0xFFEDEBFF),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: dark ? scheme.primary.withValues(alpha: 0.34) : const Color(0xFFD8D3FF)),
+        border: Border.all(
+            color: dark
+                ? scheme.primary.withValues(alpha: 0.34)
+                : const Color(0xFFD8D3FF)),
       ),
       child: Icon(Icons.calculate_outlined, color: scheme.primary, size: 21),
     );
@@ -75,13 +81,15 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+      child: Text(text,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
     );
   }
 }
 
 class SectionHeader extends StatelessWidget {
-  const SectionHeader({required this.title, this.action, this.onActionTap, super.key});
+  const SectionHeader(
+      {required this.title, this.action, this.onActionTap, super.key});
 
   final String title;
   final String? action;
@@ -98,7 +106,10 @@ class SectionHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-              child: Text(action!, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
+              child: Text(action!,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
       ],
@@ -145,7 +156,9 @@ class TabPill extends StatelessWidget {
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? scheme.primaryContainer.withValues(alpha: 0.55) : Colors.transparent,
+        color: selected
+            ? scheme.primaryContainer.withValues(alpha: 0.55)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -169,22 +182,31 @@ class EmptyPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: softPanel(context: context),
-      child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      child: Text(message,
+          style:
+              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
     );
   }
 }
 
 BoxDecoration softPanel({BuildContext? context, bool highlight = false}) {
   final scheme = context == null ? null : Theme.of(context).colorScheme;
-  final dark = context != null && Theme.of(context).brightness == Brightness.dark;
+  final dark =
+      context != null && Theme.of(context).brightness == Brightness.dark;
   return BoxDecoration(
     color: scheme?.surface ?? Colors.white,
     borderRadius: BorderRadius.circular(8),
     border: Border.all(
       color: highlight
-          ? (scheme?.primary.withValues(alpha: dark ? 0.42 : 0.24) ?? const Color(0xFFD8D3FF))
+          ? (scheme?.primary.withValues(alpha: dark ? 0.42 : 0.24) ??
+              const Color(0xFFD8D3FF))
           : (scheme?.outlineVariant ?? const Color(0xFFE8ECF7)),
     ),
-    boxShadow: dark ? const [] : const [BoxShadow(color: Color(0x1425405F), blurRadius: 22, offset: Offset(0, 10))],
+    boxShadow: dark
+        ? const []
+        : const [
+            BoxShadow(
+                color: Color(0x1425405F), blurRadius: 22, offset: Offset(0, 10))
+          ],
   );
 }

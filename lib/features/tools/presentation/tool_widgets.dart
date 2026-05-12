@@ -38,7 +38,10 @@ class HorizontalToolList extends StatelessWidget {
                 children: [
                   Icon(tool.icon, color: tool.color),
                   const SizedBox(height: 8),
-                  Text(tool.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: scheme.onSurface)),
+                  Text(tool.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: scheme.onSurface)),
                 ],
               ),
             ),
@@ -79,7 +82,9 @@ class CategoryCard extends StatelessWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(8)),
               child: Icon(category.icon, color: category.color),
             ),
             const SizedBox(width: 10),
@@ -88,9 +93,14 @@ class CategoryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(category.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(category.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
-                  Text('$count 个工具', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+                  Text('$count 个工具',
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant, fontSize: 12)),
                 ],
               ),
             ),
@@ -129,8 +139,10 @@ class ToolListTile extends StatelessWidget {
         ),
         child: Icon(tool.icon, color: tool.color),
       ),
-      title: Text(tool.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(tool.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title:
+          Text(tool.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle:
+          Text(tool.description, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: onFavoriteToggle == null
           ? favorite
               ? const Icon(Icons.star, color: Colors.amber, size: 18)
@@ -138,7 +150,8 @@ class ToolListTile extends StatelessWidget {
           : IconButton(
               tooltip: favorite ? '取消收藏' : '收藏',
               onPressed: onFavoriteToggle,
-              icon: Icon(favorite ? Icons.star : Icons.star_border, color: favorite ? Colors.amber : scheme.onSurfaceVariant),
+              icon: Icon(favorite ? Icons.star : Icons.star_border,
+                  color: favorite ? Colors.amber : scheme.onSurfaceVariant),
             ),
     );
   }
@@ -159,10 +172,18 @@ class DetailMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(result.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+          Text(result.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 8),
-          Text(result.value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800)),
-          Text(result.unit, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+          Text(result.value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: scheme.primary, fontWeight: FontWeight.w800)),
+          Text(result.unit,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
         ],
       ),
     );

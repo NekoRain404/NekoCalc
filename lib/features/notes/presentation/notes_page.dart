@@ -2,37 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../../application/controllers/notes_controller.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/models/history_item.dart';
 import '../../../data/models/note_item.dart';
+import '../../../data/repositories/history_repository.dart';
+import '../../../data/repositories/notes_repository.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
-enum NotesTab { all, notes, history, formulas, tools }
-
 class NotesPage extends StatefulWidget {
-  const NotesPage({required this.db, super.key});
+  const NotesPage({required this.db, this.reloadToken = 0, super.key});
 
   final AppDatabase db;
+  final int reloadToken;
 
   @override
   State<NotesPage> createState() => _NotesPageState();
 }
 
 class _NotesPageState extends State<NotesPage> {
-  late Future<List<NoteItem>> _notes;
-  late Future<List<HistoryItem>> _history;
-  NotesTab _tab = NotesTab.all;
-  String _query = '';
+  late final NotesController _controller;
 
   @override
   void initState() {
     super.initState();
-    _reload();
+    _controller = NotesController(
+      historyRepository: HistoryRepository(widget.db),
+      notesRepository: NotesRepository(widget.db),
+    )..addListener(_onControllerChanged);
+    _controller.load();
   }
 
-  void _reload() {
-    _notes = widget.db.notes();
-    _history = widget.db.history();
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant NotesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reloadToken != widget.reloadToken) {
+      _controller.load();
+    }
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _addNoteDialog() async {
@@ -40,38 +57,17 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _showNoteDialog({NoteItem? item}) async {
-    final titleController = TextEditingController();
-    final bodyController = TextEditingController();
-    titleController.text = item?.title ?? '';
-    bodyController.text = item?.body ?? '';
-    final saved = await showDialog<bool>(
+    final draft = await showDialog<_NoteDraft>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(item == null ? '新增笔记' : '编辑笔记'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: '标题')),
-            const SizedBox(height: 10),
-            TextField(controller: bodyController, minLines: 4, maxLines: 8, decoration: const InputDecoration(labelText: '内容')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('保存')),
-        ],
-      ),
+      builder: (context) => _NoteEditorDialog(item: item),
     );
-    if (saved == true) {
-      final title = titleController.text.trim().isEmpty ? '未命名笔记' : titleController.text.trim();
-      final body = bodyController.text.trim();
-      if (item == null) {
-        await widget.db.addNote(title, body);
-      } else {
-        await widget.db.updateNote(id: item.id, title: title, body: body);
-      }
-      setState(_reload);
-    }
+    if (draft == null) return;
+    await _controller.saveNote(
+      item: item,
+      title: draft.title,
+      description: draft.description,
+      body: draft.body,
+    );
   }
 
   @override
@@ -82,15 +78,20 @@ class _NotesPageState extends State<NotesPage> {
         Row(
           children: [
             const Expanded(child: PageTitle('笔记')),
-            IconToolButton(icon: Icons.delete_sweep_outlined, tooltip: '清空历史', onTap: _clearHistory),
+            IconToolButton(
+                icon: Icons.delete_sweep_outlined,
+                tooltip: '清空历史',
+                onTap: _clearHistory),
             const SizedBox(width: 8),
-            IconToolButton(icon: Icons.add, tooltip: '新增笔记', onTap: _addNoteDialog),
+            IconToolButton(
+                icon: Icons.add, tooltip: '新增笔记', onTap: _addNoteDialog),
           ],
         ),
         const SizedBox(height: 12),
         TextField(
-          onChanged: (value) => setState(() => _query = value.trim()),
-          decoration: const InputDecoration(hintText: '搜索笔记、历史、公式...', prefixIcon: Icon(Icons.search)),
+          onChanged: _controller.setQuery,
+          decoration: const InputDecoration(
+              hintText: '搜索笔记、历史、公式...', prefixIcon: Icon(Icons.search)),
         ),
         const SizedBox(height: 12),
         SingleChildScrollView(
@@ -106,12 +107,13 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ),
         const SizedBox(height: 16),
-        if (_tab == NotesTab.all || _tab == NotesTab.history) ...[
+        if (_controller.tab == NotesTab.all ||
+            _controller.tab == NotesTab.history) ...[
           const SectionTitle('计算历史'),
           _historySection(),
           const SizedBox(height: 14),
         ],
-        if (_tab != NotesTab.history) ...[
+        if (_controller.tab != NotesTab.history) ...[
           const SectionTitle('个人笔记'),
           _notesSection(),
         ],
@@ -121,96 +123,100 @@ class _NotesPageState extends State<NotesPage> {
 
   Widget _tabPill(NotesTab tab, String label) {
     return GestureDetector(
-      onTap: () => setState(() => _tab = tab),
-      child: TabPill(label: label, selected: _tab == tab),
+      onTap: () => _controller.setTab(tab),
+      child: TabPill(label: label, selected: _controller.tab == tab),
     );
   }
 
   Widget _historySection() {
     final scheme = Theme.of(context).colorScheme;
-    return FutureBuilder<List<HistoryItem>>(
-      future: _history,
-      builder: (context, snapshot) {
-        final items = (snapshot.data ?? []).where(_matchesHistory).toList();
-        if (items.isEmpty) return const EmptyPanel('暂无匹配的历史记录。');
-        return Column(
-          children: items
-              .map((item) => Card(
-                    child: ListTile(
-                      onTap: () => _showHistoryActions(item),
-                      leading: Icon(Icons.schedule, color: scheme.primary),
-                      title: Text(item.expression, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(DateFormat('yyyy/MM/dd HH:mm').format(item.createdAt)),
-                      trailing: Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(item.result, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          IconButton(
-                            tooltip: '删除',
-                            onPressed: () async {
-                              await widget.db.deleteHistory(item.id);
-                              setState(_reload);
-                            },
-                            icon: const Icon(Icons.delete_outline, size: 20),
-                          ),
-                        ],
+    final items = _controller.history;
+    if (_controller.loading) return const EmptyPanel('正在加载历史记录。');
+    if (_controller.error != null) {
+      return EmptyPanel('历史读取失败：${_controller.error}');
+    }
+    if (items.isEmpty) return const EmptyPanel('暂无匹配的历史记录。');
+    return Column(
+      children: items
+          .map((item) => Card(
+                child: ListTile(
+                  onTap: () => _showHistoryActions(item),
+                  leading: Icon(Icons.schedule, color: scheme.primary),
+                  title: Text(item.expression,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(
+                      DateFormat('yyyy/MM/dd HH:mm').format(item.createdAt)),
+                  trailing: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(item.result,
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      IconButton(
+                        tooltip: '删除',
+                        onPressed: () => _controller.deleteHistory(item.id),
+                        icon: const Icon(Icons.delete_outline, size: 20),
                       ),
-                    ),
-                  ))
-              .toList(),
-        );
-      },
+                    ],
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 
   Widget _notesSection() {
-    return FutureBuilder<List<NoteItem>>(
-      future: _notes,
-      builder: (context, snapshot) {
-        final items = (snapshot.data ?? []).where(_matchesNote).toList();
-        if (items.isEmpty) return const EmptyPanel('暂无匹配的笔记。');
-        return Column(
-          children: items
-              .map((item) => Card(
-                    child: ListTile(
-                      onTap: () => _showNoteDialog(item: item),
-                      leading: Icon(_noteIcon(item), color: const Color(0xFF23B45D)),
-                      title: Text(item.title),
-                      subtitle: Text(item.body, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      trailing: IconButton(
-                        tooltip: '删除',
-                        onPressed: () async {
-                          await widget.db.deleteNote(item.id);
-                          setState(_reload);
-                        },
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ),
-                  ))
-              .toList(),
-        );
-      },
+    final items = _controller.notes;
+    if (_controller.loading) return const EmptyPanel('正在加载笔记。');
+    if (_controller.error != null) {
+      return EmptyPanel('笔记读取失败：${_controller.error}');
+    }
+    if (items.isEmpty) return const EmptyPanel('暂无匹配的笔记。');
+    return Column(
+      children: items
+          .map((item) => Card(
+                child: ListTile(
+                  onTap: () => _showNoteDialog(item: item),
+                  leading:
+                      Icon(_noteIcon(item), color: const Color(0xFF23B45D)),
+                  title: Text(item.title),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (item.description.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, bottom: 3),
+                          child: Text(item.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      Text(item.body,
+                          maxLines: item.description.isEmpty ? 2 : 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    tooltip: '删除',
+                    onPressed: () => _controller.deleteNote(item.id),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 
-  bool _matchesHistory(HistoryItem item) {
-    if (_query.isNotEmpty && !'${item.expression}${item.result}'.contains(_query)) return false;
-    if (_tab == NotesTab.tools) return item.expression.contains('=') || item.result.contains(':');
-    if (_tab == NotesTab.formulas) return item.expression.contains('sin') || item.expression.contains('sqrt') || item.expression.contains('公式');
-    return true;
-  }
-
-  bool _matchesNote(NoteItem item) {
-    if (_query.isNotEmpty && !'${item.title}${item.body}'.contains(_query)) return false;
-    if (_tab == NotesTab.tools) return item.body.contains('公式：') || item.title.contains('计算');
-    if (_tab == NotesTab.formulas) return item.title.contains('公式') || item.body.contains('=');
-    return true;
-  }
-
   IconData _noteIcon(NoteItem item) {
-    if (item.title.contains('公式') || item.body.contains('=')) return Icons.functions;
-    if (item.body.contains('公式：')) return Icons.construction;
+    if (item.title.contains('公式') ||
+        item.description.contains('公式') ||
+        item.body.contains('=')) {
+      return Icons.functions;
+    }
+    if (item.body.contains('公式：') || item.description.contains('工具')) {
+      return Icons.construction;
+    }
     return Icons.article_outlined;
   }
 
@@ -221,14 +227,17 @@ class _NotesPageState extends State<NotesPage> {
         title: const Text('清空历史'),
         content: const Text('确认删除全部计算历史？笔记不会受影响。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('清空')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('清空')),
         ],
       ),
     );
     if (confirm != true) return;
-    await widget.db.clearHistory();
-    setState(_reload);
+    await _controller.clearHistory();
   }
 
   Future<void> _showHistoryActions(HistoryItem item) async {
@@ -258,16 +267,115 @@ class _NotesPageState extends State<NotesPage> {
       ),
     );
     if (action == 'copy') {
-      await Clipboard.setData(ClipboardData(text: '${item.expression} = ${item.result}'));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已复制历史结果')));
+      await Clipboard.setData(
+          ClipboardData(text: '${item.expression} = ${item.result}'));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已复制历史结果')));
+      }
     }
     if (action == 'note') {
-      await widget.db.addNote('历史结果', '${item.expression}\n${item.result}');
-      setState(_reload);
+      await _controller.saveHistoryAsNote(item);
     }
     if (action == 'delete') {
-      await widget.db.deleteHistory(item.id);
-      setState(_reload);
+      await _controller.deleteHistory(item.id);
     }
+  }
+}
+
+class _NoteDraft {
+  const _NoteDraft({
+    required this.title,
+    required this.description,
+    required this.body,
+  });
+
+  final String title;
+  final String description;
+  final String body;
+}
+
+class _NoteEditorDialog extends StatefulWidget {
+  const _NoteEditorDialog({this.item});
+
+  final NoteItem? item;
+
+  @override
+  State<_NoteEditorDialog> createState() => _NoteEditorDialogState();
+}
+
+class _NoteEditorDialogState extends State<_NoteEditorDialog> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _bodyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.item?.title ?? '');
+    _descriptionController =
+        TextEditingController(text: widget.item?.description ?? '');
+    _bodyController = TextEditingController(text: widget.item?.body ?? '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.item == null ? '新增笔记' : '编辑笔记'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _titleController,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: '标题'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _descriptionController,
+                minLines: 2,
+                maxLines: 3,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                    labelText: '描述', hintText: '写清用途、来源或下一步处理'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _bodyController,
+                minLines: 5,
+                maxLines: 10,
+                decoration: const InputDecoration(labelText: '内容'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _NoteDraft(
+              title: _titleController.text,
+              description: _descriptionController.text,
+              body: _bodyController.text,
+            ),
+          ),
+          child: const Text('保存'),
+        ),
+      ],
+    );
   }
 }

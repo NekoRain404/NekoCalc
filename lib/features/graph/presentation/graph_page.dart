@@ -14,28 +14,38 @@ class GraphPage extends StatefulWidget {
 
 class _GraphPageState extends State<GraphPage> {
   final List<GraphFunction> _functions = [
-    const GraphFunction(expression: 'sin(x)', label: 'y = sin(x)', color: Color(0xFF1677FF)),
-    const GraphFunction(expression: 'x^2 - 3*x + 2', label: 'y = x² - 3x + 2', color: Color(0xFF7C3AED)),
+    const GraphFunction(
+        expression: 'sin(x)', label: 'y = sin(x)', color: Color(0xFF1677FF)),
+    const GraphFunction(
+        expression: 'x^2 - 3*x + 2',
+        label: 'y = x² - 3x + 2',
+        color: Color(0xFF7C3AED)),
   ];
-  GraphViewport _viewport = const GraphViewport(centerX: 0, centerY: 0, spanX: 12, spanY: 12);
+  GraphViewport _viewport =
+      const GraphViewport(centerX: 0, centerY: 0, spanX: 12, spanY: 12);
   List<GraphMarker> _markers = const [];
   int? _selectedMarker;
   String _status = '拖动画布平移，双指缩放';
   double _lastScale = 1;
 
   Future<void> _addFunction() async {
-    final controller = TextEditingController(text: _functions.length % 2 == 0 ? 'cos(x)' : '0.5*x + 1');
+    final controller = TextEditingController(
+        text: _functions.length % 2 == 0 ? 'cos(x)' : '0.5*x + 1');
     final expression = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('添加函数'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'y =', hintText: '例如 sin(x)、x^2 - 3*x + 2'),
+          decoration: const InputDecoration(
+              labelText: 'y =', hintText: '例如 sin(x)、x^2 - 3*x + 2'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('添加')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('添加')),
         ],
       ),
     );
@@ -54,30 +64,40 @@ class _GraphPageState extends State<GraphPage> {
 
   void _toggle(int index) {
     setState(() {
-      _functions[index] = _functions[index].copyWith(visible: !_functions[index].visible);
+      _functions[index] =
+          _functions[index].copyWith(visible: !_functions[index].visible);
     });
   }
 
   Future<void> _editFunction(int index) async {
-    final controller = TextEditingController(text: _functions[index].expression);
+    final controller =
+        TextEditingController(text: _functions[index].expression);
     final expression = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('编辑函数'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'y =', hintText: '例如 sin(x)、x^2 - 3*x + 2'),
+          decoration: const InputDecoration(
+              labelText: 'y =', hintText: '例如 sin(x)、x^2 - 3*x + 2'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('保存')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('保存')),
         ],
       ),
     );
     if (expression == null || expression.isEmpty) return;
     setState(() {
       final current = _functions[index];
-      _functions[index] = GraphFunction(expression: expression, label: 'y = $expression', color: current.color, visible: current.visible);
+      _functions[index] = GraphFunction(
+          expression: expression,
+          label: 'y = $expression',
+          color: current.color,
+          visible: current.visible);
       _markers = const [];
       _selectedMarker = null;
       _status = '已更新 y = $expression';
@@ -98,7 +118,8 @@ class _GraphPageState extends State<GraphPage> {
       for (var i = 0; i < _functions.length; i++) {
         _functions[i] = _functions[i].copyWith(visible: true);
       }
-      _viewport = const GraphViewport(centerX: 0, centerY: 0, spanX: 12, spanY: 12);
+      _viewport =
+          const GraphViewport(centerX: 0, centerY: 0, spanX: 12, spanY: 12);
       _markers = const [];
       _selectedMarker = null;
       _status = '视图已重置';
@@ -108,7 +129,8 @@ class _GraphPageState extends State<GraphPage> {
   void _zoom(double factor) {
     setState(() {
       _viewport = _viewport.zoom(factor);
-      _status = '视图范围 x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
+      _status =
+          '视图范围 x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
     });
   }
 
@@ -121,7 +143,8 @@ class _GraphPageState extends State<GraphPage> {
         Row(
           children: [
             const Expanded(child: PageTitle('图形')),
-            IconToolButton(icon: Icons.add, tooltip: '添加函数', onTap: _addFunction),
+            IconToolButton(
+                icon: Icons.add, tooltip: '添加函数', onTap: _addFunction),
           ],
         ),
         Card(
@@ -132,15 +155,18 @@ class _GraphPageState extends State<GraphPage> {
                   function: _functions[i],
                   onToggle: () => _toggle(i),
                   onEdit: () => _editFunction(i),
-                  onDelete: _functions.length <= 1 ? null : () => _deleteFunction(i),
+                  onDelete:
+                      _functions.length <= 1 ? null : () => _deleteFunction(i),
                 ),
                 if (i != _functions.length - 1) const Divider(height: 1),
               ],
               const Divider(height: 1),
               ListTile(
                 onTap: _addFunction,
-                leading: const Icon(Icons.add_circle_outline, color: Color(0xFF1677FF)),
-                title: const Text('添加函数', style: TextStyle(color: Color(0xFF1677FF))),
+                leading: const Icon(Icons.add_circle_outline,
+                    color: Color(0xFF1677FF)),
+                title: const Text('添加函数',
+                    style: TextStyle(color: Color(0xFF1677FF))),
               ),
             ],
           ),
@@ -155,12 +181,14 @@ class _GraphPageState extends State<GraphPage> {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
               return GestureDetector(
                 onScaleStart: (_) => _lastScale = 1,
-                onTapUp: (details) => _selectMarker(details.localPosition, size),
+                onTapUp: (details) =>
+                    _selectMarker(details.localPosition, size),
                 onScaleUpdate: (details) {
                   if (details.pointerCount == 1) {
                     setState(() {
                       _viewport = _viewport.pan(details.focalPointDelta, size);
-                      _status = 'x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
+                      _status =
+                          'x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
                     });
                     return;
                   }
@@ -169,7 +197,8 @@ class _GraphPageState extends State<GraphPage> {
                   _lastScale = details.scale;
                   setState(() {
                     _viewport = _viewport.zoom(1 / incremental);
-                    _status = '缩放 ${(12 / _viewport.spanX).toStringAsFixed(2)}x';
+                    _status =
+                        '缩放 ${(12 / _viewport.spanX).toStringAsFixed(2)}x';
                   });
                 },
                 onScaleEnd: (_) => _lastScale = 1,
@@ -197,27 +226,47 @@ class _GraphPageState extends State<GraphPage> {
           padding: const EdgeInsets.all(14),
           decoration: softPanel(context: context, highlight: true),
           child: Center(
-            child: Text(_status, style: TextStyle(color: scheme.secondary, fontWeight: FontWeight.w800)),
+            child: Text(_status,
+                style: TextStyle(
+                    color: scheme.secondary, fontWeight: FontWeight.w800)),
           ),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: ActionButton(icon: Icons.refresh, label: '重置', onTap: _reset)),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.refresh, label: '重置', onTap: _reset)),
             const SizedBox(width: 8),
-            Expanded(child: ActionButton(icon: Icons.zoom_in, label: '放大', onTap: () => _zoom(0.75))),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.zoom_in,
+                    label: '放大',
+                    onTap: () => _zoom(0.75))),
             const SizedBox(width: 8),
-            Expanded(child: ActionButton(icon: Icons.zoom_out, label: '缩小', onTap: () => _zoom(1.35))),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.zoom_out,
+                    label: '缩小',
+                    onTap: () => _zoom(1.35))),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: ActionButton(icon: Icons.adjust, label: '零点', onTap: _markZeros)),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.adjust, label: '零点', onTap: _markZeros)),
             const SizedBox(width: 8),
-            Expanded(child: ActionButton(icon: Icons.scatter_plot_outlined, label: '交点', onTap: _markIntersections)),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.scatter_plot_outlined,
+                    label: '交点',
+                    onTap: _markIntersections)),
             const SizedBox(width: 8),
-            Expanded(child: ActionButton(icon: Icons.timeline, label: '极值', onTap: _markExtremes)),
+            Expanded(
+                child: ActionButton(
+                    icon: Icons.timeline, label: '极值', onTap: _markExtremes)),
           ],
         ),
       ],
@@ -230,7 +279,8 @@ class _GraphPageState extends State<GraphPage> {
     var bestDistance = double.infinity;
     for (var i = 0; i < _markers.length; i++) {
       final marker = _markers[i];
-      final point = Offset(_viewport.toScreenX(marker.x, size), _viewport.toScreenY(marker.y, size));
+      final point = Offset(_viewport.toScreenX(marker.x, size),
+          _viewport.toScreenY(marker.y, size));
       final distance = (point - localPosition).distance;
       if (distance < bestDistance) {
         bestDistance = distance;
@@ -249,7 +299,8 @@ class _GraphPageState extends State<GraphPage> {
     setState(() {
       _markers = markers;
       _selectedMarker = markers.isEmpty ? null : 0;
-      _status = markers.isEmpty ? '当前视图未找到零点' : '找到 ${markers.length} 个零点，点击高亮点查看详情';
+      _status =
+          markers.isEmpty ? '当前视图未找到零点' : '找到 ${markers.length} 个零点，点击高亮点查看详情';
     });
   }
 
@@ -258,7 +309,8 @@ class _GraphPageState extends State<GraphPage> {
     setState(() {
       _markers = markers;
       _selectedMarker = markers.isEmpty ? null : 0;
-      _status = markers.isEmpty ? '当前视图未找到交点' : '找到 ${markers.length} 个交点，点击高亮点查看详情';
+      _status =
+          markers.isEmpty ? '当前视图未找到交点' : '找到 ${markers.length} 个交点，点击高亮点查看详情';
     });
   }
 
@@ -267,7 +319,9 @@ class _GraphPageState extends State<GraphPage> {
     setState(() {
       _markers = markers;
       _selectedMarker = markers.isEmpty ? null : 0;
-      _status = markers.isEmpty ? '当前视图没有有效极值采样' : '找到 ${markers.length} 个极值点，点击高亮点查看详情';
+      _status = markers.isEmpty
+          ? '当前视图没有有效极值采样'
+          : '找到 ${markers.length} 个极值点，点击高亮点查看详情';
     });
   }
 
@@ -282,7 +336,9 @@ class _GraphPageState extends State<GraphPage> {
         final y2 = function.evaluate(x + step);
         if (!_finite(y1) || !_finite(y2)) continue;
         if (y1.abs() < 1e-7 || y1.sign != y2.sign) {
-          final root = y1.abs() < 1e-7 ? x : _bisect((value) => function.evaluate(value), x, x + step);
+          final root = y1.abs() < 1e-7
+              ? x
+              : _bisect((value) => function.evaluate(value), x, x + step);
           if (_hasNearby(markers, root, 0, step * 3)) continue;
           markers.add(GraphMarker(
             x: root,
@@ -307,7 +363,10 @@ class _GraphPageState extends State<GraphPage> {
       final d2 = visible[0].evaluate(x + step) - visible[1].evaluate(x + step);
       if (!_finite(d1) || !_finite(d2)) continue;
       if (d1.abs() < 1e-7 || d1.sign != d2.sign) {
-        final root = _bisect((value) => visible[0].evaluate(value) - visible[1].evaluate(value), x, x + step);
+        final root = _bisect(
+            (value) => visible[0].evaluate(value) - visible[1].evaluate(value),
+            x,
+            x + step);
         final y = visible[0].evaluate(root);
         if (!_finite(y) || _hasNearby(markers, root, y, step * 3)) continue;
         markers.add(GraphMarker(
@@ -315,7 +374,8 @@ class _GraphPageState extends State<GraphPage> {
           y: y,
           color: const Color(0xFFFF8A00),
           kind: '交点',
-          info: '${visible[0].label}\n${visible[1].label}\n交点 x = ${root.toStringAsFixed(6)}, y = ${y.toStringAsFixed(6)}',
+          info:
+              '${visible[0].label}\n${visible[1].label}\n交点 x = ${root.toStringAsFixed(6)}, y = ${y.toStringAsFixed(6)}',
         ));
       }
     }
@@ -350,20 +410,24 @@ class _GraphPageState extends State<GraphPage> {
         y: minY,
         color: const Color(0xFF23B45D),
         kind: '极小值',
-        info: '${function.label} 极小值\nx = ${minX.toStringAsFixed(6)}\ny = ${minY.toStringAsFixed(6)}',
+        info:
+            '${function.label} 极小值\nx = ${minX.toStringAsFixed(6)}\ny = ${minY.toStringAsFixed(6)}',
       ),
       GraphMarker(
         x: maxX,
         y: maxY,
         color: const Color(0xFFFF4D5E),
         kind: '极大值',
-        info: '${function.label} 极大值\nx = ${maxX.toStringAsFixed(6)}\ny = ${maxY.toStringAsFixed(6)}',
+        info:
+            '${function.label} 极大值\nx = ${maxX.toStringAsFixed(6)}\ny = ${maxY.toStringAsFixed(6)}',
       ),
     ];
   }
 
-  bool _hasNearby(List<GraphMarker> markers, double x, double y, double tolerance) {
-    return markers.any((marker) => (marker.x - x).abs() < tolerance && (marker.y - y).abs() < tolerance);
+  bool _hasNearby(
+      List<GraphMarker> markers, double x, double y, double tolerance) {
+    return markers.any((marker) =>
+        (marker.x - x).abs() < tolerance && (marker.y - y).abs() < tolerance);
   }
 
   bool _finite(double value) => value.isFinite && !value.isNaN;
@@ -412,7 +476,9 @@ class FunctionRow extends StatelessWidget {
           IconButton(
             tooltip: function.visible ? '隐藏' : '显示',
             onPressed: onToggle,
-            icon: Icon(function.visible ? Icons.visibility : Icons.visibility_off, color: const Color(0xFF1677FF)),
+            icon: Icon(
+                function.visible ? Icons.visibility : Icons.visibility_off,
+                color: const Color(0xFF1677FF)),
           ),
           PopupMenuButton<String>(
             tooltip: '函数操作',
@@ -422,7 +488,10 @@ class FunctionRow extends StatelessWidget {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'edit', child: Text('编辑函数')),
-              PopupMenuItem(value: 'delete', enabled: onDelete != null, child: const Text('删除函数')),
+              PopupMenuItem(
+                  value: 'delete',
+                  enabled: onDelete != null,
+                  child: const Text('删除函数')),
             ],
           ),
         ],
@@ -445,7 +514,11 @@ class GraphFunction {
   final bool visible;
 
   GraphFunction copyWith({bool? visible}) {
-    return GraphFunction(expression: expression, label: label, color: color, visible: visible ?? this.visible);
+    return GraphFunction(
+        expression: expression,
+        label: label,
+        color: color,
+        visible: visible ?? this.visible);
   }
 
   double evaluate(double x) {
@@ -458,15 +531,25 @@ class GraphFunction {
   }
 
   String _normalize(String raw, double x) {
-    var parsed = raw.toLowerCase().replaceAll('π', 'pi').replaceAll('²', '^2').replaceAll('×', '*').replaceAll('÷', '/');
+    var parsed = raw
+        .toLowerCase()
+        .replaceAll('π', 'pi')
+        .replaceAll('²', '^2')
+        .replaceAll('×', '*')
+        .replaceAll('÷', '/');
     parsed = parsed.replaceAll(RegExp(r'\bx\b'), '(${_numberLiteral(x)})');
-    parsed = parsed.replaceAllMapped(RegExp(r'(\d|\))(?=(\(|pi|e|sin|cos|tan|sqrt|log|ln|abs))'), (match) => '${match.group(1)}*');
+    parsed = parsed.replaceAllMapped(
+        RegExp(r'(\d|\))(?=(\(|pi|e|sin|cos|tan|sqrt|log|ln|abs))'),
+        (match) => '${match.group(1)}*');
     return parsed;
   }
 
   String _numberLiteral(double value) {
     if (value.abs() < 1e-12) return '0';
-    return value.toStringAsFixed(12).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    return value
+        .toStringAsFixed(12)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 }
 
@@ -530,15 +613,21 @@ class GraphPainter extends CustomPainter {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final xStep = _niceStep(viewport.spanX / 8);
     final yStep = _niceStep(viewport.spanY / 8);
-    for (var x = (viewport.xMin / xStep).floor() * xStep; x <= viewport.xMax; x += xStep) {
+    for (var x = (viewport.xMin / xStep).floor() * xStep;
+        x <= viewport.xMax;
+        x += xStep) {
       final sx = viewport.toScreenX(x, size);
       canvas.drawLine(Offset(sx, 0), Offset(sx, size.height), grid);
-      _label(canvas, textPainter, x.toStringAsFixed(_digits(xStep)), Offset(sx + 3, size.height - 18));
+      _label(canvas, textPainter, x.toStringAsFixed(_digits(xStep)),
+          Offset(sx + 3, size.height - 18));
     }
-    for (var y = (viewport.yMin / yStep).floor() * yStep; y <= viewport.yMax; y += yStep) {
+    for (var y = (viewport.yMin / yStep).floor() * yStep;
+        y <= viewport.yMax;
+        y += yStep) {
       final sy = viewport.toScreenY(y, size);
       canvas.drawLine(Offset(0, sy), Offset(size.width, sy), grid);
-      _label(canvas, textPainter, y.toStringAsFixed(_digits(yStep)), Offset(4, sy - 16));
+      _label(canvas, textPainter, y.toStringAsFixed(_digits(yStep)),
+          Offset(4, sy - 16));
     }
     if (viewport.yMin <= 0 && viewport.yMax >= 0) {
       final y0 = viewport.toScreenY(0, size);
@@ -565,13 +654,18 @@ class GraphPainter extends CustomPainter {
     for (var i = 0; i <= size.width; i++) {
       final x = viewport.xMin + i / size.width * viewport.spanX;
       final y = function.evaluate(x);
-      if (y.isNaN || y.isInfinite || y < viewport.yMin - viewport.spanY || y > viewport.yMax + viewport.spanY) {
+      if (y.isNaN ||
+          y.isInfinite ||
+          y < viewport.yMin - viewport.spanY ||
+          y > viewport.yMax + viewport.spanY) {
         started = false;
         previous = null;
         continue;
       }
       final point = Offset(i.toDouble(), viewport.toScreenY(y, size));
-      if (!started || previous == null || (point.dy - previous.dy).abs() > size.height * 0.75) {
+      if (!started ||
+          previous == null ||
+          (point.dy - previous.dy).abs() > size.height * 0.75) {
         path.moveTo(point.dx, point.dy);
         started = true;
       } else {
@@ -585,11 +679,18 @@ class GraphPainter extends CustomPainter {
   void _plotMarkers(Canvas canvas, Size size) {
     for (var i = 0; i < markers.length; i++) {
       final marker = markers[i];
-      if (marker.x < viewport.xMin || marker.x > viewport.xMax || marker.y < viewport.yMin || marker.y > viewport.yMax) continue;
-      final center = Offset(viewport.toScreenX(marker.x, size), viewport.toScreenY(marker.y, size));
+      if (marker.x < viewport.xMin ||
+          marker.x > viewport.xMax ||
+          marker.y < viewport.yMin ||
+          marker.y > viewport.yMax) {
+        continue;
+      }
+      final center = Offset(viewport.toScreenX(marker.x, size),
+          viewport.toScreenY(marker.y, size));
       final selected = selectedMarker == i;
       final fill = Paint()..color = marker.color;
-      final halo = Paint()..color = marker.color.withValues(alpha: selected ? 0.22 : 0.12);
+      final halo = Paint()
+        ..color = marker.color.withValues(alpha: selected ? 0.22 : 0.12);
       final stroke = Paint()
         ..color = markerLabelBackground
         ..strokeWidth = selected ? 3 : 2
@@ -605,10 +706,16 @@ class GraphPainter extends CustomPainter {
 
   void _markerLabel(Canvas canvas, String text, Offset offset) {
     final painter = TextPainter(
-      text: TextSpan(text: text, style: TextStyle(color: markerLabelColor, fontSize: 11, fontWeight: FontWeight.w800)),
+      text: TextSpan(
+          text: text,
+          style: TextStyle(
+              color: markerLabelColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w800)),
       textDirection: TextDirection.ltr,
     )..layout();
-    final rect = Rect.fromLTWH(offset.dx - 6, offset.dy - 4, painter.width + 12, painter.height + 8);
+    final rect = Rect.fromLTWH(
+        offset.dx - 6, offset.dy - 4, painter.width + 12, painter.height + 8);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
     canvas.drawRRect(rrect, Paint()..color = markerLabelBackground);
     canvas.drawRRect(
@@ -621,19 +728,31 @@ class GraphPainter extends CustomPainter {
   }
 
   void _label(Canvas canvas, TextPainter painter, String text, Offset offset) {
-    painter.text = TextSpan(text: text, style: TextStyle(color: labelColor, fontSize: 10));
+    painter.text =
+        TextSpan(text: text, style: TextStyle(color: labelColor, fontSize: 10));
     painter.layout();
     painter.paint(canvas, offset);
   }
 
   double _niceStep(double value) {
-    final exponent = math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
+    final exponent =
+        math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
     final fraction = value / exponent;
-    final nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+    final nice = fraction <= 1
+        ? 1
+        : fraction <= 2
+            ? 2
+            : fraction <= 5
+                ? 5
+                : 10;
     return nice * exponent;
   }
 
-  int _digits(double step) => step < 1 ? 2 : step < 10 ? 1 : 0;
+  int _digits(double step) => step < 1
+      ? 2
+      : step < 10
+          ? 1
+          : 0;
 
   @override
   bool shouldRepaint(covariant GraphPainter oldDelegate) {
@@ -670,7 +789,11 @@ class GraphViewport {
 
   GraphViewport zoom(double factor) {
     final safe = factor.clamp(0.2, 5.0);
-    return GraphViewport(centerX: centerX, centerY: centerY, spanX: (spanX * safe).clamp(0.5, 200), spanY: (spanY * safe).clamp(0.5, 200));
+    return GraphViewport(
+        centerX: centerX,
+        centerY: centerY,
+        spanX: (spanX * safe).clamp(0.5, 200),
+        spanY: (spanY * safe).clamp(0.5, 200));
   }
 
   GraphViewport pan(Offset delta, Size size) {

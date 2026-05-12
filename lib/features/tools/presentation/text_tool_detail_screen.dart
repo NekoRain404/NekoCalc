@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../application/controllers/text_tool_controller.dart';
 import '../../../data/local/app_database.dart';
+import '../../../data/repositories/history_repository.dart';
+import '../../../data/repositories/notes_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
@@ -26,6 +28,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   late final TextEditingController _aController;
   late final TextEditingController _bController;
   late final TextEditingController _cController;
+  late final HistoryRepository _historyRepository;
+  late final NotesRepository _notesRepository;
   final TextToolController _toolController = const TextToolController();
   String _result = '';
   String _detail = '';
@@ -33,12 +37,21 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _inputController = TextEditingController(text: _defaultInput(widget.tool.id));
+    _inputController =
+        TextEditingController(text: _defaultInput(widget.tool.id));
     _formulaController = TextEditingController(text: 'a * b + c');
     _aController = TextEditingController(text: '12');
     _bController = TextEditingController(text: '3');
     _cController = TextEditingController(text: '5');
-    for (final controller in [_inputController, _formulaController, _aController, _bController, _cController]) {
+    _historyRepository = HistoryRepository(widget.db);
+    _notesRepository = NotesRepository(widget.db);
+    for (final controller in [
+      _inputController,
+      _formulaController,
+      _aController,
+      _bController,
+      _cController
+    ]) {
       controller.addListener(_recalculate);
     }
     _recalculate();
@@ -70,20 +83,26 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   }
 
   Future<void> _saveHistory() async {
-    await widget.db.addHistory(
+    await _historyRepository.saveToolResult(
       expression: '${widget.tool.title}: ${_mainInputText()}',
       result: _result,
       toolId: widget.tool.id,
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
     }
   }
 
   Future<void> _saveNote() async {
-    await widget.db.addNote(widget.tool.title, '${_mainInputText()}\n\n$_result\n\n$_detail');
+    await _notesRepository.create(
+      title: widget.tool.title,
+      body: '${_mainInputText()}\n\n$_result\n\n$_detail',
+      description: widget.tool.description,
+    );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
     }
   }
 
@@ -113,7 +132,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            Text(widget.tool.description, style: TextStyle(color: scheme.onSurfaceVariant)),
+            Text(widget.tool.description,
+                style: TextStyle(color: scheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -125,7 +145,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                     if (isCustom) ...[
                       TextField(
                         controller: _formulaController,
-                        decoration: const InputDecoration(labelText: '公式', hintText: '例如 a * b + sqrt(c)'),
+                        decoration: const InputDecoration(
+                            labelText: '公式', hintText: '例如 a * b + sqrt(c)'),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -158,11 +179,16 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('主结果', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700)),
+                  Text('主结果',
+                      style: TextStyle(
+                          color: scheme.primary, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   SelectableText(
                     _result,
-                    style: TextStyle(color: scheme.primary, fontSize: 22, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                        color: scheme.primary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
@@ -175,7 +201,9 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SectionTitle('详细结果'),
-                    SelectableText(_detail, style: TextStyle(color: scheme.onSurfaceVariant, height: 1.45)),
+                    SelectableText(_detail,
+                        style: TextStyle(
+                            color: scheme.onSurfaceVariant, height: 1.45)),
                   ],
                 ),
               ),
@@ -183,13 +211,29 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: ActionButton(icon: Icons.copy_outlined, label: '复制', onTap: _copyResult)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.copy_outlined,
+                        label: '复制',
+                        onTap: _copyResult)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.save_outlined, label: '保存', onTap: _saveHistory)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.save_outlined,
+                        label: '保存',
+                        onTap: _saveHistory)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.refresh_outlined, label: '重置', onTap: _reset)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.refresh_outlined,
+                        label: '重置',
+                        onTap: _reset)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.note_add_outlined, label: '笔记', onTap: _saveNote)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.note_add_outlined,
+                        label: '笔记',
+                        onTap: _saveNote)),
               ],
             ),
           ],
@@ -201,7 +245,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   Widget _smallField(String label, TextEditingController controller) {
     return TextField(
       controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+      keyboardType:
+          const TextInputType.numberWithOptions(decimal: true, signed: true),
       decoration: InputDecoration(labelText: label, isDense: true),
     );
   }
@@ -217,7 +262,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   Future<void> _copyResult() async {
     await Clipboard.setData(ClipboardData(text: '$_result\n\n$_detail'));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已复制结果')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制结果')));
     }
   }
 
@@ -235,12 +281,14 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
       'color_convert' => '#5B47FF',
       'base64' => 'NekoCalc',
       'url_codec' => 'NekoCalc 工具箱',
-      'json_format' => '{"name":"NekoCalc","tools":["calculator","units","notes"]}',
+      'json_format' =>
+        '{"name":"NekoCalc","tools":["calculator","units","notes"]}',
       'ascii_unicode' => 'NekoCalc',
       'bitwise' => '12 5',
       'checksum' => 'NekoCalc',
       'uuid' => '',
-      'jwt_decode' => 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJOZWtvQ2FsYyIsImV4cCI6MTg5MzQ1NjAwMH0.signature',
+      'jwt_decode' =>
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJOZWtvQ2FsYyIsImV4cCI6MTg5MzQ1NjAwMH0.signature',
       'query_params' => 'https://example.com/search?q=NekoCalc&page=1',
       'html_entities' => '<div class="name">NekoCalc & Tools</div>',
       'regex_test' => r'\d+\nNekoCalc 2026 build 42',

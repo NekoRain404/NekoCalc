@@ -1,31 +1,106 @@
 # NekoCalc
 
-NekoCalc 是一个 Flutter Android 计算工具箱项目。
+一个面向 Android 的 Flutter 计算工具箱。NekoCalc 把日常计算、科学函数、工程工具、单位换算、函数图形和本地笔记放在同一个轻量工作台里，适合学习、调试、估算和移动端快速记录。
 
-## Android Studio 打开方式
+<p>
+  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0--beta-6D5DFB?style=flat-square">
+  <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
+  <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
+</p>
 
-优先打开项目根目录，也就是包含 `pubspec.yaml` 的目录。Flutter 工程入口是：
+## 预览
 
-- `lib/main.dart`
-- `lib/app.dart`
-- `android/`
+<p>
+  <img src="docs/images/preview-1.png" alt="NekoCalc preview 1" width="32%">
+  <img src="docs/images/preview-2.png" alt="NekoCalc preview 2" width="32%">
+  <img src="docs/images/preview-3.png" alt="NekoCalc preview 3" width="32%">
+</p>
 
-仓库中原有的根级 `app/` 是旧的原生 Android 模块，目前不作为 Flutter 应用入口使用。后续确认无兼容需求后，可以单独清理。
+## 功能
+
+- 计算器：基础运算、科学函数、三角函数、幂函数、常数输入、角度/弧度模式、记忆寄存器。
+- 工具箱：数学、电路电子、机械工程、财务商业、物理科学、单位换算、编程数据工具。
+- 工程校核：工具结果包含公式、输入摘要、误差范围、边界条件和场景限制。
+- 图形：函数绘制、拖拽缩放、零点/交点/极值标记与点选查看。
+- 笔记与历史：计算历史、工具结果、个人笔记均存储在本机 SQLite。
+- 数据管理：通过 JSON 备份/恢复历史、笔记、收藏、最近工具和设置。
+- 体验：启动动画、深色模式、夜间图标、触感反馈、状态恢复。
 
 ## 架构
 
-当前采用 Feature-first + Clean Architecture 简化版：
+项目采用 Feature-first + Clean Architecture 简化版，核心目标是让页面、状态、计算逻辑和数据持久化保持清晰边界。
 
 ```text
 lib/
-├── app.dart
-├── main.dart
-├── core/                 # 数学解析器、格式化、通用工具
-├── data/                 # SQLite、本地数据模型
-├── domain/               # 实体、工具定义、工程计算逻辑
-├── application/          # Controller、UseCase 编排
-├── features/             # 按功能组织 UI
-└── shared/               # 跨功能复用的纯 UI 组件
+├── app.dart                         # 应用根节点：主题、设置注入、启动壳装配
+├── main.dart                        # Flutter 入口
+├── application/                     # Controller、应用设置、状态编排
+├── core/                            # 数学解析、单位换算、格式化、常量
+├── data/                            # SQLite、本地模型、持久化
+├── domain/                          # 实体、工具目录、计算 UseCase、校核逻辑
+├── features/                        # 按功能组织页面与交互
+└── shared/                          # 应用壳、启动页、主题和通用组件
 ```
 
-详细约束见 `docs/architecture.md`。
+更多说明见 [docs/file_structure.md](docs/file_structure.md) 和 [docs/architecture.md](docs/architecture.md)。
+
+## 运行
+
+环境要求：
+
+- Flutter 3.x
+- Android SDK
+- Android Studio 或命令行 Gradle 环境
+
+常用命令：
+
+```bash
+flutter pub get
+flutter analyze
+flutter run
+```
+
+构建 APK：
+
+```bash
+flutter build apk --release
+```
+
+构建产物位于：
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+## Android Studio
+
+打开项目根目录，也就是包含 `pubspec.yaml` 的目录。Flutter Android 宿主工程位于 `android/`，不要再使用旧式根级 `app/` 模块。
+
+如果本机 Flutter 安装缺少 `packages/flutter_tools/gradle`，项目会优先使用本地 `.flutter/flutter_tools_gradle` 兼容层。该目录属于机器缓存，已被 `.gitignore` 忽略；重新同步前可由本机环境生成或保留。
+
+## 数据
+
+NekoCalc 当前只使用本机 SQLite：
+
+- 计算历史
+- 工具结果历史
+- 收藏工具
+- 设置项
+- 笔记
+- JSON 备份与恢复
+
+数据不会上传到网络服务。
+
+## 文档
+
+- [架构说明](docs/architecture.md)
+- [Demo 记录](docs/demo.md)
+- [文件结构](docs/file_structure.md)
+- [更新日志](CHANGELOG.md)
+
+## 状态
+
+当前版本：`v0.2.0-beta`
+
+Beta 0.2 重点放在数据可靠性、工程结构、基础测试、计算器输入光标和数学符号显示上。后续适合继续补充图形表格/追踪、文件级导入导出、更多高级科学计算能力和工具参数模板。

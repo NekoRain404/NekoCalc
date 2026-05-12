@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/utils/iterable_ext.dart';
+import '../../../application/controllers/tool_detail_controller.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../../data/local/app_database.dart';
+import '../../../data/repositories/history_repository.dart';
+import '../../../data/repositories/notes_repository.dart';
+import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
-import '../../../domain/usecases/calculate_tool.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_widgets.dart';
 
@@ -21,79 +23,72 @@ class ToolDetailScreen extends StatefulWidget {
 
 class _ToolDetailScreenState extends State<ToolDetailScreen> {
   late final Map<String, TextEditingController> _controllers;
-  List<ToolResult> _results = [];
-  bool _favorite = false;
+  late final ToolDetailController _detailController;
 
   @override
   void initState() {
     super.initState();
+    _detailController = ToolDetailController(
+      historyRepository: HistoryRepository(widget.db),
+      notesRepository: NotesRepository(widget.db),
+      toolUsageRepository: ToolUsageRepository(widget.db),
+      tool: widget.tool,
+    )..addListener(_onControllerChanged);
     _controllers = {
       for (final input in widget.tool.inputs)
-        input.key: TextEditingController(text: input.defaultValue == null ? '' : formatNumber(input.defaultValue!))
+        input.key: TextEditingController(
+            text: input.defaultValue == null
+                ? ''
+                : formatNumber(input.defaultValue!))
     };
-    for (final controller in _controllers.values) {
-      controller.addListener(_recalculate);
+    for (final entry in _controllers.entries) {
+      entry.value.addListener(
+          () => _detailController.updateValue(entry.key, entry.value.text));
     }
-    _loadFavorite();
-    _results = calculateTool(widget.tool, _values);
-  }
-
-  Future<void> _loadFavorite() async {
-    final ids = await widget.db.favoriteToolIds();
-    if (mounted) setState(() => _favorite = ids.contains(widget.tool.id));
+    _detailController.loadFavorite();
   }
 
   @override
   void dispose() {
+    _detailController.removeListener(_onControllerChanged);
+    _detailController.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  Map<String, double> get _values => {
-        for (final entry in _controllers.entries) entry.key: double.tryParse(entry.value.text.replaceAll(',', '')) ?? 0,
-      };
-
-  void _recalculate() {
-    setState(() => _results = calculateTool(widget.tool, _values));
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _saveResult() async {
-    final primary = _results.where((result) => result.primary).firstOrNull ?? _results.firstOrNull;
-    if (primary == null) return;
     final expression = widget.tool.inputs
-        .map((input) => '${input.label}=${_controllers[input.key]?.text ?? ''}${input.unit}')
+        .map((input) =>
+            '${input.label}=${_controllers[input.key]?.text ?? ''}${input.unit}')
         .join(', ');
-    await widget.db.addHistory(
-      expression: expression,
-      result: '${primary.label}: ${primary.value}${primary.unit}',
-      toolId: widget.tool.id,
-    );
+    await _detailController.saveResult(expression);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
     }
   }
 
   Future<void> _saveNote() async {
-    final body = [
-      widget.tool.description,
-      ..._results.map((result) => '${result.label}: ${result.value}${result.unit}'),
-      '公式：${widget.tool.formula}',
-    ].join('\n');
-    await widget.db.addNote(widget.tool.title, body);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    await _detailController.saveNote();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    }
   }
 
   Future<void> _toggleFavorite() async {
-    final next = !_favorite;
-    await widget.db.setFavorite(widget.tool.id, next);
-    setState(() => _favorite = next);
+    await _detailController.toggleFavorite();
   }
 
   @override
   Widget build(BuildContext context) {
-    final primary = _results.where((result) => result.primary).firstOrNull ?? _results.firstOrNull;
+    final primary = _detailController.primary;
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -103,12 +98,18 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
           children: [
             Row(
               children: [
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new)),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back_ios_new)),
                 Expanded(child: Center(child: PageTitle(widget.tool.title))),
                 IconButton(
                   tooltip: '收藏',
                   onPressed: _toggleFavorite,
-                  icon: Icon(_favorite ? Icons.star : Icons.star_border, color: _favorite ? Colors.amber : null),
+                  icon: Icon(
+                      _detailController.favorite
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: _detailController.favorite ? Colors.amber : null),
                 ),
                 PopupMenuButton<String>(
                   tooltip: '更多',
@@ -135,22 +136,29 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 ),
               ],
             ),
-            Text(widget.tool.description, style: TextStyle(color: scheme.onSurfaceVariant)),
+            Text(widget.tool.description,
+                style: TextStyle(color: scheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             _inputCard(),
             const SizedBox(height: 12),
             if (primary != null) _primaryResult(primary),
             const SizedBox(height: 12),
-            if (_results.length > 1)
+            if (_detailController.results.length > 1)
               GridView.count(
-                crossAxisCount: 3,
+                crossAxisCount: MediaQuery.sizeOf(context).width >= 520 ? 3 : 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
-                childAspectRatio: 1.05,
-                children: _results.where((result) => !result.primary).map((result) => DetailMetric(result: result)).toList(),
+                childAspectRatio:
+                    MediaQuery.sizeOf(context).width >= 520 ? 1.05 : 1.55,
+                children: _detailController.results
+                    .where((result) => !result.primary)
+                    .map((result) => DetailMetric(result: result))
+                    .toList(),
               ),
+            const SizedBox(height: 12),
+            _insightCard(),
             const SizedBox(height: 12),
             Card(
               child: Padding(
@@ -159,9 +167,12 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SectionTitle('公式'),
-                    Text(widget.tool.formula, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text(widget.tool.formula,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 8),
-                    Text(widget.tool.explanation, style: TextStyle(color: scheme.onSurfaceVariant)),
+                    Text(widget.tool.explanation,
+                        style: TextStyle(color: scheme.onSurfaceVariant)),
                   ],
                 ),
               ),
@@ -169,13 +180,29 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: ActionButton(icon: Icons.copy_outlined, label: '复制', onTap: _copyResult)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.copy_outlined,
+                        label: '复制',
+                        onTap: _copyResult)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.save_outlined, label: '保存', onTap: _saveResult)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.save_outlined,
+                        label: '保存',
+                        onTap: _saveResult)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.refresh_outlined, label: '重置', onTap: _resetInputs)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.refresh_outlined,
+                        label: '重置',
+                        onTap: _resetInputs)),
                 const SizedBox(width: 8),
-                Expanded(child: ActionButton(icon: Icons.note_add_outlined, label: '笔记', onTap: _saveNote)),
+                Expanded(
+                    child: ActionButton(
+                        icon: Icons.note_add_outlined,
+                        label: '笔记',
+                        onTap: _saveNote)),
               ],
             ),
           ],
@@ -210,14 +237,20 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
-                        Expanded(flex: 3, child: Text(input.optional ? '${input.label}（可选）' : input.label)),
+                        Expanded(
+                            flex: 3,
+                            child: Text(input.optional
+                                ? '${input.label}（可选）'
+                                : input.label)),
                         Expanded(
                           flex: 4,
                           child: TextField(
                             controller: _controllers[input.key],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true, signed: true),
                             textAlign: TextAlign.right,
-                            decoration: InputDecoration(isDense: true, suffixText: input.unit),
+                            decoration: InputDecoration(
+                                isDense: true, suffixText: input.unit),
                           ),
                         ),
                       ],
@@ -231,15 +264,17 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   void _resetInputs() {
     for (final input in widget.tool.inputs) {
-      _controllers[input.key]?.text = input.defaultValue == null ? '' : formatNumber(input.defaultValue!);
+      _controllers[input.key]?.text =
+          input.defaultValue == null ? '' : formatNumber(input.defaultValue!);
     }
+    _detailController.resetValues();
   }
 
   Future<void> _copyResult() async {
-    final text = _results.map((result) => '${result.label}: ${result.value}${result.unit}').join('\n');
-    await Clipboard.setData(ClipboardData(text: text));
+    await Clipboard.setData(ClipboardData(text: _detailController.copyText()));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已复制结果')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制结果')));
     }
   }
 
@@ -251,7 +286,9 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(primary.label, style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w700)),
+          Text(primary.label,
+              style: TextStyle(
+                  color: scheme.primary, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -259,17 +296,53 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
               Flexible(
                 child: Text(
                   primary.value,
-                  style: TextStyle(color: scheme.primary, fontSize: 34, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      color: scheme.primary,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800),
                 ),
               ),
               const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(primary.unit, style: TextStyle(color: scheme.onSurfaceVariant)),
+                child: Text(primary.unit,
+                    style: TextStyle(color: scheme.onSurfaceVariant)),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _insightCard() {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle('校核'),
+            ..._detailController.insights.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.check_circle_outline,
+                        size: 17, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(item,
+                            style: TextStyle(
+                                color: scheme.onSurfaceVariant, height: 1.35))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

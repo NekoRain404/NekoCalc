@@ -139,7 +139,8 @@ extension ToolDefinitionVisuals on ToolDefinition {
       const Color(0xFF8B5CF6),
       const Color(0xFF2563EB),
     ];
-    final index = id.codeUnits.fold<int>(0, (sum, code) => sum + code) % colors.length;
+    final index =
+        id.codeUnits.fold<int>(0, (sum, code) => sum + code) % colors.length;
     return colors[index];
   }
 }

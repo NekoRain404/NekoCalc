@@ -15,7 +15,8 @@ class UnitConverter {
 
   List<UnitConversion> convert(double baseValue) {
     return factors.entries
-        .map((entry) => UnitConversion(unit: entry.key, value: baseValue * entry.value))
+        .map((entry) =>
+            UnitConversion(unit: entry.key, value: baseValue * entry.value))
         .toList();
   }
 }
