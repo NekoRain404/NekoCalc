@@ -31,4 +31,19 @@ void main() {
     expect(matchesNoteRecord(item, RecordTab.formulas), isTrue);
     expect(matchesNoteRecord(item, RecordTab.tools), isFalse);
   });
+
+  test('matches note query against description', () {
+    final item = NoteItem(
+      id: 2,
+      title: '实验记录',
+      description: '包含数据拟合和误差分析',
+      body: 'y = ax + b',
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    expect(matchesNoteQuery(item, '数据拟合'), isTrue);
+    expect(matchesNoteQuery(item, '误差'), isTrue);
+    expect(matchesNoteQuery(item, '不存在'), isFalse);
+  });
 }

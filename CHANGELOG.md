@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.0-beta
+
+Beta 0.3 focuses on data analysis tools, chart readability, and better local search.
+
+- Added a Data Fit Chart tool under Math / Statistics for Excel-like list data fitting.
+- Supported single-series `x,y`, multi-column `x,y1,y2`, and blank-line separated multi-series datasets.
+- Added linear, quadratic, exponential, and power-function fitting with equation, R², RMSE, fitted values, and residuals.
+- Added an in-app chart with axes, grid, tick labels, legend, selected-series highlighting, and a real data table.
+- Improved chart colors so the chart uses the app theme surface consistently in light and dark modes.
+- Fixed note search so keywords in note descriptions are searchable.
+- Built release packages with ABI splitting to reduce APK size.
+
 ## v0.2.0-beta
 
 Beta 0.2 focuses on making the calculator usable as a daily scientific tool.

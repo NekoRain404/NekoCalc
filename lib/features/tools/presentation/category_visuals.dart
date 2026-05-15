@@ -40,6 +40,7 @@ extension ToolDefinitionVisuals on ToolDefinition {
       'exponential_log' => Icons.stacked_line_chart,
       'probability' => Icons.casino_outlined,
       'statistics' => Icons.bar_chart,
+      'data_fit' => Icons.ssid_chart,
       'matrix' => Icons.apps,
       'complex' => Icons.blur_circular,
       'vector' => Icons.open_with,

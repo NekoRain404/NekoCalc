@@ -4,7 +4,7 @@
 
 <p>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0--beta-6D5DFB?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0--beta-6D5DFB?style=flat-square">
   <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
   <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
 </p>
@@ -21,6 +21,7 @@
 
 - 计算器：基础运算、科学函数、三角函数、幂函数、常数输入、角度/弧度模式、记忆寄存器。
 - 工具箱：数学、电路电子、机械工程、财务商业、物理科学、单位换算、编程数据工具。
+- 数据分析：支持 Excel 风格列表数据拟合、散点图、拟合曲线、R²、RMSE、拟合值和残差表。
 - 工程校核：工具结果包含公式、输入摘要、误差范围、边界条件和场景限制。
 - 图形：函数绘制、拖拽缩放、零点/交点/极值标记与点选查看。
 - 笔记与历史：计算历史、工具结果、个人笔记均存储在本机 SQLite。
@@ -67,6 +68,12 @@ flutter run
 flutter build apk --release
 ```
 
+按 ABI 拆分发布包：
+
+```bash
+flutter build apk --release --split-per-abi
+```
+
 构建产物位于：
 
 ```text
@@ -101,6 +108,6 @@ NekoCalc 当前只使用本机 SQLite：
 
 ## 状态
 
-当前版本：`v0.2.0-beta`
+当前版本：`v0.3.0-beta`
 
-Beta 0.2 重点放在数据可靠性、工程结构、基础测试、计算器输入光标和数学符号显示上。后续适合继续补充图形表格/追踪、文件级导入导出、更多高级科学计算能力和工具参数模板。
+Beta 0.3 重点放在数据拟合图表、表格化结果、图表可读性、笔记描述搜索和按 ABI 拆分的轻量发布包上。后续适合继续补充更多拟合模型、图表导出和正式签名配置。

@@ -29,11 +29,15 @@ class NotesController extends ChangeNotifier {
   int _loadToken = 0;
   bool _disposed = false;
 
-  List<NoteItem> get notes =>
-      _notes.where(_matchesNote).toList(growable: false);
+  List<NoteItem> get notes => _notes
+      .where(_matchesNote)
+      .where((item) => matchesNoteQuery(item, _query))
+      .toList(growable: false);
 
-  List<HistoryItem> get history =>
-      _history.where(_matchesHistory).toList(growable: false);
+  List<HistoryItem> get history => _history
+      .where(_matchesHistory)
+      .where((item) => matchesHistoryQuery(item, _query))
+      .toList(growable: false);
 
   NotesTab get tab => _tab;
 
@@ -58,9 +62,8 @@ class NotesController extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      final query = _query.isEmpty ? null : _query;
-      final notes = await notesRepository.list(query: query);
-      final history = await historyRepository.list(query: query);
+      final notes = await notesRepository.list(limit: 1000);
+      final history = await historyRepository.list(limit: 500);
       if (_disposed || token != _loadToken) return;
       _notes = notes;
       _history = history;

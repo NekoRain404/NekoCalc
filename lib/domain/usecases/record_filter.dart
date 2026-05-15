@@ -30,3 +30,19 @@ bool matchesNoteRecord(NoteItem item, RecordTab tab) {
   }
   return true;
 }
+
+bool matchesHistoryQuery(HistoryItem item, String query) {
+  final normalized = query.trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  return item.expression.toLowerCase().contains(normalized) ||
+      item.result.toLowerCase().contains(normalized) ||
+      (item.toolId?.toLowerCase().contains(normalized) ?? false);
+}
+
+bool matchesNoteQuery(NoteItem item, String query) {
+  final normalized = query.trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  return item.title.toLowerCase().contains(normalized) ||
+      item.description.toLowerCase().contains(normalized) ||
+      item.body.toLowerCase().contains(normalized);
+}

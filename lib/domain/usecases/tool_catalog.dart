@@ -144,6 +144,18 @@ final List<ToolDefinition> toolCatalog = [
     explanation: '轻量统计工具，后续可扩展多值输入。',
   ),
   const ToolDefinition(
+    id: 'data_fit',
+    title: '数据拟合图表',
+    description: '粘贴列表数据，生成趋势线、方程和拟合指标',
+    category: ToolCategory.math,
+    kind: ToolKind.staticOnly,
+    group: '统计',
+    featured: true,
+    inputs: [],
+    formula: '线性、二次、指数、幂函数最小二乘拟合',
+    explanation: '适合把 Excel 风格的两列数据快速拟合成函数，并查看散点趋势图。',
+  ),
+  const ToolDefinition(
     id: 'matrix',
     title: '矩阵计算',
     description: '2x2 矩阵行列式、迹与逆矩阵',
