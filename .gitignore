@@ -11,6 +11,7 @@ Thumbs.db
 build/
 coverage/
 dist/
+docs/
 
 # Android / Gradle output
 .gradle/

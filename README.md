@@ -1,80 +1,100 @@
 # NekoCalc
 
-一个面向 Android 的 Flutter 计算工具箱。NekoCalc 把日常计算、科学函数、工程工具、单位换算、函数图形和本地笔记放在同一个轻量工作台里，适合学习、调试、估算和移动端快速记录。
+NekoCalc 是一款面向 Android 的本地优先计算工具箱。它使用 Flutter 构建界面与交互，将科学计算器、工程计算工具、函数图形、数据拟合、笔记和计算历史整合在一个轻量应用中。
+
+项目目标是提供一个可以长期维护的移动端计算工作台：功能足够实用，数据默认留在本机，代码结构清晰，发布流程可复现。
 
 <p>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
   <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-23B45D?style=flat-square">
   <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
   <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
+  <img alt="Release" src="https://img.shields.io/badge/release-stable-111827?style=flat-square">
 </p>
 
-## 预览
+## Overview
 
-<p>
-  <img src="docs/images/preview-1.png" alt="NekoCalc preview 1" width="32%">
-  <img src="docs/images/preview-2.png" alt="NekoCalc preview 2" width="32%">
-  <img src="docs/images/preview-3.png" alt="NekoCalc preview 3" width="32%">
-</p>
+NekoCalc 适合日常计算、学习推导、工程估算、数据检查和移动端快速记录。应用不依赖云服务，计算历史、工具结果、笔记、收藏、最近使用工具和设置均存储在本机 SQLite 中。
 
-## 功能
+正式版重点关注四件事：
 
-- 计算器：基础运算、科学函数、三角函数、幂函数、常数输入、角度/弧度模式、记忆寄存器。
-- 工具箱：数学、电路电子、机械工程、财务商业、物理科学、单位换算、编程数据工具。
-- 数据分析：支持 Excel 风格列表数据拟合、散点图、拟合曲线、R²、RMSE、拟合值和残差表。
-- 工程校核：工具结果包含公式、输入摘要、误差范围、边界条件和场景限制。
-- 图形：函数绘制、拖拽缩放、零点/交点/极值标记与点选查看。
-- 笔记与历史：计算历史、工具结果、个人笔记均存储在本机 SQLite。
-- 数据管理：通过 JSON 备份/恢复历史、笔记、收藏、最近工具和设置。
-- 体验：启动动画、深色模式、夜间图标、触感反馈、状态恢复。
+- 清晰的计算体验：基础运算、科学函数、角度/弧度、记忆寄存器、光标编辑和数学符号显示。
+- 实用的工具体系：覆盖数学、工程、电路、财务、物理、单位换算、编程、文本和数据处理。
+- 可靠的数据管理：SQLite 持久化、笔记描述检索、历史去重、备份导出与导入前校验。
+- 可维护的工程结构：Feature-first + Clean Architecture 简化分层，避免 UI、业务逻辑和数据访问混在一起。
 
-## 架构
+## Features
 
-项目采用 Feature-first + Clean Architecture 简化版，核心目标是让页面、状态、计算逻辑和数据持久化保持清晰边界。
+- Scientific calculator with basic arithmetic, common functions, less-used functions, constants, memory keys, haptic feedback, and responsive input.
+- Function graphing with pan/zoom, multiple functions, zeros, intersections, local extrema, highlighted points, and selectable point details.
+- Data Fit Chart tool for Excel-like list data, including multi-series input, axes, grid, fitted curves, residuals, R², and RMSE.
+- Engineering and utility tools for math, electronics, mechanics, finance, physics, unit conversion, programming data, and text workflows.
+- Notes and history backed by SQLite, with searchable title, description, body, calculation history, and tool history.
+- JSON backup and restore with schema validation before database import.
+- Light/dark theme support, stable release icons, optional haptics, and local state restoration.
+
+## Architecture
+
+The project uses a simplified Feature-first + Clean Architecture layout. The intent is practical separation: UI handles interaction, application controllers coordinate state, domain code owns calculation rules, data code owns persistence, and core code contains shared math and formatting utilities.
 
 ```text
 lib/
-├── app.dart                         # 应用根节点：主题、设置注入、启动壳装配
-├── main.dart                        # Flutter 入口
-├── application/                     # Controller、应用设置、状态编排
-├── core/                            # 数学解析、单位换算、格式化、常量
-├── data/                            # SQLite、本地模型、持久化
-├── domain/                          # 实体、工具目录、计算 UseCase、校核逻辑
-├── features/                        # 按功能组织页面与交互
-└── shared/                          # 应用壳、启动页、主题和通用组件
+├── main.dart                        # Flutter entry point
+├── app.dart                         # App root, theme, settings, and shell wiring
+├── application/                     # Controllers, application state, settings orchestration
+├── core/                            # Math parser, formatting, platform helpers, shared utilities
+├── data/                            # SQLite database, repositories, backup persistence
+├── domain/                          # Entities, tool catalog, use cases, calculation logic
+├── features/                        # Feature-first screens, widgets, animations, interactions
+└── shared/                          # App chrome, theme, reusable presentation components
 ```
 
-更多说明见 [docs/file_structure.md](docs/file_structure.md) 和 [docs/architecture.md](docs/architecture.md)。
+More details:
 
-## 运行
+- [Architecture](docs/architecture.md)
+- [File Structure](docs/file_structure.md)
+- [Release Checklist](docs/release_checklist.md)
 
-环境要求：
+## Requirements
 
 - Flutter 3.x
 - Android SDK
-- Android Studio 或命令行 Gradle 环境
+- Android Studio or a working command-line Android toolchain
 
-常用命令：
+Install dependencies:
 
 ```bash
 flutter pub get
+```
+
+Run static checks and tests:
+
+```bash
 flutter analyze
+flutter test
+```
+
+Run on a connected Android device:
+
+```bash
 flutter run
 ```
 
-构建通用 APK：
+## Build
+
+Build a universal release APK:
 
 ```bash
 flutter build apk --release
 ```
 
-按 ABI 拆分发布包：
+Build split APKs by ABI:
 
 ```bash
 flutter build apk --release --split-per-abi
 ```
 
-构建产物位于：
+Release outputs:
 
 ```text
 build/app/outputs/flutter-apk/app-release.apk
@@ -83,44 +103,71 @@ build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
 build/app/outputs/flutter-apk/app-x86_64-release.apk
 ```
 
+## Release Signing
+
+Local debug builds can run without a release keystore. Public release builds should use `android/key.properties`, based on the template in `android/key.properties.example`.
+
+The real keystore and `android/key.properties` must stay outside git. They are ignored by `.gitignore`.
+
+```properties
+storeFile=/absolute/path/to/nekocalc-release.jks
+storePassword=change-me
+keyAlias=nekocalc
+keyPassword=change-me
+```
+
+Before publishing, run:
+
+```bash
+dart format lib test
+flutter analyze
+flutter test
+flutter build apk --release --split-per-abi
+flutter build apk --release
+```
+
+## Data And Privacy
+
+NekoCalc is local-first. It stores app data in SQLite on the device and does not upload user data to a server.
+
+Stored data includes:
+
+- Calculator history
+- Tool result history
+- Notes with title, description, and body
+- Favorite tools and recent tools
+- Settings
+- User-created backup files
+
+Full privacy details are available in [PRIVACY.md](PRIVACY.md).
+
 ## Android Studio
 
-打开项目根目录，也就是包含 `pubspec.yaml` 的目录。Flutter Android 宿主工程位于 `android/`，不要再使用旧式根级 `app/` 模块。
+Open the repository root, the directory containing `pubspec.yaml`. The Android host project lives in `android/`.
 
-如果本机 Flutter 安装缺少 `packages/flutter_tools/gradle`，项目会优先使用本地 `.flutter/flutter_tools_gradle` 兼容层。该目录属于机器缓存，已被 `.gitignore` 忽略；重新同步前可由本机环境生成或保留。
+If a local Flutter installation is missing `packages/flutter_tools/gradle`, the project can use the local `.flutter/flutter_tools_gradle` compatibility layer. That directory is machine-specific cache and is ignored by git.
 
-## 发布
+## Release
 
-本地测试构建可以不配置正式签名；当 `android/key.properties` 存在时，Gradle 会自动使用正式 release keystore。配置模板见 `android/key.properties.example`，真实 keystore 和 `key.properties` 不进入 git。
+Current stable version: `v1.0.0`
 
-发布前按 [Release Checklist](docs/release_checklist.md) 执行完整检查。
+GitHub releases include split APKs for common Android ABIs and an optional universal APK:
 
-## 数据
+- `arm64-v8a` for most modern Android phones
+- `armeabi-v7a` for older 32-bit Android devices
+- `x86_64` for emulator and x86 Android environments
+- `universal` when one APK must cover all supported ABIs
 
-NekoCalc 当前只使用本机 SQLite：
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
-- 计算历史
-- 工具结果历史
-- 收藏工具
-- 设置项
-- 笔记
-- JSON 备份与恢复
+## Documentation
 
-数据不会上传到网络服务。
+- [Architecture](docs/architecture.md)
+- [File Structure](docs/file_structure.md)
+- [Release Checklist](docs/release_checklist.md)
+- [Privacy Policy](PRIVACY.md)
+- [Changelog](CHANGELOG.md)
 
-完整隐私说明见 [Privacy Policy](PRIVACY.md)。
+## License
 
-## 文档
-
-- [架构说明](docs/architecture.md)
-- [Demo 记录](docs/demo.md)
-- [文件结构](docs/file_structure.md)
-- [发布检查清单](docs/release_checklist.md)
-- [隐私政策](PRIVACY.md)
-- [更新日志](CHANGELOG.md)
-
-## 状态
-
-当前版本：`v1.0.0`
-
-1.0 正式版重点放在科学计算器、工程工具、函数图形、数据拟合、本地笔记、SQLite 备份恢复、触感反馈和按 ABI 拆分发布包。后续版本适合继续补充图表导出、更多拟合模型和更完整的工程校核模板。
+See [LICENSE](LICENSE).
