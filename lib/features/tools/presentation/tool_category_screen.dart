@@ -29,7 +29,9 @@ class ToolCategoryScreen extends StatefulWidget {
 
 class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
   final FocusNode _searchFocus = FocusNode();
+  Timer? _searchTimer;
   String _query = '';
+  bool _favoriteBusy = false;
   late Set<String> _favoriteIds = widget.favoriteIds;
   late final ToolUsageRepository _toolUsageRepository =
       ToolUsageRepository(widget.db);
@@ -43,26 +45,49 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
   }
 
   Future<void> _toggleFavorite(ToolDefinition tool) async {
+    // 中文：分类页和工具详情页一样串行化收藏切换，避免快速点击造成状态竞态。
+    // English: Serialize favorite toggles here too, matching the tool detail page and avoiding state races.
+    if (_favoriteBusy) return;
+    _favoriteBusy = true;
     final next = !_favoriteIds.contains(tool.id);
-    await _toolUsageRepository.setFavorite(tool.id, next);
-    final favorites = await _toolUsageRepository.favoriteIds();
-    if (mounted) setState(() => _favoriteIds = favorites);
+    try {
+      await _toolUsageRepository.setFavorite(tool.id, next);
+      final favorites = await _toolUsageRepository.favoriteIds();
+      if (mounted) setState(() => _favoriteIds = favorites);
+    } finally {
+      _favoriteBusy = false;
+    }
   }
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchFocus.dispose();
     super.dispose();
   }
 
+  void _setSearchQuery(String value) {
+    _searchTimer?.cancel();
+    // 中文：分类页工具数量较多时，搜索防抖可以合并连续输入造成的列表过滤和布局计算。
+    // English: Debouncing category search coalesces filtering and layout work while the user types quickly.
+    _searchTimer = Timer(const Duration(milliseconds: 70), () {
+      if (mounted) setState(() => _query = value.trim());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final normalizedQuery = _query.trim().toLowerCase();
     final tools = toolCatalog
         .where((tool) => tool.category == widget.category)
-        .where((tool) =>
-            _query.isEmpty ||
-            '${tool.title}${tool.description}'.contains(_query))
-        .toList();
+        .where((tool) {
+      if (normalizedQuery.isEmpty) return true;
+      // 中文：分类页搜索同样支持英文大小写不敏感和工具 id 命中。
+      // English: Category search also supports case-insensitive English and tool-id matches.
+      return '${tool.title}${tool.description}${tool.group}${tool.id}'
+          .toLowerCase()
+          .contains(normalizedQuery);
+    }).toList();
     final grouped = <String, List<ToolDefinition>>{};
     for (final tool in tools) {
       grouped.putIfAbsent(tool.group, () => []).add(tool);
@@ -88,7 +113,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             const SizedBox(height: 8),
             TextField(
               focusNode: _searchFocus,
-              onChanged: (value) => setState(() => _query = value.trim()),
+              onChanged: _setSearchQuery,
               decoration: InputDecoration(
                   hintText: '搜索${widget.category.title}工具',
                   prefixIcon: const Icon(Icons.search)),

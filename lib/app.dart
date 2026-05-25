@@ -23,21 +23,19 @@ class _NekoCalcAppState extends State<NekoCalcApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 180), () {
-        if (mounted) _loadTheme();
-      });
-    });
+    _loadTheme();
   }
 
   Future<void> _loadTheme() async {
     final settings = AppSettings.fromMap(await _settingsRepository.load());
-    if (mounted) {
-      setState(() {
-        _settings = settings;
-        _themeMode = _themeModeFromLabel(settings.themeModeLabel);
-      });
-    }
+    final themeMode = _themeModeFromLabel(settings.themeModeLabel);
+    // 中文：设置没有变化时跳过整棵 MaterialApp 重建，减少启动和返回设置页的抖动。
+    // English: Skip rebuilding the whole MaterialApp when settings are unchanged.
+    if (!mounted || (settings == _settings && themeMode == _themeMode)) return;
+    setState(() {
+      _settings = settings;
+      _themeMode = themeMode;
+    });
   }
 
   @override
@@ -68,10 +66,13 @@ class _NekoCalcAppState extends State<NekoCalcApp> {
 
   Future<void> _reloadSettings() async {
     final settings = AppSettings.fromMap(await _settingsRepository.load());
-    if (!mounted) return;
+    final themeMode = _themeModeFromLabel(settings.themeModeLabel);
+    // 中文：设置页关闭后只在真实变化时刷新，避免页面栈回退时多余重绘。
+    // English: Refresh after settings only when values changed to avoid unnecessary repaints.
+    if (!mounted || (settings == _settings && themeMode == _themeMode)) return;
     setState(() {
       _settings = settings;
-      _themeMode = _themeModeFromLabel(settings.themeModeLabel);
+      _themeMode = themeMode;
     });
   }
 }

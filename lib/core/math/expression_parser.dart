@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+/// 中文：轻量级递归下降表达式解析器，覆盖计算器、图形和工具页共用的数学输入。
+/// English: Lightweight recursive-descent parser shared by calculator, graphing, and tool math inputs.
 class ExpressionParser {
   ExpressionParser(this.source, {required this.degreeMode})
       : text = source
@@ -13,6 +15,8 @@ class ExpressionParser {
   int _index = 0;
 
   double parse() {
+    // 中文：入口只接受完整表达式，防止 "1+2abc" 这类半成功解析被误认为有效。
+    // English: The entry point requires full consumption so partially parsed input is not treated as valid.
     final value = _parseExpression();
     _skipSpaces();
     if (_index != text.length) {
@@ -22,6 +26,8 @@ class ExpressionParser {
   }
 
   double _parseExpression() {
+    // 中文：表达式层只处理加减，优先级更高的乘除、幂和一元运算交给下层。
+    // English: This level handles addition/subtraction; higher-precedence operations are delegated below.
     var value = _parseTerm();
     while (true) {
       if (_match('+')) {
@@ -35,6 +41,8 @@ class ExpressionParser {
   }
 
   double _parseTerm() {
+    // 中文：乘除层保持左结合，符合日常计算器输入习惯。
+    // English: Multiplication and division are left-associative, matching normal calculator behavior.
     var value = _parsePower();
     while (true) {
       if (_match('*')) {
@@ -48,6 +56,8 @@ class ExpressionParser {
   }
 
   double _parsePower() {
+    // 中文：幂运算使用右结合，保证 2^3^2 被解析为 2^(3^2)。
+    // English: Power is right-associative so 2^3^2 parses as 2^(3^2).
     var value = _parseUnary();
     if (_match('^')) value = math.pow(value, _parsePower()).toDouble();
     return value;
@@ -70,6 +80,8 @@ class ExpressionParser {
       final name = _readName();
       if (name == 'pi') return math.pi;
       if (name == 'e') return math.e;
+      // 中文：函数统一要求括号，便于光标编辑、自动补括号和图形表达式复用。
+      // English: Functions consistently require parentheses, which keeps cursor editing and graph reuse predictable.
       if (!_match('(')) throw FormatException('Function $name needs (');
       final arg = _parseExpression();
       double? secondArg;
@@ -78,6 +90,8 @@ class ExpressionParser {
       }
       if (!_match(')')) throw const FormatException('Missing )');
       final angle = degreeMode ? arg * math.pi / 180 : arg;
+      // 中文：三角函数在这里集中做角度制转换，其他函数始终按纯数值处理。
+      // English: Trigonometric functions centralize degree/radian conversion here; other functions stay numeric.
       return switch (name) {
         'sin' => math.sin(angle),
         'cos' => math.cos(angle),
@@ -133,6 +147,8 @@ class ExpressionParser {
       _index++;
     }
     if (_index < text.length && (text[_index] == 'e' || text[_index] == 'E')) {
+      // 中文：科学计数法只有在指数部分存在数字时才确认消费，避免把常数 e 误吞掉。
+      // English: Scientific notation is consumed only when exponent digits exist, avoiding accidental capture of constant e.
       final exponentStart = _index;
       _index++;
       if (_index < text.length &&
@@ -191,6 +207,8 @@ class ExpressionParser {
     final ni = _readNonNegativeInteger(n, 'nCr n');
     final ri = _readNonNegativeInteger(r, 'nCr r');
     if (ri > ni) return 0;
+    // 中文：组合数使用较小的 k 迭代，降低中间值增长速度并减少溢出风险。
+    // English: nCr iterates with the smaller k to reduce intermediate growth and overflow risk.
     final k = math.min(ri, ni - ri);
     var result = 1.0;
     for (var i = 1; i <= k; i++) {

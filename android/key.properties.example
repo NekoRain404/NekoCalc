@@ -1,0 +1,4 @@
+storeFile=/absolute/path/to/nekocalc-release.jks
+storePassword=change-me
+keyAlias=nekocalc
+keyPassword=change-me

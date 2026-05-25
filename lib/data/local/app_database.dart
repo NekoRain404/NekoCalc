@@ -1,9 +1,12 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../core/utils/backup_snapshot_validator.dart';
 import '../models/history_item.dart';
 import '../models/note_item.dart';
 
+/// 中文：应用唯一 SQLite 入口，集中管理 schema、迁移、查询、备份和恢复。
+/// English: Single SQLite entry point for schema, migrations, queries, backup, and restore.
 class AppDatabase {
   AppDatabase._();
 
@@ -20,6 +23,8 @@ class AppDatabase {
       p.join(dbPath, 'nekocalc.db'),
       version: 5,
       onConfigure: (db) async {
+        // 中文：WAL 和 NORMAL synchronous 在移动端读写体验与安全性之间取得平衡。
+        // English: WAL plus NORMAL synchronous balances mobile write responsiveness and data safety.
         await db.rawQuery('PRAGMA foreign_keys = ON');
         await db.rawQuery('PRAGMA journal_mode = WAL');
         await db.rawQuery('PRAGMA synchronous = NORMAL');
@@ -138,6 +143,8 @@ class AppDatabase {
     return db.transaction((txn) async {
       final now = DateTime.now().millisecondsSinceEpoch;
       final duplicateSince = now - _historyDuplicateWindow.inMilliseconds;
+      // 中文：数据库层再做一次短窗口去重，防止 UI 防重入遗漏或多入口重复保存。
+      // English: Database-level short-window deduplication catches duplicate saves from any entry point.
       final existing = await txn.query(
         'calculation_history',
         columns: ['id'],
@@ -245,6 +252,8 @@ class AppDatabase {
     final db = await database;
     final clauses = <String>[];
     final args = <Object?>[];
+    // 中文：笔记搜索覆盖标题、描述和正文，保证描述字段不是“只展示不可搜索”。
+    // English: Note search covers title, description, and body so the description field is searchable.
     _appendTextSearch(
       clauses: clauses,
       args: args,
@@ -333,6 +342,8 @@ class AppDatabase {
     final normalizedToolId = _normalizeRequired(toolId);
     if (normalizedToolId == null) return;
     await db.transaction((txn) async {
+      // 中文：最近工具用 tool_id 主键 replace，重复打开同一工具只更新时间。
+      // English: Recent tools use tool_id as primary key with replace, so reopening a tool only updates its timestamp.
       await txn.insert(
         'recent_tools',
         {
@@ -380,6 +391,8 @@ class AppDatabase {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
     await db.transaction((txn) async {
+      // 中文：设置项批量写入，避免连续切换设置时产生多次事务开销。
+      // English: Settings are written in one batch to avoid repeated transaction overhead during preference changes.
       final batch = txn.batch();
       for (final entry in values.entries) {
         final normalizedKey = _normalizeRequired(entry.key);
@@ -396,6 +409,8 @@ class AppDatabase {
 
   Future<Map<String, Object?>> exportSnapshot() async {
     final db = await database;
+    // 中文：导出使用稳定排序，便于比较备份文件，也方便以后做增量迁移。
+    // English: Stable ordering makes backup files comparable and prepares for future migration tooling.
     return {
       'schema': 1,
       'exported_at': DateTime.now().toIso8601String(),
@@ -412,12 +427,17 @@ class AppDatabase {
   }
 
   Future<void> importSnapshot(Map<String, Object?> snapshot) async {
+    // 中文：二次校验用于保护直接调用 importSnapshot 的代码路径。
+    // English: Validate again to protect callers that bypass the repository parser.
+    validateBackupSnapshot(snapshot);
     final tables = snapshot['tables'];
     if (tables is! Map) {
       throw const FormatException('备份数据缺少 tables 字段');
     }
     final db = await database;
     await db.transaction((txn) async {
+      // 中文：通过单个事务完成“清空再恢复”，失败时 SQLite 会回滚到导入前状态。
+      // English: Clear-and-restore runs in one transaction so SQLite rolls back to the pre-import state on failure.
       await txn.delete('calculation_history');
       await txn.delete('notes');
       await txn.delete('favorite_tools');
@@ -441,6 +461,8 @@ class AppDatabase {
   }
 
   static Future<void> _trimHistory(DatabaseExecutor db) {
+    // 中文：历史保留最近 500 条，限制 SQLite 增长并保持笔记页查询轻量。
+    // English: Keep the latest 500 history rows to limit database growth and keep notes queries light.
     return db.rawDelete(
       '''
       DELETE FROM calculation_history
@@ -487,6 +509,8 @@ class AppDatabase {
   }) {
     final normalized = query?.trim();
     if (normalized == null || normalized.isEmpty) return;
+    // 中文：转义 LIKE 通配符，用户搜索 % 或 _ 时按普通字符处理。
+    // English: Escape LIKE wildcards so user-entered % and _ are treated as literal characters.
     final pattern = '%${_escapeLike(normalized)}%';
     clauses.add(
         '(${columns.map((column) => '$column LIKE ? ESCAPE "\\"').join(' OR ')})');
@@ -508,6 +532,8 @@ class AppDatabase {
   ) {
     if (rows == null) return;
     if (rows is! List) throw FormatException('$table 不是有效列表');
+    // 中文：恢复时逐行规范化，跳过坏行而不是让单条脏数据破坏整份备份。
+    // English: Normalize each restored row and skip invalid rows instead of letting one bad row ruin the backup.
     for (final row in rows) {
       if (row is! Map) continue;
       final normalized = normalize(row.cast<String, Object?>());

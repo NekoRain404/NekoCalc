@@ -57,6 +57,23 @@ class ToolDetailController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateValues(Map<String, String> rawValues) {
+    var changed = false;
+    final nextValues = {..._values};
+    // 中文：批量应用输入框变化，避免多个参数连续编辑时重复计算和重复通知 UI。
+    // English: Apply input changes in one batch to avoid repeated recalculation and UI notifications.
+    for (final entry in rawValues.entries) {
+      final next = double.tryParse(entry.value.replaceAll(',', '')) ?? 0;
+      if (nextValues[entry.key] == next) continue;
+      nextValues[entry.key] = next;
+      changed = true;
+    }
+    if (!changed) return;
+    _values = nextValues;
+    _recalculate();
+    notifyListeners();
+  }
+
   void resetValues() {
     _values = {
       for (final input in tool.inputs) input.key: input.defaultValue ?? 0,

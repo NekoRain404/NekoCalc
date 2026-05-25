@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../core/utils/backup_snapshot_validator.dart';
 import '../local/app_database.dart';
 
 class DataBackupRepository {
@@ -13,10 +14,8 @@ class DataBackupRepository {
   }
 
   Future<void> importJson(String source) async {
-    final decoded = jsonDecode(source);
-    if (decoded is! Map) {
-      throw const FormatException('备份内容不是有效对象');
-    }
-    await _db.importSnapshot(decoded.cast<String, Object?>());
+    // 中文：仓库层只接受已校验快照，避免 UI 层传入半截 JSON 时清库。
+    // English: Import only validated snapshots so partial JSON from the UI cannot clear the database.
+    await _db.importSnapshot(parseBackupSnapshot(source));
   }
 }

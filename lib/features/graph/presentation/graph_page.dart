@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/math/expression_parser.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+/// 中文：函数图形页，提供函数管理、拖拽缩放，以及零点/交点/极值标记。
+/// English: Function graph page with function management, pan/zoom, and zero/intersection/extrema markers.
 class GraphPage extends StatefulWidget {
   const GraphPage({super.key});
 
@@ -49,6 +51,7 @@ class _GraphPageState extends State<GraphPage> {
         ],
       ),
     );
+    controller.dispose();
     if (expression == null || expression.isEmpty) return;
     setState(() {
       _functions.add(GraphFunction(
@@ -90,6 +93,7 @@ class _GraphPageState extends State<GraphPage> {
         ],
       ),
     );
+    controller.dispose();
     if (expression == null || expression.isEmpty) return;
     setState(() {
       final current = _functions[index];
@@ -354,29 +358,39 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   List<GraphMarker> _findIntersectionMarkers() {
-    final visible = _functions.where((item) => item.visible).take(2).toList();
+    final visible = _functions.where((item) => item.visible).toList();
     if (visible.length < 2) return const [];
     final markers = <GraphMarker>[];
     final step = _viewport.spanX / 800;
-    for (var x = _viewport.xMin; x < _viewport.xMax; x += step) {
-      final d1 = visible[0].evaluate(x) - visible[1].evaluate(x);
-      final d2 = visible[0].evaluate(x + step) - visible[1].evaluate(x + step);
-      if (!_finite(d1) || !_finite(d2)) continue;
-      if (d1.abs() < 1e-7 || d1.sign != d2.sign) {
-        final root = _bisect(
-            (value) => visible[0].evaluate(value) - visible[1].evaluate(value),
-            x,
-            x + step);
-        final y = visible[0].evaluate(root);
-        if (!_finite(y) || _hasNearby(markers, root, y, step * 3)) continue;
-        markers.add(GraphMarker(
-          x: root,
-          y: y,
-          color: const Color(0xFFFF8A00),
-          kind: '交点',
-          info:
-              '${visible[0].label}\n${visible[1].label}\n交点 x = ${root.toStringAsFixed(6)}, y = ${y.toStringAsFixed(6)}',
-        ));
+    // 中文：所有可见函数两两配对，避免只检查前两条曲线导致交点缺失。
+    // English: Compare every visible function pair so intersections are not limited to the first two curves.
+    for (var i = 0; i < visible.length; i++) {
+      for (var j = i + 1; j < visible.length; j++) {
+        final first = visible[i];
+        final second = visible[j];
+        for (var x = _viewport.xMin; x < _viewport.xMax; x += step) {
+          final d1 = first.evaluate(x) - second.evaluate(x);
+          final d2 = first.evaluate(x + step) - second.evaluate(x + step);
+          if (!_finite(d1) || !_finite(d2)) continue;
+          if (d1.abs() < 1e-7 || d1.sign != d2.sign) {
+            final root = _bisect(
+                (value) => first.evaluate(value) - second.evaluate(value),
+                x,
+                x + step);
+            final y = first.evaluate(root);
+            if (!_finite(y) || _hasNearby(markers, root, y, step * 3)) {
+              continue;
+            }
+            markers.add(GraphMarker(
+              x: root,
+              y: y,
+              color: const Color(0xFFFF8A00),
+              kind: '交点',
+              info:
+                  '${first.label}\n${second.label}\n交点 x = ${root.toStringAsFixed(6)}, y = ${y.toStringAsFixed(6)}',
+            ));
+          }
+        }
       }
     }
     return markers;
@@ -385,43 +399,47 @@ class _GraphPageState extends State<GraphPage> {
   List<GraphMarker> _findExtremeMarkers() {
     final visible = _functions.where((item) => item.visible).toList();
     if (visible.isEmpty) return const [];
-    final function = visible.first;
-    var minX = _viewport.xMin;
-    var minY = double.infinity;
-    var maxX = _viewport.xMin;
-    var maxY = -double.infinity;
+    final markers = <GraphMarker>[];
     final step = _viewport.spanX / 1000;
-    for (var x = _viewport.xMin; x <= _viewport.xMax; x += step) {
-      final y = function.evaluate(x);
-      if (!_finite(y)) continue;
-      if (y < minY) {
-        minY = y;
-        minX = x;
-      }
-      if (y > maxY) {
-        maxY = y;
-        maxX = x;
+    // 中文：使用相邻三点判断局部极值，再用二次插值细化点位。
+    // English: Detect local extrema with three neighboring samples, then refine the point by quadratic interpolation.
+    for (final function in visible) {
+      var leftX = _viewport.xMin;
+      var leftY = function.evaluate(leftX);
+      var midX = leftX + step;
+      var midY = function.evaluate(midX);
+      for (var rightX = midX + step; rightX <= _viewport.xMax; rightX += step) {
+        final rightY = function.evaluate(rightX);
+        if (_finite(leftY) && _finite(midY) && _finite(rightY)) {
+          final isMin = midY < leftY && midY <= rightY;
+          final isMax = midY > leftY && midY >= rightY;
+          if (isMin || isMax) {
+            final refined =
+                _quadraticVertex(leftX, leftY, midX, midY, rightX, rightY);
+            final x = refined?.$1 ?? midX;
+            final y = refined?.$2 ?? midY;
+            if (_finite(x) &&
+                _finite(y) &&
+                !_hasNearby(markers, x, y, step * 4)) {
+              markers.add(GraphMarker(
+                x: x,
+                y: y,
+                color:
+                    isMin ? const Color(0xFF23B45D) : const Color(0xFFFF4D5E),
+                kind: isMin ? '极小值' : '极大值',
+                info:
+                    '${function.label} ${isMin ? '极小值' : '极大值'}\nx = ${x.toStringAsFixed(6)}\ny = ${y.toStringAsFixed(6)}',
+              ));
+            }
+          }
+        }
+        leftX = midX;
+        leftY = midY;
+        midX = rightX;
+        midY = rightY;
       }
     }
-    if (!minY.isFinite) return const [];
-    return [
-      GraphMarker(
-        x: minX,
-        y: minY,
-        color: const Color(0xFF23B45D),
-        kind: '极小值',
-        info:
-            '${function.label} 极小值\nx = ${minX.toStringAsFixed(6)}\ny = ${minY.toStringAsFixed(6)}',
-      ),
-      GraphMarker(
-        x: maxX,
-        y: maxY,
-        color: const Color(0xFFFF4D5E),
-        kind: '极大值',
-        info:
-            '${function.label} 极大值\nx = ${maxX.toStringAsFixed(6)}\ny = ${maxY.toStringAsFixed(6)}',
-      ),
-    ];
+    return markers;
   }
 
   bool _hasNearby(
@@ -433,6 +451,8 @@ class _GraphPageState extends State<GraphPage> {
   bool _finite(double value) => value.isFinite && !value.isNaN;
 
   double _bisect(double Function(double x) f, double left, double right) {
+    // 中文：二分法用于符号变号区间，收敛稳定且足够适合移动端交互。
+    // English: Bisection is stable for sign-change intervals and inexpensive enough for mobile interaction.
     var a = left;
     var b = right;
     var fa = f(a);
@@ -448,6 +468,23 @@ class _GraphPageState extends State<GraphPage> {
       }
     }
     return (a + b) / 2;
+  }
+
+  (double, double)? _quadraticVertex(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
+    // 中文：用三点拟合局部抛物线，提升极值标记精度但避免引入重型数值库。
+    // English: Fit a local parabola from three points for better extrema accuracy without a heavy numeric library.
+    final denominator = (x1 - x2) * (x1 - x3) * (x2 - x3);
+    if (denominator.abs() < 1e-12) return null;
+    final a = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / denominator;
+    final b =
+        (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) /
+            denominator;
+    if (a.abs() < 1e-12) return null;
+    final x = -b / (2 * a);
+    if (x < math.min(x1, x3) || x > math.max(x1, x3)) return null;
+    final y = a * x * x + b * x + (y2 - a * x2 * x2 - b * x2);
+    return (x, y);
   }
 }
 
@@ -523,6 +560,8 @@ class GraphFunction {
 
   double evaluate(double x) {
     try {
+      // 中文：图形页复用核心表达式解析器，保证计算器和图形函数语义一致。
+      // English: The graph page reuses the core expression parser so graph functions match calculator semantics.
       final parsed = _normalize(expression, x);
       return ExpressionParser(parsed, degreeMode: false).parse();
     } catch (_) {
@@ -531,6 +570,8 @@ class GraphFunction {
   }
 
   String _normalize(String raw, double x) {
+    // 中文：把常见数学显示符号转成 parser 语法，并把 x 替换为当前采样值。
+    // English: Convert common display math symbols to parser syntax and replace x with the current sample value.
     var parsed = raw
         .toLowerCase()
         .replaceAll('π', 'pi')
@@ -541,6 +582,8 @@ class GraphFunction {
     parsed = parsed.replaceAllMapped(
         RegExp(r'(\d|\))(?=(\(|pi|e|sin|cos|tan|sqrt|log|ln|abs))'),
         (match) => '${match.group(1)}*');
+    // 中文：补上隐式乘法，例如 2sin(x)、3pi、(x+1)(x-1)。
+    // English: Insert implicit multiplication for forms such as 2sin(x), 3pi, and (x+1)(x-1).
     return parsed;
   }
 
@@ -611,6 +654,8 @@ class GraphPainter extends CustomPainter {
       ..color = axisColor
       ..strokeWidth = 1.2;
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    // 中文：网格步长使用 1/2/5 序列，让缩放时刻度更接近工程图表习惯。
+    // English: Grid steps use the 1/2/5 sequence so zoomed ticks feel like engineering charts.
     final xStep = _niceStep(viewport.spanX / 8);
     final yStep = _niceStep(viewport.spanY / 8);
     for (var x = (viewport.xMin / xStep).floor() * xStep;
@@ -652,6 +697,8 @@ class GraphPainter extends CustomPainter {
     var started = false;
     Offset? previous;
     for (var i = 0; i <= size.width; i++) {
+      // 中文：按屏幕像素采样，缩放后曲线密度自然跟随可见宽度。
+      // English: Sample per screen pixel so curve density follows the visible width after zooming.
       final x = viewport.xMin + i / size.width * viewport.spanX;
       final y = function.evaluate(x);
       if (y.isNaN ||
@@ -666,6 +713,8 @@ class GraphPainter extends CustomPainter {
       if (!started ||
           previous == null ||
           (point.dy - previous.dy).abs() > size.height * 0.75) {
+        // 中文：大跳变时断开路径，避免渐近线被错误连成竖线。
+        // English: Break the path on large jumps to avoid drawing false vertical lines at asymptotes.
         path.moveTo(point.dx, point.dy);
         started = true;
       } else {
@@ -677,6 +726,8 @@ class GraphPainter extends CustomPainter {
   }
 
   void _plotMarkers(Canvas canvas, Size size) {
+    // 中文：只绘制当前视窗内的标记，平移后隐藏离屏点，避免标签污染画布。
+    // English: Paint only in-viewport markers so offscreen points do not pollute the canvas after panning.
     for (var i = 0; i < markers.length; i++) {
       final marker = markers[i];
       if (marker.x < viewport.xMin ||

@@ -21,13 +21,16 @@ class ToolsController {
   }
 
   List<ToolDefinition> search(String query) {
-    final normalized = query.trim();
+    final normalized = query.trim().toLowerCase();
     if (normalized.isEmpty) return toolCatalog;
-    return toolCatalog
-        .where((tool) =>
-            '${tool.title}${tool.description}${tool.category.title}${tool.group}'
-                .contains(normalized))
-        .toList();
+    return toolCatalog.where((tool) {
+      // 中文：把标题、描述、分类和工具 id 放进同一个索引串，兼顾中英文和技术关键词搜索。
+      // English: Search one combined index containing title, description, category, and tool id.
+      final haystack =
+          '${tool.title}${tool.description}${tool.category.title}${tool.group}${tool.id}'
+              .toLowerCase();
+      return haystack.contains(normalized);
+    }).toList();
   }
 }
 

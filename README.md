@@ -4,7 +4,7 @@
 
 <p>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.3.0--beta-6D5DFB?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-23B45D?style=flat-square">
   <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
   <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
 </p>
@@ -62,7 +62,7 @@ flutter analyze
 flutter run
 ```
 
-构建 APK：
+构建通用 APK：
 
 ```bash
 flutter build apk --release
@@ -78,6 +78,9 @@ flutter build apk --release --split-per-abi
 
 ```text
 build/app/outputs/flutter-apk/app-release.apk
+build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+build/app/outputs/flutter-apk/app-x86_64-release.apk
 ```
 
 ## Android Studio
@@ -85,6 +88,12 @@ build/app/outputs/flutter-apk/app-release.apk
 打开项目根目录，也就是包含 `pubspec.yaml` 的目录。Flutter Android 宿主工程位于 `android/`，不要再使用旧式根级 `app/` 模块。
 
 如果本机 Flutter 安装缺少 `packages/flutter_tools/gradle`，项目会优先使用本地 `.flutter/flutter_tools_gradle` 兼容层。该目录属于机器缓存，已被 `.gitignore` 忽略；重新同步前可由本机环境生成或保留。
+
+## 发布
+
+本地测试构建可以不配置正式签名；当 `android/key.properties` 存在时，Gradle 会自动使用正式 release keystore。配置模板见 `android/key.properties.example`，真实 keystore 和 `key.properties` 不进入 git。
+
+发布前按 [Release Checklist](docs/release_checklist.md) 执行完整检查。
 
 ## 数据
 
@@ -99,15 +108,19 @@ NekoCalc 当前只使用本机 SQLite：
 
 数据不会上传到网络服务。
 
+完整隐私说明见 [Privacy Policy](PRIVACY.md)。
+
 ## 文档
 
 - [架构说明](docs/architecture.md)
 - [Demo 记录](docs/demo.md)
 - [文件结构](docs/file_structure.md)
+- [发布检查清单](docs/release_checklist.md)
+- [隐私政策](PRIVACY.md)
 - [更新日志](CHANGELOG.md)
 
 ## 状态
 
-当前版本：`v0.3.0-beta`
+当前版本：`v1.0.0`
 
-Beta 0.3 重点放在数据拟合图表、表格化结果、图表可读性、笔记描述搜索和按 ABI 拆分的轻量发布包上。后续适合继续补充更多拟合模型、图表导出和正式签名配置。
+1.0 正式版重点放在科学计算器、工程工具、函数图形、数据拟合、本地笔记、SQLite 备份恢复、触感反馈和按 ABI 拆分发布包。后续版本适合继续补充图表导出、更多拟合模型和更完整的工程校核模板。

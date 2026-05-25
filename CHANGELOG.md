@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.0.0
+
+NekoCalc 1.0 is the first stable release. It focuses on daily reliability, local-first data safety, release packaging, and a smoother scientific calculator workflow.
+
+NekoCalc 1.0 是第一个正式稳定版，重点完善日常可用性、本地数据安全、发布打包和科学计算器交互。
+
+- Promoted the app from beta to stable with public version `1.0.0+6`.
+- Added a formal privacy policy and removed the unused network permission.
+- Added release signing support with local `key.properties` and split-ABI release packaging.
+- Improved calculator responsiveness by showing results before background SQLite writes.
+- Improved haptic feedback timing and added clearer settings for haptic strength.
+- Improved calculator expression display with mathematical symbols and cursor-based editing.
+- Improved SQLite backup validation before import to protect local notes, history, settings, favorites, and recent tools.
+- Improved notes search so title, description, and body all participate in matching.
+- Improved tool search, favorite toggles, recent tools, and large text/data tool recalculation.
+- Improved graph markers for zeros, intersections, and local extrema with selectable point details.
+- Improved Data Fit Chart with axes, grid, multi-series handling, readable themes, and table-style results.
+- Added broader bilingual code comments and release documentation for maintainability.
+
 ## v0.3.0-beta
 
 Beta 0.3 focuses on data analysis tools, chart readability, and better local search.

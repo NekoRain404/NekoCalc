@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/data_fit.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+/// 中文：数据拟合图表工具页，负责输入数据、选择模型、展示图表和残差表。
+/// English: Data fitting tool screen for data entry, model selection, chart rendering, and residual table display.
 class DataFitToolScreen extends StatefulWidget {
   const DataFitToolScreen({
     required this.db,
@@ -34,6 +37,9 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   int _selectedSeriesIndex = 0;
   FitResult? _result;
   String? _error;
+  Timer? _recalculateTimer;
+  bool _savingHistory = false;
+  bool _savingNote = false;
 
   @override
   void initState() {
@@ -41,7 +47,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
     _dataController = TextEditingController(
       text:
           '1, 2.1, 1.2\n2, 3.9, 1.8\n3, 6.2, 3.2\n4, 8.1, 5.1\n5, 10.2, 7.4\n6, 12.3, 10.9',
-    )..addListener(_recalculate);
+    )..addListener(_scheduleRecalculate);
     _historyRepository = HistoryRepository(widget.db);
     _notesRepository = NotesRepository(widget.db);
     _recalculate();
@@ -49,12 +55,24 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
 
   @override
   void dispose() {
+    _recalculateTimer?.cancel();
     _dataController.dispose();
     super.dispose();
   }
 
+  void _scheduleRecalculate() {
+    _recalculateTimer?.cancel();
+    // 中文：粘贴或连续编辑数据时合并拟合计算，避免图表和表格反复重建。
+    // English: Debounce fitting while pasting or editing data to avoid repeatedly rebuilding chart and table.
+    _recalculateTimer = Timer(const Duration(milliseconds: 90), _recalculate);
+  }
+
   void _recalculate() {
+    _recalculateTimer?.cancel();
+    _recalculateTimer = null;
     try {
+      // 中文：输入解析支持单组、多列和空行分组，UI 只关心当前选中序列。
+      // English: Parsing supports single-series, multi-column, and blank-line groups; the UI only fits the selected series.
       final series = parseDataSeries(_dataController.text);
       if (series.isEmpty) {
         throw const FormatException('请输入至少两行有效数据');
@@ -411,6 +429,8 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   }
 
   Widget _actions() {
+    // 中文：复制、保存历史、保存笔记保持同一行，符合工具页统一操作区。
+    // English: Copy, save history, and save note share one row to match the common tool action layout.
     return Row(
       children: [
         Expanded(
@@ -448,6 +468,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   }
 
   void _reset() {
+    _recalculateTimer?.cancel();
     _model = FitModel.linear;
     _selectedSeriesIndex = 0;
     _dataController.text =
@@ -458,6 +479,8 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   String _copyText() {
     final result = _result;
     if (result == null) return _error ?? '无有效拟合结果';
+    // 中文：复制内容包含原始数据，便于把拟合结论贴到笔记或外部文档后仍可复核。
+    // English: Copied text includes raw data so the fitted result remains auditable in notes or external docs.
     return [
       widget.tool.title,
       if (_series.isNotEmpty) '数据组: ${_series[_selectedSeriesIndex].name}',
@@ -477,28 +500,44 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   }
 
   Future<void> _saveHistory() async {
+    // 中文：保存动作防重入，避免快速连点生成重复历史记录。
+    // English: Guard save action re-entry to prevent duplicate history rows from rapid taps.
+    if (_savingHistory) return;
     final result = _result;
     if (result == null) return;
-    await _historyRepository.saveToolResult(
-      toolId: widget.tool.id,
-      expression: '${result.model.label}拟合: ${_dataController.text.trim()}',
-      result: result.summary,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+    _savingHistory = true;
+    try {
+      await _historyRepository.saveToolResult(
+        toolId: widget.tool.id,
+        expression: '${result.model.label}拟合: ${_dataController.text.trim()}',
+        result: result.summary,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+      }
+    } finally {
+      _savingHistory = false;
     }
   }
 
   Future<void> _saveNote() async {
-    await _notesRepository.create(
-      title: widget.tool.title,
-      body: _copyText(),
-      description: widget.tool.description,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    // 中文：笔记写入可能经过 SQLite，快速连点时只保留第一个请求。
+    // English: Note writes go through SQLite; rapid repeated taps keep only the first request.
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      await _notesRepository.create(
+        title: widget.tool.title,
+        body: _copyText(),
+        description: widget.tool.description,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+      }
+    } finally {
+      _savingNote = false;
     }
   }
 }
@@ -541,6 +580,8 @@ class _FitChartPainter extends CustomPainter {
       for (final item in series) ...item.points,
       ...result.predictions,
     ];
+    // 中文：坐标范围同时纳入原始点和预测点，保证拟合曲线不会被裁掉。
+    // English: Axis bounds include both raw points and predictions so the fitted curve is not clipped.
     final minX = allPoints.map((p) => p.x).reduce(math.min);
     final maxX = allPoints.map((p) => p.x).reduce(math.max);
     final minY = allPoints.map((p) => p.y).reduce(math.min);
@@ -586,6 +627,8 @@ class _FitChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     for (var i = 0; i <= 5; i++) {
+      // 中文：固定 5 等分网格，移动端上标签密度稳定，避免小屏拥挤。
+      // English: A fixed five-step grid keeps label density stable and avoids crowding on phones.
       final xValue = minX + xRange * i / 5;
       final yValue = minY + yRange * i / 5;
       final x = plot.left + plot.width * i / 5;
@@ -616,6 +659,8 @@ class _FitChartPainter extends CustomPainter {
 
     final lineMinX = result.points.map((p) => p.x).reduce(math.min);
     final lineMaxX = result.points.map((p) => p.x).reduce(math.max);
+    // 中文：拟合曲线只在样本 x 范围内绘制，避免外推线误导用户。
+    // English: Draw the fit only across the sampled x-range to avoid misleading extrapolation.
     final linePoints = _sampleFit(lineMinX, lineMaxX);
     final path = Path();
     for (var i = 0; i < linePoints.length; i++) {
@@ -658,6 +703,8 @@ class _FitChartPainter extends CustomPainter {
   List<DataPoint> _sampleFit(double minX, double maxX) {
     final points = <DataPoint>[];
     const steps = 64;
+    // 中文：64 个采样点在平滑度和绘制成本之间足够均衡。
+    // English: Sixty-four samples balance smoothness and painting cost.
     for (var i = 0; i <= steps; i++) {
       final x = minX + (maxX - minX) * i / steps;
       points.add(DataPoint(x, _predict(x)));

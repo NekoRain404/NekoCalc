@@ -2,7 +2,7 @@ class AppInfo {
   const AppInfo._();
 
   static const name = 'NekoCalc';
-  static const version = 'v0.3.0-beta';
-  static const channel = 'Beta 0.3 预览版';
-  static const updateLabel = 'Beta 0.3 构建';
+  static const version = 'v1.0.0';
+  static const channel = '正式版 / Stable';
+  static const updateLabel = '1.0 正式构建';
 }

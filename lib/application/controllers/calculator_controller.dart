@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/math/expression_parser.dart';
@@ -7,6 +9,8 @@ import '../../data/repositories/notes_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../app_settings.dart';
 
+/// 中文：计算器页面的应用层状态控制器，负责表达式编辑、实时计算、历史保存和状态恢复。
+/// English: Application-layer controller for the calculator page; owns expression editing, live evaluation, history saving, and state restore.
 class CalculatorController extends ChangeNotifier {
   CalculatorController({
     required this.historyRepository,
@@ -28,11 +32,13 @@ class CalculatorController extends ChangeNotifier {
   bool hasError = false;
   String? _lastSavedExpression;
   String? _lastSavedResult;
+  Timer? _liveEvaluationTimer;
   bool _disposed = false;
 
   @override
   void dispose() {
     _disposed = true;
+    _liveEvaluationTimer?.cancel();
     super.dispose();
   }
 
@@ -74,6 +80,7 @@ class CalculatorController extends ChangeNotifier {
       return;
     }
     if (token == '=') {
+      _liveEvaluationTimer?.cancel();
       evaluate();
       notifyListeners();
       return;
@@ -90,7 +97,7 @@ class CalculatorController extends ChangeNotifier {
       _insert(token);
     }
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -98,7 +105,7 @@ class CalculatorController extends ChangeNotifier {
     expression = value;
     cursorIndex = expression.length;
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -106,7 +113,7 @@ class CalculatorController extends ChangeNotifier {
     final nextPrefix = _appendSmart(expressionBeforeCursor, token);
     _replaceAroundCursor(nextPrefix);
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -114,7 +121,7 @@ class CalculatorController extends ChangeNotifier {
     final nextPrefix = _wrapTrailingValue(expressionBeforeCursor, name);
     _replaceAroundCursor(nextPrefix);
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -123,7 +130,7 @@ class CalculatorController extends ChangeNotifier {
         _wrapTrailingValue(expressionBeforeCursor, name, binary: true);
     _replaceAroundCursor(nextPrefix);
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -133,7 +140,7 @@ class CalculatorController extends ChangeNotifier {
         expression.substring(cursorIndex);
     cursorIndex--;
     _invalidateSubmitCache();
-    evaluate();
+    _scheduleLiveEvaluation();
     notifyListeners();
   }
 
@@ -171,29 +178,36 @@ class CalculatorController extends ChangeNotifier {
     }
   }
 
-  Future<bool> submit() async {
-    if (expression.trim().isEmpty) return false;
+  Future<bool> submit() {
+    if (expression.trim().isEmpty) return Future.value(false);
+    _liveEvaluationTimer?.cancel();
     try {
+      final submittedExpression = expression;
       final value =
-          ExpressionParser(expression, degreeMode: angleMode == 'DEG').parse();
+          ExpressionParser(submittedExpression, degreeMode: angleMode == 'DEG')
+              .parse();
       result = formatNumber(value, precision: _settings.precision);
       hasError = false;
-      final duplicate =
-          _lastSavedExpression == expression && _lastSavedResult == result;
+      final duplicate = _lastSavedExpression == submittedExpression &&
+          _lastSavedResult == result;
       if (_settings.autoSaveHistory && !duplicate) {
-        await historyRepository.saveCalculation(
-            expression: expression, result: result);
-        _lastSavedExpression = expression;
+        // 中文：先刷新结果，再后台写 SQLite，等号响应不被磁盘 IO 阻塞。
+        // English: Show the result first and save to SQLite in the background so "=" stays instant.
+        _lastSavedExpression = submittedExpression;
         _lastSavedResult = result;
+        unawaited(_saveSubmittedResult(submittedExpression, result));
+      } else {
+        // 中文：状态持久化不影响当前交互，失败也不应打断计算。
+        // English: State persistence must not block the current interaction.
+        unawaited(_persistState());
       }
-      await _persistState();
       notifyListeners();
-      return true;
+      return Future.value(true);
     } catch (_) {
       result = '表达式错误';
       hasError = true;
       notifyListeners();
-      return false;
+      return Future.value(false);
     }
   }
 
@@ -204,30 +218,30 @@ class CalculatorController extends ChangeNotifier {
         description: '由计算器保存的表达式结果');
   }
 
-  Future<void> memoryAdd() async {
+  void memoryAdd() {
     memoryValue += _currentNumericValue();
-    await _persistState();
+    unawaited(_persistState());
     notifyListeners();
   }
 
-  Future<void> memorySubtract() async {
+  void memorySubtract() {
     memoryValue -= _currentNumericValue();
-    await _persistState();
+    unawaited(_persistState());
     notifyListeners();
   }
 
-  Future<void> memoryRecall() async {
+  void memoryRecall() {
     expression = formatNumber(memoryValue, precision: _settings.precision);
     cursorIndex = expression.length;
     _invalidateSubmitCache();
     evaluate();
-    await _persistState();
+    unawaited(_persistState());
     notifyListeners();
   }
 
-  Future<void> memoryClear() async {
+  void memoryClear() {
     memoryValue = 0;
-    await _persistState();
+    unawaited(_persistState());
     notifyListeners();
   }
 
@@ -274,6 +288,19 @@ class CalculatorController extends ChangeNotifier {
     });
   }
 
+  Future<void> _saveSubmittedResult(String expression, String result) async {
+    try {
+      await historyRepository.saveCalculation(
+          expression: expression, result: result);
+      await _persistState();
+    } catch (_) {
+      // 中文：后台保存失败时释放去重缓存，用户下次按等号仍可重试保存。
+      // English: Clear duplicate guards on background save failure so the next submit can retry.
+      _lastSavedExpression = null;
+      _lastSavedResult = null;
+    }
+  }
+
   double _currentNumericValue() {
     try {
       if (expression.trim().isNotEmpty) {
@@ -289,6 +316,17 @@ class CalculatorController extends ChangeNotifier {
   void _invalidateSubmitCache() {
     _lastSavedExpression = null;
     _lastSavedResult = null;
+  }
+
+  void _scheduleLiveEvaluation() {
+    _liveEvaluationTimer?.cancel();
+    // 中文：快速输入时合并实时解析，输入显示立即更新，结果稍后统一刷新。
+    // English: Debounce live parsing during fast typing; input updates immediately and results refresh together.
+    _liveEvaluationTimer = Timer(const Duration(milliseconds: 32), () {
+      if (_disposed) return;
+      evaluate();
+      notifyListeners();
+    });
   }
 
   void _toggleSign() {

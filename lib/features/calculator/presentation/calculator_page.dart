@@ -13,6 +13,8 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'widgets/math_expression_text.dart';
 
+/// 中文：计算器主界面，UI 只负责布局和输入分发，计算逻辑留在 CalculatorController。
+/// English: Main calculator screen; UI handles layout and input dispatch while calculation stays in CalculatorController.
 class CalculatorPage extends StatefulWidget {
   const CalculatorPage({
     required this.db,
@@ -32,6 +34,7 @@ class CalculatorPage extends StatefulWidget {
 class _CalculatorPageState extends State<CalculatorPage> {
   late final CalculatorController _controller;
   String _pad = 'Basic';
+  bool _savingNote = false;
 
   static const List<String> _pads = ['Basic', '函数'];
   static const List<String> _functionEditKeys = ['AC', '⌫', '+/-', '='];
@@ -104,11 +107,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
       notesRepository: NotesRepository(widget.db),
       settingsRepository: SettingsRepository(widget.db),
       settings: widget.settings,
-    )..addListener(_onControllerChanged);
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 360), () {
-        if (mounted) _controller.restoreIfEnabled();
-      });
+      if (mounted) _controller.restoreIfEnabled();
     });
   }
 
@@ -122,19 +123,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   @override
   void dispose() {
-    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 中文：根据可用高度动态分配显示区和键盘区，避免不同手机上按钮被挤压或溢出。
+        // English: Allocate display and keypad height from available space to avoid squeezed or overflowing keys.
         final displayHeight =
             (constraints.maxHeight * 0.24).clamp(142.0, 178.0);
         final basicKeyboardHeight = _basicKeyboardHeight(constraints.maxHeight);
@@ -148,9 +146,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
               child: Column(
                 children: [
-                  _header(),
+                  // 中文：只让依赖控制器状态的区域重建，键盘本体不随每次输入重建。
+                  // English: Rebuild only controller-dependent regions; the keypad itself does not rebuild on every input.
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) => _header(),
+                  ),
                   const SizedBox(height: 12),
-                  SizedBox(height: displayHeight, child: _displayCard(context)),
+                  SizedBox(
+                    height: displayHeight,
+                    child: AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, _) => _displayCard(context),
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   _padTabs(),
                   const SizedBox(height: 8),
@@ -161,7 +170,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     SizedBox(
                         height: functionPanelHeight, child: _functionPanel()),
                   const SizedBox(height: 10),
-                  _memoryBar(),
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) => _memoryBar(),
+                  ),
                   const SizedBox(height: 10),
                   _actions(),
                 ],
@@ -202,6 +214,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final scheme = Theme.of(context).colorScheme;
     final hasExpression = _controller.expression.isNotEmpty;
     final hasMemory = _controller.memoryValue != 0;
+    // 中文：表达式和结果分层显示，空表达式时突出当前值，输入中则突出实时结果。
+    // English: Expression and result are visually separated; empty input emphasizes the current value, active input emphasizes the live result.
     final displayStyle = TextStyle(
       color: hasExpression
           ? scheme.onSurfaceVariant
@@ -241,6 +255,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTapDown: (details) {
+                    // 中文：显示区左右半区可移动光标，保留“点编辑按钮才打开文本编辑”的交互规则。
+                    // English: Left/right display halves move the cursor while full text editing remains behind the edit button.
                     if (details.localPosition.dx < constraints.maxWidth / 2) {
                       _controller.moveCursorLeft();
                     } else {
@@ -357,9 +373,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
       children: [
         SizedBox(
             height: _functionRows * 44 + (_functionRows - 1) * 8,
-            child: _keyGrid(functionKeys, compact: true)),
+            child: _keyGrid(functionKeys, compact: true, immediate: true)),
         const SizedBox(height: 8),
-        Expanded(child: _keyGrid(_baseKeys)),
+        Expanded(child: _keyGrid(_baseKeys, immediate: true)),
       ],
     );
   }
@@ -367,6 +383,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   Widget _functionPanel() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 中文：函数页保持普通滚动布局，避免复杂分栏影响快速查找函数。
+        // English: The function page stays as a simple scroll layout so functions remain easy to scan.
         return DecoratedBox(
           decoration: softPanel(context: context),
           child: ClipRRect(
@@ -415,6 +433,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 8.0;
+        // 中文：宽屏给 5 列，窄屏给 4 列，按钮尺寸稳定不随文字长度跳动。
+        // English: Use five columns on wider screens and four on narrow screens with stable button sizing.
         final columns = constraints.maxWidth >= 390 ? 5 : 4;
         final itemWidth =
             (constraints.maxWidth - spacing * (columns - 1)) / columns;
@@ -461,7 +481,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _keyGrid(List<String> keys, {bool compact = false}) {
+  Widget _keyGrid(List<String> keys,
+      {bool compact = false, bool immediate = false}) {
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       itemCount: keys.length,
@@ -472,12 +493,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
         childAspectRatio: compact ? 2.45 : 1.45,
       ),
       itemBuilder: (context, index) {
-        return _calcKey(keys[index], compact: compact);
+        return _calcKey(keys[index], compact: compact, immediate: immediate);
       },
     );
   }
 
-  Widget _calcKey(String key, {bool compact = false}) {
+  Widget _calcKey(String key, {bool compact = false, bool immediate = false}) {
+    // 中文：角度模式键需要跟随 controller 刷新选中态，普通按键保持静态减少重建。
+    // English: Angle mode keys listen to the controller for selected state; normal keys stay static to reduce rebuilds.
+    if (key == 'DEG' || key == 'RAD') {
+      return AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) =>
+            _calcKeyButton(key, compact: compact, immediate: immediate),
+      );
+    }
+    return _calcKeyButton(key, compact: compact, immediate: immediate);
+  }
+
+  Widget _calcKeyButton(String key,
+      {bool compact = false, bool immediate = false}) {
     final scheme = Theme.of(context).colorScheme;
     final isSubmit = key == '=';
     final isDanger = key == 'AC';
@@ -503,19 +538,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 : isOperator
                     ? scheme.onPrimaryContainer
                     : scheme.onSurface;
-    return FilledButton(
+    return _CalculatorKeySurface(
+      backgroundColor: backgroundColor,
+      foregroundColor: foregroundColor,
+      borderColor: isSubmit ? scheme.primary : scheme.outlineVariant,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
+      immediate: immediate,
       onPressed: () => _pressKey(key),
-      style: FilledButton.styleFrom(
-        backgroundColor: backgroundColor,
-        foregroundColor: foregroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-              color: isSubmit ? scheme.primary : scheme.outlineVariant),
-        ),
-        elevation: 0,
-        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
-      ),
       child: FittedBox(
         child: _keyLabel(key, compact: compact, color: foregroundColor),
       ),
@@ -523,6 +552,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Widget _keyLabel(String key, {required bool compact, required Color color}) {
+    // 中文：按键标签使用 RichText 显示上下标，避免把 x²、log₁₀ 退化成普通字符串。
+    // English: Key labels use RichText for superscripts/subscripts instead of plain fallback text.
     final style = TextStyle(
       fontSize: compact ? 16 : 18,
       fontWeight: FontWeight.w700,
@@ -569,6 +600,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _memoryBar() {
     final scheme = Theme.of(context).colorScheme;
+    // 中文：记忆寄存器放在键盘下方，保持主键盘区域专注输入，避免误触。
+    // English: Memory controls sit below the keypad so the main keypad remains focused on input.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: softPanel(context: context),
@@ -592,16 +625,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _memoryButton(String label, Future<void> Function() onTap) {
+  Widget _memoryButton(String label, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(left: 6),
       child: SizedBox(
         width: 48,
         height: 34,
         child: OutlinedButton(
-          onPressed: () async {
+          onPressed: () {
             _feedback();
-            await onTap();
+            onTap();
           },
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
@@ -623,11 +656,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           child: ActionButton(
             icon: Icons.copy_outlined,
             label: '复制结果',
-            onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              await Clipboard.setData(ClipboardData(text: _controller.result));
-              messenger.showSnackBar(const SnackBar(content: Text('已复制结果')));
-            },
+            onTap: _copyResult,
           ),
         ),
         const SizedBox(width: 8),
@@ -641,19 +670,39 @@ class _CalculatorPageState extends State<CalculatorPage> {
           child: ActionButton(
             icon: Icons.save_outlined,
             label: '保存笔记',
-            onTap: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              await _controller.saveToNote();
-              messenger.showSnackBar(const SnackBar(content: Text('已保存到笔记')));
-            },
+            onTap: _saveNote,
           ),
         ),
       ],
     );
   }
 
+  Future<void> _copyResult() async {
+    await Clipboard.setData(ClipboardData(text: _controller.result));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已复制结果')));
+  }
+
+  Future<void> _saveNote() async {
+    // 中文：保存笔记是异步数据库写入，页面退出后不能再使用旧 context 弹提示。
+    // English: Saving notes writes to SQLite asynchronously; after navigation, the old context must not show feedback.
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      await _controller.saveToNote();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    } finally {
+      _savingNote = false;
+    }
+  }
+
   Future<void> _pressKey(String key) async {
     _feedback();
+    // 中文：UI 按键符号在这里统一映射为解析器表达式，避免 parser 混入展示层符号。
+    // English: UI key labels are mapped to parser expressions here, keeping display symbols out of the parser.
     switch (key) {
       case 'DEG':
       case 'RAD':
@@ -816,6 +865,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ],
       ),
     );
+    controller.dispose();
     if (value == null) return;
     _controller.setExpression(value);
   }
@@ -831,5 +881,83 @@ class _CalculatorPageState extends State<CalculatorPage> {
   double _functionPanelHeight(double screenHeight, double displayHeight) {
     final reserved = displayHeight + 186;
     return (screenHeight - reserved).clamp(280.0, 420.0);
+  }
+}
+
+class _CalculatorKeySurface extends StatefulWidget {
+  // 中文：Basic 键盘使用按下即触发，减少“抬手才输入”的半拍延迟。
+  // English: The basic keypad can fire on pointer-down to avoid the delay of waiting for tap-up.
+  const _CalculatorKeySurface({
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.borderColor,
+    required this.padding,
+    required this.immediate,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color borderColor;
+  final EdgeInsetsGeometry padding;
+  final bool immediate;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  State<_CalculatorKeySurface> createState() => _CalculatorKeySurfaceState();
+}
+
+class _CalculatorKeySurfaceState extends State<_CalculatorKeySurface> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(8);
+    return Semantics(
+      button: true,
+      child: Listener(
+        // 中文：immediate=true 时由 Listener 触发，InkWell 只负责视觉反馈。
+        // English: With immediate=true, Listener handles the action while InkWell keeps the visual feedback.
+        onPointerDown: widget.immediate
+            ? (_) {
+                _setPressed(true);
+                widget.onPressed();
+              }
+            : (_) => _setPressed(true),
+        onPointerCancel: (_) => _setPressed(false),
+        onPointerUp: (_) => _setPressed(false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.985 : 1,
+          duration: const Duration(milliseconds: 70),
+          curve: Curves.easeOutCubic,
+          child: Material(
+            color: widget.backgroundColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: borderRadius,
+              side: BorderSide(color: widget.borderColor),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.immediate ? null : widget.onPressed,
+              borderRadius: borderRadius,
+              child: IconTheme.merge(
+                data: IconThemeData(color: widget.foregroundColor),
+                child: Padding(
+                  padding: widget.padding,
+                  child: Center(child: widget.child),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

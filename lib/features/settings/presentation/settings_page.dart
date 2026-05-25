@@ -8,6 +8,8 @@ import '../../../data/repositories/data_backup_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+/// 中文：设置页负责展示偏好项、持久化设置，以及备份导入导出入口。
+/// English: Settings screen for preferences, persistence, and backup import/export entry points.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({required this.db, this.onThemeModeChanged, super.key});
 
@@ -27,6 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _angleMode = '弧度';
   String _digits = '6 位';
   String _expressionDisplay = '数学符号';
+  bool _backupBusy = false;
   late final DataBackupRepository _backupRepository =
       DataBackupRepository(widget.db);
   late final SettingsRepository _settingsRepository =
@@ -133,13 +136,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 SettingsTile(
                     icon: Icons.ios_share_outlined,
                     title: '导出备份',
-                    value: '保存文件',
-                    onTap: _exportBackup),
+                    value: _backupBusy ? '处理中' : '保存文件',
+                    onTap: _backupBusy ? null : _exportBackup),
                 SettingsTile(
                     icon: Icons.restore_page_outlined,
                     title: '导入恢复',
-                    value: '选择文件',
-                    onTap: _importBackup),
+                    value: _backupBusy ? '处理中' : '选择文件',
+                    onTap: _backupBusy ? null : _importBackup),
               ],
             ),
             const SizedBox(height: 18),
@@ -356,6 +359,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _exportBackup() async {
+    // 中文：文件选择器和备份生成都可能较慢，防止用户重复打开导出流程。
+    // English: Export generation and the file picker may be slow, so prevent duplicate export flows.
+    if (_backupBusy) return;
+    setState(() => _backupBusy = true);
     try {
       final json = await _backupRepository.exportJson();
       final now = DateTime.now();
@@ -373,10 +380,16 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (error) {
       if (mounted) _showInfo('导出失败', error.toString());
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
     }
   }
 
   Future<void> _importBackup() async {
+    // 中文：导入会替换整库，必须保证同一时间只有一个恢复流程。
+    // English: Import replaces the whole database, so only one restore flow may run at a time.
+    if (_backupBusy) return;
+    setState(() => _backupBusy = true);
     try {
       final json = await BackupFileChannel.importJson();
       if (json == null) return;
@@ -405,6 +418,8 @@ class _SettingsPageState extends State<SettingsPage> {
       widget.onThemeModeChanged?.call(_themeMode);
     } catch (error) {
       if (mounted) _showInfo('导入失败', error.toString());
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
     }
   }
 

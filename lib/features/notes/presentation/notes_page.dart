@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +12,8 @@ import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+/// 中文：笔记与历史页面，统一展示计算历史、工具结果和用户笔记。
+/// English: Notes and history screen for calculation history, tool results, and user notes.
 class NotesPage extends StatefulWidget {
   const NotesPage({required this.db, this.reloadToken = 0, super.key});
 
@@ -22,6 +26,8 @@ class NotesPage extends StatefulWidget {
 
 class _NotesPageState extends State<NotesPage> {
   late final NotesController _controller;
+  Timer? _searchTimer;
+  bool _savingNote = false;
 
   @override
   void initState() {
@@ -35,6 +41,7 @@ class _NotesPageState extends State<NotesPage> {
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
@@ -52,6 +59,18 @@ class _NotesPageState extends State<NotesPage> {
     if (mounted) setState(() {});
   }
 
+  void _setSearchQuery(String value) {
+    _searchTimer?.cancel();
+    // 中文：笔记和历史都在本地列表中过滤，短防抖可减少大量记录时的连续重绘。
+    // English: Notes and history are filtered locally; a short debounce reduces repeated repaints on large lists.
+    _searchTimer = Timer(
+      const Duration(milliseconds: 90),
+      () {
+        if (mounted) _controller.setQuery(value);
+      },
+    );
+  }
+
   Future<void> _addNoteDialog() async {
     await _showNoteDialog();
   }
@@ -62,12 +81,18 @@ class _NotesPageState extends State<NotesPage> {
       builder: (context) => _NoteEditorDialog(item: item),
     );
     if (draft == null) return;
-    await _controller.saveNote(
-      item: item,
-      title: draft.title,
-      description: draft.description,
-      body: draft.body,
-    );
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      await _controller.saveNote(
+        item: item,
+        title: draft.title,
+        description: draft.description,
+        body: draft.body,
+      );
+    } finally {
+      _savingNote = false;
+    }
   }
 
   @override
@@ -89,7 +114,7 @@ class _NotesPageState extends State<NotesPage> {
         ),
         const SizedBox(height: 12),
         TextField(
-          onChanged: _controller.setQuery,
+          onChanged: _setSearchQuery,
           decoration: const InputDecoration(
               hintText: '搜索笔记、历史、公式...', prefixIcon: Icon(Icons.search)),
         ),
@@ -275,7 +300,19 @@ class _NotesPageState extends State<NotesPage> {
       }
     }
     if (action == 'note') {
-      await _controller.saveHistoryAsNote(item);
+      // 中文：历史转笔记也做串行保护，避免同一条历史被快速保存成多条笔记。
+      // English: Serialize history-to-note conversion to avoid creating duplicate notes from one history item.
+      if (_savingNote) return;
+      _savingNote = true;
+      try {
+        await _controller.saveHistoryAsNote(item);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+        }
+      } finally {
+        _savingNote = false;
+      }
     }
     if (action == 'delete') {
       await _controller.deleteHistory(item.id);

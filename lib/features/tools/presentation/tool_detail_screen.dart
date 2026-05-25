@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,6 +13,8 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_widgets.dart';
 
+/// 中文：数值型工具详情页，负责参数输入、结果展示、收藏、保存和笔记。
+/// English: Detail screen for numeric tools; manages parameter input, results, favorites, history, and notes.
 class ToolDetailScreen extends StatefulWidget {
   const ToolDetailScreen({required this.db, required this.tool, super.key});
 
@@ -24,6 +28,10 @@ class ToolDetailScreen extends StatefulWidget {
 class _ToolDetailScreenState extends State<ToolDetailScreen> {
   late final Map<String, TextEditingController> _controllers;
   late final ToolDetailController _detailController;
+  Timer? _inputUpdateTimer;
+  bool _savingResult = false;
+  bool _savingNote = false;
+  bool _favoriteBusy = false;
 
   @override
   void initState() {
@@ -42,14 +50,14 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 : formatNumber(input.defaultValue!))
     };
     for (final entry in _controllers.entries) {
-      entry.value.addListener(
-          () => _detailController.updateValue(entry.key, entry.value.text));
+      entry.value.addListener(_scheduleInputUpdate);
     }
     _detailController.loadFavorite();
   }
 
   @override
   void dispose() {
+    _inputUpdateTimer?.cancel();
     _detailController.removeListener(_onControllerChanged);
     _detailController.dispose();
     for (final controller in _controllers.values) {
@@ -62,28 +70,62 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     if (mounted) setState(() {});
   }
 
+  void _scheduleInputUpdate() {
+    _inputUpdateTimer?.cancel();
+    // 中文：多个数字输入框通常会连续变化，批量更新可以减少工程工具重复计算。
+    // English: Numeric fields often change in bursts; batching reduces repeated engineering recalculations.
+    _inputUpdateTimer = Timer(const Duration(milliseconds: 60), () {
+      _inputUpdateTimer = null;
+      _detailController.updateValues({
+        for (final entry in _controllers.entries) entry.key: entry.value.text,
+      });
+    });
+  }
+
   Future<void> _saveResult() async {
+    // 中文：SQLite 写入期间忽略重复点击，保护历史记录不被刷屏。
+    // English: Ignore repeated taps while SQLite is writing to keep history from being spammed.
+    if (_savingResult) return;
+    _savingResult = true;
     final expression = widget.tool.inputs
         .map((input) =>
             '${input.label}=${_controllers[input.key]?.text ?? ''}${input.unit}')
         .join(', ');
-    await _detailController.saveResult(expression);
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+    try {
+      await _detailController.saveResult(expression);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+      }
+    } finally {
+      _savingResult = false;
     }
   }
 
   Future<void> _saveNote() async {
-    await _detailController.saveNote();
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      await _detailController.saveNote();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+      }
+    } finally {
+      _savingNote = false;
     }
   }
 
   Future<void> _toggleFavorite() async {
-    await _detailController.toggleFavorite();
+    // 中文：收藏切换必须串行，否则快速点击会让 UI 状态和数据库状态互相追赶。
+    // English: Favorite toggles must be serialized so UI and database state do not race each other.
+    if (_favoriteBusy) return;
+    _favoriteBusy = true;
+    try {
+      await _detailController.toggleFavorite();
+    } finally {
+      _favoriteBusy = false;
+    }
   }
 
   @override
@@ -263,6 +305,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   void _resetInputs() {
+    _inputUpdateTimer?.cancel();
     for (final input in widget.tool.inputs) {
       _controllers[input.key]?.text =
           input.defaultValue == null ? '' : formatNumber(input.defaultValue!);

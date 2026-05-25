@@ -204,8 +204,7 @@ class _MathSpanBuilder {
   }
   var index = start;
   if (source[index] == '-') index++;
-  while (index < source.length &&
-      RegExp(r'[A-Za-z0-9.]').hasMatch(source[index])) {
+  while (index < source.length && _isExponentPart(source[index])) {
     index++;
   }
   if (index == start || (index == start + 1 && source[start] == '-')) {
@@ -258,4 +257,9 @@ bool _isIdentifierStart(String char) {
 bool _isIdentifierPart(String char) {
   final code = char.codeUnitAt(0);
   return _isIdentifierStart(char) || (code >= 48 && code <= 57);
+}
+
+bool _isExponentPart(String char) {
+  final code = char.codeUnitAt(0);
+  return _isIdentifierStart(char) || (code >= 48 && code <= 57) || char == '.';
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +10,8 @@ import '../../../data/repositories/notes_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+/// 中文：文本/编程类工具详情页，承载 JSON、Base64、URL、正则等输入输出型工具。
+/// English: Detail screen for text/programming tools such as JSON, Base64, URL, and regex utilities.
 class TextToolDetailScreen extends StatefulWidget {
   const TextToolDetailScreen({
     required this.db,
@@ -33,6 +37,9 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   final TextToolController _toolController = const TextToolController();
   String _result = '';
   String _detail = '';
+  Timer? _recalculateTimer;
+  bool _savingHistory = false;
+  bool _savingNote = false;
 
   @override
   void initState() {
@@ -52,13 +59,14 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
       _bController,
       _cController
     ]) {
-      controller.addListener(_recalculate);
+      controller.addListener(_scheduleRecalculate);
     }
     _recalculate();
   }
 
   @override
   void dispose() {
+    _recalculateTimer?.cancel();
     _inputController.dispose();
     _formulaController.dispose();
     _aController.dispose();
@@ -67,7 +75,16 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     super.dispose();
   }
 
+  void _scheduleRecalculate() {
+    _recalculateTimer?.cancel();
+    // 中文：文本/JSON/正则工具可能处理大段内容，输入过程中合并重算。
+    // English: Text, JSON, and regex tools may process large content, so recalculation is debounced while typing.
+    _recalculateTimer = Timer(const Duration(milliseconds: 80), _recalculate);
+  }
+
   void _recalculate() {
+    _recalculateTimer?.cancel();
+    _recalculateTimer = null;
     setState(() {
       final output = _toolController.calculate(
         toolId: widget.tool.id,
@@ -83,26 +100,42 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   }
 
   Future<void> _saveHistory() async {
-    await _historyRepository.saveToolResult(
-      expression: '${widget.tool.title}: ${_mainInputText()}',
-      result: _result,
-      toolId: widget.tool.id,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+    // 中文：防止连续点击保存按钮时写入重复工具历史。
+    // English: Prevent duplicate tool-history writes from repeated save taps.
+    if (_savingHistory) return;
+    _savingHistory = true;
+    try {
+      await _historyRepository.saveToolResult(
+        expression: '${widget.tool.title}: ${_mainInputText()}',
+        result: _result,
+        toolId: widget.tool.id,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('结果已保存到 SQLite 历史记录')));
+      }
+    } finally {
+      _savingHistory = false;
     }
   }
 
   Future<void> _saveNote() async {
-    await _notesRepository.create(
-      title: widget.tool.title,
-      body: '${_mainInputText()}\n\n$_result\n\n$_detail',
-      description: widget.tool.description,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+    // 中文：保存笔记使用同一个防重入策略，保持历史和笔记行为一致。
+    // English: Use the same re-entry guard for note saving to keep behavior consistent with history saving.
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      await _notesRepository.create(
+        title: widget.tool.title,
+        body: '${_mainInputText()}\n\n$_result\n\n$_detail',
+        description: widget.tool.description,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+      }
+    } finally {
+      _savingNote = false;
     }
   }
 
@@ -252,11 +285,13 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   }
 
   void _reset() {
+    _recalculateTimer?.cancel();
     _inputController.text = _defaultInput(widget.tool.id);
     _formulaController.text = 'a * b + c';
     _aController.text = '12';
     _bController.text = '3';
     _cController.text = '5';
+    _recalculate();
   }
 
   Future<void> _copyResult() async {
