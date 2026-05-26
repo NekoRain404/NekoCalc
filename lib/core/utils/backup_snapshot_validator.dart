@@ -12,6 +12,33 @@ const backupTableNames = [
   'app_settings',
 ];
 
+class BackupPreview {
+  const BackupPreview({
+    required this.schema,
+    required this.exportedAt,
+    required this.appVersion,
+    required this.counts,
+  });
+
+  final int schema;
+  final String? exportedAt;
+  final String? appVersion;
+  final Map<String, int> counts;
+
+  int get totalRows => counts.values.fold(0, (sum, count) => sum + count);
+
+  String get summary {
+    final parts = [
+      '历史 ${counts['calculation_history'] ?? 0}',
+      '笔记 ${counts['notes'] ?? 0}',
+      '收藏 ${counts['favorite_tools'] ?? 0}',
+      '最近工具 ${counts['recent_tools'] ?? 0}',
+      '设置 ${counts['app_settings'] ?? 0}',
+    ];
+    return parts.join(' · ');
+  }
+}
+
 Map<String, Object?> parseBackupSnapshot(String source) {
   if (source.trim().isEmpty) {
     throw const FormatException('备份文件为空');
@@ -25,6 +52,22 @@ Map<String, Object?> parseBackupSnapshot(String source) {
   // English: Parse and validate before opening the database transaction; failures leave SQLite untouched.
   validateBackupSnapshot(snapshot);
   return snapshot;
+}
+
+BackupPreview previewBackupSnapshot(String source) {
+  final snapshot = parseBackupSnapshot(source);
+  final tables = snapshot['tables'] as Map;
+  final metadata = snapshot['metadata'];
+  final counts = <String, int>{
+    for (final tableName in backupTableNames)
+      tableName: (tables[tableName] as List).length,
+  };
+  return BackupPreview(
+    schema: snapshot['schema'] as int? ?? backupSchemaVersion,
+    exportedAt: snapshot['exported_at']?.toString(),
+    appVersion: metadata is Map ? metadata['app_version']?.toString() : null,
+    counts: counts,
+  );
 }
 
 void validateBackupSnapshot(Map<String, Object?> snapshot) {

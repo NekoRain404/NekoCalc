@@ -18,4 +18,8 @@ class DataBackupRepository {
     // English: Import only validated snapshots so partial JSON from the UI cannot clear the database.
     await _db.importSnapshot(parseBackupSnapshot(source));
   }
+
+  BackupPreview previewJson(String source) {
+    return previewBackupSnapshot(source);
+  }
 }

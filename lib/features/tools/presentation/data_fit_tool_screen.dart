@@ -719,6 +719,8 @@ class _FitChartPainter extends CustomPainter {
       FitModel.quadratic => c[0] * x * x + c[1] * x + c[2],
       FitModel.exponential => c[0] * math.exp(c[1] * x),
       FitModel.power => c[0] * math.pow(x, c[1]).toDouble(),
+      FitModel.logarithmic => x <= 0 ? double.nan : c[0] * math.log(x) + c[1],
+      FitModel.reciprocal => x == 0 ? double.nan : c[0] / x + c[1],
     };
   }
 

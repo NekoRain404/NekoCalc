@@ -6,7 +6,7 @@ NekoCalc 是一款面向 Android 的本地优先计算工具箱。它使用 Flut
 
 <p>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-23B45D?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-23B45D?style=flat-square">
   <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
   <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
   <img alt="Release" src="https://img.shields.io/badge/release-stable-111827?style=flat-square">
@@ -149,7 +149,7 @@ If a local Flutter installation is missing `packages/flutter_tools/gradle`, the 
 
 ## Release
 
-Current stable version: `v1.0.0`
+Current stable version: `v1.1.0`
 
 GitHub releases include split APKs for common Android ABIs and an optional universal APK:
 

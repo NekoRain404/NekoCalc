@@ -30,6 +30,7 @@ class CalculatorController extends ChangeNotifier {
   int cursorIndex = 0;
   double memoryValue = 0;
   bool hasError = false;
+  String? errorMessage;
   String? _lastSavedExpression;
   String? _lastSavedResult;
   Timer? _liveEvaluationTimer;
@@ -145,7 +146,7 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void continueWithResult() {
-    if (hasError || result == '等待输入' || result == '表达式错误') return;
+    if (hasError || result == '等待输入') return;
     expression = result;
     cursorIndex = expression.length;
     _invalidateSubmitCache();
@@ -157,6 +158,7 @@ class CalculatorController extends ChangeNotifier {
     cursorIndex = 0;
     result = '0';
     hasError = false;
+    errorMessage = null;
     _invalidateSubmitCache();
     notifyListeners();
   }
@@ -165,6 +167,7 @@ class CalculatorController extends ChangeNotifier {
     if (expression.trim().isEmpty) {
       result = '0';
       hasError = false;
+      errorMessage = null;
       return;
     }
     try {
@@ -172,9 +175,11 @@ class CalculatorController extends ChangeNotifier {
           ExpressionParser(expression, degreeMode: angleMode == 'DEG').parse();
       result = formatNumber(value, precision: _settings.precision);
       hasError = false;
-    } catch (_) {
+      errorMessage = null;
+    } catch (error) {
       result = '等待输入';
       hasError = true;
+      errorMessage = _friendlyCalculationError(error);
     }
   }
 
@@ -188,6 +193,7 @@ class CalculatorController extends ChangeNotifier {
               .parse();
       result = formatNumber(value, precision: _settings.precision);
       hasError = false;
+      errorMessage = null;
       final duplicate = _lastSavedExpression == submittedExpression &&
           _lastSavedResult == result;
       if (_settings.autoSaveHistory && !duplicate) {
@@ -203,9 +209,11 @@ class CalculatorController extends ChangeNotifier {
       }
       notifyListeners();
       return Future.value(true);
-    } catch (_) {
-      result = '表达式错误';
+    } catch (error) {
+      final message = _friendlyCalculationError(error);
+      result = message;
       hasError = true;
+      errorMessage = message;
       notifyListeners();
       return Future.value(false);
     }
@@ -246,8 +254,21 @@ class CalculatorController extends ChangeNotifier {
   }
 
   String get reusableResult {
-    if (hasError || result == '等待输入' || result == '表达式错误') return '0';
+    if (hasError || result == '等待输入') return '0';
     return result.replaceAll(',', '');
+  }
+
+  String _friendlyCalculationError(Object error) {
+    final message = error.toString().replaceFirst('FormatException: ', '');
+    if (message.contains('Missing )')) return '缺少右括号';
+    if (message.contains('Expected number')) return '需要输入数字';
+    if (message.contains('Unexpected token')) return '存在无法识别的内容';
+    if (message.contains('needs (')) return '函数需要括号';
+    if (message.contains('Unknown function')) return '未知函数';
+    if (message.contains('Factorial needs')) return '阶乘只支持 0 到 170 的整数';
+    if (message.contains('Root degree cannot be 0')) return '根指数不能为 0';
+    if (message.contains('Even root of negative')) return '负数不能开偶次根';
+    return '表达式错误';
   }
 
   String get expressionBeforeCursor => expression.substring(0, cursorIndex);

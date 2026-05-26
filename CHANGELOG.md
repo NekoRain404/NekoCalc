@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.0
+
+NekoCalc 1.1 focuses on reliability and professional workflow improvements after the first stable release.
+
+NekoCalc 1.1 聚焦正式版后的可靠性和专业工作流增强。
+
+- Updated the public version to `1.1.0+7`.
+- Added backup metadata with app version and snapshot format information.
+- Added backup import preview with row counts for history, notes, favorites, recent tools, and settings.
+- Improved calculator errors with clearer messages for missing parentheses, unknown functions, invalid roots, and invalid factorials.
+- Added logarithmic and reciprocal models to Data Fit Chart.
+- Added tests for the new fitting models and backup preview parsing.
+
 ## v1.0.0
 
 NekoCalc 1.0 is the first stable release. It focuses on daily reliability, local-first data safety, release packaging, and a smoother scientific calculator workflow.

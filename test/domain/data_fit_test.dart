@@ -47,6 +47,20 @@ void main() {
     expect(result.coefficients[1], closeTo(0.6931471805599453, 1e-9));
   });
 
+  test('fits logarithmic and reciprocal data', () {
+    final logarithmic = fitData(
+      parseDataPoints('1,1\n2,2.38629436112\n4,3.77258872224'),
+      FitModel.logarithmic,
+    );
+    expect(logarithmic.coefficients[0], closeTo(2, 1e-9));
+    expect(logarithmic.coefficients[1], closeTo(1, 1e-9));
+
+    final reciprocal =
+        fitData(parseDataPoints('1,7\n2,4\n4,2.5'), FitModel.reciprocal);
+    expect(reciprocal.coefficients[0], closeTo(6, 1e-9));
+    expect(reciprocal.coefficients[1], closeTo(1, 1e-9));
+  });
+
   test('rejects invalid model data', () {
     expect(
       () => fitData(parseDataPoints('1,-2\n2,4'), FitModel.exponential),
@@ -54,6 +68,14 @@ void main() {
     );
     expect(
       () => fitData(parseDataPoints('1,2\n2,4'), FitModel.quadratic),
+      throwsFormatException,
+    );
+    expect(
+      () => fitData(parseDataPoints('-1,2\n-2,4'), FitModel.logarithmic),
+      throwsFormatException,
+    );
+    expect(
+      () => fitData(parseDataPoints('0,2\n0,4'), FitModel.reciprocal),
       throwsFormatException,
     );
   });

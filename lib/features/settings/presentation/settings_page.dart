@@ -394,11 +394,13 @@ class _SettingsPageState extends State<SettingsPage> {
       final json = await BackupFileChannel.importJson();
       if (json == null) return;
       if (!mounted) return;
+      final preview = _backupRepository.previewJson(json);
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('导入恢复'),
-          content: const Text('导入会替换当前历史、笔记、收藏、最近工具和设置。请确认文件来自可信备份。'),
+          content: Text(
+              '导入会替换当前历史、笔记、收藏、最近工具和设置。\n\n备份版本：${preview.appVersion ?? '未知'}\n导出时间：${preview.exportedAt ?? '未知'}\n数据摘要：${preview.summary}\n总记录数：${preview.totalRows}\n\n请确认文件来自可信备份。'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),

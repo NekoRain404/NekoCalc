@@ -55,4 +55,25 @@ void main() {
 
     expect(parseBackupSnapshot(source)['schema'], 1);
   });
+
+  test('creates a useful backup preview', () {
+    final source = jsonEncode({
+      'schema': 1,
+      'exported_at': '2026-05-26T09:00:00.000',
+      'metadata': {'app_version': 'v1.1.0'},
+      'tables': {
+        'calculation_history': [{}, {}],
+        'notes': [{}],
+        'favorite_tools': [],
+        'recent_tools': [{}, {}, {}],
+        'app_settings': [{}],
+      },
+    });
+
+    final preview = previewBackupSnapshot(source);
+    expect(preview.appVersion, 'v1.1.0');
+    expect(preview.totalRows, 7);
+    expect(preview.summary, contains('历史 2'));
+    expect(preview.summary, contains('笔记 1'));
+  });
 }

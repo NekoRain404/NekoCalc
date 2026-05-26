@@ -6,7 +6,9 @@ enum FitModel {
   linear('线性', 'y = ax + b'),
   quadratic('二次', 'y = ax² + bx + c'),
   exponential('指数', 'y = A·e^(Bx)'),
-  power('幂函数', 'y = A·x^B');
+  power('幂函数', 'y = A·x^B'),
+  logarithmic('对数', 'y = a·ln(x) + b'),
+  reciprocal('倒数', 'y = a / x + b');
 
   const FitModel(this.label, this.template);
 
@@ -132,6 +134,8 @@ FitResult fitData(List<DataPoint> points, FitModel model) {
     FitModel.quadratic => _fitQuadratic(points),
     FitModel.exponential => _fitExponential(points),
     FitModel.power => _fitPower(points),
+    FitModel.logarithmic => _fitLogarithmic(points),
+    FitModel.reciprocal => _fitReciprocal(points),
   };
 }
 
@@ -228,6 +232,46 @@ FitResult _fitPower(List<DataPoint> points) {
     equation:
         'y = ${formatNumber(a, precision: 6)}·x^${formatNumber(b, precision: 6)}',
     predict: (x) => a * math.pow(x, b).toDouble(),
+  );
+}
+
+FitResult _fitLogarithmic(List<DataPoint> points) {
+  final valid = points.where((p) => p.x > 0).toList();
+  if (valid.length < 2) {
+    throw const FormatException('对数拟合要求 x 全部为正数');
+  }
+  // 中文：对数拟合把 x 映射到 ln(x)，再复用线性最小二乘，减少重复算法。
+  // English: Logarithmic fitting maps x to ln(x) and reuses linear least squares.
+  final transformed = valid.map((p) => DataPoint(math.log(p.x), p.y)).toList();
+  final linear = _fitLinear(transformed);
+  final a = linear.coefficients[0];
+  final b = linear.coefficients[1];
+  return _buildResult(
+    model: FitModel.logarithmic,
+    points: valid,
+    coefficients: [a, b],
+    equation: 'y = ${formatNumber(a, precision: 6)}·ln(x) ${_signedTerm(b)}',
+    predict: (x) => a * math.log(x) + b,
+  );
+}
+
+FitResult _fitReciprocal(List<DataPoint> points) {
+  final valid = points.where((p) => p.x != 0).toList();
+  if (valid.length < 2) {
+    throw const FormatException('倒数拟合要求 x 不能为 0');
+  }
+  // 中文：倒数模型把 1/x 作为自变量，适合衰减、阻抗和反比例近似数据。
+  // English: Reciprocal fitting uses 1/x as the variable for decay and inverse-proportion data.
+  final transformed = valid.map((p) => DataPoint(1 / p.x, p.y)).toList();
+  final linear = _fitLinear(transformed);
+  final a = linear.coefficients[0];
+  final b = linear.coefficients[1];
+  return _buildResult(
+    model: FitModel.reciprocal,
+    points: valid,
+    coefficients: [a, b],
+    equation: 'y = ${formatNumber(a, precision: 6)} / x ${_signedTerm(b)}',
+    predict: (x) => a / x + b,
   );
 }
 

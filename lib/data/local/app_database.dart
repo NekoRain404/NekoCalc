@@ -414,6 +414,12 @@ class AppDatabase {
     return {
       'schema': 1,
       'exported_at': DateTime.now().toIso8601String(),
+      'metadata': {
+        'app': 'NekoCalc',
+        'app_version': 'v1.1.0',
+        'format': 'nekocalc.sqlite.snapshot',
+        'format_version': 1,
+      },
       'tables': {
         'calculation_history': await db.query('calculation_history',
             orderBy: 'created_at ASC, id ASC'),
