@@ -14,4 +14,8 @@ class ToolUsageRepository {
       _db.setFavorite(toolId, favorite);
 
   Future<void> markRecent(String toolId) => _db.markRecent(toolId);
+
+  Future<int> removeRecent(String toolId) => _db.deleteRecentTool(toolId);
+
+  Future<int> clearRecent() => _db.clearRecentTools();
 }

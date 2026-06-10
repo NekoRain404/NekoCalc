@@ -28,7 +28,10 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  int _calculatorReloadToken = 0;
   int _notesReloadToken = 0;
+  int _toolsReloadToken = 0;
+  int _graphReloadToken = 0;
   late final PageController _pageController = PageController();
 
   @override
@@ -39,7 +42,10 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _openSettings() async {
     await Navigator.of(context).push(_fadeRoute(SettingsPage(
-        db: widget.db, onThemeModeChanged: widget.onThemeModeChanged)));
+      db: widget.db,
+      onThemeModeChanged: widget.onThemeModeChanged,
+      onDataImported: _handleDataImported,
+    )));
     await widget.onSettingsChanged();
   }
 
@@ -91,9 +97,16 @@ class _AppShellState extends State<AppShell> {
       0 => CalculatorPage(
           db: widget.db,
           onOpenSettings: _openSettings,
-          settings: widget.settings),
-      1 => ToolsHomePage(db: widget.db),
-      2 => const GraphPage(),
+          settings: widget.settings,
+          reloadToken: _calculatorReloadToken),
+      1 => ToolsHomePage(
+          db: widget.db,
+          settings: widget.settings,
+          reloadToken: _toolsReloadToken),
+      2 => GraphPage(
+          db: widget.db,
+          restoreState: widget.settings.restoreState,
+          reloadToken: _graphReloadToken),
       3 => NotesPage(db: widget.db, reloadToken: _notesReloadToken),
       _ => const SizedBox.shrink(),
     };
@@ -110,6 +123,17 @@ class _AppShellState extends State<AppShell> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  Future<void> _handleDataImported() async {
+    await widget.onSettingsChanged();
+    if (!mounted) return;
+    setState(() {
+      _calculatorReloadToken++;
+      _notesReloadToken++;
+      _toolsReloadToken++;
+      _graphReloadToken++;
+    });
   }
 
   PageRouteBuilder<void> _fadeRoute(Widget page) {

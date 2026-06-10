@@ -6,17 +6,17 @@ NekoCalc 是一款面向 Android 的本地优先计算工具箱。它使用 Flut
 
 <p>
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-Android-4A7DFF?style=flat-square">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-23B45D?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.2.0--beta.1-23B45D?style=flat-square">
   <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite-23B45D?style=flat-square">
   <img alt="Architecture" src="https://img.shields.io/badge/architecture-Feature--first-111827?style=flat-square">
-  <img alt="Release" src="https://img.shields.io/badge/release-stable-111827?style=flat-square">
+  <img alt="Release" src="https://img.shields.io/badge/release-prerelease-111827?style=flat-square">
 </p>
 
 ## Overview
 
 NekoCalc 适合日常计算、学习推导、工程估算、数据检查和移动端快速记录。应用不依赖云服务，计算历史、工具结果、笔记、收藏、最近使用工具和设置均存储在本机 SQLite 中。
 
-正式版重点关注四件事：
+当前 1.2 beta 预览版重点关注四件事：
 
 - 清晰的计算体验：基础运算、科学函数、角度/弧度、记忆寄存器、光标编辑和数学符号显示。
 - 实用的工具体系：覆盖数学、工程、电路、财务、物理、单位换算、编程、文本和数据处理。
@@ -119,12 +119,10 @@ keyPassword=change-me
 Before publishing, run:
 
 ```bash
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --release --split-per-abi
-flutter build apk --release
+scripts/release_android.sh
 ```
+
+The release script runs format checks, static analysis, tests, split APK builds, the universal APK build, artifact copying, and SHA-256 generation.
 
 ## Data And Privacy
 
@@ -149,7 +147,7 @@ If a local Flutter installation is missing `packages/flutter_tools/gradle`, the 
 
 ## Release
 
-Current stable version: `v1.1.0`
+Current prerelease version: `v1.2.0-beta.1`
 
 GitHub releases include split APKs for common Android ABIs and an optional universal APK:
 

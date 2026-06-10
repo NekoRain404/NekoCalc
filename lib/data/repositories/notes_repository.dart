@@ -34,5 +34,7 @@ class NotesRepository {
 
   Future<int> count({String? query}) => _db.noteCount(query: query);
 
-  Future<void> delete(int id) => _db.deleteNote(id);
+  Future<int> delete(int id) => _db.deleteNote(id);
+
+  Future<int> deleteMany(Iterable<int> ids) => _db.deleteNotes(ids);
 }

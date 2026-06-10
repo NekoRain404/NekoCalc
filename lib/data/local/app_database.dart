@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../../core/constants/app_info.dart';
 import '../../core/utils/backup_snapshot_validator.dart';
 import '../models/history_item.dart';
 import '../models/note_item.dart';
@@ -11,9 +12,9 @@ class AppDatabase {
   AppDatabase._();
 
   static final AppDatabase instance = AppDatabase._();
+  static const maxHistoryRows = 500;
+  static const maxRecentToolRows = 24;
   static const _historyDuplicateWindow = Duration(seconds: 2);
-  static const _maxHistoryRows = 500;
-  static const _maxRecentToolRows = 24;
   Database? _database;
 
   Future<Database> get database async {
@@ -133,6 +134,7 @@ class AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    DateTime? createdAt,
   }) async {
     final db = await database;
     final normalizedExpression = _normalizeRequired(expression);
@@ -142,19 +144,22 @@ class AppDatabase {
 
     return db.transaction((txn) async {
       final now = DateTime.now().millisecondsSinceEpoch;
-      final duplicateSince = now - _historyDuplicateWindow.inMilliseconds;
+      final timestamp = createdAt?.millisecondsSinceEpoch ?? now;
+      final duplicateSince = timestamp - _historyDuplicateWindow.inMilliseconds;
+      final duplicateUntil = timestamp + _historyDuplicateWindow.inMilliseconds;
       // 中文：数据库层再做一次短窗口去重，防止 UI 防重入遗漏或多入口重复保存。
       // English: Database-level short-window deduplication catches duplicate saves from any entry point.
       final existing = await txn.query(
         'calculation_history',
         columns: ['id'],
         where:
-            'expression = ? AND result = ? AND IFNULL(tool_id, "") = ? AND created_at >= ?',
+            'expression = ? AND result = ? AND IFNULL(tool_id, "") = ? AND created_at BETWEEN ? AND ?',
         whereArgs: [
           normalizedExpression,
           normalizedResult,
           normalizedToolId ?? '',
-          duplicateSince
+          duplicateSince,
+          duplicateUntil,
         ],
         limit: 1,
       );
@@ -164,7 +169,7 @@ class AppDatabase {
         'expression': normalizedExpression,
         'result': normalizedResult,
         'tool_id': normalizedToolId,
-        'created_at': now,
+        'created_at': timestamp,
       }).then((id) async {
         await _trimHistory(txn);
         return id;
@@ -199,14 +204,25 @@ class AppDatabase {
     return rows.map(HistoryItem.fromMap).toList();
   }
 
-  Future<void> deleteHistory(int id) async {
+  Future<int> deleteHistory(int id) async {
     final db = await database;
-    await db.delete('calculation_history', where: 'id = ?', whereArgs: [id]);
+    return db.delete('calculation_history', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<void> clearHistory() async {
+  Future<int> deleteHistoryItems(Iterable<int> ids) async {
+    final normalized = ids.toSet().toList(growable: false);
+    if (normalized.isEmpty) return 0;
     final db = await database;
-    await db.delete('calculation_history');
+    return db.delete(
+      'calculation_history',
+      where: 'id IN (${List.filled(normalized.length, '?').join(',')})',
+      whereArgs: normalized,
+    );
+  }
+
+  Future<int> clearHistory() async {
+    final db = await database;
+    return db.delete('calculation_history');
   }
 
   Future<int> historyCount({String? query, String? toolId}) async {
@@ -271,9 +287,20 @@ class AppDatabase {
     return rows.map(NoteItem.fromMap).toList();
   }
 
-  Future<void> deleteNote(int id) async {
+  Future<int> deleteNote(int id) async {
     final db = await database;
-    await db.delete('notes', where: 'id = ?', whereArgs: [id]);
+    return db.delete('notes', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteNotes(Iterable<int> ids) async {
+    final normalized = ids.toSet().toList(growable: false);
+    if (normalized.isEmpty) return 0;
+    final db = await database;
+    return db.delete(
+      'notes',
+      where: 'id IN (${List.filled(normalized.length, '?').join(',')})',
+      whereArgs: normalized,
+    );
   }
 
   Future<int> noteCount({String? query}) async {
@@ -363,6 +390,22 @@ class AppDatabase {
     return rows.map((row) => row['tool_id'] as String).toList();
   }
 
+  Future<int> deleteRecentTool(String toolId) async {
+    final db = await database;
+    final normalizedToolId = _normalizeRequired(toolId);
+    if (normalizedToolId == null) return 0;
+    return db.delete(
+      'recent_tools',
+      where: 'tool_id = ?',
+      whereArgs: [normalizedToolId],
+    );
+  }
+
+  Future<int> clearRecentTools() async {
+    final db = await database;
+    return db.delete('recent_tools');
+  }
+
   Future<Map<String, String>> settings() async {
     final db = await database;
     final rows = await db.query('app_settings');
@@ -407,6 +450,17 @@ class AppDatabase {
     });
   }
 
+  Future<Map<String, int>> backupTableCounts() async {
+    final db = await database;
+    final counts = <String, int>{};
+    for (final tableName in backupTableNames) {
+      final rows =
+          await db.rawQuery('SELECT COUNT(*) AS count FROM $tableName');
+      counts[tableName] = Sqflite.firstIntValue(rows) ?? 0;
+    }
+    return counts;
+  }
+
   Future<Map<String, Object?>> exportSnapshot() async {
     final db = await database;
     // 中文：导出使用稳定排序，便于比较备份文件，也方便以后做增量迁移。
@@ -415,8 +469,8 @@ class AppDatabase {
       'schema': 1,
       'exported_at': DateTime.now().toIso8601String(),
       'metadata': {
-        'app': 'NekoCalc',
-        'app_version': 'v1.1.0',
+        'app': AppInfo.name,
+        'app_version': AppInfo.version,
         'format': 'nekocalc.sqlite.snapshot',
         'format_version': 1,
       },
@@ -432,35 +486,54 @@ class AppDatabase {
     };
   }
 
-  Future<void> importSnapshot(Map<String, Object?> snapshot) async {
+  Future<void> importSnapshot(
+    Map<String, Object?> snapshot, {
+    bool replaceExisting = true,
+  }) async {
     // 中文：二次校验用于保护直接调用 importSnapshot 的代码路径。
     // English: Validate again to protect callers that bypass the repository parser.
-    validateBackupSnapshot(snapshot);
+    if (replaceExisting) {
+      validateBackupReplacementSnapshot(snapshot);
+    } else {
+      validateBackupSnapshot(snapshot);
+    }
     final tables = snapshot['tables'];
     if (tables is! Map) {
       throw const FormatException('备份数据缺少 tables 字段');
     }
     final db = await database;
     await db.transaction((txn) async {
-      // 中文：通过单个事务完成“清空再恢复”，失败时 SQLite 会回滚到导入前状态。
-      // English: Clear-and-restore runs in one transaction so SQLite rolls back to the pre-import state on failure.
-      await txn.delete('calculation_history');
-      await txn.delete('notes');
-      await txn.delete('favorite_tools');
-      await txn.delete('recent_tools');
-      await txn.delete('app_settings');
+      if (replaceExisting) {
+        // 中文：通过单个事务完成“清空再恢复”，失败时 SQLite 会回滚到导入前状态。
+        // English: Clear-and-restore runs in one transaction so SQLite rolls back to the pre-import state on failure.
+        await txn.delete('calculation_history');
+        await txn.delete('notes');
+        await txn.delete('favorite_tools');
+        await txn.delete('recent_tools');
+        await txn.delete('app_settings');
 
-      final batch = txn.batch();
-      _restoreRows(batch, 'calculation_history', tables['calculation_history'],
-          _normalizeHistoryRow);
-      _restoreRows(batch, 'notes', tables['notes'], _normalizeNoteRow);
-      _restoreRows(batch, 'favorite_tools', tables['favorite_tools'],
-          _normalizeFavoriteToolRow);
-      _restoreRows(batch, 'recent_tools', tables['recent_tools'],
-          _normalizeRecentToolRow);
-      _restoreRows(
-          batch, 'app_settings', tables['app_settings'], _normalizeSettingRow);
-      await batch.commit(noResult: true);
+        final batch = txn.batch();
+        _restoreRows(batch, 'calculation_history',
+            tables['calculation_history'], _normalizeHistoryRow);
+        _restoreRows(batch, 'notes', tables['notes'], _normalizeNoteRow);
+        _restoreRows(batch, 'favorite_tools', tables['favorite_tools'],
+            _normalizeFavoriteToolRow);
+        _restoreRows(batch, 'recent_tools', tables['recent_tools'],
+            _normalizeRecentToolRow);
+        _restoreRows(batch, 'app_settings', tables['app_settings'],
+            _normalizeSettingRow);
+        await batch.commit(noResult: true);
+      } else {
+        await _mergeRows(txn, 'calculation_history',
+            tables['calculation_history'], _normalizeHistoryRow);
+        await _mergeRows(txn, 'notes', tables['notes'], _normalizeNoteRow);
+        await _mergeRows(txn, 'favorite_tools', tables['favorite_tools'],
+            _normalizeFavoriteToolRow);
+        await _mergeRows(txn, 'recent_tools', tables['recent_tools'],
+            _normalizeRecentToolRow);
+        await _mergeRows(
+            txn, 'app_settings', tables['app_settings'], _normalizeSettingRow);
+      }
       await _trimHistory(txn);
       await _trimRecentTools(txn);
     });
@@ -478,7 +551,7 @@ class AppDatabase {
         LIMIT ?
       )
       ''',
-      [_maxHistoryRows],
+      [maxHistoryRows],
     );
   }
 
@@ -492,7 +565,7 @@ class AppDatabase {
         LIMIT ?
       )
       ''',
-      [_maxRecentToolRows],
+      [maxRecentToolRows],
     );
   }
 
@@ -547,6 +620,82 @@ class AppDatabase {
       batch.insert(table, normalized,
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
+  }
+
+  static Future<void> _mergeRows(
+    DatabaseExecutor db,
+    String table,
+    Object? rows,
+    Map<String, Object?>? Function(Map<String, Object?> row) normalize,
+  ) async {
+    if (rows == null) return;
+    if (rows is! List) throw FormatException('$table 不是有效列表');
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final normalized = normalize(row.cast<String, Object?>());
+      if (normalized == null) continue;
+      switch (table) {
+        case 'calculation_history':
+          await _mergeHistoryRow(db, normalized);
+        case 'notes':
+          await _mergeNoteRow(db, normalized);
+        default:
+          await db.insert(
+            table,
+            Map<String, Object?>.from(normalized)..remove('id'),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+      }
+    }
+  }
+
+  static Future<void> _mergeHistoryRow(
+    DatabaseExecutor db,
+    Map<String, Object?> row,
+  ) async {
+    final existing = await db.query(
+      'calculation_history',
+      columns: const ['id'],
+      where:
+          'expression = ? AND result = ? AND IFNULL(tool_id, "") = ? AND created_at = ?',
+      whereArgs: [
+        row['expression'],
+        row['result'],
+        row['tool_id'] ?? '',
+        row['created_at'],
+      ],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) return;
+    await db.insert(
+      'calculation_history',
+      Map<String, Object?>.from(row)..remove('id'),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<void> _mergeNoteRow(
+    DatabaseExecutor db,
+    Map<String, Object?> row,
+  ) async {
+    final existing = await db.query(
+      'notes',
+      columns: const ['id'],
+      where: 'title = ? AND description = ? AND body = ? AND created_at = ?',
+      whereArgs: [
+        row['title'],
+        row['description'],
+        row['body'],
+        row['created_at'],
+      ],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) return;
+    await db.insert(
+      'notes',
+      Map<String, Object?>.from(row)..remove('id'),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   static Map<String, Object?>? _normalizeHistoryRow(Map<String, Object?> row) {

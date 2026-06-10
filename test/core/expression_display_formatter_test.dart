@@ -15,6 +15,10 @@ void main() {
       '√(16)+∛(27)+π²',
     );
     expect(
+      formatExpressionForDisplay('tau+phi+infinity', mathSymbols: true),
+      'τ+φ+∞',
+    );
+    expect(
       formatExpressionForDisplay('log(100)+log2(8)+exp(1)', mathSymbols: true),
       'log₁₀(100)+log₂(8)+e^(1)',
     );
@@ -25,5 +29,16 @@ void main() {
         '|-5|+(5)!');
     expect(formatExpressionForDisplay('root(27,3)+ncr(5,2)', mathSymbols: true),
         '³√(27)+C(5,2)');
+  });
+
+  test('formats scientific notation for display', () {
+    expect(
+      formatExpressionForDisplay('1.2e3+2.5e-3+.5e+2', mathSymbols: true),
+      '1.2×10³+2.5×10⁻³+.5×10⁺²',
+    );
+    expect(
+      formatExpressionForDisplay('exp(1)+sec(0)+1e2', mathSymbols: true),
+      'e^(1)+sec(0)+1×10²',
+    );
   });
 }

@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.0-beta.1
+
+NekoCalc 1.2 beta is a release-candidate style preview that closes the large feature and maintainability work for the next public release.
+
+NekoCalc 1.2 beta 是面向下一次公开发布的预览版，集中收口大范围功能完善、细节可靠性和代码解耦工作。
+
+- Updated the public prerelease version to `1.2.0-beta.1+8`.
+- Expanded engineering, finance, physics, structure, electronics, math, unit, programming, text, and data workflow coverage.
+- Split large calculation, insight, paste, and text-tool logic into focused modules to reduce controller and use-case coupling.
+- Improved calculator submit, paste, save-to-history, and save-to-note flows with structured results and clearer failure messages.
+- Improved numeric tools, text tools, and Data Fit Chart save flows so invalid input, empty output, write failures, and exceptions are handled explicitly.
+- Improved notes and history management with structured delete/import results and more robust search and clipboard import behavior.
+- Improved backup export/import reporting with metadata, previews, row-count impact, and safer user-facing messages.
+- Improved graph workspace paste/restore, marker handling, and test coverage for graph interactions.
+- Improved recent-tool management with structured remove/clear results and real affected-row feedback.
+- Added broader automated coverage for calculator controllers, tool controllers, text tools, data fitting, graph functions, backup handling, notes, and UI workflows.
+
 ## v1.1.0
 
 NekoCalc 1.1 focuses on reliability and professional workflow improvements after the first stable release.

@@ -32,12 +32,15 @@ String formatExpressionForDisplay(String expression,
     index++;
   }
 
-  return _formatPowers(buffer.toString());
+  return _formatScientificNotation(_formatPowers(buffer.toString()));
 }
 
 String _symbolForToken(String token) {
   return switch (token) {
     'pi' => 'π',
+    'tau' => 'τ',
+    'phi' => 'φ',
+    'inf' || 'infinity' => '∞',
     _ => token,
   };
 }
@@ -106,8 +109,16 @@ String _formatPowers(String source) {
   });
 }
 
+String _formatScientificNotation(String source) {
+  return source.replaceAllMapped(
+    RegExp(r'(?<![A-Za-z0-9_.])((?:\d+(?:\.\d*)?|\.\d+))[eE]([+-]?\d+)'),
+    (match) => '${match.group(1)}×10${_toSuperscript(match.group(2)!)}',
+  );
+}
+
 String _toSuperscript(String value) {
   const chars = {
+    '+': '⁺',
     '-': '⁻',
     '0': '⁰',
     '1': '¹',

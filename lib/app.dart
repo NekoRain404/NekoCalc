@@ -8,17 +8,20 @@ import 'shared/presentation/app_shell.dart';
 import 'shared/presentation/app_theme.dart';
 
 class NekoCalcApp extends StatefulWidget {
-  const NekoCalcApp({super.key});
+  const NekoCalcApp({super.key, this.db});
+
+  final AppDatabase? db;
 
   @override
   State<NekoCalcApp> createState() => _NekoCalcAppState();
 }
 
 class _NekoCalcAppState extends State<NekoCalcApp> {
-  final AppDatabase _db = AppDatabase.instance;
+  late final AppDatabase _db = widget.db ?? AppDatabase.instance;
   late final SettingsRepository _settingsRepository = SettingsRepository(_db);
   ThemeMode _themeMode = ThemeMode.system;
   AppSettings _settings = AppSettings.fallback;
+  int _settingsLoadToken = 0;
 
   @override
   void initState() {
@@ -27,11 +30,16 @@ class _NekoCalcAppState extends State<NekoCalcApp> {
   }
 
   Future<void> _loadTheme() async {
+    final token = ++_settingsLoadToken;
     final settings = AppSettings.fromMap(await _settingsRepository.load());
     final themeMode = _themeModeFromLabel(settings.themeModeLabel);
     // 中文：设置没有变化时跳过整棵 MaterialApp 重建，减少启动和返回设置页的抖动。
     // English: Skip rebuilding the whole MaterialApp when settings are unchanged.
-    if (!mounted || (settings == _settings && themeMode == _themeMode)) return;
+    if (!mounted ||
+        token != _settingsLoadToken ||
+        (settings == _settings && themeMode == _themeMode)) {
+      return;
+    }
     setState(() {
       _settings = settings;
       _themeMode = themeMode;
@@ -65,11 +73,16 @@ class _NekoCalcAppState extends State<NekoCalcApp> {
   }
 
   Future<void> _reloadSettings() async {
+    final token = ++_settingsLoadToken;
     final settings = AppSettings.fromMap(await _settingsRepository.load());
     final themeMode = _themeModeFromLabel(settings.themeModeLabel);
     // 中文：设置页关闭后只在真实变化时刷新，避免页面栈回退时多余重绘。
     // English: Refresh after settings only when values changed to avoid unnecessary repaints.
-    if (!mounted || (settings == _settings && themeMode == _themeMode)) return;
+    if (!mounted ||
+        token != _settingsLoadToken ||
+        (settings == _settings && themeMode == _themeMode)) {
+      return;
+    }
     setState(() {
       _settings = settings;
       _themeMode = themeMode;

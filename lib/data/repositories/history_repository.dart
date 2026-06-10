@@ -9,17 +9,23 @@ class HistoryRepository {
   Future<int> saveCalculation({
     required String expression,
     required String result,
+    DateTime? createdAt,
   }) {
-    return _db.addHistory(expression: expression, result: result);
+    return _db.addHistory(
+        expression: expression, result: result, createdAt: createdAt);
   }
 
   Future<int> saveToolResult({
     required String toolId,
     required String expression,
     required String result,
+    DateTime? createdAt,
   }) {
     return _db.addHistory(
-        expression: expression, result: result, toolId: toolId);
+        expression: expression,
+        result: result,
+        toolId: toolId,
+        createdAt: createdAt);
   }
 
   Future<List<HistoryItem>> list({
@@ -36,7 +42,9 @@ class HistoryRepository {
     return _db.historyCount(query: query, toolId: toolId);
   }
 
-  Future<void> delete(int id) => _db.deleteHistory(id);
+  Future<int> delete(int id) => _db.deleteHistory(id);
 
-  Future<void> clear() => _db.clearHistory();
+  Future<int> deleteMany(Iterable<int> ids) => _db.deleteHistoryItems(ids);
+
+  Future<int> clear() => _db.clearHistory();
 }

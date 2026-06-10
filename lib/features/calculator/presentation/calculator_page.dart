@@ -10,6 +10,7 @@ import '../../../data/local/app_database.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../domain/usecases/calculator_paste_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'widgets/math_expression_text.dart';
 
@@ -20,12 +21,14 @@ class CalculatorPage extends StatefulWidget {
     required this.db,
     required this.onOpenSettings,
     required this.settings,
+    this.reloadToken = 0,
     super.key,
   });
 
   final AppDatabase db;
   final VoidCallback onOpenSettings;
   final AppSettings settings;
+  final int reloadToken;
 
   @override
   State<CalculatorPage> createState() => _CalculatorPageState();
@@ -119,6 +122,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (oldWidget.settings != widget.settings) {
       _controller.updateSettings(widget.settings);
     }
+    if (oldWidget.reloadToken != widget.reloadToken) {
+      _controller.reloadSettingsAndRestore();
+    }
   }
 
   @override
@@ -173,6 +179,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   AnimatedBuilder(
                     animation: _controller,
                     builder: (context, _) => _memoryBar(),
+                  ),
+                  const SizedBox(height: 10),
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) => _resultStatusCard(),
                   ),
                   const SizedBox(height: 10),
                   _actions(),
@@ -236,6 +247,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
               _statusChip(hasMemory ? 'M' : 'M0',
                   muted: !hasMemory, dense: true),
               const Spacer(),
+              _displayIconButton(Icons.undo, '撤销', _controller.undo,
+                  enabled: _controller.canUndo),
+              const SizedBox(width: 6),
+              _displayIconButton(Icons.redo, '重做', _controller.redo,
+                  enabled: _controller.canRedo),
+              const SizedBox(width: 6),
               _displayIconButton(Icons.keyboard_arrow_left, '光标左移',
                   _controller.moveCursorLeft),
               const SizedBox(width: 6),
@@ -329,12 +346,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _displayIconButton(IconData icon, String tooltip, VoidCallback onTap) {
+  Widget _displayIconButton(IconData icon, String tooltip, VoidCallback onTap,
+      {bool enabled = true}) {
     final scheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: 30,
@@ -344,7 +362,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: scheme.outlineVariant),
           ),
-          child: Icon(icon, size: 17, color: scheme.onSurfaceVariant),
+          child: Icon(
+            icon,
+            size: 17,
+            color: enabled
+                ? scheme.onSurfaceVariant
+                : scheme.onSurfaceVariant.withValues(alpha: 0.35),
+          ),
         ),
       ),
     );
@@ -650,53 +674,115 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Widget _actions() {
-    return Row(
-      children: [
-        Expanded(
-          child: ActionButton(
-            icon: Icons.copy_outlined,
-            label: '复制结果',
-            onTap: _copyResult,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => Row(
+        children: [
+          Expanded(
             child: ActionButton(
-                icon: Icons.refresh_outlined,
-                label: '继续使用',
-                onTap: _controller.continueWithResult)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ActionButton(
-            icon: Icons.save_outlined,
-            label: '保存笔记',
-            onTap: _saveNote,
+              icon: Icons.copy_outlined,
+              label: '复制结果',
+              onTap: _copyResult,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Expanded(
+              child: ActionButton(
+                  icon: Icons.refresh_outlined,
+                  label: '继续使用',
+                  onTap: _continueWithResult)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ActionButton(
+              icon: Icons.save_outlined,
+              label: '保存笔记',
+              onTap: _saveNote,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultStatusCard() {
+    final scheme = Theme.of(context).colorScheme;
+    final hasError = _controller.hasError;
+    final color = hasError ? scheme.error : scheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: softPanel(context: context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            hasError ? Icons.error_outline : Icons.verified_outlined,
+            color: color,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_controller.resultStatusTitle,
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(
+                  _controller.resultStatusMessage,
+                  style: TextStyle(
+                      color:
+                          hasError ? scheme.onSurface : scheme.onSurfaceVariant,
+                      height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _copyResult() async {
-    await Clipboard.setData(ClipboardData(text: _controller.result));
+    await Clipboard.setData(ClipboardData(text: _controller.copyText()));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已复制结果')));
+        .showSnackBar(const SnackBar(content: Text('已复制计算详情')));
+  }
+
+  void _continueWithResult() {
+    if (!_controller.canContinueWithResult) {
+      _showCurrentStatusSnack();
+      return;
+    }
+    _controller.continueWithResult();
   }
 
   Future<void> _saveNote() async {
     // 中文：保存笔记是异步数据库写入，页面退出后不能再使用旧 context 弹提示。
     // English: Saving notes writes to SQLite asynchronously; after navigation, the old context must not show feedback.
     if (_savingNote) return;
+    if (!_controller.canSaveCurrentExpression) {
+      _showCurrentStatusSnack();
+      return;
+    }
     _savingNote = true;
     try {
-      await _controller.saveToNote();
+      final result = await _controller.saveToNote();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+          .showSnackBar(SnackBar(content: Text(result.message)));
     } finally {
       _savingNote = false;
     }
+  }
+
+  void _showCurrentStatusSnack() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_controller.resultStatusMessage)),
+    );
   }
 
   Future<void> _pressKey(String key) async {
@@ -813,7 +899,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
       case '360°':
         _controller.append('360');
       case '=':
-        await _controller.submit();
+        final submitResult = await _controller.submit();
+        if (mounted && submitResult.needsAttention) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(submitResult.message)));
+        }
       default:
         _controller.input(key);
     }
@@ -842,7 +932,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Future<void> _editExpression() async {
     final controller = TextEditingController(text: _controller.expression);
-    final value = await showDialog<String>(
+    final value = await showDialog<_ExpressionEditResult>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('编辑表达式'),
@@ -854,20 +944,56 @@ class _CalculatorPageState extends State<CalculatorPage> {
           decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () async {
+              final data = await Clipboard.getData(Clipboard.kTextPlain);
+              if (!context.mounted) return;
+              final text = data?.text?.trim();
+              if (text == null || text.isEmpty) {
+                final paste = CalculatorPasteResult.fromText(text ?? '');
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(paste.summary)));
+                return;
+              }
+              Navigator.pop(context, _ExpressionEditResult.paste(text));
+            },
+            icon: const Icon(Icons.content_paste, size: 18),
+            label: const Text('粘贴'),
+          ),
           TextButton(
               onPressed: () => Navigator.pop(context), child: const Text('取消')),
           TextButton(
-              onPressed: () => Navigator.pop(context, ''),
+              onPressed: () =>
+                  Navigator.pop(context, const _ExpressionEditResult.clear()),
               child: const Text('清空')),
           FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text('应用')),
+            onPressed: () => Navigator.pop(
+              context,
+              _ExpressionEditResult.apply(controller.text.trim()),
+            ),
+            child: const Text('应用'),
+          ),
         ],
       ),
     );
     controller.dispose();
     if (value == null) return;
-    _controller.setExpression(value);
+    if (value.clearRequested) {
+      _controller.setExpression('');
+      return;
+    }
+    final paste = _controller.applyPastedText(value.text);
+    if (!mounted) return;
+    if (!paste.hasExpression) {
+      if (value.fromClipboard) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(paste.summary)));
+      }
+      return;
+    }
+    if (!value.fromClipboard && !paste.fromReport) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(paste.summary)));
   }
 
   double _basicKeyboardHeight(double screenHeight) {
@@ -907,6 +1033,27 @@ class _CalculatorKeySurface extends StatefulWidget {
 
   @override
   State<_CalculatorKeySurface> createState() => _CalculatorKeySurfaceState();
+}
+
+class _ExpressionEditResult {
+  const _ExpressionEditResult._({
+    required this.text,
+    required this.fromClipboard,
+    required this.clearRequested,
+  });
+
+  const _ExpressionEditResult.clear()
+      : this._(text: '', fromClipboard: false, clearRequested: true);
+
+  const _ExpressionEditResult.apply(String text)
+      : this._(text: text, fromClipboard: false, clearRequested: false);
+
+  const _ExpressionEditResult.paste(String text)
+      : this._(text: text, fromClipboard: true, clearRequested: false);
+
+  final String text;
+  final bool fromClipboard;
+  final bool clearRequested;
 }
 
 class _CalculatorKeySurfaceState extends State<_CalculatorKeySurface> {
