@@ -305,7 +305,7 @@ class _GraphPageState extends State<GraphPage> {
           child: Column(
             children: [
               for (var i = 0; i < _functions.length; i++) ...[
-                FunctionRow(
+                FunctionRow(key: ValueKey(_functions[i].expression), 
                   function: _functions[i],
                   onToggle: () => _toggle(i),
                   onEdit: () => _editFunction(i),
@@ -362,6 +362,7 @@ class _GraphPageState extends State<GraphPage> {
                   _scheduleWorkspacePersist();
                 },
                 onScaleEnd: (_) => _lastScale = 1,
+                child: RepaintBoundary(
                 child: CustomPaint(
                   painter: GraphPainter(
                     functions: _functions,
@@ -376,6 +377,7 @@ class _GraphPageState extends State<GraphPage> {
                     markerLabelBorder: scheme.outlineVariant,
                   ),
                   child: const SizedBox.expand(),
+                )
                 ),
               );
             },
