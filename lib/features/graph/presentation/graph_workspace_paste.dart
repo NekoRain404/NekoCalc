@@ -1,4 +1,5 @@
-part of 'graph_page.dart';
+import 'dart:convert';
+import '../models/graph_models.dart';
 
 class GraphWorkspacePasteResult {
   const GraphWorkspacePasteResult({
@@ -29,7 +30,7 @@ class GraphWorkspacePasteResult {
         '已恢复图形工作区',
       '${value.functions.length} 个函数',
       '$visibleCount 个可见',
-      'x ${_formatGraphNumber(value.viewport.xMin)} ~ ${_formatGraphNumber(value.viewport.xMax)}',
+      'x ${formatGraphNumber(value.viewport.xMin)} ~ ${formatGraphNumber(value.viewport.xMax)}',
     ].join(' · ');
   }
 }
@@ -91,13 +92,13 @@ GraphWorkspace? _parseGraphCopyTextWorkspace(String input) {
       final visible = _graphCopyLineVisible(lines, index);
       final preview = previewGraphFunctionInput(
         expression,
-        color: _palette[functions.length % _palette.length],
+        color: graphPalette[functions.length % graphPalette.length],
       );
       if (preview.isValid) {
         functions.add(GraphFunction(
           expression: preview.normalizedExpression,
           label: preview.label,
-          color: _palette[functions.length % _palette.length],
+          color: graphPalette[functions.length % graphPalette.length],
           visible: visible,
         ));
       }
@@ -148,7 +149,7 @@ GraphWorkspace? _parseGraphFunctionTextWorkspace(String input) {
   for (final line in lines) {
     final candidate = _graphFunctionExpressionFromFreeText(line);
     if (candidate == null) continue;
-    final color = _palette[functions.length % _palette.length];
+    final color = graphPalette[functions.length % graphPalette.length];
     final preview = previewGraphFunctionInput(candidate, color: color);
     if (!preview.isValid) continue;
     if (!seen.add(preview.normalizedExpression)) continue;
