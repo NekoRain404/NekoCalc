@@ -346,7 +346,7 @@ bool _shouldReportIgnoredPastedSegment(String segment) {
 }
 
 bool _looksLikePastedNumericValue(String value) {
-  final normalized = ToolDetailController._normalizeNumericText(value);
+  final normalized = ToolUnitConversion.normalizeNumericText(value);
   return RegExp(r'[\d０-９]').hasMatch(value) ||
       normalized.contains('√') ||
       RegExp(
