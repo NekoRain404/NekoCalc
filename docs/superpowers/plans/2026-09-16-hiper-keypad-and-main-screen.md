@@ -720,7 +720,11 @@ Scaffold
 
 **状态**：页面新增 `KeypadModifier _modifier` 与 `bool _hypActive`；`shift` 与 `hyp` 互斥（点一个清另一个）。修饰态在**一次按键后自动复位**（与 HiPER 一致），`hyp` 除外——它是持续态，需再点一次退出。
 
-高度分配：`CalculatorDisplay` 取可用高度的 38%（clamp 150–230），其余给键盘。键盘用 `Expanded` 填满，**不设固定高度**，这样不再有溢出。
+高度分配：`CalculatorDisplay` 取可用高度的 38%，**clamp 下限为 176dp**（不是 150dp —— Task 3 的评审按真实 Android 字体度量推导出，显示区的固定行在双行错误下需要 ≈165dp，150dp 会在窗口高度低于约 395dp 时必然溢出：横屏、分屏、自由窗口都命中），上限 230dp，其余给键盘。键盘用 `Expanded` 填满，**不设固定高度**。
+
+`modifierActive` 无需显式传：`CalculatorKeypad` 现在由 `modifier ?? (modifier != KeypadModifier.none)` 自行推导（`calculator_keypad.dart:154`），不传也会正确高亮标签带。
+
+`CalculatorDisplay` 的 ☰ 按钮（`onOpenDrawer`）必须接上，它的 `tooltip: '打开导航'` 是 Task 5 测试的锚点。
 
 - [ ] **Step 5: 运行确认通过**
 
