@@ -7,6 +7,7 @@ import '../../features/graph/presentation/graph_page.dart';
 import '../../features/notes/presentation/notes_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/tools/presentation/tools_home_page.dart';
+import 'app_drawer.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -52,6 +53,14 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 中文：导航从底部栏换成侧边抽屉；主屏左上角的 ☰（由计算页渲染）打开的就是它。
+      // English: Navigation moved from the bottom bar to a side drawer; the ☰ rendered by the
+      //          calculator page opens exactly this one.
+      drawer: AppDrawer(
+        selectedIndex: _index,
+        onSelect: _openDestination,
+        onOpenSettings: _openSettings,
+      ),
       body: SafeArea(
         child: PageView.builder(
           controller: _pageController,
@@ -62,34 +71,40 @@ class _AppShellState extends State<AppShell> {
           },
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        height: 70,
-        onDestinationSelected: _selectDestination,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.calculate_outlined),
-            selectedIcon: Icon(Icons.calculate),
-            label: '计算',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.construction_outlined),
-            selectedIcon: Icon(Icons.construction),
-            label: '工具',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.show_chart_outlined),
-            selectedIcon: Icon(Icons.show_chart),
-            label: '图形',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.article_outlined),
-            selectedIcon: Icon(Icons.article),
-            label: '笔记',
-          ),
-        ],
-      ),
     );
+  }
+
+  /// 中文：抽屉入口的目的地。编号与 `AppDrawer` 共用，避免抽屉与计算页各立一套映射。
+  /// English: Destinations from the drawer, using `AppDrawer`'s ids so the drawer and the calculator
+  ///          page cannot drift into two different mappings.
+  void _openDestination(int destination) {
+    switch (destination) {
+      case AppDrawer.toolsDestination:
+        _selectDestination(AppDrawer.toolsDestination);
+      case AppDrawer.notesDestination:
+        _selectDestination(AppDrawer.notesDestination);
+      case AppDrawer.historyDestination:
+        _navigate('history');
+    }
+  }
+
+  /// 中文：计算页的页面级导航（`HISTORY`、`CNST`、`CONV` 与四个进制胶囊）。目的地只有两个：
+  ///       `'tools'` 切到工具页；`'history'` 切到笔记页——历史记录住在那一页。
+  ///       笔记页内部的「历史」筛选没有对外入口（`NotesPage` 未暴露它的 tab），所以这里只切页、
+  ///       不另造一条通往筛选的平行路径；等笔记页暴露入口后在此补上。
+  /// English: Page-level navigation from the calculator page (`HISTORY`, `CNST`, `CONV` and the four
+  ///          base pills). There are exactly two destinations: `'tools'` switches to the toolbox;
+  ///          `'history'` switches to the notes page, where history lives. That page's inner 「历史」
+  ///          filter has no external entry point (`NotesPage` exposes no tab hook), so this switches
+  ///          pages rather than inventing a parallel route into the filter; it gains the filter once
+  ///          the page exposes one.
+  void _navigate(String destination) {
+    switch (destination) {
+      case 'tools':
+        _selectDestination(AppDrawer.toolsDestination);
+      case 'history':
+        _selectDestination(AppDrawer.notesDestination);
+    }
   }
 
   Widget _pageFor(int index) {
@@ -98,7 +113,8 @@ class _AppShellState extends State<AppShell> {
           db: widget.db,
           onOpenSettings: _openSettings,
           settings: widget.settings,
-          reloadToken: _calculatorReloadToken),
+          reloadToken: _calculatorReloadToken,
+          onNavigate: _navigate),
       1 => ToolsHomePage(
           db: widget.db,
           settings: widget.settings,
