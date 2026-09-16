@@ -44,3 +44,6 @@ key.properties
 
 # Generated reports
 android/build/reports/
+
+# Visual brainstorming companion artifacts
+.superpowers/
