@@ -245,8 +245,8 @@ Expected: FAIL，`Target of URI doesn't exist: 'package:nekocalc/features/calcul
 | `x⁻¹` | 启用 | `ins:^-1` | |
 | `log`/`ln` | 启用 | `log` `ln` | |
 | `10ˣ`/`eˣ` | 启用 | `ins:10^` `ins:e^` | 分别为 `log`/`ln` 的 shift |
-| `M+`/`M−`/`MR`/`x→M` | 启用 | `memoryAdd` `memorySubtract` `memoryRecall` `memoryStore` | `memoryStore` = 现有 `memoryAdd` 语义 |
-| `HISTORY` | 启用 | `openHistory` | 打开抽屉的历史入口 |
+| `M+`/`M−`/`MR`/`x→M` | 启用 | `memoryAdd` `memorySubtract` `memoryRecall` `memoryStore` | `x→M` 是**替换**（清空后累加），不是 `memoryAdd` |
+| `HISTORY` | 启用 | `openHistory` | 切到笔记页（历史记录住在那一页，不选中它的「历史」胶囊） |
 | `OTHER` | 启用 | `openTools` | 打开工具箱（NekoCalc 的对应物） |
 | `CNST` | 启用 | `openConstants` | 打开工具箱的常数分类 |
 | `CONV` | 启用 | `openUnits` | 打开工具箱的单位换算 |
@@ -798,14 +798,17 @@ void main() {
     expect(find.byType(BottomNavigationBar), findsNothing);
   });
 
-  testWidgets('点 ☰ 后抽屉出现且含四个入口', (tester) async {
+  testWidgets('点 ☰ 后抽屉出现且含五个入口', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('打开导航'));
     await tester.pumpAndSettle();
+    // 四页 + 设置：键盘区不响应翻页，抽屉漏掉哪一页，那一页就是死路；
+    // 抽屉里没有单独的「历史」——见下方 Step 3 的说明。
+    expect(find.text('计算'), findsWidgets);
     expect(find.text('工具'), findsWidgets);
+    expect(find.text('图形'), findsWidgets);
     expect(find.text('笔记'), findsWidgets);
-    expect(find.text('历史'), findsWidgets);
     expect(find.text('设置'), findsWidgets);
   });
 
@@ -835,7 +838,7 @@ class _FakeDatabase implements AppDatabase {
 }
 ```
 
-**实现约束**：主屏上的 ☰ 按钮必须带 `tooltip: '打开导航'`，否则上面的测试找不到它。抽屉里的四项文案固定为 工具 / 笔记 / 历史 / 设置。
+**实现约束**：主屏上的 ☰ 按钮必须带 `tooltip: '打开导航'`，否则上面的测试找不到它。抽屉里的五项固定为 计算 / 工具 / 图形 / 笔记 / 设置（四页 + 设置；**没有**单独的「历史」，理由见 Step 3）。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -846,7 +849,13 @@ Expected: FAIL（`NavigationBar` 仍在、找不到 ☰）
 
 - [ ] **Step 3: 实现**
 
-创建 `lib/shared/presentation/app_drawer.dart`：`Drawer` + `ListView`，四项 `ListTile`（工具 / 笔记 / 历史 / 设置），当前项高亮，底部一项「设置」调 `onOpenSettings`。颜色全部取自 `CalcTheme`。
+创建 `lib/shared/presentation/app_drawer.dart`：`Drawer` + `ListView`，五个 `ListTile`（计算 / 工具 / 图形 / 笔记，+ 分隔线下的「设置」），当前页高亮，底部一项「设置」调 `onOpenSettings`。颜色全部取自 `CalcTheme`。
+
+> **与原计划不同之处（已裁定，按实际落地的写法执行）**：原稿写的是四项「工具 / 笔记 / 历史 / 设置」，
+> 但底部栏被删掉之后，抽屉必须能让**每一页**都回得去（键盘区不响应翻页，漏掉哪一页那一页就是死路），
+> 所以四项是四个**页面**：计算 / 工具 / 图形 / 笔记，设置另起一项。「历史」不再是抽屉入口——历史记录
+> 住在**笔记页**里，由那一页的「历史」胶囊筛选。原因：`NotesPage` 没有暴露它的 tab（没有对外入口），
+> 而那个文件上压着用户尚未提交的工作，本分支不得改动它。等笔记页给出入口，再把「历史」入口补回来。
 
 改写 `app_shell.dart`：
 - 移除底部 `NavigationBar`
@@ -860,10 +869,10 @@ Expected: FAIL（`NavigationBar` 仍在、找不到 ☰）
 
 | `onNavigate` 收到 | 行为 |
 |---|---|
-| `'history'` | 切到「笔记」页并选中其「历史」筛选（历史记录住在笔记页里） |
+| `'history'` | 切到「笔记」页（历史记录住在那一页）；**不**替用户选中那页的「历史」胶囊，落点是该页的默认筛选——原因见上 |
 | `'tools'` | 切到「工具」页 |
 
-抽屉里的「工具 / 笔记 / 历史 / 设置」四项与它们保持一致：前两项切页，`'history'` 走笔记页的历史筛选，设置仍走既有的 `_openSettings`。
+抽屉里的 计算 / 工具 / 图形 / 笔记 四项与它们保持一致，设置仍走既有的 `_openSettings`。`'history'` 与抽屉里的「笔记」落在同一页——这是刻意的：笔记页内部的筛选没有对外入口，与其另造一条通往筛选的平行路径，不如只切页。
 
 - [ ] **Step 4: 运行确认通过**
 
@@ -893,7 +902,7 @@ git commit -m "feat(shell): replace bottom tabs with a navigation drawer"
 - `flutter analyze` 零问题；`flutter test` 全过且 ≥ 733
 - 主屏为 HiPER 形态：6 列键盘、主键行与 SHIFT 标签行交替、数字键与函数键同屏
 - 主屏**不滚动**（当前有 211dp 溢出）
-- 侧边抽屉可达 工具 / 笔记 / 历史 / 设置
+- 侧边抽屉可达 计算 / 工具 / 图形 / 笔记 / 设置（四个页面 + 设置；**没有**单独的「历史」入口——历史记录住在笔记页里，见 Task 5 Step 3 的说明。`HISTORY` 键切到该页，但不替用户选中「历史」胶囊）
 - 新增代码**零硬编码颜色**；加第四套主题不需触碰组件文件
 - **真机验证**：在已连接的小米 11（arm64-v8a, Android 14）上 `flutter run`，确认手感与窄屏布局
 

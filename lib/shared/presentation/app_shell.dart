@@ -129,16 +129,24 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// 中文：计算页的页面级导航（`HISTORY`、`CNST`、`CONV` 与四个进制胶囊）。目的地只有两个：
-  ///       `'tools'` 切到工具页；`'history'` 切到笔记页——历史记录住在那一页，用户在那里自己挑
-  ///       「历史」胶囊。笔记页内部的筛选没有对外入口（`NotesPage` 未暴露它的 tab），所以这里只
-  ///       切页、不另造一条通往筛选的平行路径；等笔记页暴露入口后再把抽屉里的「历史」入口补回来。
+  ///       `'tools'` 切到工具页；`'history'` 切到笔记页——历史记录住在那一页。
+  ///       **`HISTORY` 键的已知缺口（刻意保留）**：它只切页，**不**替用户选中笔记页的「历史」胶囊，
+  ///       落点就是笔记页的默认筛选。原因有两层：`NotesPage` 没有暴露它的 tab（没有对外入口，
+  ///       见 `notes_page.dart`），而那个文件上压着用户尚未提交的工作，本分支不得改动它。
+  ///       所以这里不另造一条通往筛选的平行路径；等笔记页给出入口，再让 `'history'` 顺带选中胶囊，
+  ///       并把抽屉入口独立出来（抽屉现在只有四个页面入口，没有单独的「历史」，与计划书原来的
+  ///       四项清单不同——见计划书的完成标准）。
   /// English: Page-level navigation from the calculator page (`HISTORY`, `CNST`, `CONV` and the four
-  ///          base pills). There are exactly two destinations: `'tools'` switches to the toolbox;
-  ///          `'history'` switches to the notes page, where history lives and the user picks the
-  ///          「历史」 pill themselves. That page's inner filter has no external entry point
-  ///          (`NotesPage` exposes no tab hook), so this switches pages rather than inventing a
-  ///          parallel route into the filter; once the page exposes one, a 历史 entry can return to
-  ///          the drawer and select it.
+  ///          base pills). There are exactly two destinations: `'tools'` switches to the toolbox and
+  ///          `'history'` switches to the notes page, where history lives.
+  ///          **Known, deliberate gap on the `HISTORY` key**: it only switches pages — it does *not*
+  ///          select the notes page's 「历史」 pill for the user, so the landing view is that page's
+  ///          default filter. Two reasons: `NotesPage` exposes no tab hook (see `notes_page.dart`), and
+  ///          that file carries the user's own uncommitted work, which this branch must not touch. So no
+  ///          parallel route into the filter is invented here; once the page exposes one, `'history'` can
+  ///          also select the pill and the drawer can gain a 历史 entry of its own (the drawer today has
+  ///          only the four page entries and no separate 历史 — unlike the four-item list the plan first
+  ///          specified; see the plan's completion criteria).
   void _navigate(String destination) {
     switch (destination) {
       case 'tools':
@@ -157,6 +165,13 @@ class _AppShellState extends State<AppShell> {
 
   Widget _pageFor(int index) {
     return switch (index) {
+      // 中文：外壳必须接上 `onNavigate`（它在计算页是可选的、默认惰性）：不接的话 `HISTORY`/`CNST`/
+      //       `CONV` 与四个进制胶囊在真实 App 里永远是死的。`HISTORY` 落到笔记页但不会替用户选中
+      //       那页的「历史」胶囊——原因见 `_navigate` 的注释。
+      // English: The shell must wire `onNavigate` (it is optional and inert by default on the
+      //          calculator page): without it `HISTORY`/`CNST`/`CONV` and the four base pills stay dead
+      //          in the real app. `HISTORY` lands on the notes page but does not select that page's
+      //          「历史」 pill for the user — see `_navigate` for why.
       0 => CalculatorPage(
           db: widget.db,
           onOpenSettings: _openSettings,
@@ -223,17 +238,22 @@ class _AppShellState extends State<AppShell> {
 
 /// 中文：外壳浮在非计算页左上角的 ☰，与计算页那个按钮同一个 tooltip，用户与测试都用同一句话找它。
 ///       配色来自应用主题（`Theme.of(context)`，即那三页自己用的 Material 主题），不写死任何色值；
-///       它坐在可滚动的内容之上，所以用填充色按钮而不是一个裸图标，滚动时也看得清。
+///       它画在一条专用带子上——非计算页的内容被整体下移 `_shellDrawerButtonBand`，所以按钮下方
+///       没有内容滚过（该带子之前的说法「页面内容会在其下滚动」已不成立），用填充色按钮是为了与
+///       裸图标相比有明确的边界，浅色主题下也看得清。
 ///       点击范围收窄成 40×40（与计算页状态行的 ☰ 同一做法）：Material 默认把命中区补到 48×48，
 ///       那个看不见的 48 方块会越界压住页面自己的控件——笔记页多选态的「取消选择」就落在里面。
 /// English: The ☰ the shell floats over the top-left of every non-calculator page; it carries the same
 ///          tooltip as the calculator's button, so users and tests find both by the same words. Its
 ///          colours come from the app theme (`Theme.of(context)` — the Material theme those three pages
-///          themselves use) with no literal values, and it is a filled button rather than a bare icon
-///          because page content scrolls underneath it. Its hit area is narrowed to 40×40 (the same
-///          move the calculator's status-row ☰ makes): Material pads the target out to 48×48 by
-///          default, and that invisible 48 box reaches into the page's own controls — the notes page's
-///          multi-select 「取消选择」 used to sit inside it.
+///          themselves use) with no literal values, and it is a filled rather than bare icon because
+///          that gives it a visible edge on a light theme. It does **not** sit over scrolling content:
+///          the non-calculator pages are inset by `_shellDrawerButtonBand`, which reserved the band for
+///          it (the band was added after that claim, so the earlier "content scrolls underneath" no
+///          longer holds). Its hit area is narrowed to 40×40 (the same move the calculator's status-row
+///          ☰ makes): Material pads the target out to 48×48 by default, and that invisible 48 box
+///          reaches into the page's own controls — the notes page's multi-select 「取消选择」 used to sit
+///          inside it.
 class _ShellDrawerButton extends StatelessWidget {
   const _ShellDrawerButton();
 
