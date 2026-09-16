@@ -100,8 +100,9 @@ class CalcKeyColors {
   final Color accentBg;
   final Color accentFg;
 
-  /// 中文：模态键上小标签（SHIFT 提示）的前景色。
-  /// English: Foreground for the small label printed on modifier keys.
+  /// 中文：模态键上小标签（SHIFT 提示）的前景色，比键面文字更淡，在模态键与键位区底色上均可读。
+  /// English: Foreground for the small label printed on modifier keys; dimmer
+  /// than the key glyph and legible on both the modifier key and the keypad panel.
   final Color shiftLabelFg;
 
   /// 中文：小胶囊 / 切换标签的底色与前景色。
@@ -181,15 +182,16 @@ class CalcTheme {
       destructiveFg: Color(0xFF4A2029),
       accentBg: Color(0xFFA04F60),
       accentFg: Color(0xFFFFF6F7),
-      shiftLabelFg: Color(0xFF1F3D2E),
+      shiftLabelFg: Color(0xFF456652),
       pillBg: Color(0xFFEDDDE1),
       pillFg: Color(0xFF4A3B40),
     ),
     keypadBackground: Color(0xFFF4EAE4),
   );
 
-  /// 中文：薰衣草雾，冷紫罗兰色系的浅色主题。
-  /// English: Lavender Mist, a cool violet light theme.
+  /// 中文：薰衣草雾，冷紫罗兰色系的浅色主题；破坏性按键仍用暖色警示，与其它主题语义一致。
+  /// English: Lavender Mist, a cool violet light theme; its destructive key
+  /// stays warm so the warning semantics match the other themes.
   static const CalcTheme lavenderMist = CalcTheme(
     id: 'lavenderMist',
     name: '薰衣草雾',
@@ -213,11 +215,11 @@ class CalcTheme {
       variableFg: Color(0xFF21333D),
       modifierBg: Color(0xFF8FC7A8),
       modifierFg: Color(0xFF1F3D2E),
-      destructiveBg: Color(0xFF9A8AD6),
-      destructiveFg: Color(0xFF2A2145),
+      destructiveBg: Color(0xFFE0847E),
+      destructiveFg: Color(0xFF4A2317),
       accentBg: Color(0xFF6A55BC),
       accentFg: Color(0xFFF7F4FF),
-      shiftLabelFg: Color(0xFF1F3D2E),
+      shiftLabelFg: Color(0xFF456652),
       pillBg: Color(0xFFE6E2F5),
       pillFg: Color(0xFF37325A),
     ),
@@ -253,7 +255,7 @@ class CalcTheme {
       destructiveFg: Color(0xFF4A2317),
       accentBg: Color(0xFFD98A5C),
       accentFg: Color(0xFF2B1409),
-      shiftLabelFg: Color(0xFF1F3D2E),
+      shiftLabelFg: Color(0xFF456652),
       pillBg: Color(0xFFF0DFD2),
       pillFg: Color(0xFF463229),
     ),
@@ -299,7 +301,7 @@ const CalcTheme _roseCreamDark = CalcTheme(
     destructiveFg: Color(0xFFF6D5D8),
     accentBg: Color(0xFFC0707E),
     accentFg: Color(0xFF2A1216),
-    shiftLabelFg: Color(0xFFC6E6D2),
+    shiftLabelFg: Color(0xFF8FAE9B),
     pillBg: Color(0xFF3A3038),
     pillFg: Color(0xFFEDE4E8),
   ),
@@ -331,11 +333,11 @@ const CalcTheme _lavenderMistDark = CalcTheme(
     variableFg: Color(0xFFD3E6F0),
     modifierBg: Color(0xFF33543F),
     modifierFg: Color(0xFFC6E6D2),
-    destructiveBg: Color(0xFF4C3E86),
-    destructiveFg: Color(0xFFDDD6FF),
+    destructiveBg: Color(0xFF74343C),
+    destructiveFg: Color(0xFFF7D3D6),
     accentBg: Color(0xFF8C79D8),
     accentFg: Color(0xFF170F2E),
-    shiftLabelFg: Color(0xFFC6E6D2),
+    shiftLabelFg: Color(0xFF8FAE9B),
     pillBg: Color(0xFF322F44),
     pillFg: Color(0xFFE6E3F0),
   ),
@@ -371,7 +373,7 @@ const CalcTheme _peachSugarDark = CalcTheme(
     destructiveFg: Color(0xFFF9D6C4),
     accentBg: Color(0xFFD98A5C),
     accentFg: Color(0xFF2B1409),
-    shiftLabelFg: Color(0xFFC6E6D2),
+    shiftLabelFg: Color(0xFF8FAE9B),
     pillBg: Color(0xFF3D342B),
     pillFg: Color(0xFFF2E9E1),
   ),
