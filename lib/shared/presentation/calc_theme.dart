@@ -156,6 +156,27 @@ class CalcTheme {
   /// English: Matching dark variant of this theme; a dark variant returns itself.
   CalcTheme get dark => _darkVariants[id] ?? this;
 
+  /// 中文：当前生效的 `CalcTheme`——计算页与侧边抽屉取色的**唯一**入口。
+  ///       明暗取自 `Theme.of(context).brightness`：那是应用自己的主题模式（设置里的
+  ///       浅色 / 深色 / 跟随系统，由 `app.dart` 的 `themeMode` 落到 `MaterialApp`）算完之后的
+  ///       **实际**明暗。反过来若读平台的 `MediaQuery.platformBrightness`，用户选了浅色而手机开着
+  ///       深色模式时两者相反，本页与抽屉就会在其余页面全是浅色时独自变黑。
+  ///       主题选择本身还没接进设置页（列为后续工作），所以基准主题固定为 `roseCream`；
+  ///       接入后只需在这里换成读取设置，两个调用点都不用动。
+  /// English: The active `CalcTheme` — the **single** entry point for the calculator page's and the
+  ///          drawer's colours. Light/dark comes from `Theme.of(context).brightness`: the *effective*
+  ///          brightness after the app's own theme mode (浅色 / 深色 / 跟随系统 from the settings,
+  ///          applied to `MaterialApp` by `app.dart`'s `themeMode`). Reading the platform's
+  ///          `MediaQuery.platformBrightness` instead disagrees whenever 浅色 is chosen on a dark-mode
+  ///          phone, turning this page and the drawer black while every other page stays light.
+  ///          Theme selection is not wired into the settings page yet (recorded as follow-up work), so
+  ///          the base theme is always `roseCream`; once it is, only this method reads the setting and
+  ///          neither call site changes.
+  static CalcTheme of(BuildContext context) {
+    const CalcTheme base = roseCream;
+    return Theme.of(context).brightness == Brightness.dark ? base.dark : base;
+  }
+
   /// 中文：玫瑰奶霜，暖玫瑰色系的浅色主题。
   /// English: Rose Cream, a warm rose light theme.
   static const CalcTheme roseCream = CalcTheme(

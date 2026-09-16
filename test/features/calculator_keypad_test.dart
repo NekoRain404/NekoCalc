@@ -11,8 +11,6 @@ Widget pad({
   bool? modifierActive,
   CalcTheme theme = CalcTheme.roseCream,
   ValueChanged<String>? onKey,
-  VoidCallback? onToggleShift,
-  VoidCallback? onToggleHyp,
 }) =>
     host(CalculatorKeypad(
       definition: hiperKeypad,
@@ -23,8 +21,6 @@ Widget pad({
       colors: theme.keys,
       background: theme.keypadBackground,
       onKey: onKey ?? (_) {},
-      onToggleShift: onToggleShift ?? () {},
-      onToggleHyp: onToggleHyp ?? () {},
     ));
 
 void main() {
@@ -66,7 +62,7 @@ void main() {
   testWidgets('disabled main keys report nothing', (tester) async {
     final tapped = <String>[];
     await tester.pumpWidget(pad(onKey: tapped.add));
-    // Σ 是第 3 行的主键且为禁用态；不要拿标签行的文字（如 MTRX）来测，
+    // Σ 是第 2 行（`KeypadRow` 计）的主键且为禁用态；不要拿标签行的文字（如 MTRX）来测，
     // 标签本就不可点，那样会通过但测不到「禁用键不触发」这件事。
     await tester.tap(find.text('Σ').first, warnIfMissed: false);
     await tester.pump();
@@ -81,14 +77,26 @@ void main() {
     expect(tapped, isEmpty);
   });
 
-  testWidgets('tapping SHIFT invokes onToggleShift, not onKey', (tester) async {
+  // 中文：`SHIFT`/`hyp` 过去走两个专属回调（`onToggleShift`/`onToggleHyp`），于是「这两个 id 是
+  //       什么」被写在了渲染层和主屏两处。现在渲染层不认识任何 id：修饰键与别的键一样上报自己的 id，
+  //       由上层决定那是切换修饰态。这两条钉住新契约，并守住「渲染层不懂 id」这件事。
+  // English: `SHIFT`/`hyp` used to route through two dedicated callbacks (`onToggleShift` /
+  //          `onToggleHyp`, now gone), which wrote those two ids down in both the rendering layer and
+  //          the screen. The renderer now knows no ids: the modifier keys report their own id like every
+  //          other key and the screen decides that means "flip the modifier". These two pin that
+  //          contract and that the renderer knows no ids.
+  testWidgets('tapping SHIFT reports the id through onKey', (tester) async {
     final tapped = <String>[];
-    var toggled = 0;
-    await tester
-        .pumpWidget(pad(onKey: tapped.add, onToggleShift: () => toggled++));
+    await tester.pumpWidget(pad(onKey: tapped.add));
     await tester.tap(find.text('SHIFT').first);
-    expect(toggled, 1);
-    expect(tapped, isEmpty);
+    expect(tapped, ['shift']);
+  });
+
+  testWidgets('tapping hyp reports the id through onKey', (tester) async {
+    final tapped = <String>[];
+    await tester.pumpWidget(pad(onKey: tapped.add));
+    await tester.tap(find.text('hyp').first);
+    expect(tapped, ['hyp']);
   });
 
   testWidgets('band labels highlight while a modifier is latched',
@@ -142,8 +150,6 @@ void main() {
       colors: theme.keys,
       background: theme.keypadBackground,
       onKey: (_) {},
-      onToggleShift: () {},
-      onToggleHyp: () {},
     )));
     // 数字键底应为该主题的 digitBg
     final digit = tester.widget<Container>(

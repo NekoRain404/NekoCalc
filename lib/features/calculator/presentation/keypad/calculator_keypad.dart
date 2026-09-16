@@ -45,14 +45,6 @@ const double _disabledBlend = 0.55;
 const EdgeInsets _hintChipInsets =
     EdgeInsets.symmetric(horizontal: 3, vertical: 1);
 
-/// 中文：两个修饰键在 `hiper_keypad.dart` 里的固定 id——它们代表键盘自身的状态切换，
-///       不属于表达式动作，所以走 `onToggleShift`/`onToggleHyp` 而不是 `onKey`。
-/// English: The two modifier keys' fixed ids in `hiper_keypad.dart`. They switch the keypad's
-///          own state rather than acting on the expression, so they route to
-///          `onToggleShift`/`onToggleHyp` instead of `onKey`.
-const String _shiftKeyId = 'shift';
-const String _hypKeyId = 'hyp';
-
 const EdgeInsets _cellInsets = EdgeInsets.all(_cellPadding);
 const BorderRadius _keyCorners = BorderRadius.all(Radius.circular(_keyRadius));
 const BorderRadius _bandKeyCorners =
@@ -89,13 +81,21 @@ const BorderRadius _bandKeyCorners =
 /// 接入契约 / Wiring contract（Task 4 需要知道的三件事）:
 /// 中文：1) 本组件需要**有界高度**并会填满它（见上）；2) `modifierActive` 可以省略，省略时按
 ///       `modifier != none` 推导——忘了传也不会丢掉「SHIFT 已锁定」的信号；3) `modifier` 只决定
-///       按键如何解析，`SHIFT`/`hyp` 两个键由本组件按 id 直接吃掉、走 `onToggleShift`/
-///       `onToggleHyp`，不会再作为动作 id 冒出来。
+///       按键如何解析，组件**不认识任何具体 id**——包括 `shift`/`hyp` 两个修饰键：它们像其它键
+///       一样把自己的 id 交给 `onKey`，由上层切换修饰态。因此键位表里改 id 不必回到本文件。
+///       「哪个修饰键正被按下」这个问题不靠 id 回答，靠 `modifier.name` 与键的 id 相等——键位表里
+///       两个修饰键的 id 与 `KeypadModifier` 的枚举名一致，这一点由
+///       `test/features/keypad_definition_test.dart` 钉住。
 /// English: 1) it needs a **bounded height** and fills it (above); 2) `modifierActive` may be
 ///          omitted — it then derives from `modifier != none`, so the "SHIFT is latched" signal
 ///          cannot be lost by forgetting an argument; 3) `modifier` decides only how a tapped key
-///          resolves, and the `SHIFT`/`hyp` keys are consumed here by id — they route to
-///          `onToggleShift`/`onToggleHyp` and never surface as action ids.
+///          resolves, and the widget **knows no concrete id at all** — the `shift`/`hyp` modifier
+///          keys included: they hand their id to `onKey` like every other key, and the screen above
+///          flips the modifier. Changing an id in the key table therefore never reaches this file.
+///          "Which modifier key is latched" is not answered by an id constant but by
+///          `modifier.name` matching the key's id — the two modifier ids in the table equal the
+///          `KeypadModifier` enum names, which
+///          `test/features/keypad_definition_test.dart` pins.
 class CalculatorKeypad extends StatelessWidget {
   const CalculatorKeypad({
     super.key,
@@ -104,8 +104,6 @@ class CalculatorKeypad extends StatelessWidget {
     required this.colors,
     required this.background,
     required this.onKey,
-    required this.onToggleShift,
-    required this.onToggleHyp,
     this.modifierActive,
   });
 
@@ -125,17 +123,12 @@ class CalculatorKeypad extends StatelessWidget {
   /// English: Keypad panel background.
   final Color background;
 
-  /// 中文：按键动作 id 的回调（禁用键永不触发）。
-  /// English: Callback for a key's action id (a disabled key never fires it).
+  /// 中文：按键动作 id 的回调（禁用键永不触发）。修饰键也走这条通路——它们的 id 就是
+  ///       `shift`/`hyp`，由上层决定那是切换修饰态。
+  /// English: Callback for a key's action id (a disabled key never fires it). The modifier keys
+  ///          travel this path too — their ids are `shift`/`hyp`, and the screen above decides that
+  ///          those mean "flip the modifier".
   final ValueChanged<String> onKey;
-
-  /// 中文：`SHIFT` 键的回调。
-  /// English: Callback for the `SHIFT` key.
-  final VoidCallback onToggleShift;
-
-  /// 中文：`hyp` 键的回调。
-  /// English: Callback for the `hyp` key.
-  final VoidCallback onToggleHyp;
 
   /// 中文：是否有非 none 的修饰态被锁定——SHIFT 与 hyp 都会点亮标签横带（两者互斥，所以一个
   ///       布尔就够）。**可以省略**：省略时按 `modifier != KeypadModifier.none` 推导，所以漏传
@@ -256,10 +249,12 @@ class CalculatorKeypad extends StatelessWidget {
       );
 
   /// 中文：一个实体键的完整渲染：底色 + 命中态 + 居中的键面文字。禁用键**不挂** `onTap`
-  ///       （不是只做得暗淡），修饰键则走各自的切换回调。
+  ///       （不是只做得暗淡）；其余一律把当前修饰态解析出的变体 id 交给 `onKey`——修饰键自己
+  ///       也不例外（上层拿 `shift`/`hyp` 去切换修饰态）。
   /// English: One real key, end to end: its fill, its hit state and its centred face text.
-  ///          A disabled key gets **no** `onTap` at all (it is not merely drawn dim), and a
-  ///          modifier key routes to its own toggle callback.
+  ///          A disabled key gets **no** `onTap` at all (it is not merely drawn dim); every other
+  ///          key hands the variant id the modifier resolved to up through `onKey` — the modifier
+  ///          keys included (the screen above turns `shift`/`hyp` into a modifier flip).
   Widget _keyButton(
     KeypadKey key, {
     required BorderRadius corners,
@@ -285,7 +280,7 @@ class CalculatorKeypad extends StatelessWidget {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            onTap: enabled ? () => _activate(key, variant) : null,
+            onTap: enabled ? () => onKey(variant.id) : null,
             borderRadius: capsule ? null : corners,
             customBorder: capsule ? const StadiumBorder() : null,
             child: Center(
@@ -354,17 +349,19 @@ class CalculatorKeypad extends StatelessWidget {
   bool _isEnabled(KeypadKey key) =>
       _variantFor(key).enabled && key.category != KeyCategory.disabled;
 
-  /// 中文：修饰键自身是否正被按下——`shift` 键在 SHIFT 态、`hyp` 键在 hyp 态。
-  /// English: Whether a modifier key is the one latched on — the `shift` key while SHIFT is
-  ///          active, the `hyp` key while hyp is active.
-  bool _isActiveModifier(KeypadKey key) {
-    if (key.category != KeyCategory.modifier) return false;
-    return switch (key.base.id) {
-      _shiftKeyId => modifier == KeypadModifier.shift,
-      _hypKeyId => modifier == KeypadModifier.hyp,
-      _ => false,
-    };
-  }
+  /// 中文：修饰键自身是否正被按下——`shift` 键在 SHIFT 态、`hyp` 键在 hyp 态。判定不引任何 id 常量：
+  ///       正被按下的修饰键，其 id 恰好等于当前 `KeypadModifier` 的枚举名（键位表里两个修饰键的 id
+  ///       就是 `shift`/`hyp`，`keypad_definition_test.dart` 钉住这一点）。于是本组件不必知道
+  ///       任何具体 id，改表也不会漏改这里。
+  /// English: Whether a modifier key is the one latched on — the `shift` key while SHIFT is active,
+  ///          the `hyp` key while hyp is active. No id constant is involved: the latched modifier key's
+  ///          id equals the current `KeypadModifier`'s enum name (the table's two modifier ids are
+  ///          `shift`/`hyp`, which `keypad_definition_test.dart` pins). So this widget knows no
+  ///          concrete id and editing the table cannot leave a stale one behind here.
+  bool _isActiveModifier(KeypadKey key) =>
+      modifier != KeypadModifier.none &&
+      key.category == KeyCategory.modifier &&
+      key.base.id == modifier.name;
 
   /// 中文：键面配色——禁用键降饱和（把中性键底朝键盘底色混合）并改用提示色文字；按下的修饰键
   ///       改用强调色；其余按分类取 `CalcKeyColors` 的语义色对。
@@ -400,22 +397,5 @@ class CalculatorKeypad extends StatelessWidget {
       //          the line exists only so the switch stays exhaustive.
       KeyCategory.disabled => (bg: colors.functionBg, fg: colors.shiftLabelFg),
     };
-  }
-
-  /// 中文：按下分派——`shift`/`hyp` 两个 id 属于修饰键自身，走切换回调；其余键上报当前修饰态
-  ///       解析出的变体 id，让它与键面（基准标签）可以不同。
-  /// English: Tap dispatch — the `shift` and `hyp` ids belong to the modifier keys themselves,
-  ///          so they route to the toggle callbacks; every other key reports the current
-  ///          modifier's variant id, which may differ from the label on its face.
-  void _activate(KeypadKey key, KeyVariant variant) {
-    if (key.base.id == _shiftKeyId) {
-      onToggleShift();
-      return;
-    }
-    if (key.base.id == _hypKeyId) {
-      onToggleHyp();
-      return;
-    }
-    onKey(variant.id);
   }
 }

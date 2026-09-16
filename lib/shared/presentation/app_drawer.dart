@@ -41,7 +41,7 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _calcTheme(context);
+    final theme = CalcTheme.of(context);
     return Drawer(
       // 中文：抽屉底色沿用键位区底色，抽屉与主屏是同一片机身，不再是两种色系拼接。
       // English: The drawer borrows the keypad panel's colour so drawer and main screen read as one
@@ -153,17 +153,5 @@ class AppDrawer extends StatelessWidget {
   void _close(BuildContext context, VoidCallback action) {
     Navigator.of(context).pop();
     action();
-  }
-
-  /// 中文：配色一律取自 `CalcTheme`。主题选择还没接进设置页（列为后续工作），所以固定用默认主题
-  ///       `roseCream`，只按平台明暗取它的深色变体——与计算页同一套取色方式。
-  /// English: Every colour comes from `CalcTheme`. Theme selection is not wired into the settings page
-  ///          yet (recorded as follow-up work), so the default theme `roseCream` is used, with its dark
-  ///          variant chosen by the platform brightness — the same resolution the calculator page uses.
-  CalcTheme _calcTheme(BuildContext context) {
-    const theme = CalcTheme.roseCream;
-    return MediaQuery.platformBrightnessOf(context) == Brightness.dark
-        ? theme.dark
-        : theme;
   }
 }

@@ -5,7 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/hiper_keypad.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definition.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
+import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 void main() {
   tearDown(() {
@@ -584,6 +588,126 @@ void main() {
 
       expect(find.text('M 12,345'), findsOneWidget);
     });
+
+    // 中文：明暗必须跟着**应用自己的**主题模式走。`app.dart` 用设置里的浅色/深色/跟随系统驱动
+    //       `MaterialApp.themeMode`，所以生效的明暗在 `Theme.of(context).brightness` 里；平台亮度
+    //       （`MediaQuery.platformBrightness`）是另一件事。用户选了浅色、手机却是深色模式时两者相反，
+    //       按平台亮度取色会让本页与其它页面各穿一套皮。
+    // English: light/dark must follow the **app's own** theme mode. `app.dart` drives
+    //          `MaterialApp.themeMode` from the 浅色/深色/跟随系统 setting, so the effective brightness
+    //          lives in `Theme.of(context).brightness`; the platform's
+    //          (`MediaQuery.platformBrightness`) is a different thing. With 浅色 chosen on a dark-mode
+    //          phone the two disagree, and resolving from the platform dresses this page in a different
+    //          skin from every other page.
+    testWidgets('应用选浅色、平台是深色时主屏用浅色主题', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+
+      await tester.pumpWidget(_testApp(themeMode: ThemeMode.light));
+      await tester.pumpAndSettle();
+
+      final keypad = tester.widget<CalculatorKeypad>(find.byType(CalculatorKeypad));
+      expect(keypad.background, CalcTheme.roseCream.keypadBackground,
+          reason: '应用处于浅色模式，主屏必须取浅色主题，即使平台报的是深色');
+      expect(keypad.background, isNot(CalcTheme.roseCream.dark.keypadBackground));
+    });
+
+    // 中文：反向也要成立——平台报浅色而应用选了深色时，主屏必须是深色主题。两条一起才说明取的是
+    //       应用生效的明暗，而不是「永远用浅色」。
+    // English: the reverse has to hold too — platform light while the app is in dark mode must give the
+    //          dark theme. Only both directions together show the resolution reads the app's effective
+    //          brightness rather than always answering light.
+    testWidgets('应用选深色、平台是浅色时主屏用深色主题', (tester) async {
+      tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+
+      await tester.pumpWidget(_testApp(themeMode: ThemeMode.dark));
+      await tester.pumpAndSettle();
+
+      final keypad = tester.widget<CalculatorKeypad>(find.byType(CalculatorKeypad));
+      expect(keypad.background, CalcTheme.roseCream.dark.keypadBackground,
+          reason: '应用处于深色模式，主屏必须取深色主题，即使平台报的是浅色');
+    });
+
+    // 中文：HiPER 的 `x→M` 是把当前值**写进**记忆寄存器（替换），不是累加。控制器只有累加的
+    //       `memoryAdd`，所以 `_pressKey` 先清空再累加。这条钉住用户看得见的结果：记忆里先有 12.5，
+    //       再对当前值 7 按 `x→M`，读数必须是 7，而不是 19.5。
+    // English: HiPER's `x→M` *writes* the current value into the memory register (replacing it), it does
+    //          not accumulate. The controller only offers the accumulating `memoryAdd`, so `_pressKey`
+    //          clears first. This pins what the user sees: with 12.5 already in the register, `x→M` on a
+    //          current value of 7 must read 7, not 19.5.
+    testWidgets('x→M 替换记忆值而不是累加', (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.getData') return {'text': '记忆值: 12.5'};
+        return null;
+      });
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+      await _startEditing(tester);
+      await tester.tap(find.byTooltip('粘贴计算详情'));
+      await tester.pumpAndSettle();
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('7').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('x→M').first);
+      await tester.pumpAndSettle();
+
+      await _openMore(tester);
+      expect(find.text('M 7'), findsOneWidget,
+          reason: 'x→M 必须把记忆值替换成当前值 7，而不是累加成 19.5');
+      expect(find.text('M 19.5'), findsNothing);
+    });
+
+    // 中文：本计划的核心承诺是「改键位表，别的地方不用动」，而这条承诺此前没有任何测试守着——
+    //       `×`/`÷` 的 id 与主屏分派对不上，就是这么上的真机。这里逐格走整张表，把每个已启用的 id
+    //       真的派发给主屏，并断言它**没有**被当成字面量写进表达式：没接住的 id 会落到 `default`，
+    //       由 `_insert` 原样插进去，表达式就等于那个 id 本身。
+    // English: the plan's central promise is "edit the table, change nothing else", and nothing guarded
+    //          it — which is how the `×`/`÷` id mismatch reached the device. This walks the whole table
+    //          cell by cell, dispatching every enabled id to the screen, and asserts it was **not** typed
+    //          in as literal text: an unwired id falls to `default`, `_insert` writes it verbatim, and
+    //          the expression becomes that id itself.
+    testWidgets('键位表里每个已启用的 id 主屏都接得住', (tester) async {
+      // 逐格收集：主键、SHIFT/hyp 变体、标签横带里的实体键。
+      final ids = <String>{};
+      void collect(KeypadKey key) {
+        if (key.category == KeyCategory.disabled) return;
+        for (final variant in [key.base, key.shift, key.hyp]) {
+          if (variant == null || !variant.enabled) continue;
+          ids.add(variant.id);
+        }
+      }
+
+      for (final row in hiperKeypad.rows) {
+        for (final key in row.keys) {
+          collect(key);
+        }
+        for (final label in row.labels) {
+          if (label is InlineKey) collect(label.key);
+        }
+      }
+      expect(ids, isNotEmpty, reason: '走表必须真的收集到 id，否则这条测试是空转的');
+
+      for (final id in ids) {
+        // 中文：每个 id 都从一块全新的主屏开始，表达式因此只可能来自这一次派发。
+        // English: every id starts from a brand-new screen, so the expression can only come from this
+        //          one dispatch.
+        await tester.pumpWidget(_testApp(key: ValueKey<String>(id)));
+        await tester.pump();
+        tester
+            .widget<CalculatorKeypad>(find.byType(CalculatorKeypad))
+            .onKey(id);
+        await tester.pump(const Duration(milliseconds: 250));
+
+        expect(tester.takeException(), isNull, reason: '派发按键 $id 时抛异常');
+        if (CalculatorPage.defaultInputKeyIds.contains(id)) continue;
+        expect(_displayedExpression(tester), isNot(id),
+            reason: '主屏没接住按键 id「$id」，它被当字面量写进了表达式');
+      }
+    });
   });
 }
 
@@ -607,10 +731,25 @@ Future<void> _startEditing(WidgetTester tester) async {
 String _displayedExpression(WidgetTester tester) =>
     tester.widget<MathExpressionView>(find.byType(MathExpressionView)).expression;
 
-Widget _testApp({bool groupThousands = false}) {
+/// 中文：被测主屏。`themeMode` 用来区分「应用自己的明暗」与「平台亮度」——`app.dart` 正是用
+///       `themeMode` 把设置里的浅色/深色/跟随系统落地的；`key` 用于强制重建一块全新的主屏
+///       （`pumpWidget` 同型组件会复用 State，不换 key 的话上一次输入还留在控制器里）。
+/// English: The screen under test. `themeMode` separates the app's own light/dark from the platform's
+///          brightness — it is what `app.dart` uses to apply the 浅色/深色/跟随系统 setting; `key`
+///          forces a brand-new screen (`pumpWidget` reuses the State for an identical widget type, so
+///          without a new key the previous input would still be in the controller).
+Widget _testApp({
+  bool groupThousands = false,
+  ThemeMode? themeMode,
+  Key? key,
+}) {
   return MaterialApp(
+    theme: ThemeData.light(),
+    darkTheme: themeMode == null ? null : ThemeData.dark(),
+    themeMode: themeMode ?? ThemeMode.system,
     home: Scaffold(
       body: CalculatorPage(
+        key: key,
         db: _FakeDatabase(),
         onOpenSettings: () {},
         settings: AppSettings(

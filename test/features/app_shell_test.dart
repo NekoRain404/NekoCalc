@@ -9,8 +9,16 @@ import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/shared/presentation/app_shell.dart';
+import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
-Widget _app() => MaterialApp(
+Widget _app({ThemeMode? themeMode}) => MaterialApp(
+      // 中文：`themeMode` 用来区分「应用自己的明暗」与「平台亮度」——`app.dart` 正是用 `themeMode`
+      //       把设置里的浅色/深色/跟随系统落到 `MaterialApp` 上的。
+      // English: `themeMode` separates the app's own light/dark from the platform's brightness — it is
+      //          what `app.dart` uses to apply the 浅色/深色/跟随系统 setting to `MaterialApp`.
+      theme: ThemeData.light(),
+      darkTheme: themeMode == null ? null : ThemeData.dark(),
+      themeMode: themeMode ?? ThemeMode.system,
       home: AppShell(
         db: _FakeDatabase(),
         settings: const AppSettings(
@@ -72,6 +80,31 @@ void main() {
     // English: the calculator's own ☰ plus the one the shell floats over the other pages would be two
     //          buttons at once — this pins the single one.
     expect(find.byTooltip('打开导航'), findsOneWidget);
+  });
+
+  // 中文：抽屉与计算页共用同一套明暗判定（`CalcTheme.of`）：明暗要跟着**应用自己的**主题模式走，
+  //       而不是平台亮度——用户选了浅色、手机却是深色模式时两者相反，按平台取色会让抽屉与主屏独自
+  //       变黑，与其余页面分家。
+  // English: The drawer and the calculator page share one light/dark decision (`CalcTheme.of`): it has
+  //          to follow the **app's own** theme mode rather than the platform's brightness — with 浅色
+  //          chosen on a dark-mode phone the two disagree, and resolving from the platform turns the
+  //          drawer and the main screen black on their own, apart from every other page.
+  testWidgets('应用选浅色、平台是深色时抽屉用浅色主题', (tester) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+
+    await tester.pumpWidget(_app(themeMode: ThemeMode.light));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开导航'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Drawer>(find.byType(Drawer)).backgroundColor,
+      CalcTheme.roseCream.keypadBackground,
+      reason: '应用处于浅色模式，抽屉必须取浅色主题，即使平台报的是深色',
+    );
+    expect(tester.widget<Drawer>(find.byType(Drawer)).backgroundColor,
+        isNot(CalcTheme.roseCream.dark.keypadBackground));
   });
 
   testWidgets('点抽屉里的「工具」后工具页可见', (tester) async {

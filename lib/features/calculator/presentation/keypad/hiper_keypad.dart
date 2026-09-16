@@ -250,10 +250,15 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
 
   // 中文：行 5——度分秒 / 分数 / X / XY,M（均禁用）/ 记忆读取 / 记忆写入。
   //       上方标签：STAT、a b/c、Y 三个禁用键，HISTORY（打开抽屉的历史入口），
-  //       M+、M−（记忆加减，`x→M` 与现有 `memoryAdd` 语义一致）。
+  //       M+、M−（记忆累加与累减——它们与 `memoryAdd`/`memorySubtract` 语义一致）。
+  //       注意 `x→M`：它**不是**累加，HiPER 上它是把当前值写进寄存器（替换）；主屏用
+  //       「先清空再累加」实现它，见 `calculator_page.dart` 的 `memoryStore` case。
   // English: Row 5 — D°M'S / d/c / X / XY,M (all disabled) / memory recall / memory store.
   //          Band above: the disabled STAT, a b/c and Y keys, HISTORY (the drawer's history
-  //          entry), and M+ / M− (memory add and subtract; `x→M` reuses `memoryAdd`).
+  //          entry), and M+ / M− (memory accumulate and decrement — these two do match
+  //          `memoryAdd`/`memorySubtract`). Note `x→M`: it is **not** an accumulate — on HiPER it
+  //          writes the current value into the register (a replace); the screen implements that as
+  //          "clear, then add", see the `memoryStore` case in `calculator_page.dart`.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(

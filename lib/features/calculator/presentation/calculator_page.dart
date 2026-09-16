@@ -48,6 +48,55 @@ class CalculatorPage extends StatefulWidget {
   ///          is wired.
   final void Function(String destination)? onNavigate;
 
+  /// 中文：本页 `_pressKey` **显式**派发的动作 id 集合——即它全部 `case` 标签去重后的并集。
+  ///       它与下面的 `defaultInputKeyIds` 合起来必须覆盖 `hiper_keypad.dart` 里每一个已启用的
+  ///       id：这正是本计划那句「改键位表，别的地方不用动」的可测形式，
+  ///       `test/features/keypad_definition_test.dart` 逐格走表守住它，主屏也有一条逐格派发的
+  ///       行为测试。改 `_pressKey` 的 case 时务必同步改这里，否则两条测试都会红。
+  /// English: The action ids this page's `_pressKey` dispatches **explicitly** — the deduplicated union
+  ///          of its `case` labels. Together with `defaultInputKeyIds` below it must cover every enabled
+  ///          id `hiper_keypad.dart` can produce: that is the testable form of this plan's "edit the key
+  ///          table, change nothing else", guarded cell by cell by
+  ///          `test/features/keypad_definition_test.dart` and by a dispatch-per-id behaviour test on the
+  ///          screen itself. Adding or removing a `case` in `_pressKey` means updating this set too, or
+  ///          both tests go red.
+  static const Set<String> dispatchedKeyIds = <String>{
+    // 修饰键 / 页面级动作
+    'shift', 'hyp', 'drawer', 'openHistory', 'openTools',
+    'openConstants', 'openUnits', 'baseDec', 'baseHex', 'baseBin', 'baseOct',
+    // 编辑与结果
+    'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
+    // 记忆寄存器
+    'memoryRecall', 'memoryStore', 'memoryAdd', 'memorySubtract',
+    // 插入文本（`ins:` 前缀）
+    'ins:pi', 'ins:e', 'ins:^-1', 'ins:^2', 'ins:^3', 'ins:^', 'ins:10^',
+    'ins:e^', 'ins:inf', 'ins:%', 'ins:exp',
+    // 一元函数（含只从 `OTHER` 面板进来的那些）
+    'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+    'cot', 'sec', 'csc', 'log₂', 'exp', 'floor', 'ceil', 'round',
+    'deg', 'rad', 'log', 'ln', 'abs', 'sqrt', 'cbrt', 'fact',
+    // 二元函数
+    'mod', 'nCr', 'nPr', 'root', 'min', 'max', 'gcd', 'lcm', 'atan2',
+    // 只从 `OTHER` 面板进来的常数与角度快捷值
+    '2ˣ', '90°', '180°', '360°', 'φ', '√2', 'τ', 'ln2', 'ln10', 'g', 'c',
+    '2π', 'π/2',
+    // `×`/`÷` 的 id 是给解析器用的 ASCII，键面仍是 `×`/`÷`
+    '*', '/',
+  };
+
+  /// 中文：`default` 分支**按字面量**输入的 id——数字、小数点、括号与加减。它们不是「没接住的
+  ///       键」，而是刻意走 `CalculatorController.input`（它认得这些 token 并处理小数、括号与
+  ///       折叠尾随运算符）。这个集合是那批 id 的唯一定义处，覆盖测试与派发测试都读它。
+  /// English: The ids the `default` branch types **verbatim** — digits, the decimal point, brackets and
+  ///          the plus and minus signs. These are not unwired keys: routing them through
+  ///          `CalculatorController.input` is deliberate (it knows those tokens and handles decimals,
+  ///          brackets and collapsing a trailing operator). This set is the one place defining that
+  ///          batch; the coverage test and the dispatch test both read it.
+  static const Set<String> defaultInputKeyIds = <String>{
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    '.', '(', ')', '+', '-',
+  };
+
   @override
   State<CalculatorPage> createState() => _CalculatorPageState();
 }
@@ -118,7 +167,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _calcTheme(context);
+    final theme = CalcTheme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         // 中文：显示区固定取可用高度的 38%，clamp 在 176–230dp。176dp 是 `CalculatorDisplay`
@@ -150,16 +199,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
             Expanded(
               child: CalculatorKeypad(
                 // 中文：`modifierActive` 不传——`CalculatorKeypad` 由 `modifier` 自行推导，
-                //       漏传也不会丢掉「修饰键已锁定」的提示。
+                //       漏传也不会丢掉「修饰键已锁定」的提示。`shift`/`hyp` 两个键也走 `onKey`
+                //       （键盘组件不认识任何 id），由这里的 `_pressKey` 切换修饰态。
                 // English: `modifierActive` is omitted — `CalculatorKeypad` derives it from
-                //          `modifier`, so the latched-modifier signal cannot be lost.
+                //          `modifier`, so the latched-modifier signal cannot be lost. The `shift`/`hyp`
+                //          keys travel `onKey` too (the keypad widget knows no ids); `_pressKey` here
+                //          flips the modifier.
                 definition: hiperKeypad,
                 modifier: _modifier,
                 colors: theme.keys,
                 background: theme.keypadBackground,
                 onKey: _pressKey,
-                onToggleShift: _toggleShift,
-                onToggleHyp: _toggleHyp,
               ),
             ),
           ],
@@ -220,18 +270,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
       ),
     );
-  }
-
-  /// 中文：当前主题的配色。主题选择还没接进设置页（已记录为后续工作，不在本计划内），所以这里
-  ///       固定用默认主题 `roseCream`，只按平台的明暗取它的深色变体。
-  /// English: Colours of the active theme. Theme selection is not wired into the settings page yet
-  ///          (recorded as follow-up work, outside this plan), so the default theme `roseCream` is
-  ///          used, with its dark variant chosen by the platform brightness.
-  CalcTheme _calcTheme(BuildContext context) {
-    const theme = CalcTheme.roseCream;
-    return MediaQuery.platformBrightnessOf(context) == Brightness.dark
-        ? theme.dark
-        : theme;
   }
 
   /// 中文：抽屉按钮。外壳的 Scaffold 有 Drawer 就打开它；本页单独使用时（组件测试就是这种）
@@ -337,7 +375,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   ///          with no dedicated HiPER grid cell (ones that already have a key — `√x`, `x²`, `n!` — are
   ///          not repeated). Same mechanism as `More...`, different content.
   void _openMoreFunctionsSheet() {
-    final theme = _calcTheme(context);
+    final theme = CalcTheme.of(context);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -359,7 +397,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   ///          the memory register. `isScrollControlled` lets it size to its content up to 70% of the
   ///          screen height, and the content scrolls past that, so no window height can overflow.
   void _openMoreSheet() {
-    final theme = _calcTheme(context);
+    final theme = CalcTheme.of(context);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -446,9 +484,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Future<void> _pressKey(String key) async {
     _feedback();
-    // 中文：SHIFT 是一次性修饰态，按键后自动复位；hyp 是持续态，不在这里复位。
-    // English: SHIFT is one-shot and clears after a press; hyp latches and is not cleared here.
-    _clearOneShotShift();
+    // 中文：SHIFT 是一次性修饰态，按键后自动复位；hyp 是持续态，不在这里复位。两个修饰键自身例外：
+    //       它们由下面的 case 切换，若先在这里复位，再点一次 SHIFT 会「复位又立刻锁上」，永远退不出
+    //       SHIFT 态。
+    // English: SHIFT is one-shot and clears after a press; hyp latches and is not cleared here. The two
+    //          modifier keys themselves are the exception: the cases below flip them, and clearing first
+    //          would turn a second SHIFT tap into "unlatch then immediately relatch", never leaving the
+    //          SHIFT state.
+    if (key != 'shift' && key != 'hyp') _clearOneShotShift();
     // 中文：按键 id 在这里统一映射为控制器动作与解析器表达式，避免 parser 混入展示层符号。id 逐字来自
     //       `hiper_keypad.dart`（含 camelCase 的 `dis:pagePrev`、`dis:xchgE` 这类），修饰态解析出的
     //       变体 id（`asin`、`ins:^3`、`cbrt`…）也走同一条通路。
@@ -457,10 +500,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     //          such as `dis:pagePrev` and `dis:xchgE` included), and the variant id a modifier
     //          resolves to (`asin`, `ins:^3`, `cbrt`, …) travels the same path.
     switch (key) {
-      // 中文：修饰键由 CalculatorKeypad 自己消费（走 onToggleShift/onToggleHyp），不该到达这里；
-      //       万一到达也当作切换处理，绝不落到 default 去把它写进表达式。
-      // English: Modifier keys are consumed by CalculatorKeypad itself (onToggleShift/onToggleHyp) and
-      //          should never arrive; if one does, treat it as a toggle rather than typing it.
+      // 中文：修饰键。`CalculatorKeypad` 不认识任何 id，`SHIFT`/`hyp` 两个键的 id 就像别的键一样交到
+      //       这里，由这两个 case 切换修饰态——这是它们唯一的处理处。
+      // English: The modifier keys. `CalculatorKeypad` knows no ids; the `SHIFT`/`hyp` keys hand their
+      //          ids here like every other key and these two cases flip the state — the only place that
+      //          handles them.
       case 'shift':
         _toggleShift();
       case 'hyp':
@@ -512,12 +556,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _controller.input('+/-');
       case 'ans':
         _controller.append(_controller.reusableResult);
-      // 中文：记忆键。`x→M`（id `memoryStore`）没有对应的控制器方法，按裁定映射到 `memoryAdd`。
-      // English: Memory keys. `x→M` (id `memoryStore`) has no controller method of its own and maps to
-      //          `memoryAdd`, as ruled.
+      // 中文：记忆键。`x→M`（id `memoryStore`）在 HiPER 上是把当前值**写入**寄存器（替换），而控制器
+      //       只有累加的 `memoryAdd`；先清空再累加，两次调用合起来就是替换。写成两次是为了不碰控制器
+      //       正在进行的其它工作，也不必为它加方法——将来控制器真有了 `memoryStore()`，这个 case
+      //       应该直接换成那一次调用。
+      // English: Memory keys. On HiPER `x→M` (id `memoryStore`) *writes* the current value into the
+      //          register (a replace), while the controller only offers the accumulating `memoryAdd`;
+      //          clearing first and adding after makes the pair a replace. Doing it in two calls avoids
+      //          touching the work the controller is already doing and avoids adding a method for it —
+      //          if a real `memoryStore()` ever lands on the controller, this case should call that
+      //          instead.
       case 'memoryRecall':
         _controller.memoryRecall();
       case 'memoryStore':
+        _controller.memoryClear();
+        _controller.memoryAdd();
       case 'memoryAdd':
         _controller.memoryAdd();
       case 'memorySubtract':
@@ -641,11 +694,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _controller.input('÷');
       default:
         // 中文：禁用键（`dis:` 前缀）键盘永不触发，万一到达就安静忽略，绝不当成文本写进表达式；
-        //       数字、小数点、运算符与括号则直接输入。
+        //       数字、小数点、运算符与括号则直接输入——但**只有** `defaultInputKeyIds` 里那些 id 该
+        //       走这条路。别的 id 落到这里说明 `_pressKey` 没接住它，而 `default` 会把它原样插进
+        //       表达式（`×`/`÷` 的事故就是这个形状），所以开发期直接断言把那个 id 喊出来。
+        //       `dispatchedKeyIds`/`defaultInputKeyIds` 与键位表的覆盖关系由
+        //       `test/features/keypad_definition_test.dart` 逐格守着，本断言是那条守卫在运行期的回声：
+        //       集合漏写、case 漏加，第一次按到那颗键就会响，而不是静默写错表达式。
         // English: A disabled key (`dis:`) is never fired by the keypad — if one arrives it is ignored
-        //          quietly rather than typed; digits, the decimal point, operators and brackets go
-        //          straight in.
+        //          quietly rather than typed into the expression; digits, the decimal point, operators
+        //          and brackets go straight in — but **only** the ids in `defaultInputKeyIds` may travel
+        //          this path. Any other id reaching here means `_pressKey` does not handle it, and
+        //          `default` would insert it verbatim (the shape of the `×`/`÷` accident), so
+        //          development fails an assertion that names it. The coverage of the key table by
+        //          `dispatchedKeyIds`/`defaultInputKeyIds` is guarded cell by cell in
+        //          `test/features/keypad_definition_test.dart`; this assertion is that guard's echo at
+        //          run time — a missing set entry or a missing `case` rings on the first tap instead of
+        //          silently writing the wrong expression.
         if (key.startsWith('dis:')) return;
+        assert(
+          CalculatorPage.defaultInputKeyIds.contains(key),
+          '未派发的按键 id / undispatched key id: $key',
+        );
         _controller.input(key);
     }
   }
