@@ -53,9 +53,10 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 中文：导航从底部栏换成侧边抽屉；主屏左上角的 ☰（由计算页渲染）打开的就是它。
-      // English: Navigation moved from the bottom bar to a side drawer; the ☰ rendered by the
-      //          calculator page opens exactly this one.
+      // 中文：导航从底部栏换成侧边抽屉；无论是计算页自己画的 ☰，还是外壳浮在其余三页上的 ☰，
+      //       打开的都是这一个抽屉。
+      // English: Navigation moved from the bottom bar to a side drawer; whether it is the calculator's
+      //          own ☰ or the one the shell floats over the other three pages, both open this drawer.
       drawer: AppDrawer(
         selectedIndex: _index,
         // 中文：抽屉的四项就是四个页面索引，直接复用切页逻辑，不多一层映射。
@@ -64,14 +65,37 @@ class _AppShellState extends State<AppShell> {
         onSelect: _selectDestination,
         onOpenSettings: _openSettings,
       ),
+      // 中文：Flutter 的抽屉拖拽区默认只有 20dp（`_kEdgeDragWidth`），整条都落在系统返回手势的
+      //       区域里，在那个设备上从 x=0 起滑只会退出 App。加宽到 64dp，让大部分拖拽区落在系统
+      //       手势区之外；这只是兜底——真正保证回得来的是下面那个看得见的 ☰。
+      // English: Flutter's drawer drag strip is only 20dp wide (`_kEdgeDragWidth`), which sits inside
+      //          the system back-gesture region — on that device a swipe starting at x=0 just exits the
+      //          app. Widened to 64dp so most of the strip lies outside it. This is only a fallback:
+      //          the visible ☰ below is what actually guarantees the way back.
+      drawerEdgeDragWidth: 64,
       body: SafeArea(
-        child: PageView.builder(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 4,
-          itemBuilder: (context, index) {
-            return _KeepAlivePage(child: _pageFor(index));
-          },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return _KeepAlivePage(child: _pageFor(index));
+              },
+            ),
+            // 中文：计算页之外的三页没有自己的 ☰（那三页不归本任务改，笔记页还压着用户的未提交
+            //       工作），所以由外壳在它们上面浮一个：否则用户点进「工具」就再也回不到计算页——
+            //       拖拽又会被系统返回手势抢走。计算页不渲染它，那里已经有计算页自己的 ☰。
+            // English: The three pages other than the calculator have no ☰ of their own (those files are
+            //          out of scope here, and the notes page carries the user's uncommitted work), so the
+            //          shell floats one over them: without it, tapping 工具 strands the user away from the
+            //          calculator with no way back — the drag strip loses to the system back gesture. It is
+            //          not rendered on the calculator page, which already has that button.
+            if (_index != AppDrawer.calculatorDestination)
+              const Positioned(left: 8, top: 8, child: _ShellDrawerButton()),
+          ],
         ),
       ),
     );
@@ -94,6 +118,13 @@ class _AppShellState extends State<AppShell> {
         _selectDestination(AppDrawer.toolsDestination);
       case 'history':
         _selectDestination(AppDrawer.notesDestination);
+      default:
+        // 中文：目的地只有这两个字符串。写错一个字母（'Tools'）不该被静默吞掉，让那颗键悄悄变死，
+        //       所以开发期直接断言失败，把拼错的字符串喊出来。
+        // English: Only these two destination strings exist. A typo such as 'Tools' must not be swallowed
+        //          silently and leave that key dead without a signal, so development fails an assertion
+        //          that names the offending string.
+        assert(false, '未知的导航目的地 / unknown navigation destination: $destination');
     }
   }
 
@@ -159,6 +190,27 @@ class _AppShellState extends State<AppShell> {
           ),
         );
       },
+    );
+  }
+}
+
+/// 中文：外壳浮在非计算页左上角的 ☰，与计算页那个按钮同一个 tooltip，用户与测试都用同一句话找它。
+///       配色来自应用主题（`Theme.of(context)`，即那三页自己用的 Material 主题），不写死任何色值；
+///       它坐在可滚动的内容之上，所以用填充色按钮而不是一个裸图标，滚动时也看得清。
+/// English: The ☰ the shell floats over the top-left of every non-calculator page; it carries the same
+///          tooltip as the calculator's button, so users and tests find both by the same words. Its
+///          colours come from the app theme (`Theme.of(context)` — the Material theme those three pages
+///          themselves use) with no literal values, and it is a filled button rather than a bare icon
+///          because page content scrolls underneath it.
+class _ShellDrawerButton extends StatelessWidget {
+  const _ShellDrawerButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filledTonal(
+      tooltip: '打开导航',
+      onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+      icon: const Icon(Icons.menu),
     );
   }
 }

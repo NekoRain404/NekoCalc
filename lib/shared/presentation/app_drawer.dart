@@ -47,45 +47,50 @@ class AppDrawer extends StatelessWidget {
       // English: The drawer borrows the keypad panel's colour so drawer and main screen read as one
       //          body rather than two colour systems bolted together.
       backgroundColor: theme.keypadBackground,
+      // 中文：五项都在同一个滚动视图里——「设置」如果留在滚动区之外，大字号 + 矮屏（横屏）时这一列
+      //       就会溢出；放进列表后它能跟着滚。
+      // English: All five entries live in one scroll view — were 设置 left outside the scrollable, the
+      //          column would overflow at large text scale on a short (landscape) screen; inside the
+      //          list it scrolls with the rest.
       child: SafeArea(
-        child: Column(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  _entry(
-                    context,
-                    theme,
-                    destination: calculatorDestination,
-                    icon: Icons.calculate_outlined,
-                    label: '计算',
-                  ),
-                  _entry(
-                    context,
-                    theme,
-                    destination: toolsDestination,
-                    icon: Icons.construction_outlined,
-                    label: '工具',
-                  ),
-                  _entry(
-                    context,
-                    theme,
-                    destination: graphDestination,
-                    icon: Icons.show_chart_outlined,
-                    label: '图形',
-                  ),
-                  _entry(
-                    context,
-                    theme,
-                    destination: notesDestination,
-                    icon: Icons.article_outlined,
-                    label: '笔记',
-                  ),
-                ],
+            _entry(
+              context,
+              theme,
+              destination: calculatorDestination,
+              icon: Icons.calculate_outlined,
+              label: '计算',
+            ),
+            _entry(
+              context,
+              theme,
+              destination: toolsDestination,
+              icon: Icons.construction_outlined,
+              label: '工具',
+            ),
+            _entry(
+              context,
+              theme,
+              destination: graphDestination,
+              icon: Icons.show_chart_outlined,
+              label: '图形',
+            ),
+            _entry(
+              context,
+              theme,
+              destination: notesDestination,
+              icon: Icons.article_outlined,
+              label: '笔记',
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Divider(
+                height: 1,
+                color: theme.keys.functionFg.withValues(alpha: 0.2),
               ),
             ),
-            Divider(height: 1, color: theme.keys.functionFg.withValues(alpha: 0.2)),
             _settingsEntry(context, theme),
           ],
         ),

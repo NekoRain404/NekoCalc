@@ -56,7 +56,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('笔记').last);
     await tester.pumpAndSettle();
-    expect(find.text('笔记'), findsWidgets);
+    // 中文：与相邻几条一致——用页面类型断言，「笔记」两个字抽屉里也有，靠文案证明不了切页。
+    // English: consistent with its siblings — assert the page type; 「笔记」 also appears in the drawer,
+    //          so a text finder proves nothing about which page is showing.
+    expect(find.byType(NotesPage), findsOneWidget);
+    expect(find.byType(NotesPage).hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('计算页上只有一个 ☰', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    // 中文：计算页自己的 ☰ + 外壳给其它页浮的那个，同时出现就是两个按钮；这里钉住只有一个。
+    // English: the calculator's own ☰ plus the one the shell floats over the other pages would be two
+    //          buttons at once — this pins the single one.
+    expect(find.byTooltip('打开导航'), findsOneWidget);
   });
 
   testWidgets('点抽屉里的「工具」后工具页可见', (tester) async {
@@ -81,10 +94,12 @@ void main() {
     expect(find.byType(GraphPage).hitTestable(), findsOneWidget);
   });
 
-  // 中文：底部栏消失后最容易出的事故——走进「工具」再回不到计算页，App 就废了。这条测试守住回程。
+  // 中文：底部栏消失后最容易出的事故——走进「工具」再回不到计算页，App 就废了。这条测试只允许用
+  //       屏幕上看得见、点得着的东西回程（☰），不借助拖拽手势：设备上那条拖拽会被系统返回手势抢走。
   // English: The accident the missing bottom bar invites — walk into 工具 and never get back to the
-  //          calculator — bricks the app. This test guards the way home.
-  testWidgets('从抽屉切到工具页后还能切回计算页', (tester) async {
+  //          calculator — bricks the app. This test may only use what is visible and tappable on screen
+  //          (the ☰), not the drag gesture, which the system back gesture steals on a real device.
+  testWidgets('离开计算页后靠屏上的 ☰ 能回到计算页', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('打开导航'));
@@ -93,18 +108,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ToolsHomePage).hitTestable(), findsOneWidget);
 
-    // 中文：☰ 只画在计算页上，离开计算页后抽屉只能靠左缘拖拽打开——用户回程走的正是这条手势，
-    //       所以这里也用它，而不是直接调 ScaffoldState。
-    // English: the ☰ is drawn on the calculator page only, so away from it the drawer opens by the
-    //          left-edge drag — the very gesture the user's way home relies on, so the test uses it
-    //          rather than calling ScaffoldState directly.
-    await tester.dragFrom(const Offset(1, 300), const Offset(300, 0));
+    // 中文：非计算页上，外壳浮出的 ☰ 必须是唯一可见的打开抽屉入口。
+    // English: away from the calculator, the shell's floating ☰ must be the one visible way in.
+    expect(find.byTooltip('打开导航').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('打开导航'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('计算').last);
     await tester.pumpAndSettle();
     expect(find.byType(CalculatorPage), findsOneWidget);
     expect(find.byType(CalculatorPage).hitTestable(), findsOneWidget);
     expect(find.text('CNST'), findsOneWidget);
+  });
+
+  testWidgets('图形页与笔记页上也有 ☰ 可以回到计算页', (tester) async {
+    for (final label in const ['图形', '笔记']) {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('打开导航'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('打开导航').hitTestable(), findsOneWidget,
+          reason: '$label 页上没有可见的 ☰');
+      await tester.tap(find.byTooltip('打开导航'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('计算').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(CalculatorPage).hitTestable(), findsOneWidget,
+          reason: '从 $label 页回不到计算页');
+    }
   });
 
   // 中文：Task 4 给计算页留了 `onNavigate`，外壳不接的话 HISTORY / CNST / CONV 与四个进制胶囊
