@@ -480,6 +480,110 @@ void main() {
       //          expression instead of asserting with find.text.
       expect(_displayedExpression(tester), 'gcd(');
     });
+
+    testWidgets('× 与 ÷ 走控制器的运算符，而不是 ASCII 插入', (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+
+      Future<void> tap(String label) async {
+        await tester.tap(find.text(label).first);
+        await tester.pumpAndSettle();
+      }
+
+      // 中文：键位表的 id 是 ASCII `*`/`/`，而控制器只把 `×`/`÷` 当运算符。若少了这层换算，
+      //       `+` 之后的 `×` 会被当成普通字符插入，得到 `5+*3` 并解析失败——这里钉住的是折叠行为。
+      // English: the key table's ids are ASCII `*`/`/` while the controller treats only `×`/`÷` as
+      //          operators. Without that translation a `×` after `+` is inserted as a plain character,
+      //          giving `5+*3` and a parse error — this pins the collapsing behaviour instead.
+      await tap('5');
+      await tap('+');
+      await tap('×');
+      await tap('3');
+      expect(_displayedExpression(tester), '5×3');
+
+      // 中文：开头的运算符被忽略——空显示时按 `×` 什么也不写进去。
+      // English: a leading operator is ignored — `×` on an empty display writes nothing.
+      await tap('AC');
+      await tap('×');
+      expect(_displayedExpression(tester), '');
+
+      // 中文：除法同理。
+      // English: division behaves the same way.
+      await tap('8');
+      await tap('÷');
+      await tap('2');
+      expect(_displayedExpression(tester), '8÷2');
+    });
+
+    testWidgets('继续使用把结果替换成表达式，不可用时置灰', (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+
+      Future<void> tap(String label) async {
+        await tester.tap(find.text(label).first);
+        await tester.pumpAndSettle();
+      }
+
+      // 中文：显示区与「复制结果」的报告文本都会写着「结果可继续使用」，所以面板里必须有对应入口；
+      //       它替换而不是追加表达式（追加是 `ans` 的行为），两者不等价。
+      // English: the display's report text says the result can be reused, so the sheet must offer it.
+      //          It replaces the expression rather than appending (`ans` appends); the two are not
+      //          equivalent.
+      await tap('1');
+      await tap('2');
+      await tap('+');
+      await tap('3');
+      await tap('4');
+      await tap('✓');
+
+      await _openMore(tester);
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '继续使用'))
+            .onPressed,
+        isNotNull,
+      );
+      await tap('继续使用');
+      expect(_displayedExpression(tester), '46');
+
+      // 中文：出错时结果不可继续使用，入口置灰（与撤销/重做同一套 enabled 门控）。
+      // English: with an error the entry is greyed out, the same enabled-gating undo/redo use.
+      await tap('AC');
+      await tap('1');
+      await tap('+');
+      await tap('✓');
+      await _openMore(tester);
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '继续使用'))
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('记忆读数按设置的千分位格式化', (tester) async {
+      // 中文：控制器显示结果（:530）与导出文本（:544）都按 settings.groupThousands 格式化，记忆读数
+      //       也照办——重写前的记忆条唯独漏了它。12345 正是能区分两种格式的值。
+      // English: the controller formats the result (:530) and the exported report (:544) per
+      //          settings.groupThousands, and the memory reading follows suit — the pre-rewrite bar was
+      //          the one place that ignored it. 12345 is what separates the two formats.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.getData') return {'text': '记忆值: 12345'};
+        return null;
+      });
+      await tester.pumpWidget(_testApp(groupThousands: true));
+      await tester.pumpAndSettle();
+      await _startEditing(tester);
+      await tester.tap(find.byTooltip('粘贴计算详情'));
+      await tester.pumpAndSettle();
+
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+      await _openMore(tester);
+
+      expect(find.text('M 12,345'), findsOneWidget);
+    });
   });
 }
 
@@ -503,13 +607,13 @@ Future<void> _startEditing(WidgetTester tester) async {
 String _displayedExpression(WidgetTester tester) =>
     tester.widget<MathExpressionView>(find.byType(MathExpressionView)).expression;
 
-Widget _testApp() {
+Widget _testApp({bool groupThousands = false}) {
   return MaterialApp(
     home: Scaffold(
       body: CalculatorPage(
         db: _FakeDatabase(),
         onOpenSettings: () {},
-        settings: const AppSettings(
+        settings: AppSettings(
           haptics: false,
           hapticStrength: '标准',
           restoreState: false,
@@ -518,6 +622,7 @@ Widget _testApp() {
           precision: 6,
           themeModeLabel: '跟随系统',
           expressionDisplayMode: '数学符号',
+          groupThousands: groupThousands,
         ),
       ),
     ),

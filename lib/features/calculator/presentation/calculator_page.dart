@@ -304,11 +304,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  /// 中文：记忆寄存器的读数——沿用旧记忆条的格式（`M ` + 按设置格式化的值），
-  ///       所以 `M 12.5` 这样的读数在面板里一字不差地重现。
-  /// English: The memory register's reading, in the old memory bar's format (`M ` plus the value
-  ///          formatted per settings), so a reading like `M 12.5` is reproduced verbatim in the
-  ///          sheet.
+  /// 中文：记忆寄存器的读数——`M ` 加按设置格式化的值，与应用其余处的数字格式一致：显示结果
+  ///       （`calculator_controller.dart:530`）与导出报告文本（`:544`）都按 `settings.groupThousands`
+  ///       格式化。重写前的记忆条是唯一漏掉该设置的地方（只传了 precision），所以读数现在会写
+  ///       `M 12,345` 而不是 `M 12345`——由「记忆读数按设置的千分位格式化」这条测试钉住。
+  /// English: The memory register's reading — `M ` plus the value formatted per settings, matching how
+  ///          the rest of the app formats numbers: both the displayed result
+  ///          (`calculator_controller.dart:530`) and the exported report text (`:544`) honour
+  ///          `settings.groupThousands`. The pre-rewrite memory bar was the one place that ignored the
+  ///          setting (it passed `precision` only), so the reading now shows `M 12,345` rather than
+  ///          `M 12345` — pinned by the 「记忆读数按设置的千分位格式化」 test.
   String _memoryLabel() {
     return 'M ${formatNumber(
       _controller.memoryValue,
@@ -620,6 +625,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _controller.append('2*pi');
       case 'π/2':
         _controller.append('pi/2');
+      // 中文：`×`/`÷` 的键面符号正是控制器认的运算符（`_isOperator` 只认 `+ - × ÷ ^`），而键位表的
+      //       id 是给解析器用的 ASCII `*`/`/`。这里把 id 翻回符号，才会走 `_appendOperator`
+      //       （它折叠尾随的运算符、忽略开头的运算符），而不是当成普通字符插入：`5` `+` `×` `3`
+      //       得到 `5×3` 而不是 `5+*3`，空显示时按 `×` 什么也不发生。
+      // English: the faces' `×`/`÷` are the tokens the controller recognises (`_isOperator` knows only
+      //          `+ - × ÷ ^`) while the key table's ids are the parser-friendly ASCII `*` and `/`.
+      //          Translating the id back to the symbol routes it through `_appendOperator` (which
+      //          collapses a trailing operator and ignores a leading one) instead of a plain insert:
+      //          `5` `+` `×` `3` gives `5×3`, not `5+*3`, and `×` on an empty display does nothing.
+      //          `-` needs no such case: its id is ASCII and so is the controller's token.
+      case '*':
+        _controller.input('×');
+      case '/':
+        _controller.input('÷');
       default:
         // 中文：禁用键（`dis:` 前缀）键盘永不触发，万一到达就安静忽略，绝不当成文本写进表达式；
         //       数字、小数点、运算符与括号则直接输入。
@@ -769,6 +788,16 @@ class _MoreSheet extends StatelessWidget {
                 _action(context, '重做', controller.redo,
                     enabled: controller.canRedo),
                 _action(context, '复制结果', page._copyResult),
+                // 中文：继续使用。它把结果**替换**成表达式（`ans` 是追加，两者不等价），而显示区在结果
+                //       可用时会写着「结果可继续使用」/「当前值可继续使用」——那句话必须有对应的入口，
+                //       否则 UI 在让用户做一件它不再提供的事。不可用时和撤销/重做一样置灰。
+                // English: continue-with-result. It **replaces** the expression with the result (`ans`
+                //          appends, so the two are not equivalent), and the display says "结果可继续使用"
+                //          / "当前值可继续使用" whenever it is available — that sentence needs an entry
+                //          point, or the UI asks for something it no longer offers. Greyed out when
+                //          unavailable, like undo/redo.
+                _action(context, '继续使用', controller.continueWithResult,
+                    enabled: controller.canContinueWithResult),
                 _action(context, '保存笔记', page._saveNote),
                 _action(context, '移到开头', controller.moveCursorToStart),
                 _action(context, '移到末尾', controller.moveCursorToEnd),
