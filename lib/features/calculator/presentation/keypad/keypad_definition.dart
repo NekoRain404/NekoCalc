@@ -101,13 +101,16 @@ class InlineKey extends KeypadLabel {
   final KeypadKey key;
 }
 
-/// 中文：键盘的一行——主键条加上每个主键上方的标签位。
-///       行形状（`labels.length == keys.length`）由 [validatedKeypadDefinition] 断言：`const`
-///       构造的常量求值不能读取 `List.length`，所以断言不能写在构造里，只能放在常量表建成时。
-/// English: One keypad row — the main key strip plus one label slot per key above it.
-///          The row shape (`labels.length == keys.length`) is asserted by
-///          [validatedKeypadDefinition]: constant evaluation of a `const` constructor cannot
-///          read `List.length`, so the assertion lives where the constant table is built.
+/// 中文：键盘的一行——主键条加上打印在每个主键上方的标签位。
+///       行形状（`labels.length == keys.length`）不加运行时断言：`const` 构造的常量求值读不到
+///       `List.length`，断言无法写在构造里，而放弃整张表的 `const` 代价更大。该不变式由
+///       `test/features/keypad_definition_test.dart` 的「标签行与主键行等长」在 CI 中守住。
+/// English: One keypad row — the main key strip plus the label slot printed above each key.
+///          The row shape (`labels.length == keys.length`) carries no runtime assertion: constant
+///          evaluation of a `const` constructor cannot read `List.length`, so the assertion cannot
+///          live in the constructor, and giving up the whole table's `const` costs more. The
+///          invariant is guarded in CI by 「标签行与主键行等长」 in
+///          `test/features/keypad_definition_test.dart`.
 @immutable
 class KeypadRow {
   const KeypadRow({
@@ -134,25 +137,4 @@ class KeypadDefinition {
   /// 中文：自顶向下的全部行。
   /// English: All rows, top to bottom.
   final List<KeypadRow> rows;
-}
-
-/// 中文：校验一张键位表的行形状后原样返回——每一个主键都必须有对应的标签位。
-///       常量表的调用方式是 `validatedKeypadDefinition(const KeypadDefinition([…]))`：断言在
-///       首次访问时执行（发布模式自动移除），与写在 `KeypadRow` 构造里的效果一致。
-/// English: Asserts a key table's row shape and returns it unchanged — every main key must own
-///          a matching label slot. A constant table calls it as
-///          `validatedKeypadDefinition(const KeypadDefinition([…]))`, so the assertion runs on
-///          first access (stripped in release) exactly as a constructor assert would.
-KeypadDefinition validatedKeypadDefinition(KeypadDefinition definition) {
-  for (var index = 0; index < definition.rows.length; index++) {
-    final row = definition.rows[index];
-    assert(
-      row.labels.length == row.keys.length,
-      '每一个主键都必须有对应的标签位（无标签时为 null），'
-      '第 ${index + 1} 行不满足。'
-      ' / Every key needs a matching label slot (null when there is none); '
-      'row ${index + 1} breaks that.',
-    );
-  }
-  return definition;
 }

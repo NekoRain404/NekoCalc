@@ -60,8 +60,12 @@ void main() {
   });
 
   group('HiPER 网格形状', () {
-    test('共 17 行：9 个主键行 + 8 个标签行交替', () {
-      expect(hiperKeypad.rows.length, 17);
+    test('共 9 个主键行，其中 8 行带标签带', () {
+      expect(hiperKeypad.rows.length, 9);
+      expect(
+        hiperKeypad.rows.where((r) => r.labels.any((l) => l != null)).length,
+        8,
+      );
     });
 
     test('数字键与四则运算符永远在位', () {
