@@ -488,7 +488,9 @@ git commit -m "feat(calculator): render the HiPER keypad from its definition"
 **Interfaces:**
 - Consumes: Plan 1 的 `MathExpressionView`、`CalcDisplayColors`
 - Produces:
-  - `class CalculatorDisplay extends StatelessWidget`，构造参数：`required String expression`、`required String result`、`required bool hasError`、`required String statusTitle`、`required String statusMessage`、`required int? cursorIndex`、`required String angleMode`、`required bool hasMemory`、`required CalcDisplayColors colors`、`required bool naturalDisplay`、`void Function(int)? onTapOffset`、`VoidCallback? onMore`
+  - `class CalculatorDisplay extends StatelessWidget`，构造参数：`required String expression`、`required String result`、`required bool hasError`、`required String statusTitle`、`required String statusMessage`、`required int? cursorIndex`、`required String angleMode`、`required bool hasMemory`、`required CalcDisplayColors colors`、`required bool naturalDisplay`、`void Function(int)? onTapOffset`、`VoidCallback? onMore`、`VoidCallback? onOpenDrawer`
+
+**☰ 抽屉按钮的位置（跨任务约定）**：它属于状态行最左侧，由本任务渲染，`onOpenDrawer` 为 null 时不渲染。带 `tooltip: '打开导航'`——Task 5 的测试靠这个 tooltip 找到它。**Task 4 与 Task 5 都不要另外再造一个 ☰。**
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -510,6 +512,7 @@ Widget display({
   int? cursorIndex,
   bool naturalDisplay = true,
   VoidCallback? onMore,
+  VoidCallback? onOpenDrawer,
 }) =>
     host(CalculatorDisplay(
       expression: expression,
@@ -523,6 +526,7 @@ Widget display({
       colors: CalcTheme.roseCream.display,
       naturalDisplay: naturalDisplay,
       onMore: onMore,
+      onOpenDrawer: onOpenDrawer,
     ));
 
 void main() {
@@ -554,6 +558,14 @@ void main() {
     await tester.pumpWidget(display(onMore: () => tapped++));
     await tester.tap(find.text('More...'));
     expect(tapped, 1);
+  });
+
+  testWidgets('drawer button carries the tooltip the shell test looks for',
+      (tester) async {
+    var opened = 0;
+    await tester.pumpWidget(display(onOpenDrawer: () => opened++));
+    await tester.tap(find.byTooltip('打开导航'));
+    expect(opened, 1);
   });
 
   testWidgets('degrades to plain text when naturalDisplay is off', (tester) async {
@@ -592,7 +604,7 @@ Expected: FAIL，`Target of URI doesn't exist`
 ```bash
 flutter test test/features/calculator_display_test.dart
 ```
-Expected: PASS，7 个测试全过
+Expected: PASS，8 个测试全过
 
 - [ ] **Step 5: 确认无回归**
 
@@ -657,7 +669,7 @@ group('HiPER 式主屏', () {
     await tester.pumpAndSettle();
     await tester.tap(find.text('7').first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('7'), findsWidgets);
+    expect(_displayedExpression(tester), contains('7'));
   });
 
   testWidgets('按 SHIFT 后 sin 执行 sin⁻¹', (tester) async {
@@ -667,10 +679,19 @@ group('HiPER 式主屏', () {
     await tester.pumpAndSettle();
     await tester.tap(find.text('sin').first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('asin'), findsWidgets);
+    expect(_displayedExpression(tester), contains('asin'));
   });
 });
 ```
+
+表达式**不要用 `find.textContaining` 断言**——它现在由 `MathExpressionView` 渲染成 `RichText`，`find.text*` 找不到，测试会因为错误的原因失败（或虚假通过）。在文件里加这个辅助函数，直接读组件的 `expression`：
+
+```dart
+String _displayedExpression(WidgetTester tester) =>
+    tester.widget<MathExpressionView>(find.byType(MathExpressionView)).expression;
+```
+
+需要在文件顶部加 `import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';`。
 
 注意「主屏没有纵向滚动容器」那条**不能用 `find.byType(SingleChildScrollView)`**——表达式行本身是横向滚动的 `SingleChildScrollView`，按类型断言会误报。必须按 `scrollDirection == Axis.vertical` 过滤。
 
@@ -713,7 +734,7 @@ Expected: PASS，且总数不低于 Step 1 记录值 + 4
 ```bash
 flutter analyze && flutter test
 ```
-Expected: `No issues found!`，测试数 ≥ 729
+Expected: `No issues found!`，测试数 ≥ 730
 
 - [ ] **Step 7: 提交**
 
@@ -840,7 +861,7 @@ flutter test test/features/app_shell_test.dart
 ```bash
 flutter analyze && flutter test
 ```
-Expected: `No issues found!`，测试数 ≥ 732
+Expected: `No issues found!`，测试数 ≥ 733
 
 - [ ] **Step 6: 提交**
 
@@ -854,7 +875,7 @@ git commit -m "feat(shell): replace bottom tabs with a navigation drawer"
 
 ## 完成标准
 
-- `flutter analyze` 零问题；`flutter test` 全过且 ≥ 732
+- `flutter analyze` 零问题；`flutter test` 全过且 ≥ 733
 - 主屏为 HiPER 形态：6 列键盘、主键行与 SHIFT 标签行交替、数字键与函数键同屏
 - 主屏**不滚动**（当前有 211dp 溢出）
 - 侧边抽屉可达 工具 / 笔记 / 历史 / 设置
