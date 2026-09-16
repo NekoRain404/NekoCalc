@@ -85,6 +85,17 @@ const BorderRadius _bandKeyCorners =
 ///          show it is latched on, and `modifierActive` lights the band up. The band is the only
 ///          surface that says what pressing a key will do, so it has to be the one that changes
 ///          colour for the user to see that `sin` will now run `sin⁻¹`.
+///
+/// 接入契约 / Wiring contract（Task 4 需要知道的三件事）:
+/// 中文：1) 本组件需要**有界高度**并会填满它（见上）；2) `modifierActive` 可以省略，省略时按
+///       `modifier != none` 推导——忘了传也不会丢掉「SHIFT 已锁定」的信号；3) `modifier` 只决定
+///       按键如何解析，`SHIFT`/`hyp` 两个键由本组件按 id 直接吃掉、走 `onToggleShift`/
+///       `onToggleHyp`，不会再作为动作 id 冒出来。
+/// English: 1) it needs a **bounded height** and fills it (above); 2) `modifierActive` may be
+///          omitted — it then derives from `modifier != none`, so the "SHIFT is latched" signal
+///          cannot be lost by forgetting an argument; 3) `modifier` decides only how a tapped key
+///          resolves, and the `SHIFT`/`hyp` keys are consumed here by id — they route to
+///          `onToggleShift`/`onToggleHyp` and never surface as action ids.
 class CalculatorKeypad extends StatelessWidget {
   const CalculatorKeypad({
     super.key,
@@ -95,7 +106,7 @@ class CalculatorKeypad extends StatelessWidget {
     required this.onKey,
     required this.onToggleShift,
     required this.onToggleHyp,
-    this.modifierActive = false,
+    this.modifierActive,
   });
 
   /// 中文：键位表；渲染层只读它。
@@ -127,13 +138,20 @@ class CalculatorKeypad extends StatelessWidget {
   final VoidCallback onToggleHyp;
 
   /// 中文：是否有非 none 的修饰态被锁定——SHIFT 与 hyp 都会点亮标签横带（两者互斥，所以一个
-  ///       布尔就够）。由上层持有；`hyp` 若在上层是独立的状态位，直接传它即可，不必与
-  ///       `modifier` 保持同步。
+  ///       布尔就够）。**可以省略**：省略时按 `modifier != KeypadModifier.none` 推导，所以漏传
+  ///       不会漏掉提示，安全行为就是默认行为。显式传入则优先于推导，用于 `hyp` 在上层是独立
+  ///       状态位的形状（那时 `modifier` 可能仍是 none）。
   /// English: Whether a non-`none` modifier is latched. Both SHIFT and hyp light the label band
-  ///          (they are mutually exclusive, so one bool covers both). The screen above owns it;
-  ///          if `hyp` is a separate flag up there, pass that — it need not be kept in sync with
-  ///          `modifier`, which only decides how a tapped key resolves.
-  final bool modifierActive;
+  ///          (they are mutually exclusive, so one bool covers both). **It may be omitted**:
+  ///          omitting it derives `modifier != KeypadModifier.none`, so forgetting it cannot lose
+  ///          the signal — the safe behaviour is the default one. An explicit value wins over
+  ///          the derivation, which is what a screen that tracks `hyp` as its own flag needs
+  ///          (there `modifier` may still read `none`).
+  final bool? modifierActive;
+
+  /// 中文：标签横带是否点亮——见 `modifierActive` 的推导规则。
+  /// English: Whether the label band is lit — see `modifierActive` for the derivation.
+  bool get _bandLit => modifierActive ?? (modifier != KeypadModifier.none);
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +234,7 @@ class CalculatorKeypad extends StatelessWidget {
   Widget _shiftHint(String text) => Padding(
         padding: _cellInsets,
         child: Center(
-          child: modifierActive
+          child: _bandLit
               ? Container(
                   padding: _hintChipInsets,
                   decoration: BoxDecoration(

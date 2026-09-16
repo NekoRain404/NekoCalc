@@ -8,6 +8,8 @@ Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 Widget pad({
   KeypadModifier modifier = KeypadModifier.none,
+  bool? modifierActive,
+  CalcTheme theme = CalcTheme.roseCream,
   ValueChanged<String>? onKey,
   VoidCallback? onToggleShift,
   VoidCallback? onToggleHyp,
@@ -15,9 +17,11 @@ Widget pad({
     host(CalculatorKeypad(
       definition: hiperKeypad,
       modifier: modifier,
-      modifierActive: modifier != KeypadModifier.none,
-      colors: CalcTheme.roseCream.keys,
-      background: CalcTheme.roseCream.keypadBackground,
+      // 默认不传：留给 CalculatorKeypad 自己推导（`modifier != none`），
+      // 这正是「调用方漏传」的那条路径。
+      modifierActive: modifierActive,
+      colors: theme.keys,
+      background: theme.keypadBackground,
       onKey: onKey ?? (_) {},
       onToggleShift: onToggleShift ?? () {},
       onToggleHyp: onToggleHyp ?? () {},
@@ -89,11 +93,37 @@ void main() {
 
   testWidgets('band labels highlight while a modifier is latched',
       (tester) async {
-    await tester.pumpWidget(pad(modifier: KeypadModifier.none));
+    const theme = CalcTheme.roseCream;
+    await tester.pumpWidget(pad(modifier: KeypadModifier.none, theme: theme));
     final idle = tester.widget<Text>(find.text('sin⁻¹')).style?.color;
-    await tester.pumpWidget(pad(modifier: KeypadModifier.shift));
+    expect(idle, theme.keys.shiftLabelFg, reason: '空闲时是普通提示色');
+
+    await tester.pumpWidget(pad(modifier: KeypadModifier.shift, theme: theme));
     final latched = tester.widget<Text>(find.text('sin⁻¹')).style?.color;
     expect(latched, isNot(idle), reason: 'SHIFT 锁定后标签带必须给出可见反馈');
+    expect(latched, theme.keys.accentFg, reason: '高亮文字必须取主题的 accentFg，不能是别的色值');
+    final chip = tester.widget<Container>(
+      find
+          .ancestor(of: find.text('sin⁻¹'), matching: find.byType(Container))
+          .first,
+    );
+    expect((chip.decoration as BoxDecoration).color, theme.keys.accentBg,
+        reason: '高亮底必须取主题的 accentBg');
+    final shiftKey = tester.widget<Container>(
+      find
+          .ancestor(
+              of: find.text('SHIFT').first, matching: find.byType(Container))
+          .first,
+    );
+    expect((shiftKey.decoration as BoxDecoration).color, theme.keys.accentBg,
+        reason: '锁定的修饰键自身同样取 accentBg');
+
+    // 省略 modifierActive 时按 modifier 推导（上面那次 pump 走的就是这条路）；
+    // 显式传入则优先，供 hyp 在上层是独立状态位的形状使用。
+    await tester.pumpWidget(pad(modifierActive: true, theme: theme));
+    expect(tester.widget<Text>(find.text('sin⁻¹')).style?.color,
+        theme.keys.accentFg,
+        reason: '显式 modifierActive 必须能单独点亮标签带');
   });
 
   testWidgets('pill buttons are tappable and report ids', (tester) async {
@@ -122,6 +152,15 @@ void main() {
           .first,
     );
     expect((digit.decoration as BoxDecoration).color, theme.keys.digitBg);
+    // 胶囊按钮（标签行里的实体键）的底色同样必须来自主题
+    final pill = tester.widget<Container>(
+      find
+          .ancestor(
+              of: find.text('BIN').first, matching: find.byType(Container))
+          .first,
+    );
+    expect((pill.decoration as ShapeDecoration).color, theme.keys.pillBg,
+        reason: '胶囊按钮底必须是主题的 pillBg');
   });
 
   testWidgets('does not overflow at 320, 360 and 412 dp', (tester) async {
