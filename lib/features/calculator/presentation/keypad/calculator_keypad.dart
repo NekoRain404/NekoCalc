@@ -40,6 +40,11 @@ const double _bandFontSize = 11;
 /// English: How far a disabled key's fill blends towards the panel background; larger is dimmer.
 const double _disabledBlend = 0.55;
 
+/// 中文：锁定时标签带小标签的内边距。
+/// English: Padding inside a highlighted band chip.
+const EdgeInsets _hintChipInsets =
+    EdgeInsets.symmetric(horizontal: 3, vertical: 1);
+
 /// 中文：两个修饰键在 `hiper_keypad.dart` 里的固定 id——它们代表键盘自身的状态切换，
 ///       不属于表达式动作，所以走 `onToggleShift`/`onToggleHyp` 而不是 `onKey`。
 /// English: The two modifier keys' fixed ids in `hiper_keypad.dart`. They switch the keypad's
@@ -72,11 +77,14 @@ const BorderRadius _bandKeyCorners =
 /// 修饰态 / Modifier state:
 /// 中文：`shift`/`hyp` 生效时，主键**执行**各自的变体（键面上仍是基准标签——变体是「按下去
 ///       会发生什么」，由上方标签横带的提示告诉用户，与 HiPER 的机制一致），修饰键自身改用
-///       强调色显示自己正被按下。
+///       强调色显示自己正被按下，同时 `modifierActive` 让标签横带整体点亮：横带是唯一说明
+///       「按下去会发生什么」的地方，只有它变色，用户才看得见 `sin` 现在会执行 `sin⁻¹`。
 /// English: While `shift`/`hyp` is on, a main key **executes** its variant (its face keeps the
 ///          base label — the variant is what pressing it will do, which the band above spells
-///          out, exactly HiPER's mechanism), and the modifier key itself wears the accent
-///          colour to show it is latched on.
+///          out, exactly HiPER's mechanism), the modifier key itself wears the accent colour to
+///          show it is latched on, and `modifierActive` lights the band up. The band is the only
+///          surface that says what pressing a key will do, so it has to be the one that changes
+///          colour for the user to see that `sin` will now run `sin⁻¹`.
 class CalculatorKeypad extends StatelessWidget {
   const CalculatorKeypad({
     super.key,
@@ -87,6 +95,7 @@ class CalculatorKeypad extends StatelessWidget {
     required this.onKey,
     required this.onToggleShift,
     required this.onToggleHyp,
+    this.modifierActive = false,
   });
 
   /// 中文：键位表；渲染层只读它。
@@ -116,6 +125,15 @@ class CalculatorKeypad extends StatelessWidget {
   /// 中文：`hyp` 键的回调。
   /// English: Callback for the `hyp` key.
   final VoidCallback onToggleHyp;
+
+  /// 中文：是否有非 none 的修饰态被锁定——SHIFT 与 hyp 都会点亮标签横带（两者互斥，所以一个
+  ///       布尔就够）。由上层持有；`hyp` 若在上层是独立的状态位，直接传它即可，不必与
+  ///       `modifier` 保持同步。
+  /// English: Whether a non-`none` modifier is latched. Both SHIFT and hyp light the label band
+  ///          (they are mutually exclusive, so one bool covers both). The screen above owns it;
+  ///          if `hyp` is a separate flag up there, pass that — it need not be kept in sync with
+  ///          `modifier`, which only decides how a tapped key resolves.
+  final bool modifierActive;
 
   @override
   Widget build(BuildContext context) {
@@ -185,14 +203,37 @@ class CalculatorKeypad extends StatelessWidget {
           _keyButton(key, corners: _bandKeyCorners, fontSize: _bandFontSize),
       };
 
-  /// 中文：SHIFT 提示——纯文字、无边框、不挂任何手势，点它什么也不会发生。
-  /// English: A SHIFT hint — plain text, no frame, no gesture attached, so tapping it does
-  ///          nothing at all.
+  /// 中文：SHIFT 提示。空闲时是纯文字、无边框、不挂任何手势（点它什么也不会发生）；修饰键
+  ///       锁定后改画成强调色小标签，底色 `accentBg`、文字 `accentFg`——这一对由主题自己配套，
+  ///       六套变体（三套主题 × 明暗）都保证可读；反过来把 `accentFg` 当文字画在键盘底色上，
+  ///       浅色主题里是近白色压在浅底上，直接看不见。
+  /// English: A SHIFT hint. Idle it is plain text, unframed and carrying no gesture (tapping it
+  ///          does nothing); while a modifier is latched it becomes a small accent chip —
+  ///          `accentBg` fill, `accentFg` text. The theme pairs those two by construction, so
+  ///          all six variants (three themes × light/dark) stay readable; drawing `accentFg` as
+  ///          text on the panel instead would be near-white on a light background in the light
+  ///          themes, i.e. invisible.
   Widget _shiftHint(String text) => Padding(
         padding: _cellInsets,
         child: Center(
-          child:
-              _face(text, color: colors.shiftLabelFg, fontSize: _bandFontSize),
+          child: modifierActive
+              ? Container(
+                  padding: _hintChipInsets,
+                  decoration: BoxDecoration(
+                    color: colors.accentBg,
+                    borderRadius: _bandKeyCorners,
+                  ),
+                  child: _face(
+                    text,
+                    color: colors.accentFg,
+                    fontSize: _bandFontSize,
+                  ),
+                )
+              : _face(
+                  text,
+                  color: colors.shiftLabelFg,
+                  fontSize: _bandFontSize,
+                ),
         ),
       );
 

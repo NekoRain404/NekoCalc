@@ -15,6 +15,7 @@ Widget pad({
     host(CalculatorKeypad(
       definition: hiperKeypad,
       modifier: modifier,
+      modifierActive: modifier != KeypadModifier.none,
       colors: CalcTheme.roseCream.keys,
       background: CalcTheme.roseCream.keypadBackground,
       onKey: onKey ?? (_) {},
@@ -84,6 +85,15 @@ void main() {
     await tester.tap(find.text('SHIFT').first);
     expect(toggled, 1);
     expect(tapped, isEmpty);
+  });
+
+  testWidgets('band labels highlight while a modifier is latched',
+      (tester) async {
+    await tester.pumpWidget(pad(modifier: KeypadModifier.none));
+    final idle = tester.widget<Text>(find.text('sin⁻¹')).style?.color;
+    await tester.pumpWidget(pad(modifier: KeypadModifier.shift));
+    final latched = tester.widget<Text>(find.text('sin⁻¹')).style?.color;
+    expect(latched, isNot(idle), reason: 'SHIFT 锁定后标签带必须给出可见反馈');
   });
 
   testWidgets('pill buttons are tappable and report ids', (tester) async {
