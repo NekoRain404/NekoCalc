@@ -1,0 +1,158 @@
+import 'package:flutter/foundation.dart';
+
+/// 中文：按键的语义分类，逐一对应 `CalcKeyColors` 的配色分组，另加一个 `disabled`，
+///       表示网格为 HiPER 布局保留、但 NekoCalc 尚未实现的键位。
+/// English: Semantic key categories mirroring the `CalcKeyColors` colour groups, plus
+///          one extra `disabled` value for grid slots HiPER reserves but NekoCalc does
+///          not implement yet.
+enum KeyCategory {
+  digit,
+  operator,
+  function,
+  variable,
+  modifier,
+  destructive,
+  accent,
+  pill,
+  disabled,
+}
+
+/// 中文：一个键在某一种修饰态下的外观与行为（键面文字 + 回调 id + 是否可用）。
+/// English: How a key looks and behaves under one modifier state: face label,
+///          reported action id, and whether it is usable.
+@immutable
+class KeyVariant {
+  const KeyVariant({
+    required this.label,
+    required this.id,
+    this.enabled = true,
+  });
+
+  /// 中文：键面上显示的文字。
+  /// English: Text printed on the key face.
+  final String label;
+
+  /// 中文：按下后向上层回调的动作 id。
+  /// English: Action id reported upwards when the key is pressed.
+  final String id;
+
+  /// 中文：是否可用；禁用键不回调任何动作。
+  /// English: Whether the key is usable; a disabled key never reports an action.
+  final bool enabled;
+}
+
+/// 中文：一个键位，含基准变体、语义分类，以及可选的 SHIFT / hyp 变体。
+/// English: One keypad key: its base variant, semantic category, and the optional
+///          SHIFT and hyp variants.
+@immutable
+class KeypadKey {
+  const KeypadKey({
+    required this.base,
+    required this.category,
+    this.shift,
+    this.hyp,
+  });
+
+  /// 中文：无修饰态下使用的变体。
+  /// English: Variant used when no modifier is active.
+  final KeyVariant base;
+
+  /// 中文：配色分组；禁用键必须为 `KeyCategory.disabled`。
+  /// English: Colour group; disabled keys must use `KeyCategory.disabled`.
+  final KeyCategory category;
+
+  /// 中文：SHIFT 修饰态的变体，未提供时 SHIFT 对本品无效。
+  /// English: Variant under the SHIFT modifier; absent when SHIFT does nothing here.
+  final KeyVariant? shift;
+
+  /// 中文：`hyp` 修饰态的变体（`sin`→`sinh` 等）。
+  /// English: Variant under the `hyp` modifier (`sin` → `sinh`, …).
+  final KeyVariant? hyp;
+}
+
+/// 中文：标签行里的一格——要么是纯文字标签，要么是一个可以点按的实体键。
+/// English: One cell of a label row — either plain text or a real, tappable key.
+sealed class KeypadLabel {
+  const KeypadLabel();
+}
+
+/// 中文：标签行里的纯文字（HiPER 的 SHIFT 功能提示），不可点按。
+/// English: Plain text inside a label row (HiPER's SHIFT hint); never tappable.
+@immutable
+class ShiftLabel extends KeypadLabel {
+  const ShiftLabel(this.text);
+
+  /// 中文：显示的文字。
+  /// English: Text to display.
+  final String text;
+}
+
+/// 中文：标签行里的实体键——HiPER 把 `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX` 四个胶囊按钮与 `hyp`
+///       放在标签横带里，它们同样有分类、SHIFT 变体与启用态。
+/// English: A real key placed inside a label row — HiPER puts the four
+///          `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX` pills and `hyp` in the label band, so they
+///          keep a category, SHIFT variant and enabled state of their own.
+@immutable
+class InlineKey extends KeypadLabel {
+  const InlineKey(this.key);
+
+  /// 中文：被包裹的完整键位定义。
+  /// English: The complete key definition being wrapped.
+  final KeypadKey key;
+}
+
+/// 中文：键盘的一行——主键条加上每个主键上方的标签位。
+///       行形状（`labels.length == keys.length`）由 [validatedKeypadDefinition] 断言：`const`
+///       构造的常量求值不能读取 `List.length`，所以断言不能写在构造里，只能放在常量表建成时。
+/// English: One keypad row — the main key strip plus one label slot per key above it.
+///          The row shape (`labels.length == keys.length`) is asserted by
+///          [validatedKeypadDefinition]: constant evaluation of a `const` constructor cannot
+///          read `List.length`, so the assertion lives where the constant table is built.
+@immutable
+class KeypadRow {
+  const KeypadRow({
+    required this.keys,
+    required this.labels,
+  });
+
+  /// 中文：本行的主键，自左至右。
+  /// English: This row's main keys, left to right.
+  final List<KeypadKey> keys;
+
+  /// 中文：与 `keys` 一一对应的标签位，`labels[i]` 是 `keys[i]` 上方那一格。
+  /// English: Label slots aligned one-to-one with `keys`; `labels[i]` sits above `keys[i]`.
+  final List<KeypadLabel?> labels;
+}
+
+/// 中文：整个键盘的定义——渲染层只读它，改键位只需改这张表。
+/// English: The whole keypad definition — the rendering layer only reads it, so
+///          changing the layout is a change to this table alone.
+@immutable
+class KeypadDefinition {
+  const KeypadDefinition(this.rows);
+
+  /// 中文：自顶向下的全部行。
+  /// English: All rows, top to bottom.
+  final List<KeypadRow> rows;
+}
+
+/// 中文：校验一张键位表的行形状后原样返回——每一个主键都必须有对应的标签位。
+///       常量表的调用方式是 `validatedKeypadDefinition(const KeypadDefinition([…]))`：断言在
+///       首次访问时执行（发布模式自动移除），与写在 `KeypadRow` 构造里的效果一致。
+/// English: Asserts a key table's row shape and returns it unchanged — every main key must own
+///          a matching label slot. A constant table calls it as
+///          `validatedKeypadDefinition(const KeypadDefinition([…]))`, so the assertion runs on
+///          first access (stripped in release) exactly as a constructor assert would.
+KeypadDefinition validatedKeypadDefinition(KeypadDefinition definition) {
+  for (var index = 0; index < definition.rows.length; index++) {
+    final row = definition.rows[index];
+    assert(
+      row.labels.length == row.keys.length,
+      '每一个主键都必须有对应的标签位（无标签时为 null），'
+      '第 ${index + 1} 行不满足。'
+      ' / Every key needs a matching label slot (null when there is none); '
+      'row ${index + 1} breaks that.',
+    );
+  }
+  return definition;
+}
