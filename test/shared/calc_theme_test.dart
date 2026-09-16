@@ -57,23 +57,68 @@ void main() {
       }
     });
 
-    test('foreground contrasts with its own background', () {
+    test('shift 小标签与模态键文字可区分，且按注释所述更淡', () {
       for (final t in variants) {
-        for (final pair in [
-          (t.keys.digitBg, t.keys.digitFg),
-          (t.keys.operatorBg, t.keys.operatorFg),
-          (t.keys.functionBg, t.keys.functionFg),
-          (t.keys.destructiveBg, t.keys.destructiveFg),
-          (t.display.background, t.display.expressionFg),
-        ]) {
-          final ratio = _contrast(pair.$1, pair.$2);
-          expect(ratio, greaterThan(4.5),
-              reason: '${t.id}/${t.brightness}: 对比度 $ratio 低于 4.5，不可读');
+        expect(t.keys.shiftLabelFg, isNot(t.keys.modifierFg),
+            reason: '${t.id}/${t.brightness}: shift 小标签与键面文字同色就失去了层次');
+        // 中文：`shiftLabelFg` 的文档注释承诺"比键面文字更淡"；更淡 = 与键位底色的对比更低。
+        // English: the doc comment on `shiftLabelFg` promises a label dimmer than the key glyph;
+        //          dimmer means a lower contrast against the key's own background.
+        expect(
+          _contrast(t.keys.modifierBg, t.keys.shiftLabelFg),
+          lessThan(_contrast(t.keys.modifierBg, t.keys.modifierFg)),
+          reason: '${t.id}/${t.brightness}: shift 小标签应当比键面文字更淡',
+        );
+      }
+    });
+
+    test('foreground contrasts with its own background', () {
+      // 中文：阈值取 WCAG AA 对正文的 4.5:1。覆盖面是**令牌模型里暴露的每一对前景/背景**，
+      //       而不只是界面当前恰好用到的那几对：没被断言的令牌只会在后续改动里悄悄退化
+      //       （`shiftLabelFg`、`statusFg`、`indicatorFg` 就是这样跌到 4.5 以下的）。
+      //       没有自备底色的前景色，按其文档注释列在它实际会落在的两个底色上。
+      // English: The threshold is WCAG AA for body text, 4.5:1. Coverage is **every
+      //          foreground/background pair the token model exposes**, not just the few the UI
+      //          happens to use right now: an unasserted token only ever rots silently in a later
+      //          edit (`shiftLabelFg`, `statusFg` and `indicatorFg` fell below 4.5 exactly that
+      //          way). Foregrounds that own no background of their own are listed against each
+      //          background their doc comment says they land on.
+      for (final t in variants) {
+        final pairs = <(String, Color, Color)>[
+          ('display.background/expressionFg', t.display.background,
+              t.display.expressionFg),
+          ('display.background/resultFg', t.display.background, t.display.resultFg),
+          ('display.background/statusFg', t.display.background, t.display.statusFg),
+          ('display.background/indicatorFg', t.display.background,
+              t.display.indicatorFg),
+          ('display.background/errorFg', t.display.background, t.display.errorFg),
+          ('digitBg/digitFg', t.keys.digitBg, t.keys.digitFg),
+          ('operatorBg/operatorFg', t.keys.operatorBg, t.keys.operatorFg),
+          ('functionBg/functionFg', t.keys.functionBg, t.keys.functionFg),
+          ('variableBg/variableFg', t.keys.variableBg, t.keys.variableFg),
+          ('modifierBg/modifierFg', t.keys.modifierBg, t.keys.modifierFg),
+          ('destructiveBg/destructiveFg', t.keys.destructiveBg,
+              t.keys.destructiveFg),
+          ('accentBg/accentFg', t.keys.accentBg, t.keys.accentFg),
+          ('pillBg/pillFg', t.keys.pillBg, t.keys.pillFg),
+          ('modifierBg/shiftLabelFg', t.keys.modifierBg, t.keys.shiftLabelFg),
+          ('keypadBackground/shiftLabelFg', t.keypadBackground,
+              t.keys.shiftLabelFg),
+        ];
+        for (final (label, bg, fg) in pairs) {
+          final ratio = _contrast(bg, fg);
+          expect(ratio, greaterThanOrEqualTo(_minContrast),
+              reason: '${t.id}/${t.brightness} $label: 对比度 $ratio 低于 '
+                  '$_minContrast，不可读');
         }
       }
     });
   });
 }
+
+/// 中文：正文可读性的下限，取 WCAG AA 对普通字号文本的要求。
+/// English: The floor for readable body text, taken from WCAG AA for normal-size text.
+const double _minContrast = 4.5;
 
 double _contrast(Color a, Color b) {
   final la = a.computeLuminance();

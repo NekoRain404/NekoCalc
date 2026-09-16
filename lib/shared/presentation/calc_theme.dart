@@ -100,9 +100,12 @@ class CalcKeyColors {
   final Color accentBg;
   final Color accentFg;
 
-  /// 中文：模态键上小标签（SHIFT 提示）的前景色，比键面文字更淡，在模态键与键位区底色上均可读。
+  /// 中文：模态键上小标签（SHIFT 提示）的前景色，比键面文字更淡，在模态键与键位区底色上均可读
+  ///       （两处都按 4.5:1 断言，见 `calc_theme_test.dart`；"更淡"指与模态键底色的对比更低）。
   /// English: Foreground for the small label printed on modifier keys; dimmer
-  /// than the key glyph and legible on both the modifier key and the keypad panel.
+  /// than the key glyph and legible on both the modifier key and the keypad panel
+  /// (both are asserted at 4.5:1 in `calc_theme_test.dart`; "dimmer" means a
+  /// lower contrast against the modifier key's background).
   final Color shiftLabelFg;
 
   /// 中文：小胶囊 / 切换标签的底色与前景色。
@@ -163,8 +166,8 @@ class CalcTheme {
       background: Color(0xFFFFFAF7),
       expressionFg: Color(0xFF4A3B40),
       resultFg: Color(0xFF2B2326),
-      statusFg: Color(0xFF8B757C),
-      indicatorFg: Color(0xFFB25E6B),
+      statusFg: Color(0xFF7F6A71),
+      indicatorFg: Color(0xFFAA5462),
       errorFg: Color(0xFFB23A4A),
     ),
     keys: CalcKeyColors(
@@ -182,7 +185,7 @@ class CalcTheme {
       destructiveFg: Color(0xFF4A2029),
       accentBg: Color(0xFFA04F60),
       accentFg: Color(0xFFFFF6F7),
-      shiftLabelFg: Color(0xFF456652),
+      shiftLabelFg: Color(0xFF2E4A3A),
       pillBg: Color(0xFFEDDDE1),
       pillFg: Color(0xFF4A3B40),
     ),
@@ -200,7 +203,7 @@ class CalcTheme {
       background: Color(0xFFFBFAFF),
       expressionFg: Color(0xFF413C58),
       resultFg: Color(0xFF231F38),
-      statusFg: Color(0xFF7B7591),
+      statusFg: Color(0xFF726C8A),
       indicatorFg: Color(0xFF6C5CB4),
       errorFg: Color(0xFFB03A52),
     ),
@@ -219,7 +222,7 @@ class CalcTheme {
       destructiveFg: Color(0xFF4A2317),
       accentBg: Color(0xFF6A55BC),
       accentFg: Color(0xFFF7F4FF),
-      shiftLabelFg: Color(0xFF456652),
+      shiftLabelFg: Color(0xFF2E4A3A),
       pillBg: Color(0xFFE6E2F5),
       pillFg: Color(0xFF37325A),
     ),
@@ -236,8 +239,8 @@ class CalcTheme {
       background: Color(0xFFFFFBF6),
       expressionFg: Color(0xFF4A3B2E),
       resultFg: Color(0xFF2E241B),
-      statusFg: Color(0xFF8C7A6B),
-      indicatorFg: Color(0xFFB4763F),
+      statusFg: Color(0xFF7D6C5F),
+      indicatorFg: Color(0xFF98622F),
       errorFg: Color(0xFFB23A4A),
     ),
     keys: CalcKeyColors(
@@ -255,7 +258,7 @@ class CalcTheme {
       destructiveFg: Color(0xFF4A2317),
       accentBg: Color(0xFFD98A5C),
       accentFg: Color(0xFF2B1409),
-      shiftLabelFg: Color(0xFF456652),
+      shiftLabelFg: Color(0xFF2E4A3A),
       pillBg: Color(0xFFF0DFD2),
       pillFg: Color(0xFF463229),
     ),
@@ -301,15 +304,18 @@ const CalcTheme _roseCreamDark = CalcTheme(
     destructiveFg: Color(0xFFF6D5D8),
     accentBg: Color(0xFFC0707E),
     accentFg: Color(0xFF2A1216),
-    shiftLabelFg: Color(0xFF8FAE9B),
+    shiftLabelFg: Color(0xFFB0C9B8),
     pillBg: Color(0xFF3A3038),
     pillFg: Color(0xFFEDE4E8),
   ),
   keypadBackground: Color(0xFF141114),
 );
 
-/// 中文：薰衣草雾深色变体，保留紫罗兰色相并降低明度。
-/// English: Lavender Mist dark variant; keeps the violet hue at lower lightness.
+/// 中文：薰衣草雾深色变体，保留紫罗兰色相并降低明度；破坏性按键与浅色变体一致改用暖色警示，
+///       不再跟着主题的冷色相走。
+/// English: Lavender Mist dark variant; keeps the violet hue at lower lightness, while its
+///          destructive key is warm like the light variant's rather than following the theme's
+///          cool hue.
 const CalcTheme _lavenderMistDark = CalcTheme(
   id: 'lavenderMist',
   name: '薰衣草雾 深色',
@@ -337,7 +343,7 @@ const CalcTheme _lavenderMistDark = CalcTheme(
     destructiveFg: Color(0xFFF7D3D6),
     accentBg: Color(0xFF8C79D8),
     accentFg: Color(0xFF170F2E),
-    shiftLabelFg: Color(0xFF8FAE9B),
+    shiftLabelFg: Color(0xFFB0C9B8),
     pillBg: Color(0xFF322F44),
     pillFg: Color(0xFFE6E3F0),
   ),
@@ -373,7 +379,7 @@ const CalcTheme _peachSugarDark = CalcTheme(
     destructiveFg: Color(0xFFF9D6C4),
     accentBg: Color(0xFFD98A5C),
     accentFg: Color(0xFF2B1409),
-    shiftLabelFg: Color(0xFF8FAE9B),
+    shiftLabelFg: Color(0xFFB0C9B8),
     pillBg: Color(0xFF3D342B),
     pillFg: Color(0xFFF2E9E1),
   ),
