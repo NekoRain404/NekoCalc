@@ -2,6 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definition.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/hiper_keypad.dart';
 
+/// 中文：一行里的全部实体键——主键条上的键，加上标签横带里的 `InlineKey`。
+///       标签横带里的键曾经不在唯一性检查的遍历范围内，`▸DRG` 与主键 `DRG` 共用同一个
+///       `angleMode` 就是这么漏过 CI 的；遍历必须覆盖两者，这一类冲突才有可能被挡住。
+/// English: Every real key in a row — the main strip's keys plus the band's `InlineKey`s.
+///          Band keys used to sit outside the uniqueness walk, which is how `▸DRG` sharing
+///          `angleMode` with the main DRG key slipped past CI. The walk has to cover both.
+Iterable<KeypadKey> _realKeys(KeypadRow row) sync* {
+  yield* row.keys;
+  for (final label in row.labels) {
+    if (label is InlineKey) yield label.key;
+  }
+}
+
 void main() {
   group('KeypadDefinition 完整性', () {
     test('标签行与主键行等长', () {
@@ -14,7 +27,7 @@ void main() {
     test('键的 id 全局唯一', () {
       final ids = <String>[];
       for (final row in hiperKeypad.rows) {
-        for (final k in row.keys) {
+        for (final k in _realKeys(row)) {
           ids.add(k.base.id);
           if (k.shift != null) ids.add(k.shift!.id);
           if (k.hyp != null) ids.add(k.hyp!.id);

@@ -82,13 +82,15 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   ),
 
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
-  //       上方标签：▸DRG 胶囊（可点，循环 DEG↔RAD）、FSE（x⇔E 的 SHIFT 提示）、
+  //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
+  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（x⇔E 的 SHIFT 提示）、
   //       MTRX（矩阵键的 SHIFT 提示）、Π（Σ 的 SHIFT 提示）、d/dx（∫dx 的 SHIFT 提示），
   //       相机键上方无标签。
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
-  //          Band above: the tappable ▸DRG pill (cycles DEG↔RAD), FSE (SHIFT hint of x⇔E),
-  //          MTRX (hint of the matrix key), Π (hint of Σ), d/dx (hint of ∫dx); the camera
-  //          key has no hint.
+  //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
+  //          only real band buttons are the four base pills plus hyp, so this one is a
+  //          non-tappable hint), FSE (SHIFT hint of x⇔E), MTRX (hint of the matrix key),
+  //          Π (hint of Σ), d/dx (hint of ∫dx); the camera key has no hint.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -117,12 +119,7 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
       ),
     ],
     labels: <KeypadLabel?>[
-      InlineKey(
-        KeypadKey(
-          base: KeyVariant(label: 'DRG', id: 'angleMode'),
-          category: KeyCategory.pill,
-        ),
-      ),
+      ShiftLabel('DRG'),
       ShiftLabel('FSE'),
       ShiftLabel('MTRX'),
       ShiftLabel('Π'),
