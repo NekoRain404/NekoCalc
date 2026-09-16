@@ -1,27 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../application/app_settings.dart';
 import '../../../application/controllers/calculator_controller.dart';
-import '../../../core/constants/app_info.dart';
+import '../../../application/controllers/expression_selection.dart';
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
-import '../../../domain/usecases/calculator_paste_result.dart';
-import '../../../shared/presentation/app_chrome.dart';
-import 'widgets/math_expression_text.dart';
+import '../../../shared/presentation/calc_theme.dart';
+import 'keypad/calculator_keypad.dart';
+import 'keypad/hiper_keypad.dart';
+import 'widgets/calculator_display.dart';
+import 'widgets/inline_expression_editor.dart';
 
-/// 中文：计算器主界面，UI 只负责布局和输入分发，计算逻辑留在 CalculatorController。
-/// English: Main calculator screen; UI handles layout and input dispatch while calculation stays in CalculatorController.
+/// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的
+///       键盘（`CalculatorKeypad`），**不滚动**。UI 只负责布局和输入分发，计算逻辑留在
+///       CalculatorController，主题配色全部取自 `CalcTheme`。
+/// English: The calculator main screen — a two-line display panel (`CalculatorDisplay`) above a
+///          keypad rendered from the HiPER key table (`CalculatorKeypad`), with **no scrolling**.
+///          The UI only lays out and dispatches input; calculation stays in CalculatorController and
+///          every colour comes from `CalcTheme`.
 class CalculatorPage extends StatefulWidget {
   const CalculatorPage({
     required this.db,
     required this.onOpenSettings,
     required this.settings,
     this.reloadToken = 0,
+    this.onNavigate,
     super.key,
   });
 
@@ -30,77 +40,50 @@ class CalculatorPage extends StatefulWidget {
   final AppSettings settings;
   final int reloadToken;
 
+  /// 中文：页面级导航（`HISTORY`、`OTHER`、`CNST`、`CONV` 与四个进制胶囊）。可选——为空时这些键
+  ///       是惰性的，独立使用本页（例如组件测试）不会虚构出目标页；外壳接入后传 'history'/'tools'。
+  /// English: Page-level navigation (the `HISTORY`, `OTHER`, `CNST`, `CONV` keys and the four base
+  ///          pills). Optional — with no callback those keys are inert and no destination is invented
+  ///          for standalone use (widget tests included); the shell passes 'history'/'tools' once it
+  ///          is wired.
+  final void Function(String destination)? onNavigate;
+
   @override
   State<CalculatorPage> createState() => _CalculatorPageState();
 }
 
 class _CalculatorPageState extends State<CalculatorPage> {
+  /// 中文：内联编辑器的字号，与 `CalculatorDisplay` 表达式行的字号一致。
+  /// English: The inline editor's font size, matching `CalculatorDisplay`'s expression line.
+  static const double _inlineEditorFontSize = 19;
+
+  /// 中文：显示区最多占可用高度的比例，以及它的高度上下限（下限见 `build` 里的注释）。
+  /// English: The display band's share of the available height and its bounds (see `build`).
+  static const double _displayHeightRatio = 0.38;
+  static const double _displayHeightMin = 176;
+  static const double _displayHeightMax = 230;
+
+  /// 中文：`More...` 面板最多占屏幕高度的比例——够放下全部动作，又不会盖住显示区。
+  /// English: How much of the screen the `More...` sheet may take — room for every action without
+  ///          covering the display band.
+  static const double _moreSheetHeightRatio = 0.7;
+
+  /// 中文：`More...` 面板里光标键描边的透明度。
+  /// English: Alpha of the cursor keys' border inside the `More...` sheet.
+  static const double _cursorBorderAlpha = 0.3;
+
   late final CalculatorController _controller;
-  String _pad = 'Basic';
   bool _savingNote = false;
+  bool _inlineEditing = false;
+  bool _requestInlineFocus = false;
+  bool _pastingCalculatorDetails = false;
 
-  static const List<String> _pads = ['Basic', '函数'];
-  static const List<String> _functionEditKeys = ['AC', '⌫', '+/-', '='];
-  static const List<String> _functionQuickKeys = ['(', ')', ',', 'Ans'];
-
-  static const List<String> _baseKeys = [
-    'AC',
-    '⌫',
-    '%',
-    '÷',
-    '7',
-    '8',
-    '9',
-    '×',
-    '4',
-    '5',
-    '6',
-    '-',
-    '1',
-    '2',
-    '3',
-    '+',
-    '+/-',
-    '0',
-    '.',
-    '=',
-  ];
-
-  static const Map<String, List<String>> _functionGroups = {
-    'Basic': ['(', ')', 'π', '√x'],
-  };
-
-  static const Map<String, List<String>> _functionSections = {
-    '常用': ['√x', '∛x', 'x²', 'x³', 'xʸ', 'x⁻¹', 'π', 'e', 'eˣ', '10ˣ'],
-    '三角': [
-      'DEG',
-      'RAD',
-      'sin',
-      'cos',
-      'tan',
-      'asin',
-      'acos',
-      'atan',
-      'sinh',
-      'cosh',
-      'tanh',
-      'cot',
-      'sec',
-      'csc'
-    ],
-    '指数对数': [
-      'log₁₀',
-      'ln',
-      'log₂',
-      'exp',
-      '2ˣ',
-      '|x|',
-    ],
-    '取整与统计': ['floor', 'ceil', 'round', 'min', 'max'],
-    '整数与组合': ['x!', 'nCr', 'nPr', 'gcd', 'lcm', 'mod', 'ⁿ√x', 'atan2'],
-    '角度辅助': ['deg', 'rad', '90°', '180°', '360°'],
-    '常数': ['φ', '√2', 'τ', 'ln2', 'ln10', 'g', 'c', '2π', 'π/2'],
-  };
+  /// 中文：当前修饰态。`KeypadModifier` 一个值就同时表达了「SHIFT 还是 hyp」与「互斥」，
+  ///       所以旧计划里另立一个 `bool _hypActive` 是多余的——两个字段表达同一事实只会走岔。
+  /// English: The active modifier. One `KeypadModifier` value already carries both "SHIFT or hyp"
+  ///          and their mutual exclusion, so a second `bool _hypActive` (as the plan sketched) would
+  ///          duplicate the same fact and could only drift from it.
+  KeypadModifier _modifier = KeypadModifier.none;
 
   @override
   void initState() {
@@ -135,629 +118,280 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = _calcTheme(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 中文：根据可用高度动态分配显示区和键盘区，避免不同手机上按钮被挤压或溢出。
-        // English: Allocate display and keypad height from available space to avoid squeezed or overflowing keys.
-        final displayHeight =
-            (constraints.maxHeight * 0.24).clamp(142.0, 178.0);
-        final basicKeyboardHeight = _basicKeyboardHeight(constraints.maxHeight);
-        final functionPanelHeight =
-            _functionPanelHeight(constraints.maxHeight, displayHeight);
-        return SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                children: [
-                  // 中文：只让依赖控制器状态的区域重建，键盘本体不随每次输入重建。
-                  // English: Rebuild only controller-dependent regions; the keypad itself does not rebuild on every input.
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) => _header(),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: displayHeight,
-                    child: AnimatedBuilder(
-                      animation: _controller,
-                      builder: (context, _) => _displayCard(context),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _padTabs(),
-                  const SizedBox(height: 8),
-                  if (_pad == 'Basic')
-                    SizedBox(
-                        height: basicKeyboardHeight, child: _basicKeyboard())
-                  else
-                    SizedBox(
-                        height: functionPanelHeight, child: _functionPanel()),
-                  const SizedBox(height: 10),
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) => _memoryBar(),
-                  ),
-                  const SizedBox(height: 10),
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) => _resultStatusCard(),
-                  ),
-                  const SizedBox(height: 10),
-                  _actions(),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _header() {
-    return Row(
-      children: [
-        const NekoAppMark(),
-        const SizedBox(width: 10),
-        const Expanded(child: PageTitle(AppInfo.name)),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'DEG', label: Text('DEG')),
-            ButtonSegment(value: 'RAD', label: Text('RAD')),
-          ],
-          selected: {_controller.angleMode},
-          onSelectionChanged: (value) => _controller.setAngleMode(value.first),
-          showSelectedIcon: false,
-          style: const ButtonStyle(visualDensity: VisualDensity.compact),
-        ),
-        const SizedBox(width: 8),
-        IconToolButton(
-            icon: Icons.settings_outlined,
-            tooltip: '设置',
-            onTap: widget.onOpenSettings),
-      ],
-    );
-  }
-
-  Widget _displayCard(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final hasExpression = _controller.expression.isNotEmpty;
-    final hasMemory = _controller.memoryValue != 0;
-    // 中文：表达式和结果分层显示，空表达式时突出当前值，输入中则突出实时结果。
-    // English: Expression and result are visually separated; empty input emphasizes the current value, active input emphasizes the live result.
-    final displayStyle = TextStyle(
-      color: hasExpression
-          ? scheme.onSurfaceVariant
-          : scheme.onSurfaceVariant.withValues(alpha: 0.6),
-      fontSize: 19,
-      fontWeight: FontWeight.w600,
-    );
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: softPanel(context: context, highlight: true),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              _statusChip(_controller.angleMode),
-              const SizedBox(width: 6),
-              _statusChip(hasMemory ? 'M' : 'M0',
-                  muted: !hasMemory, dense: true),
-              const Spacer(),
-              _displayIconButton(Icons.undo, '撤销', _controller.undo,
-                  enabled: _controller.canUndo),
-              const SizedBox(width: 6),
-              _displayIconButton(Icons.redo, '重做', _controller.redo,
-                  enabled: _controller.canRedo),
-              const SizedBox(width: 6),
-              _displayIconButton(Icons.keyboard_arrow_left, '光标左移',
-                  _controller.moveCursorLeft),
-              const SizedBox(width: 6),
-              _displayIconButton(Icons.keyboard_arrow_right, '光标右移',
-                  _controller.moveCursorRight),
-              const SizedBox(width: 6),
-              _displayIconButton(Icons.edit_outlined, '编辑表达式', _editExpression),
-              const SizedBox(width: 6),
-              _displayIconButton(
-                  Icons.backspace_outlined, '退格', _controller.backspace),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: (details) {
-                    // 中文：显示区左右半区可移动光标，保留“点编辑按钮才打开文本编辑”的交互规则。
-                    // English: Left/right display halves move the cursor while full text editing remains behind the edit button.
-                    if (details.localPosition.dx < constraints.maxWidth / 2) {
-                      _controller.moveCursorLeft();
-                    } else {
-                      _controller.moveCursorRight();
-                    }
-                  },
-                  onLongPress: _controller.moveCursorToEnd,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: SingleChildScrollView(
-                      reverse: true,
-                      scrollDirection: Axis.horizontal,
-                      child: MathExpressionText(
-                        expression: _controller.expression,
-                        cursorIndex: _controller.cursorIndex,
-                        showCursor: true,
-                        mathSymbols:
-                            widget.settings.expressionDisplayMode == '数学符号',
-                        style: displayStyle,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                hasExpression ? '= ${_controller.result}' : _controller.result,
-                style: TextStyle(
-                  color: _controller.hasError
-                      ? Colors.red
-                      : hasExpression
-                          ? scheme.primary
-                          : scheme.onSurface,
-                  fontSize: hasExpression ? 34 : 42,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusChip(String label, {bool muted = false, bool dense = false}) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      height: 26,
-      alignment: Alignment.center,
-      padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10),
-      decoration: BoxDecoration(
-        color: muted ? scheme.surface : scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: muted ? scheme.onSurfaceVariant : scheme.onSecondaryContainer,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  Widget _displayIconButton(IconData icon, String tooltip, VoidCallback onTap,
-      {bool enabled = true}) {
-    final scheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: scheme.outlineVariant),
-          ),
-          child: Icon(
-            icon,
-            size: 17,
-            color: enabled
-                ? scheme.onSurfaceVariant
-                : scheme.onSurfaceVariant.withValues(alpha: 0.35),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _padTabs() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _pads
-            .map((label) => GestureDetector(
-                  onTap: () {
-                    _feedback();
-                    setState(() => _pad = label);
-                  },
-                  child: TabPill(label: label, selected: _pad == label),
-                ))
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _basicKeyboard() {
-    final functionKeys = _functionGroups['Basic']!;
-    return Column(
-      children: [
-        SizedBox(
-            height: _functionRows * 44 + (_functionRows - 1) * 8,
-            child: _keyGrid(functionKeys, compact: true, immediate: true)),
-        const SizedBox(height: 8),
-        Expanded(child: _keyGrid(_baseKeys, immediate: true)),
-      ],
-    );
-  }
-
-  Widget _functionPanel() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 中文：函数页保持普通滚动布局，避免复杂分栏影响快速查找函数。
-        // English: The function page stays as a simple scroll layout so functions remain easy to scan.
-        return DecoratedBox(
-          decoration: softPanel(context: context),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                children: [
-                  SizedBox(height: 42, child: _functionEditBar()),
-                  const SizedBox(height: 8),
-                  SizedBox(height: 40, child: _functionQuickBar()),
-                  const SizedBox(height: 10),
-                  Expanded(child: _functionSectionsView()),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _functionEditBar() {
-    return Row(
-      children: [
-        for (var index = 0; index < _functionEditKeys.length; index++) ...[
-          if (index > 0) const SizedBox(width: 8),
-          Expanded(child: _calcKey(_functionEditKeys[index], compact: true)),
-        ],
-      ],
-    );
-  }
-
-  Widget _functionQuickBar() {
-    return Row(
-      children: [
-        for (var index = 0; index < _functionQuickKeys.length; index++) ...[
-          if (index > 0) const SizedBox(width: 8),
-          Expanded(child: _calcKey(_functionQuickKeys[index], compact: true)),
-        ],
-      ],
-    );
-  }
-
-  Widget _functionSectionsView() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const spacing = 8.0;
-        // 中文：宽屏给 5 列，窄屏给 4 列，按钮尺寸稳定不随文字长度跳动。
-        // English: Use five columns on wider screens and four on narrow screens with stable button sizing.
-        final columns = constraints.maxWidth >= 390 ? 5 : 4;
-        final itemWidth =
-            (constraints.maxWidth - spacing * (columns - 1)) / columns;
-        return ListView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.zero,
+        // 中文：显示区固定取可用高度的 38%，clamp 在 176–230dp。176dp 是 `CalculatorDisplay`
+        //       的高度下限（它的类注释按真实 Android 字体度量推导出：与字体无关的固定行 74dp，
+        //       双行错误的内容约需 165dp），230dp 让高窗口下显示区不至于吃掉键盘。剩下的高度全给
+        //       键盘：`Expanded` 填满、不给固定高度，于是任何窗口高度都不会溢出（键变矮而已）。
+        // English: The display band takes 38% of the available height, clamped to 176–230dp. 176dp
+        //          is `CalculatorDisplay`'s floor (its class comment derives 74dp of font-independent
+        //          chrome plus ≈165dp of content for a two-line error under real Android metrics) and
+        //          230dp stops it eating the keypad on tall windows. Everything left goes to the
+        //          keypad, which fills it via `Expanded` with no fixed height, so no window height
+        //          can overflow — the keys just get shorter.
+        final displayHeight = (constraints.maxHeight * _displayHeightRatio)
+            .clamp(_displayHeightMin, _displayHeightMax);
+        return Column(
           children: [
-            for (final section in _functionSections.entries) ...[
-              _functionSectionHeader(section.key),
-              Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: [
-                  for (final key in section.value)
-                    SizedBox(
-                      width: itemWidth,
-                      height: 42,
-                      child: _calcKey(key, compact: true),
-                    ),
-                ],
+            SizedBox(
+              height: displayHeight,
+              // 中文：只让依赖控制器状态的显示区重建，键盘本体不随每次输入重建。
+              // English: Rebuild only the controller-dependent display band; the keypad itself does
+              //          not rebuild on every input.
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) =>
+                    _inlineEditing ? _editingSurface(theme) : _display(theme),
               ),
-              const SizedBox(height: 12),
-            ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: CalculatorKeypad(
+                // 中文：`modifierActive` 不传——`CalculatorKeypad` 由 `modifier` 自行推导，
+                //       漏传也不会丢掉「修饰键已锁定」的提示。
+                // English: `modifierActive` is omitted — `CalculatorKeypad` derives it from
+                //          `modifier`, so the latched-modifier signal cannot be lost.
+                definition: hiperKeypad,
+                modifier: _modifier,
+                colors: theme.keys,
+                background: theme.keypadBackground,
+                onKey: _pressKey,
+                onToggleShift: _toggleShift,
+                onToggleHyp: _toggleHyp,
+              ),
+            ),
           ],
         );
       },
     );
   }
 
-  Widget _functionSectionHeader(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-          ),
+  /// 中文：两行显示面板。点表达式里的某个单元会在该单元的原文偏移处打开内联编辑器（用户原有的
+  ///       编辑功能，保留）；`More...` 打开动作面板，☰ 打开外壳的抽屉。
+  /// English: The two-line display panel. Tapping a display unit opens the inline editor at that
+  ///          unit's source offset (the user's editing feature, preserved); `More...` opens the
+  ///          action sheet and ☰ opens the shell's drawer.
+  Widget _display(CalcTheme theme) {
+    return CalculatorDisplay(
+      expression: _controller.expression,
+      result: _controller.result,
+      hasError: _controller.hasError,
+      statusTitle: _controller.resultStatusTitle,
+      statusMessage: _controller.resultStatusMessage,
+      cursorIndex: _controller.cursorIndex,
+      angleMode: _controller.angleMode,
+      hasMemory: _controller.memoryValue != 0,
+      colors: theme.display,
+      naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
+      onTapOffset: (sourceOffset) =>
+          _openInlineEditor(sourceOffset: sourceOffset),
+      onMore: _openMoreSheet,
+      onOpenDrawer: _openDrawer,
+    );
+  }
+
+  /// 中文：内联编辑时的显示区。用户的编辑器组件占满整块区域，底色与内边距沿用显示面板的配色，
+  ///       键盘仍然可见可点——按键写入编辑器里的选区，这正是这套编辑交互的核心。
+  /// English: The display band while inline editing. The user's editor widget fills the band on the
+  ///          display panel's own background and padding, and the keypad stays visible and tappable:
+  ///          its keys write into the editor's selection, which is the whole point of this editing
+  ///          interaction.
+  Widget _editingSurface(CalcTheme theme) {
+    return Container(
+      color: theme.display.background,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      alignment: Alignment.center,
+      child: InlineExpressionEditor(
+        expression: _controller.expression,
+        selection: _controller.selection,
+        onExpressionChanged: _controller.setExpression,
+        onSelectionChanged: _controller.setSelection,
+        onFocusLost: _closeInlineEditor,
+        onPastePointerDown: _beginCalculatorDetailsPaste,
+        onPasteGestureEnded: _endCalculatorDetailsPasteGesture,
+        onPasteCalculatorDetails: _pasteCalculatorDetails,
+        requestFocus: _requestInlineFocus,
+        style: TextStyle(
+          color: theme.display.expressionFg,
+          fontSize: _inlineEditorFontSize,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
-  Widget _keyGrid(List<String> keys,
-      {bool compact = false, bool immediate = false}) {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: keys.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: compact ? 2.45 : 1.45,
-      ),
-      itemBuilder: (context, index) {
-        return _calcKey(keys[index], compact: compact, immediate: immediate);
-      },
+  /// 中文：当前主题的配色。主题选择还没接进设置页（已记录为后续工作，不在本计划内），所以这里
+  ///       固定用默认主题 `roseCream`，只按平台的明暗取它的深色变体。
+  /// English: Colours of the active theme. Theme selection is not wired into the settings page yet
+  ///          (recorded as follow-up work, outside this plan), so the default theme `roseCream` is
+  ///          used, with its dark variant chosen by the platform brightness.
+  CalcTheme _calcTheme(BuildContext context) {
+    const theme = CalcTheme.roseCream;
+    return MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        ? theme.dark
+        : theme;
+  }
+
+  /// 中文：抽屉按钮。外壳的 Scaffold 有 Drawer 就打开它；本页单独使用时（组件测试就是这种）
+  ///       Scaffold 里没有 drawer，于是是空操作。
+  /// English: The drawer button: opens the shell Scaffold's drawer when it has one. Standalone —
+  ///          which is what the widget tests do — the Scaffold has no drawer, so it is a no-op.
+  void _openDrawer() {
+    Scaffold.maybeOf(context)?.openDrawer();
+  }
+
+  /// 中文：页面级导航。`onNavigate` 为空时惰性——不虚构目标页。
+  /// English: Page-level navigation; inert while `onNavigate` is null — no destination is invented.
+  void _navigate(String destination) {
+    widget.onNavigate?.call(destination);
+  }
+
+  /// 中文：SHIFT 与 hyp 互斥（它们是同一个字段的两个值），再点一次各自的键退出该修饰态。
+  /// English: SHIFT and hyp are mutually exclusive (two values of one field); tapping a latched
+  ///          modifier key again leaves that state.
+  void _toggleShift() {
+    _feedback();
+    setState(() {
+      _modifier = _modifier == KeypadModifier.shift
+          ? KeypadModifier.none
+          : KeypadModifier.shift;
+    });
+  }
+
+  void _toggleHyp() {
+    _feedback();
+    setState(() {
+      _modifier = _modifier == KeypadModifier.hyp
+          ? KeypadModifier.none
+          : KeypadModifier.hyp;
+    });
+  }
+
+  /// 中文：SHIFT 是一次性修饰态——任何一次按键之后就复位（HiPER 行为）；hyp 是持续态，只能由
+  ///       hyp 键退出，所以不在这里复位。
+  /// English: SHIFT is one-shot: it clears after any key press (HiPER's behaviour). hyp latches and
+  ///          can only be left by the hyp key, so it is not cleared here.
+  void _clearOneShotShift() {
+    if (_modifier != KeypadModifier.shift) return;
+    setState(() => _modifier = KeypadModifier.none);
+  }
+
+  /// 中文：`More...` 面板里的两个可长按光标键。配色仍全部来自 `CalcTheme`：图标用次要状态色，
+  ///       底色用显示区底色，描边是该色的低透明度版本（不引入新的色位，也没有硬编码色值）。
+  /// English: The two hold-to-repeat cursor keys inside the `More...` sheet. Every colour still comes
+  ///          from `CalcTheme`: the icon takes the secondary status colour, the fill the display
+  ///          background, and the border a low-alpha version of the icon colour — no new colour slot
+  ///          and no hardcoded value.
+  Widget _repeatableCursorButton({
+    required CalcTheme theme,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    required VoidCallback onBlockMove,
+    required VoidCallback onRepeat,
+  }) {
+    return _RepeatableCursorButton(
+      icon: icon,
+      tooltip: tooltip,
+      color: theme.display.statusFg,
+      backgroundColor: theme.display.background,
+      borderColor: theme.display.statusFg.withValues(alpha: _cursorBorderAlpha),
+      onTap: onTap,
+      onBlockMove: onBlockMove,
+      onRepeat: onRepeat,
     );
   }
 
-  Widget _calcKey(String key, {bool compact = false, bool immediate = false}) {
-    // 中文：角度模式键需要跟随 controller 刷新选中态，普通按键保持静态减少重建。
-    // English: Angle mode keys listen to the controller for selected state; normal keys stay static to reduce rebuilds.
-    if (key == 'DEG' || key == 'RAD') {
-      return AnimatedBuilder(
+  /// 中文：记忆寄存器的读数——沿用旧记忆条的格式（`M ` + 按设置格式化的值），
+  ///       所以 `M 12.5` 这样的读数在面板里一字不差地重现。
+  /// English: The memory register's reading, in the old memory bar's format (`M ` plus the value
+  ///          formatted per settings), so a reading like `M 12.5` is reproduced verbatim in the
+  ///          sheet.
+  String _memoryLabel() {
+    return 'M ${formatNumber(
+      _controller.memoryValue,
+      precision: widget.settings.precision,
+      groupThousands: widget.settings.groupThousands,
+    )}';
+  }
+
+  /// 中文：面板里的「编辑表达式」：先关面板再打开内联编辑器并要求焦点——旧工具条上那颗编辑按钮的行为。
+  /// English: The sheet's "edit expression": close the sheet, then open the inline editor asking for
+  ///          focus — exactly what the old toolbar's edit button did.
+  void _editFromSheet() {
+    _openInlineEditor(requestFocus: true);
+  }
+
+  /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
+  ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
+  ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
+  ///       内容再长也能滚动，任何窗口高度都不会溢出。
+  /// English: The action sheet `More...` opens. It is where the operations from the three deleted
+  ///          pieces (the action row, the permanent memory bar and the display toolbar) now live:
+  ///          copy, save note, undo/redo, the explicit edit action, backspace, cursor movement and
+  ///          the memory register. `isScrollControlled` lets it size to its content up to 70% of the
+  ///          screen height, and the content scrolls past that, so no window height can overflow.
+  void _openMoreSheet() {
+    final theme = _calcTheme(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * _moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => AnimatedBuilder(
+        // 中文：面板里的记忆读数与撤销/重做可用态要跟着控制器走，否则面板打开期间它们会僵住。
+        // English: The sheet's memory reading and undo/redo availability follow the controller, so they
+        //          do not freeze while the sheet is open.
         animation: _controller,
-        builder: (context, _) =>
-            _calcKeyButton(key, compact: compact, immediate: immediate),
-      );
-    }
-    return _calcKeyButton(key, compact: compact, immediate: immediate);
-  }
-
-  Widget _calcKeyButton(String key,
-      {bool compact = false, bool immediate = false}) {
-    final scheme = Theme.of(context).colorScheme;
-    final isSubmit = key == '=';
-    final isDanger = key == 'AC';
-    final isOperator = ['+', '-', '×', '÷', '^', '%'].contains(key);
-    final isEdit = ['⌫', '+/-'].contains(key);
-    final isMode = ['DEG', 'RAD'].contains(key);
-    final selectedMode = isMode && _controller.angleMode == key;
-    final backgroundColor = isSubmit
-        ? scheme.primary
-        : selectedMode
-            ? scheme.secondaryContainer
-            : isOperator
-                ? scheme.primaryContainer
-                : isEdit
-                    ? scheme.surfaceContainerHighest
-                    : scheme.surface;
-    final foregroundColor = isSubmit
-        ? scheme.onPrimary
-        : isDanger
-            ? Colors.red
-            : selectedMode
-                ? scheme.onSecondaryContainer
-                : isOperator
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurface;
-    return _CalculatorKeySurface(
-      backgroundColor: backgroundColor,
-      foregroundColor: foregroundColor,
-      borderColor: isSubmit ? scheme.primary : scheme.outlineVariant,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
-      immediate: immediate,
-      onPressed: () => _pressKey(key),
-      child: FittedBox(
-        child: _keyLabel(key, compact: compact, color: foregroundColor),
-      ),
-    );
-  }
-
-  Widget _keyLabel(String key, {required bool compact, required Color color}) {
-    // 中文：按键标签使用 RichText 显示上下标，避免把 x²、log₁₀ 退化成普通字符串。
-    // English: Key labels use RichText for superscripts/subscripts instead of plain fallback text.
-    final style = TextStyle(
-      fontSize: compact ? 16 : 18,
-      fontWeight: FontWeight.w700,
-      color: color,
-    );
-    final scriptStyle = style.copyWith(fontSize: compact ? 10 : 12);
-    InlineSpan sup(String text) => WidgetSpan(
-          alignment: PlaceholderAlignment.top,
-          child: Transform.translate(
-            offset: const Offset(0, -4),
-            child: Text(text, style: scriptStyle),
-          ),
-        );
-    InlineSpan sub(String text) => WidgetSpan(
-          alignment: PlaceholderAlignment.bottom,
-          child: Transform.translate(
-            offset: const Offset(0, 3),
-            child: Text(text, style: scriptStyle),
-          ),
-        );
-    TextSpan normal(String text) => TextSpan(text: text, style: style);
-    final span = switch (key) {
-      'x²' => TextSpan(children: [normal('x'), sup('2')]),
-      'x³' => TextSpan(children: [normal('x'), sup('3')]),
-      'xʸ' => TextSpan(children: [normal('x'), sup('y')]),
-      'x⁻¹' => TextSpan(children: [normal('x'), sup('-1')]),
-      '10ˣ' => TextSpan(children: [normal('10'), sup('x')]),
-      '2ˣ' => TextSpan(children: [normal('2'), sup('x')]),
-      'eˣ' => TextSpan(children: [normal('e'), sup('x')]),
-      'log₁₀' => TextSpan(children: [normal('log'), sub('10')]),
-      'log₂' => TextSpan(children: [normal('log'), sub('2')]),
-      '√2' => TextSpan(children: [normal('√'), sup('2')]),
-      '2π' => TextSpan(children: [normal('2π')]),
-      'π/2' => TextSpan(children: [normal('π/2')]),
-      'ⁿ√x' => TextSpan(children: [sup('n'), normal('√x')]),
-      'nCr' => TextSpan(children: [normal('nC'), sub('r')]),
-      'nPr' => TextSpan(children: [normal('nP'), sub('r')]),
-      _ => TextSpan(text: key, style: style),
-    };
-    return RichText(text: span);
-  }
-
-  int get _functionRows => (_functionGroups['Basic']!.length / 4).ceil();
-
-  Widget _memoryBar() {
-    final scheme = Theme.of(context).colorScheme;
-    // 中文：记忆寄存器放在键盘下方，保持主键盘区域专注输入，避免误触。
-    // English: Memory controls sit below the keypad so the main keypad remains focused on input.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: softPanel(context: context),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'M ${formatNumber(_controller.memoryValue, precision: widget.settings.precision)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: scheme.onSurfaceVariant, fontWeight: FontWeight.w800),
-            ),
-          ),
-          _memoryButton('MC', _controller.memoryClear),
-          _memoryButton('MR', _controller.memoryRecall),
-          _memoryButton('M-', _controller.memorySubtract),
-          _memoryButton('M+', _controller.memoryAdd),
-        ],
-      ),
-    );
-  }
-
-  Widget _memoryButton(String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: SizedBox(
-        width: 48,
-        height: 34,
-        child: OutlinedButton(
-          onPressed: () {
-            _feedback();
-            onTap();
-          },
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: Text(label,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-        ),
-      ),
-    );
-  }
-
-  Widget _actions() {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) => Row(
-        children: [
-          Expanded(
-            child: ActionButton(
-              icon: Icons.copy_outlined,
-              label: '复制结果',
-              onTap: _copyResult,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-              child: ActionButton(
-                  icon: Icons.refresh_outlined,
-                  label: '继续使用',
-                  onTap: _continueWithResult)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ActionButton(
-              icon: Icons.save_outlined,
-              label: '保存笔记',
-              onTap: _saveNote,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _resultStatusCard() {
-    final scheme = Theme.of(context).colorScheme;
-    final hasError = _controller.hasError;
-    final color = hasError ? scheme.error : scheme.primary;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: softPanel(context: context),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            hasError ? Icons.error_outline : Icons.verified_outlined,
-            color: color,
-            size: 19,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_controller.resultStatusTitle,
-                    style: TextStyle(
-                        color: color,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 3),
-                Text(
-                  _controller.resultStatusMessage,
-                  style: TextStyle(
-                      color:
-                          hasError ? scheme.onSurface : scheme.onSurfaceVariant,
-                      height: 1.3),
-                ),
-              ],
-            ),
-          ),
-        ],
+        builder: (context, _) => _MoreSheet(page: this, theme: theme),
       ),
     );
   }
 
   Future<void> _copyResult() async {
-    await Clipboard.setData(ClipboardData(text: _controller.copyText()));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已复制计算详情')));
+    try {
+      await Clipboard.setData(ClipboardData(text: _controller.copyText()));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已复制计算详情')));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法复制计算详情')));
+      }
+    }
   }
 
-  void _continueWithResult() {
-    if (!_controller.canContinueWithResult) {
-      _showCurrentStatusSnack();
-      return;
+  Future<void> _pasteCalculatorDetails() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted) return;
+      final paste = _controller.applyPastedText(data?.text ?? '');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(paste.summary)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('无法读取剪贴板')));
+      }
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pastingCalculatorDetails = false;
+      });
     }
-    _controller.continueWithResult();
+  }
+
+  void _beginCalculatorDetailsPaste() {
+    _pastingCalculatorDetails = true;
+  }
+
+  void _endCalculatorDetailsPasteGesture() {
+    _pastingCalculatorDetails = false;
   }
 
   Future<void> _saveNote() async {
@@ -787,124 +421,131 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Future<void> _pressKey(String key) async {
     _feedback();
-    // 中文：UI 按键符号在这里统一映射为解析器表达式，避免 parser 混入展示层符号。
-    // English: UI key labels are mapped to parser expressions here, keeping display symbols out of the parser.
+    // 中文：SHIFT 是一次性修饰态，按键后自动复位；hyp 是持续态，不在这里复位。
+    // English: SHIFT is one-shot and clears after a press; hyp latches and is not cleared here.
+    _clearOneShotShift();
+    // 中文：按键 id 在这里统一映射为控制器动作与解析器表达式，避免 parser 混入展示层符号。id 逐字来自
+    //       `hiper_keypad.dart`（含 camelCase 的 `dis:pagePrev`、`dis:xchgE` 这类），修饰态解析出的
+    //       变体 id（`asin`、`ins:^3`、`cbrt`…）也走同一条通路。
+    // English: Key ids are mapped to controller actions and parser expressions here, keeping display
+    //          symbols out of the parser. Ids come verbatim from `hiper_keypad.dart` (camelCase ones
+    //          such as `dis:pagePrev` and `dis:xchgE` included), and the variant id a modifier
+    //          resolves to (`asin`, `ins:^3`, `cbrt`, …) travels the same path.
     switch (key) {
-      case 'DEG':
-      case 'RAD':
-        _controller.setAngleMode(key);
+      // 中文：修饰键由 CalculatorKeypad 自己消费（走 onToggleShift/onToggleHyp），不该到达这里；
+      //       万一到达也当作切换处理，绝不落到 default 去把它写进表达式。
+      // English: Modifier keys are consumed by CalculatorKeypad itself (onToggleShift/onToggleHyp) and
+      //          should never arrive; if one does, treat it as a toggle rather than typing it.
+      case 'shift':
+        _toggleShift();
+      case 'hyp':
+        _toggleHyp();
+      // 中文：导航键。`drawer` 打开外壳抽屉，其余交给页面的 `onNavigate`；为空时惰性——独立使用本页
+      //       （组件测试）不虚构目标页。四个进制胶囊是进制换算入口，与 CNST/CONV 同归工具箱。
+      // English: Navigation. `drawer` opens the shell's drawer and the rest go to the page's
+      //          `onNavigate`, which is inert when null — standalone use (widget tests) invents no
+      //          destination. The four base pills are base-conversion entry points and belong with
+      //          CNST/CONV under the toolbox.
+      case 'drawer':
+        _openDrawer();
+      case 'openHistory':
+        _navigate('history');
+      case 'openTools':
+      case 'openConstants':
+      case 'openUnits':
+      case 'baseDec':
+      case 'baseHex':
+      case 'baseBin':
+      case 'baseOct':
+        _navigate('tools');
+      case 'backspace':
+        _controller.backspace();
+      case 'clear':
+        _controller.clear();
+      case 'equals':
+        final submitResult = await _controller.submit();
+        if (mounted && submitResult.needsAttention) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(submitResult.message)));
+        }
+      // 中文：DRG 是循环键（HiPER 一个键在 DEG 与 RAD 之间切换），不是两个键。
+      // English: DRG cycles (HiPER has one key switching between DEG and RAD, not two).
+      case 'angleMode':
+        _controller
+            .setAngleMode(_controller.angleMode == 'DEG' ? 'RAD' : 'DEG');
+      // 中文：`+/−` 用控制器已有的符号切换 token，不新造动作。
+      // English: `+/−` uses the controller's existing sign-toggle token.
+      case 'negate':
+        _controller.input('+/-');
+      case 'ans':
+        _controller.append(_controller.reusableResult);
+      // 中文：记忆键。`x→M`（id `memoryStore`）没有对应的控制器方法，按裁定映射到 `memoryAdd`。
+      // English: Memory keys. `x→M` (id `memoryStore`) has no controller method of its own and maps to
+      //          `memoryAdd`, as ruled.
+      case 'memoryRecall':
+        _controller.memoryRecall();
+      case 'memoryStore':
+      case 'memoryAdd':
+        _controller.memoryAdd();
+      case 'memorySubtract':
+        _controller.memorySubtract();
+      // 中文：`ins:` 前缀 = 插入这段文本。三处落点比裸插入更贴切：`%` 走控制器的百分号运算（`50+10%`
+      //       会被折算），`exp` 走一元函数（它插入 `exp(`，裸插的 `exp` 会被解析器拒绝），`inf` 是
+      //       解析器承认的常数。
+      // English: The `ins:` prefix means "insert this text". Three ids land on something better than a
+      //          raw insert: `%` uses the controller's percent arithmetic (so `50+10%` is resolved),
+      //          `exp` uses the unary function (it inserts `exp(`; a bare `exp` is rejected by the
+      //          parser) and `inf` is a constant the parser knows.
+      case 'ins:pi':
+        _controller.append('pi');
+      case 'ins:e':
+        _controller.append('e');
+      case 'ins:^-1':
+        _controller.append('^-1');
+      case 'ins:^2':
+        _controller.append('^2');
+      case 'ins:^3':
+        _controller.append('^3');
+      case 'ins:^':
+        _controller.append('^');
+      case 'ins:10^':
+        _controller.append('10^');
+      case 'ins:e^':
+        _controller.append('e^');
+      case 'ins:inf':
+        _controller.append('inf');
+      case 'ins:%':
+        _controller.input('%');
+      case 'ins:exp':
+        _controller.applyUnaryFunction('exp');
       case 'sin':
       case 'cos':
       case 'tan':
       case 'asin':
       case 'acos':
       case 'atan':
-      case 'log':
-      case 'log₁₀':
-      case 'ln':
-      case 'abs':
-      case '|x|':
       case 'sinh':
       case 'cosh':
       case 'tanh':
-      case 'cot':
-      case 'sec':
-      case 'csc':
+      case 'log':
+      case 'ln':
+      case 'abs':
+      case 'sqrt':
       case 'cbrt':
-      case '∛x':
-      case 'log2':
-      case 'log₂':
       case 'fact':
-      case 'x!':
-      case 'floor':
-      case 'ceil':
-      case 'round':
-      case 'deg':
-      case 'rad':
         _controller.applyUnaryFunction(_functionNameForKey(key));
-      case 'x²':
-        _controller.append('^2');
-      case 'x³':
-        _controller.append('^3');
-      case 'xʸ':
-        _controller.append('^');
-      case '√':
-      case '√x':
-        _controller.applyUnaryFunction('sqrt');
-      case '10^x':
-      case '10ˣ':
-        _controller.append('10^');
-      case '2^x':
-      case '2ˣ':
-        _controller.append('2^');
-      case 'e^x':
-      case 'eˣ':
-        _controller.append('e^');
-      case 'exp':
-        _controller.append('exp(');
-      case '1/x':
-      case 'x⁻¹':
-        _controller.append('^-1');
-      case 'min':
-      case 'max':
       case 'mod':
       case 'nCr':
       case 'nPr':
-      case 'gcd':
-      case 'lcm':
       case 'root':
-      case 'ⁿ√x':
-      case 'atan2':
         _controller.applyBinaryFunction(_functionNameForKey(key));
-      case ',':
-        _controller.append(',');
-      case 'Ans':
-        _controller.append(_controller.reusableResult);
-      case '00':
-        _controller.input('00');
-      case 'π':
-        _controller.append('pi');
-      case 'e':
-        _controller.append('e');
-      case 'φ':
-        _controller.append('1.61803398875');
-      case 'g':
-        _controller.append('9.80665');
-      case 'c':
-        _controller.append('299792458');
-      case '√2':
-        _controller.append('sqrt(2)');
-      case 'τ':
-        _controller.append('(2*pi)');
-      case 'ln2':
-        _controller.append('0.69314718056');
-      case 'ln10':
-        _controller.append('2.30258509299');
-      case '1/2':
-        _controller.append('0.5');
-      case '1/3':
-        _controller.append('0.3333333333');
-      case '1/4':
-        _controller.append('0.25');
-      case '1/10':
-        _controller.append('0.1');
-      case '2π':
-        _controller.append('2*pi');
-      case 'π/2':
-        _controller.append('pi/2');
-      case '90°':
-        _controller.append('90');
-      case '180°':
-        _controller.append('180');
-      case '360°':
-        _controller.append('360');
-      case '=':
-        final submitResult = await _controller.submit();
-        if (mounted && submitResult.needsAttention) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(submitResult.message)));
-        }
       default:
+        // 中文：禁用键（`dis:` 前缀）键盘永不触发，万一到达就安静忽略，绝不当成文本写进表达式；
+        //       数字、小数点、运算符与括号则直接输入。
+        // English: A disabled key (`dis:`) is never fired by the keypad — if one arrives it is ignored
+        //          quietly rather than typed; digits, the decimal point, operators and brackets go
+        //          straight in.
+        if (key.startsWith('dis:')) return;
         _controller.input(key);
     }
   }
@@ -916,192 +557,252 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
+  /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`）；
+  ///       其余 id 本身就是解析器词汇。
+  /// English: The few places where a key face and the parser's function name differ are translated
+  ///          here (`nCr` → `ncr`, `nPr` → `npr`); every other id already is parser vocabulary.
   String _functionNameForKey(String key) {
     return switch (key) {
-      'log₁₀' => 'log',
-      'log₂' => 'log2',
-      '|x|' => 'abs',
-      '∛x' => 'cbrt',
-      'x!' => 'fact',
       'nCr' => 'ncr',
       'nPr' => 'npr',
-      'ⁿ√x' => 'root',
       _ => key,
     };
   }
 
-  Future<void> _editExpression() async {
-    final controller = TextEditingController(text: _controller.expression);
-    final value = await showDialog<_ExpressionEditResult>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('编辑表达式'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 1,
-          maxLines: 3,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () async {
-              final data = await Clipboard.getData(Clipboard.kTextPlain);
-              if (!context.mounted) return;
-              final text = data?.text?.trim();
-              if (text == null || text.isEmpty) {
-                final paste = CalculatorPasteResult.fromText(text ?? '');
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(paste.summary)));
-                return;
-              }
-              Navigator.pop(context, _ExpressionEditResult.paste(text));
-            },
-            icon: const Icon(Icons.content_paste, size: 18),
-            label: const Text('粘贴'),
-          ),
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          TextButton(
-              onPressed: () =>
-                  Navigator.pop(context, const _ExpressionEditResult.clear()),
-              child: const Text('清空')),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _ExpressionEditResult.apply(controller.text.trim()),
-            ),
-            child: const Text('应用'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (value == null) return;
-    if (value.clearRequested) {
-      _controller.setExpression('');
-      return;
+  void _openInlineEditor({bool requestFocus = false, int? sourceOffset}) {
+    if (sourceOffset != null) {
+      _controller.setSelection(ExpressionSelection.collapsed(sourceOffset));
     }
-    final paste = _controller.applyPastedText(value.text);
-    if (!mounted) return;
-    if (!paste.hasExpression) {
-      if (value.fromClipboard) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(paste.summary)));
-      }
-      return;
-    }
-    if (!value.fromClipboard && !paste.fromReport) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(paste.summary)));
+    setState(() {
+      _inlineEditing = true;
+      _requestInlineFocus = requestFocus;
+    });
   }
 
-  double _basicKeyboardHeight(double screenHeight) {
-    final preferred = screenHeight - 302;
-    final rows = 5 + _functionRows;
-    final minHeight = rows * 42.0 + rows * 8;
-    final maxHeight = rows * 58.0 + rows * 8;
-    return preferred.clamp(minHeight, maxHeight);
-  }
-
-  double _functionPanelHeight(double screenHeight, double displayHeight) {
-    final reserved = displayHeight + 186;
-    return (screenHeight - reserved).clamp(280.0, 420.0);
+  void _closeInlineEditor() {
+    if (!mounted || !_inlineEditing || _pastingCalculatorDetails) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_inlineEditing || _pastingCalculatorDetails) return;
+      setState(() {
+        _inlineEditing = false;
+        _requestInlineFocus = false;
+      });
+    });
   }
 }
 
-class _CalculatorKeySurface extends StatefulWidget {
-  // 中文：Basic 键盘使用按下即触发，减少“抬手才输入”的半拍延迟。
-  // English: The basic keypad can fire on pointer-down to avoid the delay of waiting for tap-up.
-  const _CalculatorKeySurface({
-    required this.backgroundColor,
-    required this.foregroundColor,
-    required this.borderColor,
-    required this.padding,
-    required this.immediate,
-    required this.onPressed,
-    required this.child,
-  });
+/// 中文：`More...` 面板的内容。它直接驱动本页的控制器——面板是本页私有的 UI，把十几个回调逐个传进来
+///       只会更难读，所以它拿页面状态本体。一次性动作（复制、保存、编辑、退格、撤销/重做、光标移动）
+///       先关面板再执行；四个记忆寄存器按钮**不关面板**，这样记忆读数能在原地跟着更新。
+/// English: The contents of the `More...` sheet. It drives the page's controller directly: the sheet is
+///          page-private UI, and threading a dozen callbacks through would hurt readability more than
+///          passing the state it belongs to. One-shot actions (copy, save, edit, backspace,
+///          undo/redo, cursor moves) close the sheet first; the four memory-register buttons **keep
+///          it open** so the memory reading updates in place.
+class _MoreSheet extends StatelessWidget {
+  const _MoreSheet({required this.page, required this.theme});
 
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final Color borderColor;
-  final EdgeInsetsGeometry padding;
-  final bool immediate;
-  final VoidCallback onPressed;
-  final Widget child;
+  final _CalculatorPageState page;
+  final CalcTheme theme;
 
   @override
-  State<_CalculatorKeySurface> createState() => _CalculatorKeySurfaceState();
+  Widget build(BuildContext context) {
+    final controller = page._controller;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                _action(context, '编辑表达式', page._editFromSheet),
+                _action(context, '退格', controller.backspace),
+                _action(context, '撤销', controller.undo,
+                    enabled: controller.canUndo),
+                _action(context, '重做', controller.redo,
+                    enabled: controller.canRedo),
+                _action(context, '复制结果', page._copyResult),
+                _action(context, '保存笔记', page._saveNote),
+                _action(context, '移到开头', controller.moveCursorToStart),
+                _action(context, '移到末尾', controller.moveCursorToEnd),
+                // 中文：设置入口。它原本长在被删掉的应用名标题行上，而抽屉（Task 5）才是导航的主入口；
+                //       这里保留一个次级入口，是因为没有它整台应用的设置页在主屏上就完全不可达了。
+                // English: The settings entry. It used to live on the deleted app-name title row, and the
+                //          drawer (Task 5) is the primary navigation; this secondary entry is kept because
+                //          without it the settings page would be unreachable from the main screen at all.
+                _action(context, '设置', page.widget.onOpenSettings),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                page._repeatableCursorButton(
+                  theme: theme,
+                  icon: Icons.keyboard_arrow_left,
+                  tooltip: '光标左移（长按按表达式块左移后连续移动）',
+                  onTap: controller.moveCursorLeft,
+                  onBlockMove: controller.moveCursorByBlockBackward,
+                  onRepeat: controller.moveCursorLeft,
+                ),
+                const SizedBox(width: 6),
+                page._repeatableCursorButton(
+                  theme: theme,
+                  icon: Icons.keyboard_arrow_right,
+                  tooltip: '光标右移（长按按表达式块右移后连续移动）',
+                  onTap: controller.moveCursorRight,
+                  onBlockMove: controller.moveCursorByBlockForward,
+                  onRepeat: controller.moveCursorRight,
+                ),
+                const Spacer(),
+                Text(
+                  page._memoryLabel(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.display.statusFg,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _memoryButton('MR', controller.memoryRecall),
+                _memoryButton('MC', controller.memoryClear),
+                _memoryButton('M−', controller.memorySubtract),
+                _memoryButton('M+', controller.memoryAdd),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 中文：一个一次性动作。点下去先关面板再执行——面板盖住键盘，留着它反而挡住了下一步输入。
+  /// English: One one-shot action. It closes the sheet before running: the sheet covers the keypad, so
+  ///          leaving it up would block the next input.
+  Widget _action(
+    BuildContext context,
+    String label,
+    VoidCallback onTap, {
+    bool enabled = true,
+  }) {
+    return TextButton(
+      onPressed: enabled
+          ? () {
+              Navigator.of(context).pop();
+              onTap();
+            }
+          : null,
+      style: TextButton.styleFrom(
+        foregroundColor: theme.display.indicatorFg,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        minimumSize: const Size(0, 38),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
+  }
+
+  /// 中文：记忆寄存器按钮——不关面板，读数就在旁边的同一行里跟着变。
+  /// English: A memory-register button — it keeps the sheet open so the reading beside it updates.
+  Widget _memoryButton(String label, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: OutlinedButton(
+        onPressed: () {
+          page._feedback();
+          onTap();
+        },
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(48, 34),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(label,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+      ),
+    );
+  }
 }
 
-class _ExpressionEditResult {
-  const _ExpressionEditResult._({
-    required this.text,
-    required this.fromClipboard,
-    required this.clearRequested,
+class _RepeatableCursorButton extends StatefulWidget {
+  const _RepeatableCursorButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.onTap,
+    required this.onBlockMove,
+    required this.onRepeat,
   });
 
-  const _ExpressionEditResult.clear()
-      : this._(text: '', fromClipboard: false, clearRequested: true);
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final Color backgroundColor;
+  final Color borderColor;
+  final VoidCallback onTap;
+  final VoidCallback onBlockMove;
+  final VoidCallback onRepeat;
 
-  const _ExpressionEditResult.apply(String text)
-      : this._(text: text, fromClipboard: false, clearRequested: false);
-
-  const _ExpressionEditResult.paste(String text)
-      : this._(text: text, fromClipboard: true, clearRequested: false);
-
-  final String text;
-  final bool fromClipboard;
-  final bool clearRequested;
+  @override
+  State<_RepeatableCursorButton> createState() =>
+      _RepeatableCursorButtonState();
 }
 
-class _CalculatorKeySurfaceState extends State<_CalculatorKeySurface> {
-  bool _pressed = false;
+class _RepeatableCursorButtonState extends State<_RepeatableCursorButton> {
+  static const _repeatInterval = Duration(milliseconds: 80);
+  Timer? _repeatTimer;
 
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() => _pressed = value);
+  void _startRepeat(LongPressStartDetails details) {
+    widget.onBlockMove();
+    _repeatTimer ??= Timer.periodic(_repeatInterval, (_) => widget.onRepeat());
+  }
+
+  void _stopRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopRepeat();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(8);
     return Semantics(
       button: true,
-      child: Listener(
-        // 中文：immediate=true 时由 Listener 触发，InkWell 只负责视觉反馈。
-        // English: With immediate=true, Listener handles the action while InkWell keeps the visual feedback.
-        onPointerDown: widget.immediate
-            ? (_) {
-                _setPressed(true);
-                widget.onPressed();
-              }
-            : (_) => _setPressed(true),
-        onPointerCancel: (_) => _setPressed(false),
-        onPointerUp: (_) => _setPressed(false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.985 : 1,
-          duration: const Duration(milliseconds: 70),
-          curve: Curves.easeOutCubic,
-          child: Material(
-            color: widget.backgroundColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: borderRadius,
-              side: BorderSide(color: widget.borderColor),
+      label: widget.tooltip,
+      onLongPress: widget.onBlockMove,
+      child: Tooltip(
+        message: widget.tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          onLongPressStart: _startRepeat,
+          onLongPressEnd: (_) => _stopRepeat(),
+          onLongPressCancel: _stopRepeat,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: widget.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: widget.borderColor),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: widget.immediate ? null : widget.onPressed,
-              borderRadius: borderRadius,
-              child: IconTheme.merge(
-                data: IconThemeData(color: widget.foregroundColor),
-                child: Padding(
-                  padding: widget.padding,
-                  child: Center(child: widget.child),
-                ),
-              ),
-            ),
+            child: Icon(widget.icon, size: 17, color: widget.color),
           ),
         ),
       ),

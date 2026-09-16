@@ -19,7 +19,12 @@ void main() {
     await tester.pump();
     expect(_materialApp(tester).themeMode, ThemeMode.system);
 
-    await tester.tap(find.byTooltip('设置'));
+    // 中文：设置入口已从旧标题行移到主屏显示面板的 `More...` 面板（抽屉是 Task 5 的主入口）。
+    // English: the settings entry moved from the old title row to the display panel's `More...` sheet
+    //          (the drawer is Task 5's primary entry point).
+    await tester.tap(find.text('More...'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(SettingsTile, '主题模式'));
     await tester.pumpAndSettle();
