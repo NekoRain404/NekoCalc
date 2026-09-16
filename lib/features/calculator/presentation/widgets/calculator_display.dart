@@ -68,6 +68,31 @@ const double _errorMessageFontSize = 12;
 /// English: `statusTitle` appears on the upper half of the error line, which is rendered only
 ///          while `hasError` is true — see that field and `_errorLine`.
 ///
+/// 高度契约 / Height contract:
+/// 中文：调用方必须给本组件一个**有界**的高度，且错误行可见时**不低于 176dp**。面板里与字体无关的
+///       固定部分共 74dp：状态行 40 + 间距 16（状态行下 6、结果行上 6、错误行上 4）+ 上下内边距
+///       8/10。其余全归内容：表达式行、结果行，以及最多两行的错误提示——按真实 Android 字体度量
+///       （拉丁 ≈1.17em、CJK ≈1.45em）算，整套内容一行错误提示时约需 147.5dp、两行时约需 165dp。
+///       `lib/` 里没有任何地方限制系统字体缩放，所以 150dp 这类下限会在窗口高度低于约 395dp 时
+///       必然放不下（横屏、分屏、自由窗口都命中），上层的显示区高度因此 clamp 在 176–230dp。
+/// English: The caller must give this widget a **bounded** height, and **at least 176dp** while the
+///          error line is showing. Font-independent chrome is 74dp: the 40dp status row, 16dp of
+///          gaps (6 under the status row, 6 above the result, 4 above the error) and 18dp of
+///          padding. Everything else belongs to content — the expression line, the result line and
+///          an error line of up to two lines: under real Android font metrics (≈1.17em for Latin,
+///          ≈1.45em for CJK) the whole content needs ≈147.5dp with a one-line error and ≈165dp
+///          with a two-line one. Nothing in `lib/` clamps the OS font scale, so a 150dp floor like
+///          that one cannot fit whenever the window is under roughly 395dp tall — landscape, split
+///          screen and freeform all land there — and the screen's display band is therefore clamped
+///          to 176–230dp.
+/// 中文：高度真被压到下限以下（矮窗口 + 大字体缩放）时，先挤表达式行，再由错误行收缩、多出来的
+///       笔画被裁掉——错误行不再是 RenderFlex 溢出的来源。（状态行与结果行这两行固定行本身放不下
+///       是另一回事：它们连同内边距与间距约需 116–136dp。）
+/// English: Below that minimum (a short window plus a large font scale), the expression line is
+///          squeezed first and the error line then shrinks with its spare pixels clipped — the
+///          error line is no longer a source of RenderFlex overflow. (The fixed rows themselves are
+///          another matter: with padding and gaps they come to roughly 116–136dp.)
+///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠
 ///       这个 tooltip 找到它，因此**主屏不得再另造一个 ☰**；`onOpenDrawer` 为空时它整个不渲染。
@@ -173,20 +198,60 @@ class CalculatorDisplay extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          // 中文：`spaceBetween` 只在**出错时**起作用：那时错误行是可伸缩的，而宽松分配不会把用不
+          //       完的份额还给表达式行，余量按 flex 规则堆在列尾，错误行于是浮在面板底边上方
+          //       （量过：`flex: 1` 的版本在 230dp 面板上浮起 18.5dp；`flex: 2` 份额更大——75dp
+          //       对着 38dp 的自然高度——不摊会浮起约 37dp）。`spaceBetween` 把这点余量摊到各行
+          //       之间，错误行因此仍贴着底边、留在没有它时的同一个位置。没出错时没有可伸缩行，
+          //       余量为 0，这条对齐方式是空操作。
+          // English: `spaceBetween` matters only while an error is showing: the error row is then
+          //          flexible, and the loose fit does not hand its unused share back to the
+          //          expression row — the flex rules pile that slack up at the end of the column,
+          //          floating the error line away from the bottom edge (measured: the `flex: 1`
+          //          version sat 18.5dp above the bottom of a 230dp panel; `flex: 2` takes a bigger
+          //          share — 75dp against a 38dp natural height — and would float about 37dp).
+          //          Spreading that slack between the rows keeps the error line flush with the
+          //          bottom, where it sits without it. With no error there is no flexible row, the
+          //          slack is zero and this alignment is a no-op.
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             _statusRow(),
             const SizedBox(height: 6),
-            // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：
-            //       面板变矮时先挤这一行，fixed 的状态行与结果行不会被裁掉。
+            // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：面板高度够
+            //       类注释里那条下限时，fixed 的状态行与结果行不会被裁掉；再矮下去就先挤这一行，
+            //       挤不动了由下面的错误行收缩裁切——两者都不会让 RenderFlex 溢出报错。
             // English: The expression line takes all the leftover height (the panel's height is
-            //          decided above, and this widget fills it): a shorter panel squeezes this
-            //          line first, so the fixed status and result rows are never clipped.
+            //          decided above, and this widget fills it). At or above the minimum in the
+            //          class comment's height contract the fixed status and result rows are never
+            //          clipped; below it this line is squeezed first, and what is left over is taken
+            //          from the error line below — neither throws a RenderFlex overflow.
             Expanded(child: _expressionLine()),
             const SizedBox(height: 6),
             _resultLine(),
             if (hasError) ...<Widget>[
               const SizedBox(height: 4),
-              _errorLine(),
+              // 中文：错误行是可收缩的兜底，并且按 2:1 的份额比表达式行拿得多：错误块最多三行文字
+              //       （标题 1 行 + 正文 2 行），表达式行只有一行。量出来的差别正好落在下限高度上：
+              //       176dp 面板里可分配 59dp，按 1:1 分错误行拿 29.5dp，而它自然高度要 38dp——日常
+              //       的「缺少右括号」在下限高度上会被削掉两成；按 2:1 分它拿 39.3dp，刚好完整，被
+              //       挤的是表达式行（本组件里那个让位的角色）。宽松（loose）分配让它在高度充裕时
+              //       仍按自然尺寸排布，`ClipRect` 负责裁掉极端字体缩放下真正多出来的笔画。
+              // English: The error line is the shrinkable safety net, and at 2:1 it takes a bigger
+              //          share than the expression row: the error block runs to three lines of text
+              //          (a title plus two message lines) where the expression line is a single
+              //          line. The measured difference lands exactly at the floor: a 176dp panel
+              //          offers 59dp to share, a 1:1 split hands the error 29.5dp against the 38dp
+              //          it naturally needs — the everyday "missing closing bracket" is shaved by a
+              //          fifth at the minimum height — while 2:1 gives it 39.3dp, just enough, and
+              //          squeezes the expression line instead (this widget's designated victim).
+              //          The loose fit still lays it out at its natural size while there is room, and
+              //          the `ClipRect` cuts off the pixels that genuinely do not fit under an
+              //          extreme font scale.
+              Flexible(
+                fit: FlexFit.loose,
+                flex: 2,
+                child: ClipRect(child: _errorLine()),
+              ),
             ],
           ],
         ),
@@ -389,38 +454,50 @@ class CalculatorDisplay extends StatelessWidget {
   ///       出错时的形态：**标题在上、正文在下**，标题用 `errorFg` 并加重，正文退到次要状态色、
   ///       用常规字重——一行块，不是带内边距的卡片。两行都限行并省略，长提示既不会溢出宽度也不会
   ///       把显示区撑破。
+  /// 中文：两条 `Flexible` 让这个块**自己**也能缩：`Flexible` 与调用处的宽松分配一起，把不够的
+  ///       高度按比例分给两行文字，`ClipRect` 再把多出来的笔画裁掉。少了这一层，`Flexible` 只是
+  ///       把外面的列救下来，里面的这一列仍会自己报 RenderFlex 溢出——兜底也就白做了。
   /// English: The error line — reached only while `hasError` is true (see `build`). It is what the
   ///          spec's permanent status card becomes while something is wrong: **title first, body
   ///          under it**, the title in `errorFg` and emphasised, the body dropping to the secondary
   ///          status colour at a normal weight — a one-line block, not a padded card. Both are
   ///          line-capped with an ellipsis, so a long message neither overflows the width nor
   ///          bursts the panel.
+  /// English: The two `Flexible`s let the block **itself** shrink as well: together with the loose
+  ///          fit at the call site they hand the shortfall to the two texts, and the `ClipRect` cuts
+  ///          off whatever pixels no longer fit. Without them the outer `Flexible` would only save
+  ///          the column around it — this inner column would still report a RenderFlex overflow of
+  ///          its own, and the safety net would be worth nothing.
   Widget _errorLine() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
-        Text(
-          statusTitle,
-          textAlign: TextAlign.right,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colors.errorFg,
-            fontSize: _errorFontSize,
-            fontWeight: FontWeight.w800,
+        Flexible(
+          child: Text(
+            statusTitle,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.errorFg,
+              fontSize: _errorFontSize,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          statusMessage,
-          textAlign: TextAlign.right,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colors.statusFg,
-            fontSize: _errorMessageFontSize,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            statusMessage,
+            textAlign: TextAlign.right,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.statusFg,
+              fontSize: _errorMessageFontSize,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
