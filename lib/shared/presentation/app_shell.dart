@@ -27,6 +27,12 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
+/// 中文：外壳浮在左上角的 ☰ 占掉的高度——按钮 40 + 上边距 8 + 下边距 8。非计算页的内容整体
+///       下移这么多，自己那一行起点就在 ☰ 下方。
+/// English: Height taken by the shell's floating ☰ — 40 button + 8 above + 8 below. Non-calculator
+///          pages are shifted down by it so their first row starts below the button.
+const double _shellDrawerButtonBand = 56;
+
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   int _calculatorReloadToken = 0;
@@ -82,7 +88,28 @@ class _AppShellState extends State<AppShell> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 4,
               itemBuilder: (context, index) {
-                return _KeepAlivePage(child: _pageFor(index));
+                final page = _pageFor(index);
+                return _KeepAlivePage(
+                  // 中文：非计算页整体下移 _shellDrawerButtonBand，让出 ☰ 的那条带子。三页都在
+                  //       (16,16) 起笔，其中笔记页多选态的「取消选择」（36×36，落在 (16,16)-(52,52)）
+                  //       最靠上，所以以它为准留出余量：内容从 y=56 起，与 ☰ 的下沿（y=48）差 8dp，
+                  //       再叠上页面自己的 16dp 内边距，实际间距 24dp。计算页不缩进——它的显示区
+                  //       与键盘竖排本来就有高度下限，缩进会挤压键盘。
+                  // English: Non-calculator pages are shifted down by _shellDrawerButtonBand to give the
+                  //          ☰ its own band. All three start their content at (16,16); the notes page's
+                  //          multi-select 「取消选择」 (36×36 at (16,16)-(52,52)) is the topmost control,
+                  //          so it sets the margin: content starts at y=56, 8dp below the ☰'s bottom edge
+                  //          (y=48), and the page's own 16dp padding brings the real gap to 24dp. The
+                  //          calculator page is not inset — its display band and keypad already have
+                  //          height floors, and an inset would squeeze the keypad.
+                  child: index == AppDrawer.calculatorDestination
+                      ? page
+                      : Padding(
+                          padding:
+                              const EdgeInsets.only(top: _shellDrawerButtonBand),
+                          child: page,
+                        ),
+                );
               },
             ),
             // 中文：计算页之外的三页没有自己的 ☰（那三页不归本任务改，笔记页还压着用户的未提交
@@ -197,13 +224,22 @@ class _AppShellState extends State<AppShell> {
 /// 中文：外壳浮在非计算页左上角的 ☰，与计算页那个按钮同一个 tooltip，用户与测试都用同一句话找它。
 ///       配色来自应用主题（`Theme.of(context)`，即那三页自己用的 Material 主题），不写死任何色值；
 ///       它坐在可滚动的内容之上，所以用填充色按钮而不是一个裸图标，滚动时也看得清。
+///       点击范围收窄成 40×40（与计算页状态行的 ☰ 同一做法）：Material 默认把命中区补到 48×48，
+///       那个看不见的 48 方块会越界压住页面自己的控件——笔记页多选态的「取消选择」就落在里面。
 /// English: The ☰ the shell floats over the top-left of every non-calculator page; it carries the same
 ///          tooltip as the calculator's button, so users and tests find both by the same words. Its
 ///          colours come from the app theme (`Theme.of(context)` — the Material theme those three pages
 ///          themselves use) with no literal values, and it is a filled button rather than a bare icon
-///          because page content scrolls underneath it.
+///          because page content scrolls underneath it. Its hit area is narrowed to 40×40 (the same
+///          move the calculator's status-row ☰ makes): Material pads the target out to 48×48 by
+///          default, and that invisible 48 box reaches into the page's own controls — the notes page's
+///          multi-select 「取消选择」 used to sit inside it.
 class _ShellDrawerButton extends StatelessWidget {
   const _ShellDrawerButton();
+
+  /// 中文：按钮边长，与计算页状态行的 ☰ 同尺寸。
+  /// English: Button edge, the same size as the calculator status row's ☰.
+  static const double _size = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +247,12 @@ class _ShellDrawerButton extends StatelessWidget {
       tooltip: '打开导航',
       onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
       icon: const Icon(Icons.menu),
+      iconSize: 20,
+      style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: _size, height: _size),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
+import 'package:nekocalc/data/models/history_item.dart';
+import 'package:nekocalc/data/models/note_item.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
@@ -120,6 +122,30 @@ void main() {
     expect(find.text('CNST'), findsOneWidget);
   });
 
+  // 中文：外壳浮出的 ☰ 曾经压在笔记页多选态的「取消选择」上（Material 的 48dp 命中区越界所致），
+  //       点「取消选择」反而打开了抽屉。这条测试按用户看到的行为断言：点了就要真的取消选择。
+  // English: the shell's floating ☰ used to sit on top of the notes page's multi-select 「取消选择」
+  //          (Material's 48dp tap target reaching out of bounds), so tapping 取消选择 opened the drawer
+  //          instead. This asserts the user-visible behaviour: tapping it really cancels the selection.
+  testWidgets('笔记页多选态的「取消选择」真的取消选择（没被外壳的 ☰ 抢走）', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开导航'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('笔记').last);
+    await tester.pumpAndSettle();
+
+    // 长按一条历史记录进入多选态。
+    await tester.longPress(find.text('1+1'));
+    await tester.pumpAndSettle();
+    expect(find.text('已选择 1 项'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('取消选择'));
+    await tester.pumpAndSettle();
+    expect(find.text('已选择 1 项'), findsNothing, reason: '「取消选择」必须真的取消选择');
+    expect(find.byType(Drawer), findsNothing, reason: '「取消选择」不该打开抽屉');
+  });
+
   testWidgets('图形页与笔记页上也有 ☰ 可以回到计算页', (tester) async {
     for (final label in const ['图形', '笔记']) {
       await tester.pumpWidget(_app());
@@ -206,6 +232,37 @@ class _FakeDatabase implements AppDatabase {
 
   @override
   Future<List<String>> recentToolIds({int limit = 8}) async => const [];
+
+  // 中文：笔记页的整轮刷新是一个 try——`notes` / `history` / `noteTags` 有一个抛异常，页面就只剩
+  //       错误面板，连一条可长按的记录都没有。所以这三条都要答得出来，历史里给一条记录。
+  // English: the notes page refreshes in one try — if any of `notes` / `history` / `noteTags` throws,
+  //          the page shows only an error panel and there is no row left to long-press. All three must
+  //          answer, with one history record to select.
+  @override
+  Future<List<HistoryItem>> history({
+    int limit = 50,
+    int offset = 0,
+    String? query,
+    String? toolId,
+  }) async =>
+      [HistoryItem(id: 1, expression: '1+1', result: '2', createdAt: DateTime(2026, 9, 17, 9, 30))];
+
+  @override
+  Future<List<NoteItem>> notes({
+    int limit = 200,
+    int offset = 0,
+    String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+    NoteSort sort = NoteSort.updatedNewest,
+  }) async =>
+      const [];
+
+  @override
+  Future<List<String>> noteTags({
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) async =>
+      const [];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
