@@ -54,6 +54,13 @@ void main() {
     expect(find.text('缺少右括号'), findsOneWidget);
   });
 
+  testWidgets('the error line shows the title as well as the message',
+      (tester) async {
+    await tester.pumpWidget(display(hasError: true));
+    expect(find.text('表达式需要修正'), findsOneWidget,
+        reason: '状态标题必须有视觉落点，否则它是死参数');
+  });
+
   testWidgets('More button is tappable when provided', (tester) async {
     var tapped = 0;
     await tester.pumpWidget(display(onMore: () => tapped++));

@@ -36,9 +36,11 @@ const double _expressionFontSize = 19;
 const double _resultFontSize = 30;
 const double _equalsFontSize = 22;
 
-/// 中文：错误行字号。
-/// English: Font size of the error line.
+/// 中文：错误行标题的字号，以及正文比标题小一号——两级对比就是「哪句是结论、哪句是细节」。
+/// English: Font size of the error line's title, with the body one step smaller — that two-step
+///          contrast is what says which sentence is the verdict and which is the detail.
 const double _errorFontSize = 13;
+const double _errorMessageFontSize = 12;
 
 /// 中文：两行显示面板——状态行、表达式行、结果行，出错时再多一行错误提示。
 ///       组件是**纯函数**：所有值都从构造参数进来，组件自身不持有任何状态、不读控制器、
@@ -53,18 +55,18 @@ const double _errorFontSize = 13;
 ///       记忆指示 `M`（`hasMemory` 为假时留空），`Spacer` 把 `More...` 推到最右
 ///       （`onMore` 为空则不渲染）；2) 表达式行：`MathExpressionView`，右对齐，外面套一圈横向
 ///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果，都是纯文本；
-///       4) 错误行：仅 `hasError` 为真时渲染。
+///       4) 错误行：仅 `hasError` 为真时渲染，`statusTitle` 在上、`statusMessage` 在下。
 /// English: 1) status row: the drawer button leftmost (not rendered when `onOpenDrawer` is null),
 ///          then the angle-mode chip, the `M` memory indicator (nothing when `hasMemory` is
 ///          false), and a `Spacer` pushing `More...` to the right edge (not rendered when
 ///          `onMore` is null); 2) expression line: `MathExpressionView`, right-aligned, inside a
 ///          horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
 ///          line: right-aligned, an `=` prefix followed by the result, both plain text; 4) error
-///          line: rendered only while `hasError` is true.
-/// 中文：`statusTitle` 不占可视位置（本布局没有常驻状态卡），它作为整块面板的无障碍标签
-///       ——详见该字段的注释。
-/// English: `statusTitle` gets no visual slot (this layout has no permanent status card); it
-///          serves as the whole panel's accessibility label — see that field's own comment.
+///          line: rendered only while `hasError` is true — `statusTitle` above `statusMessage`.
+/// 中文：`statusTitle` 出现在错误行（仅 `hasError` 为真时）的上半，见该字段与 `_errorLine` 的
+///       注释。
+/// English: `statusTitle` appears on the upper half of the error line, which is rendered only
+///          while `hasError` is true — see that field and `_errorLine`.
 ///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠
@@ -110,21 +112,19 @@ class CalculatorDisplay extends StatelessWidget {
   ///          rendered, not the result line's colour.
   final bool hasError;
 
-  /// 中文：当前状态的标题（如「等待输入」「表达式需要修正」）。
-  ///       本布局按 spec 移除了常驻结果状态卡、也**没有给标题留可视位置**（错误行只放
-  ///       `statusMessage`），所以它在这里作为整块面板的无障碍标签存在：读屏用户听到的
-  ///       「现在是什么状态」正是这句话，参数因此不是死参数，屏幕上也不会多出 spec 没有的一行。
+  /// 中文：当前状态的标题（如「等待输入」「表达式需要修正」）——它是 spec 里那张常驻状态卡
+  ///       改为「仅在出错时出现」之后留下的上半句，与 `statusMessage` 一起构成错误行：标题在上、
+  ///       用 `errorFg` 并加重，正文退到次要状态色。`hasError` 为假时两者都不渲染。
   /// English: Title of the current state (e.g. "waiting for input", "the expression needs
-  ///          fixing"). This layout removed the permanent status card — and the spec **gives the
-  ///          title no visual slot** (the error line carries only `statusMessage`) — so it lives
-  ///          on as the panel's accessibility label: what a screen reader announces as the state
-  ///          is exactly this sentence. The parameter is therefore not dead, and no line the spec
-  ///          never asked for appears on screen.
+  ///          fixing") — the upper half of what survives from the spec's permanent status card
+  ///          once it is "shown only on error": together with `statusMessage` it makes up the
+  ///          error line, the title on top in emphasised `errorFg`, the body dropping to the
+  ///          secondary status colour. Neither is rendered while `hasError` is false.
   final String statusTitle;
 
-  /// 中文：错误态下的提示正文（如「缺少右括号」），即错误行的内容。
+  /// 中文：错误态下的提示正文（如「缺少右括号」），错误行的下半句，字重与颜色都比标题轻。
   /// English: The message body while in the error state (e.g. "missing closing bracket") — the
-  ///          error line's content.
+  ///          error line's lower half, lighter in both weight and colour than the title.
   final String statusMessage;
 
   /// 中文：光标所在的原文字符偏移，原样转交给 `MathExpressionView`。
@@ -167,32 +167,28 @@ class CalculatorDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: statusTitle,
-      child: ColoredBox(
-        color: colors.background,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _statusRow(),
-              const SizedBox(height: 6),
-              // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：
-              //       面板变矮时先挤这一行，fixed 的状态行与结果行不会被裁掉。
-              // English: The expression line takes all the leftover height (the panel's height is
-              //          decided above, and this widget fills it): a shorter panel squeezes this
-              //          line first, so the fixed status and result rows are never clipped.
-              Expanded(child: _expressionLine()),
-              const SizedBox(height: 6),
-              _resultLine(),
-              if (hasError) ...<Widget>[
-                const SizedBox(height: 4),
-                _errorLine(),
-              ],
+    return ColoredBox(
+      color: colors.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _statusRow(),
+            const SizedBox(height: 6),
+            // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：
+            //       面板变矮时先挤这一行，fixed 的状态行与结果行不会被裁掉。
+            // English: The expression line takes all the leftover height (the panel's height is
+            //          decided above, and this widget fills it): a shorter panel squeezes this
+            //          line first, so the fixed status and result rows are never clipped.
+            Expanded(child: _expressionLine()),
+            const SizedBox(height: 6),
+            _resultLine(),
+            if (hasError) ...<Widget>[
+              const SizedBox(height: 4),
+              _errorLine(),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -389,22 +385,45 @@ class CalculatorDisplay extends StatelessWidget {
     );
   }
 
-  /// 中文：错误行——只有 `hasError` 为真时才会走到这里（见 `build`）。限两行并省略，
-  ///       长提示既不会溢出宽度也不会把显示区撑破。
-  /// English: The error line — reached only while `hasError` is true (see `build`). Capped at two
-  ///          lines with an ellipsis, so a long message neither overflows the width nor bursts
-  ///          the panel.
+  /// 中文：错误行——只有 `hasError` 为真时才会走到这里（见 `build`）。它是 spec 里那张常驻状态卡
+  ///       出错时的形态：**标题在上、正文在下**，标题用 `errorFg` 并加重，正文退到次要状态色、
+  ///       用常规字重——一行块，不是带内边距的卡片。两行都限行并省略，长提示既不会溢出宽度也不会
+  ///       把显示区撑破。
+  /// English: The error line — reached only while `hasError` is true (see `build`). It is what the
+  ///          spec's permanent status card becomes while something is wrong: **title first, body
+  ///          under it**, the title in `errorFg` and emphasised, the body dropping to the secondary
+  ///          status colour at a normal weight — a one-line block, not a padded card. Both are
+  ///          line-capped with an ellipsis, so a long message neither overflows the width nor
+  ///          bursts the panel.
   Widget _errorLine() {
-    return Text(
-      statusMessage,
-      textAlign: TextAlign.right,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: colors.errorFg,
-        fontSize: _errorFontSize,
-        fontWeight: FontWeight.w700,
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Text(
+          statusTitle,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: colors.errorFg,
+            fontSize: _errorFontSize,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          statusMessage,
+          textAlign: TextAlign.right,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: colors.statusFg,
+            fontSize: _errorMessageFontSize,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
