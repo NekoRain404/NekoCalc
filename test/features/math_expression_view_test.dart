@@ -47,6 +47,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // 中文：解析、发射、排版三层都承诺"永不抛异常"，而本组件是它们对外的最后一层，这句话只有在
+  //       这里才真的可观测。500 层括号会撑爆朴素的递归下降，因此它同时钉住深度上限与
+  //       整段退化：退化后整条表达式仍是**一个**片段，而且这个片段真的画了出来。
+  // English: All three layers — parse, emit, typeset — promise never to throw, and this widget is
+  //          their outermost one, so that promise is only truly observable here. 500 nested
+  //          parentheses would blow a naive recursive descent, so this pins the depth cap and the
+  //          whole-string degradation together: after degrading the expression is still **one**
+  //          fragment, and that fragment actually rendered.
+  testWidgets('renders pathologically deep nesting without throwing', (tester) async {
+    final source = '${'(' * 500}1${')' * 500}';
+    await tester.pumpWidget(host(MathExpressionView(expression: source)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final fragment = find.descendant(
+      of: find.byType(MathExpressionView),
+      matching: find.byType(GestureDetector),
+    );
+    expect(fragment, findsOneWidget);
+    expect(tester.getSize(fragment).width, greaterThan(0));
+  });
+
   testWidgets('tapping a fragment reports a source offset inside the input',
       (tester) async {
     int? tapped;
@@ -164,6 +185,18 @@ void main() {
       '1_000': r'1\_000',
       '2x': '2x',
       'mod(7,3)': r'\operatorname{mod}{\left(7, 3\right)}',
+      // 中文：并置乘法把两个片段的 TeX 直接拼起来，于是"常量接字母"这一**形状**会拼出
+      //       `\pix` 这类不存在的控制词（TeX 的控制词贪婪吃字母），引擎拒收后整个片段退回纯文本。
+      //       前两类只覆盖单个写法，这里补上形状本身——写死一张清单挡不住它。
+      // English: Juxtaposition concatenates the two fragments' TeX, so the *shape* "constant then a
+      //          letter-initial operand" produces an undefined control word such as `\pix` (TeX
+      //          control words eat letters greedily); the engine rejects it and the entire fragment
+      //          degrades to plain text. The two groups above only cover individual spellings, so
+      //          the shape itself is covered here — a hand-picked list cannot hold it back.
+      'pi x': r'\pi{x}',
+      'sin(pi x)': r'\sin\left(\pi{x}\right)',
+      'pi x^2': r'\pi{x^{2}}',
+      'root(1,2,3)': r'\operatorname{root}{\left(1, 2, 3\right)}',
     };
 
     for (final entry in risky.entries) {

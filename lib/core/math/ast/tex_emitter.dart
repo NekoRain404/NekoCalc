@@ -45,14 +45,66 @@ class TexEmitter {
         GroupNode(:final child) => delimited
             ? _emit(child, delimited: true)
             : '\\left(${_emit(child, delimited: true)}\\right)',
-        // 中文：并置乘法按书写顺序拼在一起（`2x`），两个操作数各自维持原状。
-        // English: Juxtaposition concatenates in writing order (`2x`), each operand unchanged.
-        ImplicitProductNode(:final left, :final right) =>
-          '${_emit(left)}${_emit(right)}',
+        // 中文：并置乘法按书写顺序拼在一起（`2x`），两个操作数各自维持原状——控制词与字母
+        //       撞在一起的那一种情况除外，见 [_juxtapose]。
+        // English: Juxtaposition concatenates in writing order (`2x`), each operand unchanged —
+        //          except where a control word would run into a letter; see [_juxtapose].
+        ImplicitProductNode(:final left, :final right) => _juxtapose(left, right),
         // 中文：无法解析的片段降级成转义后的原文，绝不产出非法 TeX。
         // English: An unparseable fragment degrades to escaped literal text; never invalid TeX.
         ParseErrorNode(:final text) => '\\text{${_escapeText(text)}}',
       };
+
+  /// 中文：并置乘法的拼接。TeX 把一个控制词读成"反斜杠 + 尽可能多的字母"（`\pi`、`\infty`），
+  ///       于是 `\pi` 紧跟 `x` 会拼成 `\pix`——一个不存在的控制词；引擎拒收它，**整个片段**
+  ///       退回纯文本（`pi x` 显示成灰色的 `pi x` 而不是 π 乘 x）。只有两侧真会粘连时才给右操作数
+  ///       套一层花括号：花括号在数学模式里是透明的，排版不变；而本来就是对的写法
+  ///       （`2x`、`pi 2`、`pi sin(2)`）保持一字不改。
+  /// English: Concatenation for juxtaposition. TeX reads a control word as a backslash plus as many
+  ///          letters as it can take (`\pi`, `\infty`), so `\pi` immediately followed by `x` becomes
+  ///          `\pix` — an undefined control word; the engine rejects it and the **whole fragment**
+  ///          degrades to plain text (`pi x` shows up as a grey `pi x` instead of π times x). Braces
+  ///          go around the right operand only when the two would really merge: a group is
+  ///          transparent in math mode, so the typesetting does not change, while spellings that
+  ///          were already correct (`2x`, `pi 2`, `pi sin(2)`) come out byte for byte the same.
+  String _juxtapose(ExprNode left, ExprNode right) {
+    final leftTex = _emit(left);
+    final rightTex = _emit(right);
+    if (_endsWithControlWord(leftTex) && _startsWithLetter(rightTex)) {
+      // 中文：花括号是字面的 TeX 分组，围绕右操作数。
+      // English: the braces here are literal TeX grouping, wrapped around the right operand.
+      return '$leftTex{$rightTex}';
+    }
+    return '$leftTex$rightTex';
+  }
+
+  /// 中文：片段是否以控制词结尾（`\pi`、`\sin`）：反斜杠加一串字母，一直顶到末尾。
+  ///       数字或 `{`、`}` 都会终止控制词，所以它们不算在内。
+  /// English: Whether a fragment ends with a control word (`\pi`, `\sin`): a backslash plus a run
+  ///          of letters running all the way to the end. A digit or a brace would have ended it,
+  ///          so those do not count.
+  static bool _endsWithControlWord(String tex) {
+    var start = tex.length;
+    while (start > 0 && _isTexLetter(tex.codeUnitAt(start - 1))) {
+      start--;
+    }
+    final hasLetter = start < tex.length;
+    return hasLetter && start > 0 && tex.codeUnitAt(start - 1) == _backslash;
+  }
+
+  /// 中文：片段是否以裸字母开头——只有这种开头会与控制词粘连（`\sin` 之类自带反斜杠，不会）。
+  /// English: Whether a fragment starts with a bare letter — the only kind of start that can merge
+  ///          with a preceding control word (`\sin` and friends carry their own backslash).
+  static bool _startsWithLetter(String tex) =>
+      tex.isNotEmpty && _isTexLetter(tex.codeUnitAt(0));
+
+  /// 中文：TeX 控制词能吞下的字符，即 `[A-Za-z]`；`@` 在宏定义里也算，但本生成器从不裸写它。
+  /// English: The characters a TeX control word can swallow, i.e. `[A-Za-z]`; `@` counts too inside
+  ///          macro definitions, but this emitter never writes one bare.
+  static bool _isTexLetter(int code) =>
+      (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a);
+
+  static const int _backslash = 0x5c;
 
   String _binary(String op, ExprNode left, ExprNode right) => switch (op) {
         // 中文：分数本身就是一对视觉括号，两侧的显式括号可以省掉。
@@ -95,7 +147,17 @@ class TexEmitter {
       case 'cbrt':
         return '\\sqrt[3]{${_argument(args, 0)}}';
       case 'root':
-        return args.length >= 2
+        // 中文：`root` 只认"次数, 被开方数"两个实参。多出来的实参不能悄悄丢掉——显示层是唯一真源
+        //       的回读，少画一个实参就等于显示与输入不一致；此时退回普通函数写法，实参表一个不少。
+        // English: `root` means (degree, radicand) and nothing else. Extra arguments must not be
+        //          dropped silently — the display is the only read-back of the single source of
+        //          truth, so showing fewer arguments than were typed would contradict the input.
+        //          The whole call falls back to the ordinary function form instead, argument list
+        //          intact.
+        if (args.length > 2) {
+          return '\\operatorname{root}{${_arguments(args)}}';
+        }
+        return args.length == 2
             ? '\\sqrt[${_argument(args, 0)}]{${_argument(args, 1)}}'
             : '\\sqrt{${_argument(args, 0)}}';
       case 'abs':
@@ -129,14 +191,21 @@ class TexEmitter {
       '\\left(${args.map((arg) => _emit(arg, delimited: true)).join(', ')}\\right)';
 
   /// 中文：`\text{}` 内部的转义表，覆盖 TeX 的十个元字符。
-  ///       反斜杠用标准 LaTeX 写法 `\textbackslash`：它是**文本模式**的符号，而这张表只在
-  ///       `\text{}` 内部使用，位置正好对上；数学模式里它没有定义，所以别把这套转义挪出去用
+  ///       反斜杠用标准 LaTeX 写法 `\textbackslash`：它是**文本模式**的符号，位置正好对上——
+  ///       这张表里的写法只在 `\text{}` 内产生。同一个辅助函数也被 `\operatorname{…}` 的函数名
+  ///       调用，但函数名只可能由字母和数字组成（`[A-Za-z0-9]`），十个元字符一个都进不来，
+  ///       因此那个调用点永远不会产出本表里的写法。反过来也要注意：数学模式里没有定义
+  ///       `\textbackslash`，这套转义不能被挪到 `\text{}` 之外使用
   ///       （那样会得到 "Undefined control sequence: \textbackslash"）。
   /// English: The escape table for the inside of `\text{}`, covering TeX's ten metacharacters.
   ///          A backslash uses the standard LaTeX spelling `\textbackslash`, a **text-mode**
-  ///          symbol — this table is only ever used inside `\text{}`, which is exactly where it is
-  ///          defined; it does not exist in math mode, so these escapes must not be reused outside
-  ///          `\text{}` (that yields "Undefined control sequence: \textbackslash").
+  ///          symbol, which lines up exactly because every spelling in this table is only produced
+  ///          inside `\text{}`. The same helper is also called for the name in `\operatorname{…}`,
+  ///          but a function name can only be letters and digits (`[A-Za-z0-9]`) — none of the ten
+  ///          metacharacters can get in — so that call site never produces anything from this table.
+  ///          Note the converse too: math mode has no `\textbackslash`, so these escapes must not
+  ///          be reused outside `\text{}` (that yields "Undefined control sequence:
+  ///          \textbackslash").
   static String _escapeText(String text) {
     final buffer = StringBuffer();
     for (final rune in text.runes) {

@@ -144,6 +144,22 @@ void main() {
       expect(units[2], isA<NumberNode>());
     });
 
+    test('运算符单元的区间指向运算符自身，不含两侧空格', () {
+      // 中文：渲染层把一次点击映射回输入框里的字符位置，靠的正是这两个字段；区间若被写成
+      //       操作数边界（左操作数的 end / 右操作数的 start），点运算符就会跳到操作数那一侧。
+      //       `12 + 34` 里 `+` 独自占据 [3,4)，两侧的空格都不属于它。
+      // English: Mapping a tap back to a character position in the input rests on exactly these two
+      //          fields; were the span taken from the operand boundaries (the left operand's end /
+      //          the right operand's start), tapping an operator would jump to one of the operands.
+      //          In `12 + 34` the `+` owns [3,4) alone; neither surrounding space belongs to it.
+      const src = '12 + 34';
+      final op = toDisplayUnits(p(src))[1] as OperatorNode;
+      expect(op.op, '+');
+      expect(op.start, 3);
+      expect(op.end, 4);
+      expect(src.substring(op.start, op.end), '+');
+    });
+
     test('可摊平的运算符左右两侧都摊平，结果对称', () {
       // 中文：`+ - *` 的 TeX 都是普通中缀符号，可以安全拆成独立片段。
       // English: `+ - *` emit plain infix symbols, so they can safely become separate fragments.
