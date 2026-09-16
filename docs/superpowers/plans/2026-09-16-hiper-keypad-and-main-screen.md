@@ -852,7 +852,18 @@ Expected: FAIL（`NavigationBar` 仍在、找不到 ☰）
 - 移除底部 `NavigationBar`
 - `Scaffold` 加 `drawer: AppDrawer(...)`
 - 保留 `PageView` 与 `_KeepAlivePage`（保活与性能优化已经在里面）
-- 主屏的 ☰ 走 `Scaffold.of(context).openDrawer()`
+- 主屏的 ☰ 走 `Scaffold.of(context).openDrawer()`（由 Task 4 接的 `CalculatorDisplay.onOpenDrawer` 触发，tooltip 为 `'打开导航'`）
+
+**必须同时接上 `CalculatorPage.onNavigate`（Task 4 新增的可选回调，为 null 时惰性）。** 不接的话 `HISTORY` / `CNST` / `CONV` 与四个进制胶囊在真实 App 里永远是死的——Task 4 的评审专门指出了这一点。
+
+目的地字符串固定为两个，不得另立：
+
+| `onNavigate` 收到 | 行为 |
+|---|---|
+| `'history'` | 切到「笔记」页并选中其「历史」筛选（历史记录住在笔记页里） |
+| `'tools'` | 切到「工具」页 |
+
+抽屉里的「工具 / 笔记 / 历史 / 设置」四项与它们保持一致：前两项切页，`'history'` 走笔记页的历史筛选，设置仍走既有的 `_openSettings`。
 
 - [ ] **Step 4: 运行确认通过**
 
