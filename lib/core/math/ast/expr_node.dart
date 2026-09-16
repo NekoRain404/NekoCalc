@@ -131,15 +131,20 @@ final class ParseErrorNode extends ExprNode {
 }
 
 /// 中文：把表达式摊平成渲染与点击定位的最小单元。
-///       沿二元节点的**左操作数**递归摊平最外层运算链，因此 `a+b+c`
-///       （即 `BinaryNode(+, BinaryNode(+, a, b), c)`）产出 `[a, +, b, +, c]`，
-///       其中运算符单元的区间指向源码里运算符自身的位置；右操作数与其余节点
-///       （数字、函数、括号、错误片段等）整体保留为一个单元。
+///       只沿"TeX 是普通中缀符号"的运算符（`+`、`-`、`*`）递归摊平，且左右两个方向都摊，
+///       因此 `a+b+c`（即 `BinaryNode(+, BinaryNode(+, a, b), c)`）产出 `[a, +, b, +, c]`，
+///       `1+2*3` 产出 `[1, +, 2, *, 3]`，`2*3+1` 产出 `[2, *, 3, +, 1]`，
+///       运算符单元的区间指向源码里运算符自身的位置。
+///       包裹操作数的运算符（`/` 生成 `\frac{左}{右}`、`^` 生成 `{左}^{右}`）必须保持整体，
+///       否则渲染层只会拿到一个孤立的运算符；隐式乘法按并置呈现（`2x`），同样保持整体。
 /// English: Flattens an expression into the smallest units used for rendering and tap-to-cursor.
-///          The outermost binary chain is flattened by walking down left operands, so `a+b+c`
-///          (`BinaryNode(+, BinaryNode(+, a, b), c)`) yields `[a, +, b, +, c]` with operator units
-///          pointing at the operator character itself. Right operands and every other node
-///          (numbers, calls, groups, error fragments) stay whole as a single unit.
+///          Only operators whose TeX is a plain infix symbol (`+`, `-`, `*`) are flattened through,
+///          and both sides are flattened, so `a+b+c` (`BinaryNode(+, BinaryNode(+, a, b), c)`)
+///          yields `[a, +, b, +, c]`, `1+2*3` yields `[1, +, 2, *, 3]` and `2*3+1` yields
+///          `[2, *, 3, +, 1]`, with operator units pointing at the operator character itself.
+///          Operators that wrap their operands (`/` emits `\frac{左}{右}`, `^` emits `{左}^{右}`)
+///          must stay whole or the renderer receives a bare operator in its own fragment; implicit
+///          multiplication renders as juxtaposition (`2x`) and stays whole as well.
 List<ExprNode> toDisplayUnits(ExprNode node) {
   final units = <ExprNode>[];
   _appendDisplayUnits(node, units);
@@ -147,11 +152,16 @@ List<ExprNode> toDisplayUnits(ExprNode node) {
 }
 
 void _appendDisplayUnits(ExprNode node, List<ExprNode> units) {
-  if (node is BinaryNode) {
+  if (node is BinaryNode && _isPlainInfixOperator(node.op)) {
     _appendDisplayUnits(node.left, units);
     units.add(OperatorNode(node.op, start: node.opStart, end: node.opEnd));
-    units.add(node.right);
+    _appendDisplayUnits(node.right, units);
     return;
   }
   units.add(node);
 }
+
+/// 中文：白名单而非黑名单：以后新增的运算符默认保持整体，只有明确普通中缀的才允许摊平。
+/// English: A whitelist rather than a blacklist: any future operator stays whole by default, and
+///          only those that are definitely plain infix may be split.
+bool _isPlainInfixOperator(String op) => op == '+' || op == '-' || op == '*';

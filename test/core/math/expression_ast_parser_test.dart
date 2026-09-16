@@ -120,5 +120,37 @@ void main() {
         expect(u.start, lessThanOrEqualTo(u.end));
       }
     });
+
+    test('包裹操作数的运算符保持整体，不摊平', () {
+      // 中文：`/` 生成 \frac{左}{右}、`^` 生成 {左}^{右}，这两个运算符的 TeX 需要两个操作数
+      //       共处一个片段；一旦被摊平，渲染层只会拿到一个孤立的运算符，分数和幂就消失了。
+      // English: `/` emits \frac{}{} and `^` emits {}^{}; their TeX needs both operands in one
+      //          fragment, so splitting them would hand the renderer a bare operator and lose the
+      //          fraction or the exponent.
+      final fraction = toDisplayUnits(p('a/b')).single;
+      expect(fraction, isA<BinaryNode>());
+      expect((fraction as BinaryNode).op, '/');
+      expect(toDisplayUnits(p('x^2')).length, 1);
+      expect(toDisplayUnits(p('(a+b)/2')).length, 1);
+
+      final units = toDisplayUnits(p('x^2+1'));
+      expect(units.length, 3);
+      final power = units[0] as BinaryNode;
+      expect(power.op, '^');
+      expect(power.start, 0);
+      expect(power.end, 3);
+      expect(units[1], isA<OperatorNode>());
+      expect((units[1] as OperatorNode).op, '+');
+      expect(units[2], isA<NumberNode>());
+    });
+
+    test('可摊平的运算符左右两侧都摊平，结果对称', () {
+      // 中文：`+ - *` 的 TeX 都是普通中缀符号，可以安全拆成独立片段。
+      // English: `+ - *` emit plain infix symbols, so they can safely become separate fragments.
+      expect(toDisplayUnits(p('1+2*3')).length, 5);
+      expect(toDisplayUnits(p('2*3+1')).length, 5);
+      expect(toDisplayUnits(p('1+2*3')).length,
+          toDisplayUnits(p('2*3+1')).length);
+    });
   });
 }
