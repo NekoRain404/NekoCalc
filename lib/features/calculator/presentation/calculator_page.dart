@@ -324,6 +324,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _openInlineEditor(requestFocus: true);
   }
 
+  /// 中文：`OTHER` 打开的「更多函数」面板。HiPER 手册里 `OTHER` 就是「键盘放不下的函数」的入口，
+  ///       所以这里只列 HiPER 网格上没有专属键位的函数与常数（`√x`、`x²`、`n!` 这些已经有键的
+  ///       不重复出现）。机制与 `More...` 相同，只是内容不同。
+  /// English: The "more functions" sheet `OTHER` opens. In HiPER's manual `OTHER` is the entry point
+  ///          for the functions the keypad cannot fit, so this lists only the functions and constants
+  ///          with no dedicated HiPER grid cell (ones that already have a key — `√x`, `x²`, `n!` — are
+  ///          not repeated). Same mechanism as `More...`, different content.
+  void _openMoreFunctionsSheet() {
+    final theme = _calcTheme(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * _moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => _MoreFunctionsSheet(page: this, theme: theme),
+    );
+  }
+
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
@@ -450,7 +470,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _openDrawer();
       case 'openHistory':
         _navigate('history');
+      // 中文：`OTHER` 在 HiPER 里就是「键盘放不下的那些函数」的入口（它的手册原话），所以它打开
+      //       更多函数面板，而不是工具箱；工具箱仍由 `CNST`/`CONV` 与四个进制胶囊经 `onNavigate`
+      //       抵达（`MENU` 打开抽屉）。
+      // English: in HiPER `OTHER` is the entry point for the functions the keypad cannot fit (its
+      //          manual says so), so it opens the more-functions sheet rather than the toolbox. The
+      //          toolbox stays reachable through `CNST`/`CONV` and the four base pills via
+      //          `onNavigate` (`MENU` opens the drawer).
       case 'openTools':
+        _openMoreFunctionsSheet();
       case 'openConstants':
       case 'openUnits':
       case 'baseDec':
@@ -527,6 +555,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
       case 'sinh':
       case 'cosh':
       case 'tanh':
+      // 中文：以下几项在 HiPER 网格上没有专属键位，只能从 `OTHER` 的「更多函数」面板进来
+      //       （`cot`/`sec`/`csc`/`log₂`/`exp`、取整族与角度辅助族）；id 逐字沿用重写前
+      //       `_functionSections` 的写法。
+      // English: the ids below have no HiPER grid cell and are reachable only from `OTHER`'s
+      //          "more functions" sheet (`cot`/`sec`/`csc`/`log₂`/`exp`, the rounding family and the
+      //          angle helpers); the ids are kept verbatim from the pre-rewrite `_functionSections`.
+      case 'cot':
+      case 'sec':
+      case 'csc':
+      case 'log₂':
+      case 'exp':
+      case 'floor':
+      case 'ceil':
+      case 'round':
+      case 'deg':
+      case 'rad':
       case 'log':
       case 'ln':
       case 'abs':
@@ -538,7 +582,44 @@ class _CalculatorPageState extends State<CalculatorPage> {
       case 'nCr':
       case 'nPr':
       case 'root':
+      // 中文：同上——`gcd`/`lcm`/`atan2` 与 `min`/`max` 也只在「更多函数」面板里。
+      // English: as above — `gcd`/`lcm`/`atan2` and `min`/`max` live only in the sheet too.
+      case 'min':
+      case 'max':
+      case 'gcd':
+      case 'lcm':
+      case 'atan2':
         _controller.applyBinaryFunction(_functionNameForKey(key));
+      // 中文：常数与角度快捷值，同样只在「更多函数」面板里——插入的文本逐字沿用旧函数面板，
+      //       所以行为与重写前一致。
+      // English: the constants and angle shortcuts, likewise sheet-only — the inserted text is kept
+      //          from the old function panel, so the behaviour matches the pre-rewrite screen.
+      case '2ˣ':
+        _controller.append('2^');
+      case '90°':
+        _controller.append('90');
+      case '180°':
+        _controller.append('180');
+      case '360°':
+        _controller.append('360');
+      case 'φ':
+        _controller.append('1.61803398875');
+      case '√2':
+        _controller.append('sqrt(2)');
+      case 'τ':
+        _controller.append('(2*pi)');
+      case 'ln2':
+        _controller.append('0.69314718056');
+      case 'ln10':
+        _controller.append('2.30258509299');
+      case 'g':
+        _controller.append('9.80665');
+      case 'c':
+        _controller.append('299792458');
+      case '2π':
+        _controller.append('2*pi');
+      case 'π/2':
+        _controller.append('pi/2');
       default:
         // 中文：禁用键（`dis:` 前缀）键盘永不触发，万一到达就安静忽略，绝不当成文本写进表达式；
         //       数字、小数点、运算符与括号则直接输入。
@@ -557,14 +638,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`）；
-  ///       其余 id 本身就是解析器词汇。
+  /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`、
+  ///       `log₂` → `log2`）；其余 id 本身就是解析器词汇。
   /// English: The few places where a key face and the parser's function name differ are translated
-  ///          here (`nCr` → `ncr`, `nPr` → `npr`); every other id already is parser vocabulary.
+  ///          here (`nCr` → `ncr`, `nPr` → `npr`, `log₂` → `log2`); every other id already is parser
+  ///          vocabulary.
   String _functionNameForKey(String key) {
     return switch (key) {
       'nCr' => 'ncr',
       'nPr' => 'npr',
+      'log₂' => 'log2',
       _ => key,
     };
   }
@@ -588,6 +671,66 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _requestInlineFocus = false;
       });
     });
+  }
+}
+
+/// 中文：`OTHER` 面板的内容——HiPER 网格上没有专属键位的函数与常数。每一条都按自己的 id 走
+///       `_pressKey`，所以「面板里有什么」与「键盘能派发什么」用的是同一套词汇，没有第二份映射。
+/// English: The contents of the `OTHER` sheet — the functions and constants with no HiPER grid cell.
+///          Every entry dispatches its own id through `_pressKey`, so the sheet and the keypad share
+///          one id vocabulary rather than keeping a second mapping.
+class _MoreFunctionsSheet extends StatelessWidget {
+  const _MoreFunctionsSheet({required this.page, required this.theme});
+
+  final _CalculatorPageState page;
+  final CalcTheme theme;
+
+  /// 中文：逐字来自重写前 `_functionSections`，并且只保留 HiPER 网格没有格子的那些：三角补角
+  ///       （`cot`/`sec`/`csc`）、`log₂`/`exp`、取整族、`min`/`max`、`gcd`/`lcm`/`atan2`、
+  ///       角度辅助（`deg`/`rad` 与三个角度值）、`2ˣ`，以及常数快捷值。
+  /// English: Kept verbatim from the pre-rewrite `_functionSections`, restricted to what the HiPER
+  ///          grid has no cell for: the reciprocal trig functions (`cot`/`sec`/`csc`), `log₂`/`exp`,
+  ///          the rounding family, `min`/`max`, `gcd`/`lcm`/`atan2`, the angle helpers (`deg`/`rad`
+  ///          plus the three angle values), `2ˣ`, and the constant shortcuts.
+  static const List<String> _entries = [
+    'cot', 'sec', 'csc', 'log₂', 'exp',
+    'floor', 'ceil', 'round', 'min', 'max',
+    'gcd', 'lcm', 'atan2',
+    'deg', 'rad', '90°', '180°', '360°',
+    '2ˣ', 'φ', '√2', 'τ', 'ln2', 'ln10', 'g', 'c', '2π', 'π/2',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final String id in _entries)
+              TextButton(
+                // 中文：与动作面板一样，选中即关面板再执行——面板盖住键盘，留着它挡住下一步输入。
+                // English: as in the action sheet, a tap closes the sheet before running: it covers
+                //          the keypad otherwise.
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  page._pressKey(id);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.display.indicatorFg,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(id,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

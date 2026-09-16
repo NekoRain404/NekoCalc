@@ -459,6 +459,27 @@ void main() {
       await tap('sin');
       expect(_displayedExpression(tester), 'asin(sin(sinh(sinh(7))))');
     });
+
+    testWidgets('OTHER 打开更多函数，选中项写进表达式', (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+
+      // 中文：OTHER 是 HiPER 给「键盘放不下的函数」留的入口，打开的是更多函数面板。
+      // English: OTHER is HiPER's entry point for the functions the keypad cannot fit, so it opens the
+      //          more-functions sheet.
+      await tester.tap(find.text('OTHER').first);
+      await tester.pumpAndSettle();
+      expect(find.text('gcd'), findsOneWidget);
+      expect(find.text('log₂'), findsOneWidget);
+
+      await tester.tap(find.text('gcd'));
+      await tester.pumpAndSettle();
+
+      // 中文：表达式行由 MathExpressionView 渲染成富文本，所以读组件的 expression，不用 find.text。
+      // English: the expression line is rich text via MathExpressionView, so read the widget's
+      //          expression instead of asserting with find.text.
+      expect(_displayedExpression(tester), 'gcd(');
+    });
   });
 }
 
