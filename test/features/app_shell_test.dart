@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/shared/presentation/app_shell.dart';
@@ -33,14 +34,18 @@ void main() {
     expect(find.byType(BottomNavigationBar), findsNothing);
   });
 
-  testWidgets('点 ☰ 后抽屉出现且含四个入口', (tester) async {
+  testWidgets('点 ☰ 后抽屉出现且含五个入口', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('打开导航'));
     await tester.pumpAndSettle();
+    // 中文：四页都必须有入口——键盘区不响应翻页，抽屉漏掉哪一页，那一页就是死路。
+    // English: All four pages need an entry — the keypad refuses page swipes, so any page the drawer
+    //          omits becomes a dead end.
+    expect(find.text('计算'), findsWidgets);
     expect(find.text('工具'), findsWidgets);
+    expect(find.text('图形'), findsWidgets);
     expect(find.text('笔记'), findsWidgets);
-    expect(find.text('历史'), findsWidgets);
     expect(find.text('设置'), findsWidgets);
   });
 
@@ -54,17 +59,6 @@ void main() {
     expect(find.text('笔记'), findsWidgets);
   });
 
-  testWidgets('点抽屉里的「历史」后笔记页可见', (tester) async {
-    await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('打开导航'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('历史').last);
-    await tester.pumpAndSettle();
-    expect(find.byType(NotesPage), findsOneWidget);
-    expect(find.byType(NotesPage).hitTestable(), findsOneWidget);
-  });
-
   testWidgets('点抽屉里的「工具」后工具页可见', (tester) async {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
@@ -74,6 +68,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ToolsHomePage), findsOneWidget);
     expect(find.byType(ToolsHomePage).hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('点抽屉里的「图形」后图形页可见', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开导航'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('图形').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(GraphPage), findsOneWidget);
+    expect(find.byType(GraphPage).hitTestable(), findsOneWidget);
+  });
+
+  // 中文：底部栏消失后最容易出的事故——走进「工具」再回不到计算页，App 就废了。这条测试守住回程。
+  // English: The accident the missing bottom bar invites — walk into 工具 and never get back to the
+  //          calculator — bricks the app. This test guards the way home.
+  testWidgets('从抽屉切到工具页后还能切回计算页', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开导航'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('工具').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(ToolsHomePage).hitTestable(), findsOneWidget);
+
+    // 中文：☰ 只画在计算页上，离开计算页后抽屉只能靠左缘拖拽打开——用户回程走的正是这条手势，
+    //       所以这里也用它，而不是直接调 ScaffoldState。
+    // English: the ☰ is drawn on the calculator page only, so away from it the drawer opens by the
+    //          left-edge drag — the very gesture the user's way home relies on, so the test uses it
+    //          rather than calling ScaffoldState directly.
+    await tester.dragFrom(const Offset(1, 300), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('计算').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(CalculatorPage), findsOneWidget);
+    expect(find.byType(CalculatorPage).hitTestable(), findsOneWidget);
+    expect(find.text('CNST'), findsOneWidget);
   });
 
   // 中文：Task 4 给计算页留了 `onNavigate`，外壳不接的话 HISTORY / CNST / CONV 与四个进制胶囊

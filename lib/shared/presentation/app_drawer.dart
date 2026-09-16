@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 import 'calc_theme.dart';
 
-/// 中文：外壳的侧边抽屉，取代原来的底部导航栏。入口固定为 工具 / 笔记 / 历史 / 设置：
-///       前三项是页面级目的地，经 `onSelect` 交回外壳处理（外壳与计算页的 `onNavigate` 共用同一套
-///       目的地，所以「工具 / 历史」两条路径不会各走各的）；「设置」是独立的设置页路由。
-/// English: The shell's navigation drawer, replacing the former bottom navigation bar. Its entries
-///          are fixed at 工具 / 笔记 / 历史 / 设置: the first three are page-level destinations handed
-///          back through `onSelect` (the shell shares one destination vocabulary with the calculator
-///          page's `onNavigate`, so the 工具 and 历史 paths cannot drift apart); 设置 pushes the
-///          settings route.
+/// 中文：外壳的侧边抽屉，取代原来的底部导航栏。它按页顺序列出**全部**可达页面——计算 / 工具 /
+///       图形 / 笔记——外加底部的设置：底部栏没了以后，任何一页都不能因为「抽屉里没有它」而变成
+///       死路（键盘区不响应翻页，走进去就出不来的页面等于把 App 卡死）。
+///       「设置」不是页面集合里的一页（是压在栈上的路由），所以单独放在底部分隔线下方。
+/// English: The shell's navigation drawer, replacing the former bottom navigation bar. It lists every
+///          reachable page in page order — 计算 / 工具 / 图形 / 笔记 — plus 设置 at the bottom: with
+///          the bottom bar gone, no page may become a dead end just because the drawer forgot it (the
+///          keypad refuses page swipes, so a page you cannot leave bricks the app). 设置 is not one of
+///          the pages (it is a route pushed on top), so it sits alone below the divider.
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
     required this.selectedIndex,
@@ -18,37 +19,20 @@ class AppDrawer extends StatelessWidget {
     super.key,
   });
 
-  /// 中文：工具页在外壳页面集合里的索引（0 计算、1 工具、2 图形、3 笔记），也是本抽屉「工具」
-  ///       入口的目的地编号。
-  /// English: The toolbox page's index in the shell's page set (0 calculator, 1 toolbox, 2 graph,
-  ///          3 notes) and the destination id of this drawer's 工具 entry.
+  /// 中文：四个页面在 `AppShell` 页面集合里的索引，同时就是本抽屉对应入口的目的地编号。
+  /// English: The four pages' indices in the shell's page set — which are also the destination ids of
+  ///          the matching drawer entries.
+  static const int calculatorDestination = 0;
   static const int toolsDestination = 1;
-
-  /// 中文：笔记页在外壳页面集合里的索引，也是本抽屉「笔记」入口的目的地编号。
-  /// English: The notes page's index in the shell's page set and the destination id of this
-  ///          drawer's 笔记 entry.
+  static const int graphDestination = 2;
   static const int notesDestination = 3;
-
-  /// 中文：历史入口的目的地编号。历史记录住在笔记页里，所以「历史」与「笔记」指向同一页的不同视图，
-  ///       它没有自己的页面索引（页面索引只到 3），因此单独编号——外壳据此把两个入口路由到不同动作，
-  ///       而不是让「历史」变成「笔记」的复制品。
-  ///       注意：笔记页内部的「历史」筛选目前没有对外入口（`NotesPage` 没有暴露它的 tab），
-  ///       外壳只能切页；等笔记页暴露入口后再把这里补成真正的筛选切换。
-  /// English: Destination id of the history entry. History lives on the notes page, so 历史 and 笔记
-  ///          point at two views of one page; history has no page index of its own (page indices stop
-  ///          at 3), hence its own id — the shell routes the two entries to different actions instead
-  ///          of making 历史 a duplicate of 笔记. Note: the notes page's inner 「历史」 filter has no
-  ///          external entry point yet (`NotesPage` exposes no tab hook), so the shell can only switch
-  ///          pages; once such a hook exists this id gains the real filter switch.
-  static const int historyDestination = 4;
 
   /// 中文：外壳当前页的索引，用于高亮对应入口。
   /// English: The shell's current page index, used to highlight the matching entry.
   final int selectedIndex;
 
-  /// 中文：页面级目的地回调，收到 `toolsDestination` / `notesDestination` / `historyDestination`。
-  /// English: Page-level destination callback; receives `toolsDestination`, `notesDestination` or
-  ///          `historyDestination`.
+  /// 中文：页面级目的地回调，收到上面四个页面索引之一。
+  /// English: Page-level destination callback; receives one of the four page indices above.
   final ValueChanged<int> onSelect;
 
   /// 中文：打开设置页。
@@ -73,6 +57,13 @@ class AppDrawer extends StatelessWidget {
                   _entry(
                     context,
                     theme,
+                    destination: calculatorDestination,
+                    icon: Icons.calculate_outlined,
+                    label: '计算',
+                  ),
+                  _entry(
+                    context,
+                    theme,
                     destination: toolsDestination,
                     icon: Icons.construction_outlined,
                     label: '工具',
@@ -80,16 +71,16 @@ class AppDrawer extends StatelessWidget {
                   _entry(
                     context,
                     theme,
-                    destination: notesDestination,
-                    icon: Icons.article_outlined,
-                    label: '笔记',
+                    destination: graphDestination,
+                    icon: Icons.show_chart_outlined,
+                    label: '图形',
                   ),
                   _entry(
                     context,
                     theme,
-                    destination: historyDestination,
-                    icon: Icons.schedule,
-                    label: '历史',
+                    destination: notesDestination,
+                    icon: Icons.article_outlined,
+                    label: '笔记',
                   ),
                 ],
               ),

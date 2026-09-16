@@ -58,7 +58,10 @@ class _AppShellState extends State<AppShell> {
       //          calculator page opens exactly this one.
       drawer: AppDrawer(
         selectedIndex: _index,
-        onSelect: _openDestination,
+        // 中文：抽屉的四项就是四个页面索引，直接复用切页逻辑，不多一层映射。
+        // English: The drawer's four entries are page indices, so they share the page-switching logic
+        //          instead of going through another mapping layer.
+        onSelect: _selectDestination,
         onOpenSettings: _openSettings,
       ),
       body: SafeArea(
@@ -74,30 +77,17 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  /// 中文：抽屉入口的目的地。编号与 `AppDrawer` 共用，避免抽屉与计算页各立一套映射。
-  /// English: Destinations from the drawer, using `AppDrawer`'s ids so the drawer and the calculator
-  ///          page cannot drift into two different mappings.
-  void _openDestination(int destination) {
-    switch (destination) {
-      case AppDrawer.toolsDestination:
-        _selectDestination(AppDrawer.toolsDestination);
-      case AppDrawer.notesDestination:
-        _selectDestination(AppDrawer.notesDestination);
-      case AppDrawer.historyDestination:
-        _navigate('history');
-    }
-  }
-
   /// 中文：计算页的页面级导航（`HISTORY`、`CNST`、`CONV` 与四个进制胶囊）。目的地只有两个：
-  ///       `'tools'` 切到工具页；`'history'` 切到笔记页——历史记录住在那一页。
-  ///       笔记页内部的「历史」筛选没有对外入口（`NotesPage` 未暴露它的 tab），所以这里只切页、
-  ///       不另造一条通往筛选的平行路径；等笔记页暴露入口后在此补上。
+  ///       `'tools'` 切到工具页；`'history'` 切到笔记页——历史记录住在那一页，用户在那里自己挑
+  ///       「历史」胶囊。笔记页内部的筛选没有对外入口（`NotesPage` 未暴露它的 tab），所以这里只
+  ///       切页、不另造一条通往筛选的平行路径；等笔记页暴露入口后再把抽屉里的「历史」入口补回来。
   /// English: Page-level navigation from the calculator page (`HISTORY`, `CNST`, `CONV` and the four
   ///          base pills). There are exactly two destinations: `'tools'` switches to the toolbox;
-  ///          `'history'` switches to the notes page, where history lives. That page's inner 「历史」
-  ///          filter has no external entry point (`NotesPage` exposes no tab hook), so this switches
-  ///          pages rather than inventing a parallel route into the filter; it gains the filter once
-  ///          the page exposes one.
+  ///          `'history'` switches to the notes page, where history lives and the user picks the
+  ///          「历史」 pill themselves. That page's inner filter has no external entry point
+  ///          (`NotesPage` exposes no tab hook), so this switches pages rather than inventing a
+  ///          parallel route into the filter; once the page exposes one, a 历史 entry can return to
+  ///          the drawer and select it.
   void _navigate(String destination) {
     switch (destination) {
       case 'tools':
