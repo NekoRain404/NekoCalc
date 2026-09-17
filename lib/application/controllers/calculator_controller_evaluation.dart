@@ -535,6 +535,7 @@ mixin _CalculatorEvaluation on _CalculatorState {
     return _askEngine((translated as TranslatedExpression).text);
   }
 
+  @override
   Future<EngineReply> _askEngine(String expression) {
     final completer = Completer<EngineReply>();
     final timer = Timer(engineTimeout, () {

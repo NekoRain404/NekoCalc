@@ -87,11 +87,44 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       case 'openUnits':
         _openUnitSheet();
       case 'openConstants':
-      case 'baseDec':
-      case 'baseHex':
-      case 'baseBin':
-      case 'baseOct':
         _navigate('tools');
+      // 中文：**四个进制胶囊从这一步起真的做进制换算**（它们此前只是切到工具箱）。理由与代价：
+      //
+      //       - 它们是键盘上**唯一**与进制有关的入口，而它们本来就长成「▸HEX」——按下去却只是
+      //         换一页，那颗键的名字与它做的事是两回事。
+      //       - 换算是**显示**：结果行、`Ans`/`last`、记忆寄存器、历史都不动，所以这一改碰不到
+      //         任何既有数值行为（`CalculatorController.showBaseReadout` 上有完整论证，含两个
+      //         被否掉的方案）。
+      //       - 工具箱**没有因此进不去**：`CNST` 仍切 `tools`，抽屉里也有独立的「工具箱」入口。
+      //         这四颗键是唯一改掉的键，而且它们原来也只是切到同一个页面。
+      //       - 测试钉住的只有它们的 id/标签/可用态（`keypad_definition_test.dart`）与
+      //         「每个已启用的 id 主屏都接得住」（`calculator_page_test.dart`），两者都仍然成立
+      //         ——它们的 id 仍在 `dispatchedKeyIds` 里。
+      // English: **the four base pills really do base conversion from this step on** (until now they
+      //          merely switched to the toolbox). Why, and what it costs:
+      //
+      //          - they are the keypad's **only** base-related entrance and they are literally shaped
+      //            like `▸HEX`; pressing one used to change page, so the key's name and its act were
+      //            two different things;
+      //          - the conversion is a **display**: the result line, `Ans`/`last`, the memory register
+      //            and the history stay untouched, so this change reaches no numeric behaviour that
+      //            exists today (the full argument, both rejected designs included, is on
+      //            `CalculatorController.showBaseReadout`);
+      //          - the toolbox is **not** cut off: `CNST` still switches to `tools` and the drawer has
+      //            its own 工具箱 entry. These four are the only keys that changed, and they used to
+      //            switch to that same page anyway;
+      //          - what the tests pin is their id/label/enabled state
+      //            (`keypad_definition_test.dart`) and "every enabled id is caught by the screen"
+      //            (`calculator_page_test.dart`) — both still hold, since their ids stay in
+      //            `dispatchedKeyIds`.
+      case 'baseBin':
+        await _showBaseReadout(CalculatorBase.bin);
+      case 'baseOct':
+        await _showBaseReadout(CalculatorBase.oct);
+      case 'baseDec':
+        await _showBaseReadout(CalculatorBase.dec);
+      case 'baseHex':
+        await _showBaseReadout(CalculatorBase.hex);
       case 'backspace':
         _controller.backspace();
       case 'clear':
@@ -337,6 +370,28 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         );
         _controller.input(key);
     }
+  }
+
+  /// 中文：四个进制胶囊共用的那一条：让控制器去换算，**有事要说时**把它说的话交给用户。
+  ///       用的是提交路径同一种做法（`SnackBar`），因为两者是同一类事情——用户按了一个键，
+  ///       而这一次没成，必须有人告诉他，而不是屏幕上什么都没有、看起来像按键失灵。
+  ///
+  ///       控制器自己会在成功时点亮读数、失败时不点亮（见 `showBaseReadout`），这里只负责把
+  ///       那句话显示出来，不判断成功与否——第二个判断点迟早会与控制器那一处漂开。
+  /// English: the one path the four base pills share: let the controller convert and, **when it has
+  ///          something to say**, hand that sentence to the user. It uses the submit path's own
+  ///          device (a `SnackBar`) because the two are the same kind of event — the user pressed a
+  ///          key and this time it did not work, which someone has to say, or the screen shows
+  ///          nothing and reads as a dead key.
+  ///
+  ///          The controller lights the read-out on success and leaves it dark on failure (see
+  ///          `showBaseReadout`); this only displays the sentence and does not judge success — a
+  ///          second judgement point would sooner or later drift away from the controller's.
+  Future<void> _showBaseReadout(CalculatorBase base) async {
+    final message = await _controller.showBaseReadout(base);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`、

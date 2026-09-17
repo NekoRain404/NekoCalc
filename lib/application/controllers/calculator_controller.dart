@@ -24,6 +24,7 @@ part 'calculator_controller_state.dart';
 part 'calculator_controller_editing.dart';
 part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
+part 'calculator_controller_base_readout.dart';
 
 /// 中文：边打边算用哪个结果上屏——**裁决 1 的那个开关**，做成可切换的常量而不是写死在流程里。
 ///
@@ -171,7 +172,12 @@ const String kEngineBackedLiveExpressionDisplay = '数学符号';
 /// 中文：计算器页面的应用层状态控制器，负责表达式编辑、实时计算、历史保存和状态恢复。
 /// English: Application-layer controller for the calculator page; owns expression editing, live evaluation, history saving, and state restore.
 class CalculatorController extends ChangeNotifier
-    with _CalculatorState, _CalculatorEditing, _CalculatorEvaluation, _CalculatorPersistence {
+    with
+        _CalculatorState,
+        _CalculatorEditing,
+        _CalculatorEvaluation,
+        _CalculatorPersistence,
+        _CalculatorBaseReadout {
   CalculatorController({
     required this.historyRepository,
     required this.notesRepository,

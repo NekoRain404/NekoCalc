@@ -244,6 +244,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          shapes in `CalculatorDisplay`.
       resultTex: _controller.resultTex,
       resultDecimal: _controller.resultDecimal,
+      // 中文：进制读数（四个进制胶囊按出来的那一个）。它由控制器决定此刻还成不成立——代际或来源
+      //       十进制形态对不上时控制器给的就是空串，所以这里不必再判一次。
+      // English: the base read-out (what the four base pills produce). The controller decides whether
+      //          it still holds — when the generation or the source decimal no longer matches it hands
+      //          back an empty string, so there is no second judgement to make here.
+      baseReadout: _controller.baseReadout?.label ?? '',
       hasError: _controller.hasError,
       statusTitle: _controller.resultStatusTitle,
       statusMessage: _controller.resultStatusMessage,

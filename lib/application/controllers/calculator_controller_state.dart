@@ -33,6 +33,14 @@ mixin _CalculatorState on ChangeNotifier {
   //          concrete implementation still lives in its own mixin.
   void evaluate();
   Future<CalculatorSubmitResult> submit();
+  /// 中文：问一次引擎，带等待上限与异常兜底（实现留在求值混入里）。进制读数
+  ///       （[_CalculatorBaseReadout.showBaseReadout]）要的正是这两样，所以它读的是同一个入口，
+  ///       而不是自己再写一遍超时与 catch。
+  /// English: ask the engine once, with a wait cap and exception handling (the implementation lives in
+  ///          the evaluation mixin). The base read-out ([_CalculatorBaseReadout.showBaseReadout])
+  ///          wants exactly those two things, so it reads the same entrance instead of writing its
+  ///          own timeout and catch.
+  Future<EngineReply> _askEngine(String expression);
   void _cancelLiveEvaluation();
   void _scheduleLiveEvaluation();
   Future<MathResult?> _submittedResult(String source, int generation);

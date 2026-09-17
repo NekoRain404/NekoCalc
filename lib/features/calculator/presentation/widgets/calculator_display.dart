@@ -52,7 +52,8 @@ const double _errorMessageFontSize = 12;
 ///
 /// 布局 / Layout（自上而下 / top to bottom）:
 /// 中文：1) 状态行：最左是抽屉按钮（`onOpenDrawer` 为空则不渲染），接着角度模式 chip、
-///       记忆指示 `M`（`hasMemory` 为假时留空），`Spacer` 把 `More...` 推到最右
+///       记忆指示 `M`（`hasMemory` 为假时留空）、进制读数（[baseReadout] 为空时整格不存在——
+///       它只占余量，不会把 `More...` 挤出屏幕），`Spacer` 把 `More...` 推到最右
 ///       （`onMore` 为空则不渲染）；2) 表达式行：`MathExpressionView`，右对齐，外面套一圈横向
 ///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果——引擎给出精确
 ///       形式且它排得出来时，那一段走 `MathExpressionView` 自然排版并在后面跟上 `≈ 近似值`，
@@ -195,6 +196,7 @@ class CalculatorDisplay extends StatelessWidget {
     required this.naturalDisplay,
     this.resultTex = '',
     this.resultDecimal = '',
+    this.baseReadout = '',
     this.onTapOffset,
     this.onMore,
     this.onOpenDrawer,
@@ -261,6 +263,35 @@ class CalculatorDisplay extends StatelessWidget {
   /// English: Whether the memory register holds a value — a truthy value shows the `M` badge in
   ///          the status row, and when false the slot stays empty.
   final bool hasMemory;
+
+  /// 中文：**进制读数**（`HEX 64`），空串表示没有。它是四个进制胶囊那一次换算的产物，由控制器
+  ///       （`CalculatorController.baseReadout`）决定此刻还成不成立。
+  ///
+  ///       它落在**状态行**上，而不是结果行上，理由有两条：
+  ///       - 结果行是「这一次求值的值」，而读数是**另一个写法**。两个数字并排放在同一行里，
+  ///         读者无法一眼看出哪个是答案；状态行本来就在放这一类标注（`DEG`/`RAD`、记忆徽标）。
+  ///       - 结果行的高度契约（见类注释）是按真实字体度量量出来的，多一行要重新量一遍；
+  ///         状态行有 40dp 高、里面那些 chip 只有 24dp，多一格不影响任何既有高度。
+  ///
+  ///       太长时它不换行、不溢出：外面是 `Flexible`，里面一行省略号——**截断是看得见的**，
+  ///       绝不悄悄少印几位（那与「屏幕上的错值」是同一件事）。
+  /// English: **the base read-out** (`HEX 64`); an empty string means there is none. It is what the
+  ///          four base pills' conversion produced, and the controller
+  ///          (`CalculatorController.baseReadout`) decides whether it still holds right now.
+  ///
+  ///          It sits on the **status row** rather than the result line for two reasons:
+  ///          - the result line is "this evaluation's value" while a read-out is **another way of
+  ///            writing it**. Side by side on one line, a reader cannot tell at a glance which is the
+  ///            answer; the status row already carries exactly this kind of annotation (`DEG`/`RAD`,
+  ///            the memory badge);
+  ///          - the result line's height contract (see the class comment) was measured against real
+  ///            font metrics and a third row would mean measuring it all again, whereas the status row
+  ///            is 40dp tall with 24dp chips in it — one more cell moves nothing.
+  ///
+  ///          When it is too long it neither wraps nor overflows: a `Flexible` outside, one line with
+  ///          an ellipsis inside — **the cut is visible**, never a few digits quietly missing (which
+  ///          is the same thing as a wrong value on screen).
+  final String baseReadout;
 
   /// 中文：显示区语义色，面板里的每一个色值都取自它。
   /// English: Semantic display colours; every colour in the panel comes from here.
@@ -378,9 +409,19 @@ class CalculatorDisplay extends StatelessWidget {
     );
   }
 
-  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示，`Spacer` 之后是 `More...`。
-  /// English: The status row — drawer button, angle-mode chip, memory indicator, then `More...`
-  ///          after a `Spacer`.
+  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、进制读数，`Spacer` 之后是 `More...`。
+  ///
+  ///       进制读数那一格是 [Flexible]（宽松）而不是定宽：它旁边那个 `Spacer` 是 `Expanded`，
+  ///       两者按 flex 分余量，于是读数**永远放得下**——内容比份额长时是它自己按省略号收窄，
+  ///       而不是让整行报 RenderFlex 溢出。没有读数时这一格整个不存在，布局与从前逐像素相同。
+  /// English: The status row — drawer button, angle-mode chip, memory indicator, base read-out, then
+  ///          `More...` after a `Spacer`.
+  ///
+  ///          The base read-out's cell is a loose `Flexible` rather than a fixed width: the `Spacer`
+  ///          beside it is an `Expanded`, the two share the slack by flex, and the read-out therefore
+  ///          **always fits** — when it is longer than its share it narrows itself with an ellipsis
+  ///          instead of making the row report a RenderFlex overflow. With no read-out the cell does
+  ///          not exist at all and the layout is pixel-for-pixel what it was.
   Widget _statusRow() {
     return SizedBox(
       height: _statusButtonSize,
@@ -395,9 +436,48 @@ class CalculatorDisplay extends StatelessWidget {
             const SizedBox(width: 6),
             _memoryIndicator(),
           ],
+          if (baseReadout.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(width: 6),
+            Flexible(child: _baseReadoutChip()),
+          ],
           const Spacer(),
           if (onMore != null) _moreButton(),
         ],
+      ),
+    );
+  }
+
+  /// 中文：进制读数那一格。排版与角度 chip、记忆徽标共用同一套度量（同样的 24dp 高、同样的圆角、
+  ///       同样的低透明度指示色填充），所以状态行看起来仍是一排同类的东西；它说的是**另一个
+  ///       写法**（`HEX 64`），因此用指示色前景把它与 `DEG`/`M` 那两格区分开。
+  ///       `maxLines: 1` + `ellipsis`：读数的位数最多由控制器按 `kBaseReadoutMaxDigits` 截一次，
+  ///       这里是第二道——极端字体缩放下真正放不下的笔画**看得见地被省略**，而不是被裁掉。
+  /// English: the base read-out's cell. It shares the angle chip's and memory badge's metrics (the
+  ///          same 24dp height, corner radius and low-alpha indicator fill), so the status row still
+  ///          reads as one row of like things; what it says is **another way of writing the result**
+  ///          (`HEX 64`), so its foreground takes the indicator colour to set it apart from the
+  ///          `DEG`/`M` cells. `maxLines: 1` plus `ellipsis`: the controller already caps the digits
+  ///          once (`kBaseReadoutMaxDigits`), and this is the second line of defence — under an
+  ///          extreme font scale what genuinely does not fit is **visibly elided** rather than
+  ///          clipped.
+  Widget _baseReadoutChip() {
+    return Container(
+      height: _chipHeight,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
+        color: colors.indicatorFg.withValues(alpha: _chipFillAlpha),
+        borderRadius: BorderRadius.circular(_chipRadius),
+      ),
+      child: Text(
+        baseReadout.trim(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.indicatorFg,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
