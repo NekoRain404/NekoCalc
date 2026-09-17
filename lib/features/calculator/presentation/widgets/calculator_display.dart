@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/presentation/calc_theme.dart';
+import '../result_form.dart';
 import 'math_expression_view.dart';
 
 /// 中文：状态行里按钮的边长——比 Material 默认的 48 小，面板本来就不高，但仍是手指能稳稳点到的
@@ -151,45 +152,18 @@ const double _errorMessageFontSize = 12;
 ///          the screen**; when `onOpenDrawer` is null it is not rendered at all.
 ///
 /// 结果行的两种形态 / The result line's two shapes:
-/// 中文：结果行有两种形态，由**引擎有没有给出一个排得出来的精确形式**决定，两者都在同一个
-///       `FittedBox` 里右对齐：
-///
-///       1. **纯文本**（`= 2.828427`）：没有精确形式、精确形式排不出来、显示文本本身就是那个精确
-///          形式（引擎对普通数字印出来的 LaTeX 就是那串十进制），或者自然排版被关掉时走这一种。
-///          它与接入引擎之前逐字符相同，因此「引擎没答上来」对屏幕完全不可见。
-///       2. **自然排版 + 近似值**（`= 2√2 ≈ 2.828427`）：精确形式走 `MathExpressionView`（与表达式
-///          行同一个组件、同一个 `Math.tex`、同一套降级），`≈` 后面跟十进制读数。近似值就是
-///          [CalculatorDisplay.result]，取整仍由控制器的 `formatNumber` 按精度设置完成——精度
-///          设置管的正是这一半，精确形式那一半本来就与取整无关。
-///          **`≈` 那一半只在引擎给了十进制形态（[CalculatorDisplay.resultDecimal] 非空）时才
-///          出现。** 符号结果没有十进制形态，于是整行就是排出来的精确形式（`= 8 × √2 × √x`）：
-///          那里 [CalculatorDisplay.result] 不是近似值，而是同一个式子的另一种印法。
-///
-///       为什么精确形式那一段不自己调 `Math.tex`：排版只有一套机制，失败了也要退回纯文本读数，
-///       另起一套就会多出第二个降级分支与第二份「排不出来时显示什么」的判断。
-/// English: The result line has two shapes, decided by whether the engine supplied an exact form
-///          that typesets; both sit right-aligned inside the same `FittedBox`:
-///
-///          1. **Plain text** (`= 2.828427`) when there is no exact form, when the exact form does
-///             not typeset, when the display text *is* that exact form (for an ordinary number the
-///             engine's LaTeX is the decimal itself), or when natural typesetting is switched off.
-///             This is character-for-character what the line showed before the engine was wired in,
-///             so "the engine could not answer" is invisible on screen.
-///          2. **Natural typesetting plus an approximation** (`= 2√2 ≈ 2.828427`): the exact form
-///             goes through `MathExpressionView` — the same widget, the same `Math.tex`, the same
-///             fallback the expression line uses — followed by `≈` and the decimal reading. That
-///             reading is [CalculatorDisplay.result], still rounded by the controller's
-///             `formatNumber` at the user's precision: the precision setting governs that half, and
-///             the exact half has nothing to round.
-///             **That `≈` half appears only when the engine supplied a decimal form
-///             ([CalculatorDisplay.resultDecimal] non-empty).** A symbolic result has none, so the
-///             line *is* the typeset exact form (`= 8 × √2 × √x`), where
-///             [CalculatorDisplay.result] is not an approximation but the same expression spelled
-///             differently.
-///
-///          The exact form does not call `Math.tex` on its own for the same reason: there is one
-///          typesetting mechanism, it falls back to the plain reading, and a second one would add a
-///          second fallback branch and a second "what to show when it fails" decision.
+/// 中文：结果行画的是**哪几种形态里的哪一种**，由 [ResultPresentation]（`result_form.dart`）算出来，
+///       本文件不自己判：默认形态就是接这几颗键之前那一行（`= 2√2 ≈ 2.828427`，或没有精确形式时的
+///       `= 2.828427`），另外三种是精确形态、分数形态与十进制形态，各自画法见 [_resultLine]。
+///       默认形态在 [CalculatorDisplay.resultForm] 取默认值 [ResultForm.auto] 时**逐字符相同**，
+///       所以不碰这两颗键的调用方（含全部既有组件测试）看到的一个字节都没变。
+/// English: Which of the result line's forms is drawn is computed by [ResultPresentation]
+///          (`result_form.dart`) rather than judged here: the default form is the line from before
+///          these keys existed (`= 2√2 ≈ 2.828427`, or `= 2.828427` with no exact form), and the
+///          other three are the exact, fraction and decimal forms, each drawn as [_resultLine]
+///          describes. With [CalculatorDisplay.resultForm] left at its default [ResultForm.auto]
+///          the default form is **character for character** what was there before, so callers that
+///          do not touch these keys — every existing widget test included — see no change at all.
 class CalculatorDisplay extends StatelessWidget {
   const CalculatorDisplay({
     required this.expression,
@@ -203,6 +177,8 @@ class CalculatorDisplay extends StatelessWidget {
     required this.colors,
     required this.naturalDisplay,
     this.resultTex = '',
+    this.resultFractionTex = '',
+    this.resultForm = ResultForm.auto,
     this.resultDecimal = '',
     this.baseReadout = '',
     this.onTapOffset,
@@ -244,6 +220,29 @@ class CalculatorDisplay extends StatelessWidget {
   ///          approximation but the same expression spelled differently). Numeric consumers read the
   ///          controller, not this.
   final String resultDecimal;
+
+  /// 中文：**分数写法**（引擎对同一个结构换一种分数格式印出来的那一份，见 `MathResult.fractionTex`）。
+  ///       它只在 `d/c` 请求 [ResultForm.fraction] 时才上场；空串表示这一次没有分数写法，那时
+  ///       排出来的就是纯文本读数——**绝不空白、也绝不去猜一个分数**。
+  ///       与 [resultTex] 一样，**它绝不能被喂给任何数值消费者**。
+  /// English: **the fraction spelling** (the engine's other fraction format for the same structure —
+  ///          see `MathResult.fractionTex`). It only takes the stage when `d/c` asks for
+  ///          [ResultForm.fraction]; an empty string means there is no fraction spelling this time,
+  ///          and the plain reading is drawn instead — **never blank, and never a guessed
+  ///          fraction**. Like [resultTex] it must **never** be fed to a numeric consumer.
+  final String resultFractionTex;
+
+  /// 中文：**结果行画哪几种形态里的哪一种**（HiPER 的 `x⇔E` 与 `d/c` 管的就是这一个）。它只是一个
+  ///       请求：[ResultPresentation] 会拿它对照这一份结果真正有的形态，没有的一律回落到
+  ///       [ResultForm.auto]，所以请求本身不可能把某一段画成空白或画成另一个数。默认是
+  ///       [ResultForm.auto]，也就是接这两颗键之前那一行——**逐字符相同**。
+  /// English: **which of the result line's forms to draw** (what HiPER's `x⇔E` and `d/c` own). It is
+  ///          only a request: [ResultPresentation] resolves it against the forms this result really
+  ///          has and falls back to [ResultForm.auto] for any it does not, so the request itself can
+  ///          never draw a stretch blank or draw a different number. The default is
+  ///          [ResultForm.auto] — the line from before these two keys existed, **character for
+  ///          character**.
+  final ResultForm resultForm;
 
   /// 中文：是否处于错误态——只决定错误行渲染与否，不改结果行的颜色。
   /// English: Whether the panel is in an error state — it decides only whether the error line is
@@ -629,37 +628,44 @@ class CalculatorDisplay extends StatelessWidget {
   }
 
   /// 中文：结果行——`=` 与结果各自是一个 `Text`（不是拼成一行的 `RichText`），`FittedBox`
-  ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。精确形式那一段是唯一不是 `Text`
+  ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。要排版的那一段是唯一不是 `Text`
   ///       的东西：它是一个 `MathExpressionView`，与上面那行表达式同一套排版。
   ///
-  ///       精确形式要同时满足三条才会出现（见类注释里的两种形态）：
-  ///       [naturalDisplay] 开着；引擎给了一段**排得出来**的 LaTeX；而且它不是 [resultDecimal]
-  ///       逐字符的重复——最后这条挡掉的是普通数字：引擎对 `2+2` 印的 LaTeX 就是 `4`，左边已经
-  ///       是这个数，再来一个 `≈ 4` 只是把同一个数写两遍。
+  ///       **「要画哪一段」不在这里判断**：它整个搬到了 [ResultPresentation]（同目录的
+  ///       `result_form.dart`），因为 `x⇔E` / `d/c` 两颗键要问同一个问题——「这一份结果有哪几种
+  ///       画法」，而两份判断迟早会漂。这里只做两件事：把 [resultForm] 落到这一份结果上（没有的
+  ///       形态一律回落到 [ResultForm.auto]），然后照着画。
   ///
-  ///       `≈` 那一半要再多一条：`resultDecimal` 非空，也就是**这一次真的有十进制读数**（见那里）。
-  ///       符号结果没有，于是排出来的精确形式就是整行；[result] 仍作为渲染失败的降级文本传给它。
+  ///       三种画法与它们共用的样式对象：
+  ///       - 默认形态：有排得出来的精确形式时是「排版 + `≈` 十进制读数」，否则整行纯文本读数
+  ///         ——与接这两颗键之前逐字符相同；
+  ///       - 精确 / 分数形态：只有那一段排版，**没有 `≈`**；[result] 仍作为渲染失败的降级文本；
+  ///       - 十进制形态：整行就是 [result]。
   ///
-  ///       两条分支共用同一份样式对象，所以「精确形式 + 近似值」与「纯文本」的 `=`、字号、颜色
-  ///       完全一致——差别只在中间那一段是不是排出来的。
+  ///       两条分支共用同一份样式对象，所以三个画法的 `=`、字号、颜色完全一致——差别只在中间那
+  ///       一段排不排。
   /// English: The result line — the `=` and the result are separate `Text` widgets (not one
   ///          `RichText`), and the `FittedBox` only scales down, so a very long numeric result
-  ///          shrinks into the available width instead of overflowing. The exact form is the one
-  ///          part that is not a `Text`: it is a `MathExpressionView`, the same typesetting the
-  ///          expression line above uses.
+  ///          shrinks into the available width instead of overflowing. The stretch that typesets is
+  ///          the one part that is not a `Text`: it is a `MathExpressionView`, the same typesetting
+  ///          the expression line above uses.
   ///
-  ///          The exact form appears only when three things hold (see the two shapes in the class
-  ///          comment): [naturalDisplay] is on, the engine supplied LaTeX that **typesets**, and it
-  ///          is not a character-for-character repeat of [resultDecimal] — that last one rules out
-  ///          ordinary numbers: the engine's LaTeX for `2+2` is `4`, the left side is already that
-  ///          number, and a `≈ 4` beside it would just write the same number twice.
+  ///          **"Which stretch to draw" is not judged here**: it all moved to
+  ///          [ResultPresentation] (`result_form.dart` beside this file), because the `x⇔E` / `d/c`
+  ///          keys ask the same question — "which ways can this result be drawn" — and two answers
+  ///          would drift. This method does two things: resolve [resultForm] against this result
+  ///          (any form it does not have falls back to [ResultForm.auto]), then draw it.
   ///
-  ///          The `≈` half asks one thing more: `resultDecimal` non-empty, i.e. there really **is a
-  ///          decimal reading** this time (see that field); a symbolic result has none, so the
-  ///          typeset exact form *is* the whole line.
+  ///          The three drawings and the style objects they share:
+  ///          - the default form: "typeset + `≈` decimal reading" when an exact form typesets, the
+  ///            plain reading throughout otherwise — character for character the line from before
+  ///            these two keys existed;
+  ///          - the exact / fraction forms: that stretch alone, **no `≈`**; [result] still travels
+  ///            as the render-failure fallback;
+  ///          - the decimal form: the whole line is [result].
   ///
   ///          Both branches share one set of style objects, so the `=`, the sizes and the colours are
-  ///          identical in both — only the middle part differs in whether it is typeset.
+  ///          identical across all three — only the middle stretch differs in whether it typesets.
   Widget _resultLine() {
     final resultStyle = TextStyle(
       color: colors.resultFg,
@@ -671,24 +677,19 @@ class CalculatorDisplay extends StatelessWidget {
       fontSize: _equalsFontSize,
       fontWeight: FontWeight.w700,
     );
-    final tex = resultTex.trim();
-    final decimal = resultDecimal.trim();
-    final exactTex = naturalDisplay &&
-            tex.isNotEmpty &&
-            tex != decimal &&
-            MathExpressionView.typesetsTex(tex)
-        ? tex
-        : '';
-    // 中文：`≈` 那一半**只在有十进制读数时存在**：没有它时 [result] 不是近似值，而是引擎对同一个
-    //       式子的另一种印法（符号结果是 `11.31370849898476 * sqrt(x)` 这样的 ASCII 串），拿它去
-    //       「近似」左边排出来的同一个式子是一句假话。此时整行就是排出来的精确形式，[result] 仍作为
-    //       渲染失败的降级文本传下去（见上面的 `MathExpressionView`）。
-    // English: the `≈` half **exists only when there is a decimal reading**: without one, [result] is
-    //          not an approximation but the engine's other rendering of the same expression (for a
-    //          symbolic result an ASCII string such as `11.31370849898476 * sqrt(x)`), and using it to
-    //          "approximate" that same expression is a false claim. The line is then the typeset exact
-    //          form, with [result] still travelling as the render-failure fallback.
-    final showApproximation = decimal.isNotEmpty;
+    final presentation = ResultPresentation.of(
+      resultTex: resultTex,
+      fractionTex: resultFractionTex,
+      resultDecimal: resultDecimal,
+      naturalDisplay: naturalDisplay,
+    );
+    // 中文：请求 → 这一份结果真正有的形态。没有的那一种回落到 `auto`，所以下面 `texFor` 拿到的
+    //       那一段一定是这一份结果自己有的，不会画出别的东西。
+    // English: the request → the forms this result really has. A form it lacks falls back to `auto`,
+    //          so the stretch `texFor` returns below always belongs to this result.
+    final form = presentation.resolve(resultForm);
+    final typeset = presentation.texFor(form);
+    final showApproximation = presentation.showsApproximation(form);
     return Align(
       alignment: Alignment.centerRight,
       // 中文：`heightFactor: 1` 让这一行**按内容取高**，也就是把上面那个宽松上限只当上限用：
@@ -708,21 +709,21 @@ class CalculatorDisplay extends StatelessWidget {
           children: <Widget>[
             Text('=', style: equalsStyle),
             const SizedBox(width: 8),
-            if (exactTex.isEmpty)
+            if (typeset.isEmpty)
               Text(result, style: resultStyle)
             else ...<Widget>[
               MathExpressionView(
-                // 中文：走到这里说明解析已经通过（上面那道 `typesetsTex` 用的就是渲染器自己的
+                // 中文：走到这里说明解析已经通过（`ResultPresentation` 用的就是渲染器自己的
                 //       解析器）。剩下的失败面只有**渲染阶段**的异常，那时这一段退化成这个
-                //       `Text`，即最多把近似值写两遍——绝不空白、也绝不是乱码，这是这里唯一
+                //       `Text`，即最多把读数写两遍——绝不空白、也绝不是乱码，这是这里唯一
                 //       能给出的保证。
-                // English: Reaching here means the parse already succeeded (that `typesetsTex` above
+                // English: Reaching here means the parse already succeeded (that `ResultPresentation`
                 //          asks the renderer's own parser). The only failure surface left is an
                 //          exception in the **render** stage, and then this fragment degrades to the
-                //          `Text` below — the approximation written twice at worst, never blank and
-                //          never garbled. That is the only promise available at this point.
+                //          `Text` below — the reading written twice at worst, never blank and never
+                //          garbled. That is the only promise available at this point.
                 expression: result,
-                tex: exactTex,
+                tex: typeset,
                 naturalDisplay: naturalDisplay,
                 textStyle: resultStyle,
               ),

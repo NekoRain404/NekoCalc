@@ -16,6 +16,7 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../shared/presentation/calc_theme.dart';
 import 'keypad/calculator_keypad.dart';
 import 'keypad/hiper_keypad.dart';
+import 'result_form.dart';
 import 'widgets/calculator_display.dart';
 import 'widgets/inline_expression_editor.dart';
 import 'widgets/unit_picker_sheet.dart';
@@ -71,6 +72,9 @@ class CalculatorPage extends StatefulWidget {
     'shift', 'hyp', 'drawer', 'openHistory', 'openTools',
     'openConstants', 'openUnits', 'openVariables',
     'baseDec', 'baseHex', 'baseBin', 'baseOct',
+    // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。两者都只改**显示**，
+    // 结果行、`Ans`/`last`、记忆寄存器、继续使用与历史一个字都不动。
+    'resultForm', 'fractionForm',
     // 编辑与结果
     'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
     // 记忆寄存器
@@ -138,6 +142,28 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   late final CalculatorController _controller;
   bool _savingNote = false;
+
+  /// 中文：**结果行画哪几种形态里的哪一种**（HiPER 的 `x⇔E` / `d/c` 管的那一维）。它只活在这一页
+  ///       的状态里，与结果本身无关，所以：
+  ///
+  ///       - **不落盘、不进 `MathResult`**：它不是一个值，是「这一个值用哪种写法印出来」。进了结果
+  ///         类型就会被别的消费者当成值读走，而这件事与值无关。
+  ///       - **一页一份，`clear()` 不重置、编辑也不重置**：HiPER 上它是一个模式，换一道算式它还在。
+  ///         这不构成任何风险——形态每一帧都要拿这一份**当前结果**重新解析一遍
+  ///         （[ResultPresentation.resolve]），这一份结果没有的那一种一律回落到 `auto`，所以一个
+  ///         留下来的模式绝不可能把新结果的某一段画成空白或画成另一个数。
+  /// English: **which of the result line's forms is drawn** (the dimension HiPER's `x⇔E` / `d/c`
+  ///          own). It lives in this page's state and belongs to nothing else, because:
+  ///
+  ///          - **it is not persisted and does not go into `MathResult`**: it is not a value, it is
+  ///            "which spelling this one value is printed in". Inside the result type other consumers
+  ///            would read it as a value, and it has nothing to do with the value.
+  ///          - **one per page, reset by neither `clear()` nor an edit**: on HiPER it is a mode, and
+  ///            it survives the next sum. That carries no risk — the form is re-resolved against
+  ///            **the current result** on every single frame ([ResultPresentation.resolve]) and any
+  ///            form that result does not have falls back to `auto`, so a surviving mode can never
+  ///            draw part of a new result blank or draw a different number.
+  ResultForm _resultForm = ResultForm.auto;
   bool _inlineEditing = false;
   bool _requestInlineFocus = false;
   bool _pastingCalculatorDetails = false;
@@ -248,6 +274,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          only when it renders and is not the same number written differently; see the two
       //          shapes in `CalculatorDisplay`.
       resultTex: _controller.resultTex,
+      resultFractionTex: _controller.resultFractionTex,
+      // 中文：请求的形态（`x⇔E` / `d/c` 按出来的那一个）。`CalculatorDisplay` 拿它对照这一份结果
+      //       真正有的形态，没有的回落 `auto`——判断那一处只有一份，在 `ResultPresentation`。
+      // English: the requested form (what `x⇔E` / `d/c` pressed). `CalculatorDisplay` resolves it
+      //          against the forms this result really has and falls back to `auto`; that judgement
+      //          exists in exactly one place, `ResultPresentation`.
+      resultForm: _resultForm,
       resultDecimal: _controller.resultDecimal,
       // 中文：进制读数（四个进制胶囊按出来的那一个）。它由控制器决定此刻还成不成立——代际或来源
       //       十进制形态对不上时控制器给的就是空串，所以这里不必再判一次。
@@ -334,6 +367,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
       enabled: widget.settings.haptics,
       strength: widget.settings.hapticStrength,
     );
+  }
+
+  /// 中文：`x⇔E` / `d/c` 两颗键换形态走的那一条。**先 `resolve` 再存**：这一份结果画不出来的形态
+  ///       一律落回 [ResultForm.auto]，所以留下来的状态永远是「这一份结果真的画得出来的一种」，
+  ///       下一份结果上来时也不会把某一段画成空白。没有变化时**不** `setState`——两颗键在一份只有
+  ///       一种画法的结果上（`2+2`）是空操作，不该白白重建一次。
+  /// English: the one path the `x⇔E` / `d/c` keys take to switch form. **Resolve first, then store**:
+  ///          a form this result cannot draw falls back to [ResultForm.auto], so the stored state is
+  ///          always "one this result really can draw" and cannot leave a stretch blank when the next
+  ///          result arrives. Nothing is rebuilt when nothing changed — on a result with a single
+  ///          drawing (`2+2`) both keys are no-ops and must not force a rebuild for nothing.
+  void _setResultForm(ResultForm form) {
+    final resolved = _resultPresentation.resolve(form);
+    if (resolved == _resultForm) return;
+    setState(() => _resultForm = resolved);
   }
   void _openInlineEditor({bool requestFocus = false, int? sourceOffset}) {
     if (sourceOffset != null) {

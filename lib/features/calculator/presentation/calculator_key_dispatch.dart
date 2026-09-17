@@ -176,6 +176,45 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.memoryAdd();
       case 'memorySubtract':
         _controller.memorySubtract();
+      // 中文：**结果行的形态**——`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。HiPER 的手册把
+      //       「结果格式」与「数字记法」分成两维（`x⇔E` 是前者、`FSE` 是后者），而 `d/c` 的 SHIFT
+      //       标签 `a b/c`（带分数）正是同一格里分数那一个取值，所以这两颗键管的是同**一维**里的
+      //       两件事：一颗沿着它走一圈，另一颗在分数与十进制之间短接。
+      //
+      //       **两者都只改显示，一个值都不碰**：`Ans`/`last`、记忆寄存器、继续使用、历史与提交路径
+      //       读的都还是 `MathResult.decimalText`（[CalculatorController.resultDecimal]），这两颗键
+      //       连控制器的状态都不进——形态记在这一页的 `_resultForm` 上。这不是四个进制胶囊那条
+      //       「显示读数」的路（那条要把读数送到状态行上、要与结果的十进制形态比对来源、要带代际），
+      //       而是**结果行自己的画法**：HiPER 的 `x⇔E` 改的就是结果行，所以它必须落在结果行上，
+      //       而不是另开一格显示区。
+      //
+      //       两颗键「按下去有没有变化」由 [ResultPresentation] 回答（它按「画出来是不是同一行」
+      //       合并形态）：`2+2` 只有一种画法，于是两颗都是空操作——一颗**看起来坏了**的键比一颗
+      //       诚实的空操作更像错误，而这里不做任何假装（不弹提示、不写状态行）。
+      // English: **the result line's form** — `x⇔E` walks the cycle, `d/c` toggles between the
+      //          standard spelling and the decimal. HiPER's manual splits "result format" from
+      //          "number notation" (`x⇔E` the first, `FSE` the second), and `d/c`'s SHIFT label
+      //          `a b/c` (a mixed number) is the fraction value in the same cell — so these two keys
+      //          do two things inside **one** dimension: one walks around it, the other short-circuits
+      //          between the fraction and the decimal.
+      //
+      //          **Both change the display only; neither touches a value**: `Ans`/`last`, the memory
+      //          register, continue-with, history and the submit path all still read
+      //          `MathResult.decimalText` ([CalculatorController.resultDecimal]), and these keys do
+      //          not even enter the controller's state — the form lives in this page's `_resultForm`.
+      //          This is not the four base pills' "read-out" route (that one has to send a read-out to
+      //          the status row, compare its source against the result's decimal form and carry a
+      //          generation) but **the result line's own drawing**: HiPER's `x⇔E` changes the result
+      //          line, so it has to land on the result line rather than open a display cell of its own.
+      //
+      //          Whether a press changes anything is answered by [ResultPresentation] (which merges
+      //          forms by "does it draw the same line"): `2+2` has one drawing, so both keys are
+      //          no-ops — a key that *looks* broken is more like a bug than an honest no-op, and
+      //          nothing is faked here (no toast, no status-row text).
+      case 'resultForm':
+        _setResultForm(_resultPresentation.next(_resultForm));
+      case 'fractionForm':
+        _setResultForm(_resultPresentation.toggleStandard(_resultForm));
       // 中文：`ins:` 前缀 = 插入这段文本。三处落点比裸插入更贴切：`%` 走控制器的百分号运算（`50+10%`
       //       会被折算），`exp` 走一元函数（它插入 `exp(`，裸插的 `exp` 会被解析器拒绝），`inf` 是
       //       解析器承认的常数。
@@ -425,4 +464,21 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       _ => key,
     };
   }
+
+  /// 中文：**当前结果有哪几种画法**——`x⇔E` / `d/c` 两颗键问的就是这一个问题，而算它的地方只有一处
+  ///       （[ResultPresentation]，结果行画的也是同一份）。`naturalDisplay` 与结果行取的是同一个
+  ///       表达式（`expressionDisplayMode == '数学符号'`）：自然排版关掉时结果行整行是纯文本，
+  ///       没有任何一种形态排得出来，于是两颗键都是空操作——这正是那条设置本来就有的含义。
+  /// English: **which ways the current result can be drawn** — the one question `x⇔E` / `d/c` ask,
+  ///          computed in exactly one place ([ResultPresentation], the same one the result line
+  ///          draws from). `naturalDisplay` is the same expression the result line uses
+  ///          (`expressionDisplayMode == '数学符号'`): with natural typesetting off the result line is
+  ///          plain text throughout, no form can typeset, and both keys are no-ops — which is what
+  ///          that setting already meant.
+  ResultPresentation get _resultPresentation => ResultPresentation.of(
+        resultTex: _controller.resultTex,
+        fractionTex: _controller.resultFractionTex,
+        resultDecimal: _controller.resultDecimal,
+        naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
+      );
 }

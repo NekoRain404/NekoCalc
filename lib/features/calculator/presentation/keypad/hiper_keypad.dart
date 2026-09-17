@@ -83,14 +83,24 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
 
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
   //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
-  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（x⇔E 的 SHIFT 提示）、
+  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**仍未接上的**提示：
+  //       HiPER 上是「数字记法」那一维——Normal / Fixed / Scientific / Engineering / Engineering SI，
+  //       而本应用没有这一维，所以它只是一条提示，不是承诺；上方的键 `x⇔E` 从这一步起点亮，管的是
+  //       结果**形式**那一维，与 FSE 不是同一件事。SHIFT 态下按 `x⇔E` 走的是它自己的基准动作
+  //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `d/dx` 同一种情形）、
   //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
   //       仍未接上：引擎算得出符号导数，但符号结果过不了提交路径的「必须是有限十进制」那道门，
   //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
   //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
   //          only real band buttons are the four base pills plus hyp, so this one is a
-  //          non-tappable hint), FSE (SHIFT hint of x⇔E), MTRX (hint of the matrix key),
+  //          non-tappable hint), FSE (**still unwired**: on HiPER it is the "number notation"
+  //          dimension — Normal / Fixed / Scientific / Engineering / Engineering SI — and this app
+  //          has no such dimension, so it is a hint rather than a promise; the key under it, `x⇔E`,
+  //          lights up from this step on and owns the result **form** dimension instead, which is a
+  //          different thing. Under SHIFT, `x⇔E` runs its own base action — as
+  //          `CalculatorKeypad._resolve` says, a key without a shift variant falls back to the base —
+  //          exactly the situation `d/dx` is in), MTRX (hint of the matrix key),
   //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, still unwired: the engine can produce a
   //          symbolic derivative, but a symbolic result does not pass the submit path's "must be a
   //          finite decimal" gate, so lighting the key up would only produce errors — see the
@@ -102,8 +112,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         category: KeyCategory.function,
       ),
       KeypadKey(
-        base: KeyVariant(label: 'x⇔E', id: 'dis:xchgE', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'x⇔E', id: 'resultForm'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
@@ -255,17 +265,30 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
     ],
   ),
 
-  // 中文：行 5——度分秒 / 分数 / X / XY,M（均禁用）/ 记忆读取 / 记忆写入。
+  // 中文：行 5——度分秒 / 分数 / X / XY,M（三条禁用）/ 记忆读取 / 记忆写入。
   //       上方标签：STAT、a b/c、Y 三个禁用键，HISTORY（打开抽屉的历史入口），
   //       M+、M−（记忆累加与累减——它们与 `memoryAdd`/`memorySubtract` 语义一致）。
   //       注意 `x→M`：它**不是**累加，HiPER 上它是把当前值写进寄存器（替换）；主屏用
   //       「先清空再累加」实现它，见 `calculator_page.dart` 的 `memoryStore` case。
-  // English: Row 5 — D°M'S / d/c / X / XY,M (all disabled) / memory recall / memory store.
+  //       **`d/c` 从这一步起点亮**：HiPER 的 `d/c` 是结果格式系统里分数那一格（它的手册把「结果
+  //       格式」与「数字记法」分成两维：`x⇔E` 是前者、`FSE` 是后者，而 `d/c` 的 SHIFT 标签就是
+  //       `a b/c`——带分数，正是同一格里的另一个取值），所以它做的就是把当前结果换成**分数写法**、
+  //       再按一次换回十进制。分数写法由引擎对**同一个已求值结构**换一种 `number_fraction_format`
+  //       印出来（见 `printOptions`），两份的值严格相等；引擎没答上来时它是空操作，不去猜一个分数。
+  // English: Row 5 — D°M'S / d/c / X / XY,M (three disabled) / memory recall / memory store.
   //          Band above: the disabled STAT, a b/c and Y keys, HISTORY (the drawer's history
   //          entry), and M+ / M− (memory accumulate and decrement — these two do match
   //          `memoryAdd`/`memorySubtract`). Note `x→M`: it is **not** an accumulate — on HiPER it
   //          writes the current value into the register (a replace); the screen implements that as
   //          "clear, then add", see the `memoryStore` case in `calculator_page.dart`.
+  //          **`d/c` lights up from this step on**: HiPER's `d/c` is the fraction cell of the result
+  //          format system (its manual splits "result format" from "number notation": `x⇔E` is the
+  //          first, `FSE` the second, and `d/c`'s SHIFT label is `a b/c` — a mixed number, i.e. the
+  //          other value in that same cell), so what it does is put the current result in its
+  //          **fraction spelling** and put the decimal back on a second press. The fraction spelling
+  //          is the engine printing **one already evaluated structure** under a different
+  //          `number_fraction_format` (see `printOptions`), so the two carry strictly equal values;
+  //          with no engine answer it is a no-op rather than a guessed fraction.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -273,8 +296,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         category: KeyCategory.disabled,
       ),
       KeypadKey(
-        base: KeyVariant(label: 'd/c', id: 'dis:dc', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'd/c', id: 'fractionForm'),
+        category: KeyCategory.function,
       ),
       // 中文：**`X` 从这一步起点亮，它打开变量面板**（原来是一颗灰键 `dis:x`）。为什么是「打开
       //       面板」而不是「直接插入 `x`」：键盘上没有字母键，值总得有个入口，而一个只能插入字母的
