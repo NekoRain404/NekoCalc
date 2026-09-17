@@ -15,6 +15,12 @@ mixin _CalculatorEditing on _CalculatorState {
       unawaited(submit());
       return;
     }
+    // 中文：**右括号键先看看光标右边是不是已经有一颗。** 是的话这一次按键只把光标移过去，
+    //       一个字符都不写——见 [_skipClosingBracketAhead]。
+    // English: **the `)` key first looks at whether the caret already has one on its right.** If it
+    //          does, this press only moves the caret over it and writes nothing — see
+    //          [_skipClosingBracketAhead].
+    if (token == ')' && _skipClosingBracketAhead()) return;
     _markStateEdited();
     _recordUndoSnapshot();
     if (token == '+/-') {
@@ -406,6 +412,75 @@ mixin _CalculatorEditing on _CalculatorState {
     final start = selection.start;
     expression = expressionBeforeCursor + token + expressionAfterCursor;
     cursorIndex = start + token.length;
+  }
+
+  /// 中文：**右括号键的「跨过去」。** 光标（折叠）右边就是一颗 `)` 时，这一次按键只把光标移到它
+  ///       后面，**不写第二个字符**；返回 `true` 表示这次按键已经被消费掉。别的任何情况返回
+  ///       `false`，`)` 照旧由 [_insert] 写进去。
+  ///
+  ///       **为什么是「跨过去」而不是让解析器容忍多余的右括号。** 真机实测的缺陷是
+  ///       「`√x`、`8`、`)`」写出 `sqrt(8))`：函数键补出的是 `sqrt()`（光标在括号**里**），
+  ///       用户再按一次 `)` 就成了两颗。两个方向的修法差在**风险落在哪一层**：
+  ///
+  ///       - **容忍**是把求值路径放宽：`ExpressionParser.parse()` 从第一版起就要求整条输入被
+  ///         完整消费（`Unexpected token` 那条检查，`7c8e7b9` 就在），放宽它等于让计算器、图形页、
+  ///         工具页、数据拟合**一起**开始接受它们本该拒绝的输入——而这些改动一个值都改不对，
+  ///         只会把「报错」变成「照算」。这一层正是本仓库反复出过**静默错值**的地方。
+  ///       - **跨过去**只移动光标：**字符串一个字节都不变**，所以不可能改变任何一次求值的结果。
+  ///
+  ///       而且历史行为本来就是这一条：`b046b53` 之前 `√x` 只插 `sqrt(`（右括号从来不出现），
+  ///       同样这三颗键写出的正是 `sqrt(8)`。也就是说这一改**复原的是同一串按键的旧字符串**，
+  ///       而不是发明一条新的接受规则。
+  ///
+  ///       **代价写在这里**：光标右边那颗 `)` 若同时还在闭合更外层未闭合的组（`(` 键不补右括号，
+  ///       于是 `(sqrt(` + `√x` 得到 `(sqrt()`），第一次按只是跨过去，要再按一次才会写下第二颗。
+  ///       换来的是**这颗键永远写不出应用自己读不懂的东西**；跨过去之后光标右边再没有括号，
+  ///       所以下一次按一定会写——按键不会丢。
+  ///
+  ///       与光标键一致：这是一次纯光标移动，[moveCursorRight] 不记撤销快照，这里也不记。
+  /// English: **the `)` key's "step over".** When a collapsed caret has a `)` immediately on its
+  ///          right, this press only moves the caret past it and **writes no second character**;
+  ///          `true` means the press has been consumed. Every other case returns `false` and the `)`
+  ///          is written by [_insert] as before.
+  ///
+  ///          **Why "step over" rather than teaching the parser to tolerate a redundant bracket.**
+  ///          The measured device defect is that `√x`, `8`, `)` write `sqrt(8))`: the function key
+  ///          writes `sqrt()` (caret **inside**) and the user's `)` makes it two. The two repairs
+  ///          differ in **which layer carries the risk**:
+  ///
+  ///          - **Tolerating** widens the evaluation path: `ExpressionParser.parse()` has demanded
+  ///            full consumption of the input since its first version (the `Unexpected token` check,
+  ///            present already in `7c8e7b9`), and relaxing it makes the calculator, the graph page,
+  ///            the tool pages and data fitting **all** start accepting input they should refuse.
+  ///            None of those changes could correct a value; they only turn "error" into "it
+  ///            computes anyway". That layer is exactly where this repository has repeatedly
+  ///            produced **silent wrong values**.
+  ///          - **Stepping over** moves the caret only: **not one byte of the string changes**, so it
+  ///            cannot alter any evaluation result.
+  ///
+  ///          The historical behaviour was this one anyway: before `b046b53` the `√x` key inserted
+  ///          `sqrt(` alone (the bracket never appeared) and the same three keys wrote `sqrt(8)`.
+  ///          This change therefore **restores the old string for the same keystrokes** rather than
+  ///          inventing a new acceptance rule.
+  ///
+  ///          **The price, written down**: when the `)` on the right is also closing a still-open
+  ///          outer group (the `(` key writes no bracket, so `(sqrt(` + `√x` gives `(sqrt()`), the
+  ///          first press only steps over and a second press is needed to write one. What that buys
+  ///          is that **this key can never write something the app itself cannot read**; after
+  ///          stepping over there is no bracket on the right, so the next press is bound to write —
+  ///          no keystroke is lost.
+  ///
+  ///          Consistent with the cursor keys: this is a pure caret move, and just as [moveCursorRight]
+  ///          records no undo snapshot, neither does this.
+  bool _skipClosingBracketAhead() {
+    if (!selection.isCollapsed) return false;
+    if (cursorIndex >= expression.length) return false;
+    if (expression[cursorIndex] != ')') return false;
+    _markStateEdited();
+    cursorIndex++;
+    unawaited(_persistState());
+    notifyListeners();
+    return true;
   }
 
   /// 中文：把光标左侧的文本换成 [prefix]，并把光标放在它末尾之前 [cursorBack] 个字符处。
