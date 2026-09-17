@@ -45,7 +45,8 @@ const double _errorMessageFontSize = 12;
 ///
 /// 布局 / Layout（自上而下 / top to bottom）:
 /// 中文：1) 状态行：最左是抽屉按钮（`onOpenDrawer` 为空则不渲染），接着角度模式 chip、
-///       记忆指示 `M`（`hasMemory` 为假时留空）、进制读数（[baseReadout] 为空时整格不存在——
+///       记忆指示 `M`（`hasMemory` 为假时留空）、**结果形式指示**（`EXPR` / `DMS`，没有时整格
+///       不存在，见 [ResultForm.indicator]）、进制读数（[baseReadout] 为空时整格不存在——
 ///       它只占余量，不会把 `More...` 挤出屏幕），`Spacer` 把 `More...` 推到最右
 ///       （`onMore` 为空则不渲染）；2) 表达式行：`MathExpressionView`，右对齐，外面套一圈横向
 ///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果——引擎给出精确
@@ -54,9 +55,11 @@ const double _errorMessageFontSize = 12;
 ///       `statusMessage` 在下。
 /// English: 1) status row: the drawer button leftmost (not rendered when `onOpenDrawer` is null),
 ///          then the angle-mode chip, the `M` memory indicator (nothing when `hasMemory` is
-///          false), and a `Spacer` pushing `More...` to the right edge (not rendered when
-///          `onMore` is null); 2) expression line: `MathExpressionView`, right-aligned, inside a
-///          horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
+///          false), the **result-form indicator** (`EXPR` / `DMS`; the whole cell is absent when
+///          there is none — see [ResultForm.indicator]), the base read-out (absent when
+///          [baseReadout] is empty), and a `Spacer` pushing `More...` to the right edge (not
+///          rendered when `onMore` is null); 2) expression line: `MathExpressionView`, right-aligned,
+///          inside a horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
 ///          line: right-aligned, an `=` prefix followed by the result — when the engine supplied an
 ///          exact form and that form typesets, it goes through `MathExpressionView` and is followed
 ///          by `≈ approximation`; otherwise the whole line stays plain text. Its height is a
@@ -339,6 +342,14 @@ class CalculatorDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 中文：**形态只算一次，两处读同一份**——结果行按它决定画哪一段，状态行按它决定点哪一盏灯。
+    //       两处各算一次迟早会漂（`resultDmsText` 或 `angleMode` 在一处传错就够了），漂开的后果
+    //       正是这条路上最不能有的东西：灯说的与行上画的是两回事。见 [_presentation]。
+    // English: **the forms are computed once and read by both** — the result line decides which
+    //          stretch to draw from them, the status row which lamp to light. Computing them twice
+    //          would drift (one mis-passed `resultDmsText` or `angleMode` is enough), and what drifts
+    //          is a lamp contradicting the line. See [_presentation].
+    final presentation = _presentation();
     return ColoredBox(
       color: colors.background,
       child: Padding(
@@ -362,7 +373,7 @@ class CalculatorDisplay extends StatelessWidget {
           //          slack is zero and this alignment is a no-op.
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            _statusRow(),
+            _statusRow(presentation),
             const SizedBox(height: 6),
             // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：面板高度够
             //       类注释里那条下限时，fixed 的状态行与结果行不会被裁掉；再矮下去就先挤这一行，
@@ -398,7 +409,11 @@ class CalculatorDisplay extends StatelessWidget {
             //          affect every result). Laid out loose it still takes its natural height and
             //          only scales when it genuinely does not fit, so at ordinary font sizes this
             //          row is pixel-for-pixel what it was.
-            Flexible(fit: FlexFit.loose, flex: 1, child: _resultLine()),
+            Flexible(
+              fit: FlexFit.loose,
+              flex: 1,
+              child: _resultLine(presentation),
+            ),
             if (hasError) ...<Widget>[
               const SizedBox(height: 4),
               // 中文：错误行是可收缩的兜底，并且按 2:1 的份额比表达式行拿得多：错误块最多三行文字
@@ -430,20 +445,40 @@ class CalculatorDisplay extends StatelessWidget {
     );
   }
 
-  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、进制读数，`Spacer` 之后是 `More...`。
+  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、**结果形式指示**、进制读数，`Spacer` 之后是
+  ///       `More...`。
   ///
   ///       进制读数那一格是 [Flexible]（宽松）而不是定宽：它旁边那个 `Spacer` 是 `Expanded`，
   ///       两者按 flex 分余量，于是读数**永远放得下**——内容比份额长时是它自己按省略号收窄，
   ///       而不是让整行报 RenderFlex 溢出。没有读数时这一格整个不存在，布局与从前逐像素相同。
-  /// English: The status row — drawer button, angle-mode chip, memory indicator, base read-out, then
-  ///          `More...` after a `Spacer`.
+  ///
+  ///       **结果形式指示**那一格（HiPER 的 `EXPR` / `DMS`）守同一条规矩，理由也是量出来的：宽松
+  ///       `Flexible` + chip 里 `maxLines: 1`/省略号，放不下时收窄自己而不是把整行撑破（不给它
+  ///       `Flexible` 时实测报 `A RenderFlex overflowed by 30 pixels on the right.`）；空串时整格
+  ///       不存在。为什么落在这一行而不是另起一行，判据在 [ResultForm.indicator]。
+  /// English: The status row — drawer button, angle-mode chip, memory indicator, **the result-form
+  ///          indicator**, base read-out, then `More...` after a `Spacer`.
   ///
   ///          The base read-out's cell is a loose `Flexible` rather than a fixed width: the `Spacer`
   ///          beside it is an `Expanded`, the two share the slack by flex, and the read-out therefore
   ///          **always fits** — when it is longer than its share it narrows itself with an ellipsis
   ///          instead of making the row report a RenderFlex overflow. With no read-out the cell does
   ///          not exist at all and the layout is pixel-for-pixel what it was.
-  Widget _statusRow() {
+  ///
+  ///          The **result-form indicator** cell (HiPER's `EXPR` / `DMS`) keeps the same rule for the
+  ///          same measured reason: a loose `Flexible` with `maxLines: 1` plus an ellipsis inside the
+  ///          chip, narrowing rather than overflowing the row (measured: `A RenderFlex overflowed by
+  ///          30 pixels on the right.` without it). An empty string means the whole cell is absent;
+  ///          why it lands on this row rather than a line of its own is in [ResultForm.indicator].
+  Widget _statusRow(ResultPresentation presentation) {
+    // 中文：**请求的形态落到这一份结果上**之后才念名字。少了 `resolve` 这一步，上一份结果上选的
+    //       形态会留在状态行上给新结果点一盏假灯——「这一份结果没有那一格」时就该一个字都不说。
+    //       判据只有 `ResultPresentation` 那一份（rule 6），这里不重判。
+    // English: the word is read off **after the requested form is resolved against this result**.
+    //          Without that `resolve` step a form chosen for the previous result would leave a false
+    //          lamp lit over the new one — when this result has no such cell, nothing must be said.
+    //          The judgement is `ResultPresentation`'s alone (rule 6) and is not repeated here.
+    final indicator = presentation.resolve(resultForm).indicator;
     return SizedBox(
       height: _statusButtonSize,
       child: Row(
@@ -456,6 +491,13 @@ class CalculatorDisplay extends StatelessWidget {
           if (hasMemory) ...<Widget>[
             const SizedBox(width: 6),
             StatusChips.memory(colors),
+          ],
+          if (indicator.isNotEmpty) ...<Widget>[
+            const SizedBox(width: 6),
+            // 中文：宽松 `Flexible`——与进制读数那一格同一契约，实测见 `_statusRow` 的注释。
+            // English: a loose `Flexible` — the base read-out's contract; the measurement is in
+            //          `_statusRow`'s note.
+            Flexible(child: StatusChips.resultForm(indicator, colors)),
           ],
           if (baseReadout.trim().isNotEmpty) ...<Widget>[
             const SizedBox(width: 6),
@@ -550,6 +592,41 @@ class CalculatorDisplay extends StatelessWidget {
     );
   }
 
+  /// 中文：**这一份结果的形态，算一次**。构造过程与它接这两颗键时逐字相同（`build` 里那一处原来
+  ///       内联在 [_resultLine] 内），只是搬到了两处调用者都够得着的地方：结果行要按它决定画哪一段，
+  ///       状态行要按它决定点哪一盏结果形式灯（`EXPR` / `DMS`）。两处读的因此是**同一份**判断，
+  ///       而那份判断本身仍然只在 `ResultPresentation` 里（rule 6：没有第二份判据）。
+  ///
+  ///       六个入参逐字来自本组件的字段，一个都没有新加：`ResultPresentation.of` 的后两个入参
+  ///       （度分秒那一格的引擎原文与角度模式）在下面写着理由，它们只影响那一格存不存在。
+  /// English: **this result's forms, computed once.** The construction is character-for-character what
+  ///          it was when these two keys landed (`build` used to inline it inside [_resultLine]); it
+  ///          only moved somewhere both callers can reach: the result line uses it to decide which
+  ///          stretch to draw, the status row to decide which result-form lamp to light (`EXPR` /
+  ///          `DMS`). Both therefore read **one** judgement, and that judgement still lives only in
+  ///          `ResultPresentation` (rule 6: no second copy of the test).
+  ///
+  ///          All six arguments come verbatim from this widget's fields; not one is new. The reason for
+  ///          `ResultPresentation.of`'s last two (the DMS cell's engine string and the angle mode) is
+  ///          below; they only affect whether that cell exists.
+  ResultPresentation _presentation() {
+    return ResultPresentation.of(
+      resultTex: resultTex,
+      fractionTex: resultFractionTex,
+      resultDecimal: resultDecimal,
+      naturalDisplay: naturalDisplay,
+      // 中文：度分秒那一格的另外两个入参——引擎那一串原文，以及**这一份结果算出来时的角度模式**
+      //       （`DEG` 才是「这个数是若干度」成立的那一半，判据在 `ResultPresentation` 里，不在
+      //       这里）。两者都只影响那一格存不存在，不影响别的形态。
+      // English: the DMS cell's other two inputs — the engine's string, and **the angle mode this
+      //          result was produced under** (`DEG` is the half where "this number is so many degrees"
+      //          holds; the judgement lives in `ResultPresentation`, not here). Both only affect
+      //          whether that cell exists; no other form moves.
+      dmsText: resultDmsText,
+      degreesMode: angleMode == 'DEG',
+    );
+  }
+
   /// 中文：结果行——`=` 与结果各自是一个 `Text`（不是拼成一行的 `RichText`），`FittedBox`
   ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。要排版的那一段是唯一不是 `Text`
   ///       的东西：它是一个 `MathExpressionView`，与上面那行表达式同一套排版。
@@ -589,7 +666,7 @@ class CalculatorDisplay extends StatelessWidget {
   ///
   ///          Both branches share one set of style objects, so the `=`, the sizes and the colours are
   ///          identical across all three — only the middle stretch differs in whether it typesets.
-  Widget _resultLine() {
+  Widget _resultLine(ResultPresentation presentation) {
     final resultStyle = TextStyle(
       color: colors.resultFg,
       fontSize: _resultFontSize,
@@ -599,21 +676,6 @@ class CalculatorDisplay extends StatelessWidget {
       color: colors.resultFg,
       fontSize: _equalsFontSize,
       fontWeight: FontWeight.w700,
-    );
-    final presentation = ResultPresentation.of(
-      resultTex: resultTex,
-      fractionTex: resultFractionTex,
-      resultDecimal: resultDecimal,
-      naturalDisplay: naturalDisplay,
-      // 中文：度分秒那一格的另外两个入参——引擎那一串原文，以及**这一份结果算出来时的角度模式**
-      //       （`DEG` 才是「这个数是若干度」成立的那一半，判据在 `ResultPresentation` 里，不在
-      //       这里）。两者都只影响那一格存不存在，不影响别的形态。
-      // English: the DMS cell's other two inputs — the engine's string, and **the angle mode this
-      //          result was produced under** (`DEG` is the half where "this number is so many degrees"
-      //          holds; the judgement lives in `ResultPresentation`, not here). Both only affect
-      //          whether that cell exists; no other form moves.
-      dmsText: resultDmsText,
-      degreesMode: angleMode == 'DEG',
     );
     // 中文：请求 → 这一份结果真正有的形态。没有的那一种回落到 `auto`，所以下面 `texFor` 拿到的
     //       那一段一定是这一份结果自己有的，不会画出别的东西。
