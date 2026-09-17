@@ -6,6 +6,9 @@ import '../../core/utils/backup_snapshot_validator.dart';
 import '../models/history_item.dart';
 import '../models/note_item.dart';
 
+part 'app_database_rows.dart';
+part 'app_database_schema.dart';
+
 /// 中文：应用唯一 SQLite 入口，集中管理 schema、迁移、查询、备份和恢复。
 /// English: Single SQLite entry point for schema, migrations, queries, backup, and restore.
 class AppDatabase {
@@ -22,7 +25,7 @@ class AppDatabase {
     final dbPath = await getDatabasesPath();
     _database = await openDatabase(
       p.join(dbPath, 'nekocalc.db'),
-      version: 5,
+      version: 6,
       onConfigure: (db) async {
         // 中文：WAL 和 NORMAL synchronous 在移动端读写体验与安全性之间取得平衡。
         // English: WAL plus NORMAL synchronous balances mobile write responsiveness and data safety.
@@ -41,93 +44,12 @@ class AppDatabase {
         if (oldVersion < 2) await _createSettingsTable(db);
         if (oldVersion < 3) await _addNoteDescriptionColumn(db);
         if (oldVersion < 5) await _addNoteUpdatedAtColumn(db);
+        if (oldVersion < 6) await _addNoteOrganizationColumns(db);
         if (oldVersion < 5) await _createIndexes(db);
+        if (oldVersion < 6) await _createIndexes(db);
       },
     );
     return _database!;
-  }
-
-  static Future<void> _createSchema(DatabaseExecutor db) async {
-    await db.execute('''
-          CREATE TABLE calculation_history(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            expression TEXT NOT NULL,
-            result TEXT NOT NULL,
-            tool_id TEXT,
-            created_at INTEGER NOT NULL
-          )
-        ''');
-    await db.execute('''
-          CREATE TABLE notes(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            body TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-          )
-        ''');
-    await db.execute('''
-          CREATE TABLE favorite_tools(
-            tool_id TEXT PRIMARY KEY,
-            created_at INTEGER NOT NULL
-          )
-        ''');
-    await db.execute('''
-          CREATE TABLE recent_tools(
-            tool_id TEXT PRIMARY KEY,
-            used_at INTEGER NOT NULL
-          )
-        ''');
-    await _createSettingsTable(db);
-    await _createIndexes(db);
-  }
-
-  static Future<void> _createSettingsTable(DatabaseExecutor db) {
-    return db.execute('''
-      CREATE TABLE IF NOT EXISTS app_settings(
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    ''');
-  }
-
-  static Future<void> _addNoteDescriptionColumn(DatabaseExecutor db) async {
-    final columns = await db.rawQuery('PRAGMA table_info(notes)');
-    final hasDescription =
-        columns.any((column) => column['name'] == 'description');
-    if (!hasDescription) {
-      await db.execute(
-          "ALTER TABLE notes ADD COLUMN description TEXT NOT NULL DEFAULT ''");
-    }
-  }
-
-  static Future<void> _addNoteUpdatedAtColumn(DatabaseExecutor db) async {
-    final columns = await db.rawQuery('PRAGMA table_info(notes)');
-    final hasUpdatedAt =
-        columns.any((column) => column['name'] == 'updated_at');
-    if (!hasUpdatedAt) {
-      await db.execute(
-          'ALTER TABLE notes ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0');
-      await db.execute(
-          'UPDATE notes SET updated_at = created_at WHERE updated_at = 0');
-    }
-  }
-
-  static Future<void> _createIndexes(DatabaseExecutor db) async {
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_history_created_at ON calculation_history(created_at DESC)');
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_history_tool_created_at ON calculation_history(tool_id, created_at DESC)');
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC)');
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC, created_at DESC)');
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_recent_tools_used_at ON recent_tools(used_at DESC)');
-    await db.execute(
-        'CREATE INDEX IF NOT EXISTS idx_favorite_tools_created_at ON favorite_tools(created_at DESC)');
   }
 
   Future<int> addHistory({
@@ -248,7 +170,7 @@ class AppDatabase {
   }
 
   Future<int> addNote(String title, String body,
-      {String description = ''}) async {
+      {String description = '', List<String> tags = const []}) async {
     final db = await database;
     final normalizedTitle = _normalizeRequired(title) ?? '未命名笔记';
     final normalizedBody = body.trim();
@@ -260,11 +182,20 @@ class AppDatabase {
       'body': normalizedBody,
       'created_at': now,
       'updated_at': now,
+      'tags': noteTagsToStorage(tags),
+      'is_pinned': 0,
+      'is_archived': 0,
     });
   }
 
-  Future<List<NoteItem>> notes(
-      {int limit = 200, int offset = 0, String? query}) async {
+  Future<List<NoteItem>> notes({
+    int limit = 200,
+    int offset = 0,
+    String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+    NoteSort sort = NoteSort.updatedNewest,
+  }) async {
     final db = await database;
     final clauses = <String>[];
     final args = <Object?>[];
@@ -276,11 +207,17 @@ class AppDatabase {
       columns: const ['title', 'description', 'body'],
       query: query,
     );
+    _appendNoteOrganizationFilter(
+      clauses: clauses,
+      args: args,
+      tag: tag,
+      archiveFilter: archiveFilter,
+    );
     final rows = await db.query(
       'notes',
       where: clauses.isEmpty ? null : clauses.join(' AND '),
       whereArgs: args.isEmpty ? null : args,
-      orderBy: 'updated_at DESC, created_at DESC',
+      orderBy: _noteOrderBy(sort),
       limit: limit.clamp(1, 1000),
       offset: offset < 0 ? 0 : offset,
     );
@@ -303,7 +240,11 @@ class AppDatabase {
     );
   }
 
-  Future<int> noteCount({String? query}) async {
+  Future<int> noteCount({
+    String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) async {
     final db = await database;
     final clauses = <String>[];
     final args = <Object?>[];
@@ -313,6 +254,12 @@ class AppDatabase {
       columns: const ['title', 'description', 'body'],
       query: query,
     );
+    _appendNoteOrganizationFilter(
+      clauses: clauses,
+      args: args,
+      tag: tag,
+      archiveFilter: archiveFilter,
+    );
     final rows = await db.rawQuery(
       'SELECT COUNT(*) AS count FROM notes${clauses.isEmpty ? '' : ' WHERE ${clauses.join(' AND ')}'}',
       args,
@@ -320,11 +267,36 @@ class AppDatabase {
     return Sqflite.firstIntValue(rows) ?? 0;
   }
 
+  Future<List<String>> noteTags({
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) async {
+    final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    _appendNoteOrganizationFilter(
+      clauses: clauses,
+      args: args,
+      tag: null,
+      archiveFilter: archiveFilter,
+    );
+    final rows = await db.query(
+      'notes',
+      columns: const ['tags'],
+      where: clauses.isEmpty ? null : clauses.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
+    );
+    final tags = normalizeNoteTags(
+      rows.expand((row) => noteTagsFromStorage(row['tags'] as String? ?? '')),
+    )..sort((left, right) => left.toLowerCase().compareTo(right.toLowerCase()));
+    return tags;
+  }
+
   Future<void> updateNote({
     required int id,
     required String title,
     required String description,
     required String body,
+    List<String> tags = const [],
   }) async {
     final db = await database;
     final normalizedTitle = _normalizeRequired(title) ?? '未命名笔记';
@@ -334,6 +306,33 @@ class AppDatabase {
         'title': normalizedTitle,
         'description': description.trim(),
         'body': body.trim(),
+        'tags': noteTagsToStorage(tags),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setNotePinned(int id, bool value) async {
+    final db = await database;
+    await db.update(
+      'notes',
+      {
+        'is_pinned': value ? 1 : 0,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setNoteArchived(int id, bool value) async {
+    final db = await database;
+    await db.update(
+      'notes',
+      {
+        'is_archived': value ? 1 : 0,
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       },
       where: 'id = ?',
@@ -539,230 +538,4 @@ class AppDatabase {
     });
   }
 
-  static Future<void> _trimHistory(DatabaseExecutor db) {
-    // 中文：历史保留最近 500 条，限制 SQLite 增长并保持笔记页查询轻量。
-    // English: Keep the latest 500 history rows to limit database growth and keep notes queries light.
-    return db.rawDelete(
-      '''
-      DELETE FROM calculation_history
-      WHERE id NOT IN (
-        SELECT id FROM calculation_history
-        ORDER BY created_at DESC, id DESC
-        LIMIT ?
-      )
-      ''',
-      [maxHistoryRows],
-    );
-  }
-
-  static Future<void> _trimRecentTools(DatabaseExecutor db) {
-    return db.rawDelete(
-      '''
-      DELETE FROM recent_tools
-      WHERE tool_id NOT IN (
-        SELECT tool_id FROM recent_tools
-        ORDER BY used_at DESC
-        LIMIT ?
-      )
-      ''',
-      [maxRecentToolRows],
-    );
-  }
-
-  static String? _normalizeRequired(String value) {
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
-  }
-
-  static String? _normalizeOptional(String? value) {
-    if (value == null) return null;
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
-  }
-
-  static void _appendTextSearch({
-    required List<String> clauses,
-    required List<Object?> args,
-    required List<String> columns,
-    required String? query,
-  }) {
-    final normalized = query?.trim();
-    if (normalized == null || normalized.isEmpty) return;
-    // 中文：转义 LIKE 通配符，用户搜索 % 或 _ 时按普通字符处理。
-    // English: Escape LIKE wildcards so user-entered % and _ are treated as literal characters.
-    final pattern = '%${_escapeLike(normalized)}%';
-    clauses.add(
-        '(${columns.map((column) => '$column LIKE ? ESCAPE "\\"').join(' OR ')})');
-    args.addAll(List<Object?>.filled(columns.length, pattern));
-  }
-
-  static String _escapeLike(String value) {
-    return value
-        .replaceAll(r'\', r'\\')
-        .replaceAll('%', r'\%')
-        .replaceAll('_', r'\_');
-  }
-
-  static void _restoreRows(
-    Batch batch,
-    String table,
-    Object? rows,
-    Map<String, Object?>? Function(Map<String, Object?> row) normalize,
-  ) {
-    if (rows == null) return;
-    if (rows is! List) throw FormatException('$table 不是有效列表');
-    // 中文：恢复时逐行规范化，跳过坏行而不是让单条脏数据破坏整份备份。
-    // English: Normalize each restored row and skip invalid rows instead of letting one bad row ruin the backup.
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final normalized = normalize(row.cast<String, Object?>());
-      if (normalized == null) continue;
-      batch.insert(table, normalized,
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-  }
-
-  static Future<void> _mergeRows(
-    DatabaseExecutor db,
-    String table,
-    Object? rows,
-    Map<String, Object?>? Function(Map<String, Object?> row) normalize,
-  ) async {
-    if (rows == null) return;
-    if (rows is! List) throw FormatException('$table 不是有效列表');
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final normalized = normalize(row.cast<String, Object?>());
-      if (normalized == null) continue;
-      switch (table) {
-        case 'calculation_history':
-          await _mergeHistoryRow(db, normalized);
-        case 'notes':
-          await _mergeNoteRow(db, normalized);
-        default:
-          await db.insert(
-            table,
-            Map<String, Object?>.from(normalized)..remove('id'),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-      }
-    }
-  }
-
-  static Future<void> _mergeHistoryRow(
-    DatabaseExecutor db,
-    Map<String, Object?> row,
-  ) async {
-    final existing = await db.query(
-      'calculation_history',
-      columns: const ['id'],
-      where:
-          'expression = ? AND result = ? AND IFNULL(tool_id, "") = ? AND created_at = ?',
-      whereArgs: [
-        row['expression'],
-        row['result'],
-        row['tool_id'] ?? '',
-        row['created_at'],
-      ],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) return;
-    await db.insert(
-      'calculation_history',
-      Map<String, Object?>.from(row)..remove('id'),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-  }
-
-  static Future<void> _mergeNoteRow(
-    DatabaseExecutor db,
-    Map<String, Object?> row,
-  ) async {
-    final existing = await db.query(
-      'notes',
-      columns: const ['id'],
-      where: 'title = ? AND description = ? AND body = ? AND created_at = ?',
-      whereArgs: [
-        row['title'],
-        row['description'],
-        row['body'],
-        row['created_at'],
-      ],
-      limit: 1,
-    );
-    if (existing.isNotEmpty) return;
-    await db.insert(
-      'notes',
-      Map<String, Object?>.from(row)..remove('id'),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-  }
-
-  static Map<String, Object?>? _normalizeHistoryRow(Map<String, Object?> row) {
-    final expression = _normalizeRequired(row['expression']?.toString() ?? '');
-    final result = _normalizeRequired(row['result']?.toString() ?? '');
-    final createdAt = _readInt(row['created_at']);
-    if (expression == null || result == null || createdAt == null) return null;
-    return {
-      if (_readInt(row['id']) != null) 'id': _readInt(row['id']),
-      'expression': expression,
-      'result': result,
-      'tool_id': _normalizeOptional(row['tool_id']?.toString()),
-      'created_at': createdAt,
-    };
-  }
-
-  static Map<String, Object?>? _normalizeNoteRow(Map<String, Object?> row) {
-    final title = _normalizeRequired(row['title']?.toString() ?? '') ?? '未命名笔记';
-    final createdAt =
-        _readInt(row['created_at']) ?? DateTime.now().millisecondsSinceEpoch;
-    return {
-      if (_readInt(row['id']) != null) 'id': _readInt(row['id']),
-      'title': title,
-      'description': row['description']?.toString().trim() ?? '',
-      'body': row['body']?.toString().trim() ?? '',
-      'created_at': createdAt,
-      'updated_at': _readInt(row['updated_at']) ?? createdAt,
-    };
-  }
-
-  static Map<String, Object?>? _normalizeFavoriteToolRow(
-      Map<String, Object?> row) {
-    final toolId = _normalizeRequired(row['tool_id']?.toString() ?? '');
-    if (toolId == null) return null;
-    return {
-      'tool_id': toolId,
-      'created_at':
-          _readInt(row['created_at']) ?? DateTime.now().millisecondsSinceEpoch,
-    };
-  }
-
-  static Map<String, Object?>? _normalizeRecentToolRow(
-      Map<String, Object?> row) {
-    final toolId = _normalizeRequired(row['tool_id']?.toString() ?? '');
-    if (toolId == null) return null;
-    return {
-      'tool_id': toolId,
-      'used_at':
-          _readInt(row['used_at']) ?? DateTime.now().millisecondsSinceEpoch,
-    };
-  }
-
-  static Map<String, Object?>? _normalizeSettingRow(Map<String, Object?> row) {
-    final key = _normalizeRequired(row['key']?.toString() ?? '');
-    if (key == null) return null;
-    return {
-      'key': key,
-      'value': row['value']?.toString() ?? '',
-      'updated_at':
-          _readInt(row['updated_at']) ?? DateTime.now().millisecondsSinceEpoch,
-    };
-  }
-
-  static int? _readInt(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value);
-    return null;
-  }
 }
