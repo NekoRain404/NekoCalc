@@ -343,10 +343,23 @@ mixin _CalculatorDataset on _CalculatorState {
   ///       | `spearman(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` = `1.000000000` | `spearman(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,11))` = `1.000000000` | 同 |
   ///
   ///       为什么用两行那一个：它是来源里那个形状，而且**一个实参**比两个短——屏幕上那串数是
-  ///       用户自己要改的，少一半长度不是小事。它靠的是引擎那条「形参声明是向量、拿到的是矩阵
-  ///       就拆开用」的机制（`MathStructure-calculate.cc`），只有**行数等于形参数**时才成立；
-  ///       这两族函数恰好都是两个形参。**万一那条机制哪天不成立，引擎会把调用原样退回来**，
-  ///       结果是 `arithmetic` 那一支（不显示）→ 一句错误。**失败是关上的，不是一个错值。**
+  ///       用户自己要改的，少一半长度不是小事。
+  ///
+  ///       它靠的那条引擎行为是**量出来的，不是我读源码读出来的**：一个矩阵当实参交给一个
+  ///       **形参个数与它行数相等**的函数时，引擎把各行当成各个实参；行数不等时把调用**原样
+  ///       退回来**。宿主实测（`qalc` 5.12.0，三行一组）：
+  ///
+  ///       | 实参 | `covar` | `pearson` |
+  ///       |---|---|---|
+  ///       | 2 行（`matrix(2,3,1,2,3,4,5,6)`） | `0.6666666667`（= 两个行矩阵那个答案） | `1.000000000` |
+  ///       | 1 行（`matrix(1,3,1,2,3)`） | 原样退回：`cov(matrix(1, 3, [1  2  3]))` | 原样退回 |
+  ///       | 3 行（`matrix(3,3,1,…,9)`） | 原样退回：`cov(matrix(3, 3, [1 … 9]))` | — |
+  ///
+  ///       这两个函数恰好都是两个形参，所以两行那一个成立。**哪天它不成立，引擎会把调用原样
+  ///       退回来**，那落进 `arithmetic` 那一支（不显示）→ 屏幕上是一句错误。
+  ///       **失败是关上的，不是一个错值。** 源码里那一段（矩阵/向量实参的处理在
+  ///       `MathStructure-calculate.cc` 的 `handlesVector` 那一带）我**没有**钉到具体哪一支，
+  ///       所以这里只写量到的行为，不写机制的名字。
   ///
   ///       值与 [statisticsCall] 同一条：逐字来自 [MathResult.decimalText]，不按精度取整。
   /// English: **the whole call the `pearson`/`covar`/`spearman` cells insert**
@@ -366,12 +379,26 @@ mixin _CalculatorDataset on _CalculatorState {
   ///
   ///          Why the two-row one: it is the source's shape, and **one argument** is shorter than two —
   ///          the numbers on screen are what the user edits, and halving that length is not a small
-  ///          thing. It rests on the engine's "an argument declared a vector that receives a matrix is
-  ///          taken apart" mechanism (`MathStructure-calculate.cc`), which holds only while the row
-  ///          count equals the arity; both these families have exactly two parameters. **Should that
-  ///          mechanism ever stop holding, the engine hands the call straight back**, the result kinds
-  ///          as `arithmetic` (not displayable) and the screen shows an error. **Failure is closed,
-  ///          not a wrong value.**
+  ///          thing.
+  ///
+  ///          The engine behaviour it rests on is **measured, not read out of the source**: a matrix
+  ///          handed to a function whose **parameter count equals its row count** has its rows used as
+  ///          the arguments; when the counts differ the call comes **straight back**. Measured on the
+  ///          host (`qalc` 5.12.0, three rows of cases):
+  ///
+  ///          | argument | `covar` | `pearson` |
+  ///          |---|---|---|
+  ///          | 2 rows (`matrix(2,3,1,2,3,4,5,6)`) | `0.6666666667` (the two-row-matrix answer) | `1.000000000` |
+  ///          | 1 row (`matrix(1,3,1,2,3)`) | straight back: `cov(matrix(1, 3, [1  2  3]))` | straight back |
+  ///          | 3 rows (`matrix(3,3,1,…,9)`) | straight back: `cov(matrix(3, 3, [1 … 9]))` | — |
+  ///
+  ///          Both of these functions have exactly two parameters, so the two-row form holds. **Should
+  ///          it ever stop holding, the engine hands the call straight back**, which lands in the
+  ///          `arithmetic` branch (not displayable) and the screen shows an error. **Failure is closed,
+  ///          not a wrong value.** I did **not** pin which branch in the source does this (the
+  ///          matrix/vector argument handling sits around `handlesVector` in
+  ///          `MathStructure-calculate.cc`), so what is written here is the measured behaviour rather
+  ///          than the name of a mechanism.
   ///
   ///          The values are the same as [statisticsCall]'s: verbatim from [MathResult.decimalText],
   ///          never rounded by the precision setting.
