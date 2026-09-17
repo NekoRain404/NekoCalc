@@ -157,25 +157,9 @@ class GraphPainter extends CustomPainter {
     painter.paint(canvas, offset);
   }
 
-  double _niceStep(double value) {
-    final exponent =
-        math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
-    final fraction = value / exponent;
-    final nice = fraction <= 1
-        ? 1
-        : fraction <= 2
-            ? 2
-            : fraction <= 5
-                ? 5
-                : 10;
-    return nice * exponent;
-  }
+  double _niceStep(double value) => graphAxisStep(value);
 
-  int _digits(double step) => step < 1
-      ? 2
-      : step < 10
-          ? 1
-          : 0;
+  int _digits(double step) => graphAxisStepDigits(step);
 
   @override
   bool shouldRepaint(covariant GraphPainter oldDelegate) {
@@ -192,3 +176,38 @@ class GraphPainter extends CustomPainter {
   }
 }
 
+
+/// 中文：网格步长——**1/2/5 序列**，让缩放时刻度接近工程图表的习惯。
+///
+///       顶层函数而不是 `GraphPainter` 的私有方法，理由只有一个：**回归图那一块也要用同一条
+///       约定**。它是**画法**上的约定，不是任何数据的来源，所以两处共用它不构成第二个真相源；
+///       反过来，两处各写一份 1/2/5，迟早会有一处先变成别的序列。
+///
+/// English: the grid step — the **1/2/5 sequence**, so ticks feel like an engineering chart when
+///          zoomed.
+///
+///          A top-level function rather than a private method on `GraphPainter` for exactly one
+///          reason: **the regression graph needs the same convention**. It is a **drawing**
+///          convention, not a source of anything, so sharing it is not a second source of truth; and
+///          two separate 1/2/5 implementations would sooner or later drift apart.
+double graphAxisStep(double value) {
+  final exponent =
+      math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
+  final fraction = value / exponent;
+  final nice = fraction <= 1
+      ? 1
+      : fraction <= 2
+          ? 2
+          : fraction <= 5
+              ? 5
+              : 10;
+  return nice * exponent;
+}
+
+/// 中文：一个网格步长该印几位小数。与 [graphAxisStep] 同一处理由。
+/// English: how many decimals one grid step should print. Same reason as [graphAxisStep].
+int graphAxisStepDigits(double step) => step < 1
+    ? 2
+    : step < 10
+        ? 1
+        : 0;

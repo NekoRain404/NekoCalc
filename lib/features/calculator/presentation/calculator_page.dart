@@ -20,6 +20,7 @@ import 'result_form.dart';
 import 'widgets/calculator_display.dart';
 import 'widgets/dataset_sheet.dart';
 import 'widgets/inline_expression_editor.dart';
+import 'widgets/regression_graph_sheet.dart';
 import 'widgets/unit_picker_sheet.dart';
 import 'widgets/variable_picker_sheet.dart';
 

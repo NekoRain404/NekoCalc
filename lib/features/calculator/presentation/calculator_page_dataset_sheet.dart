@@ -65,6 +65,81 @@ extension _CalculatorPageDatasetSheet on _CalculatorPageState {
       ),
     );
   }
+
+  /// 中文：**回归图那一张面板**——HiPER 那条计算细节（`Graph of regression`：一条拟合曲线与所有
+  ///       的数据点，来源与取法见 `RegressionGraphSheet` 的类注释）。
+  ///
+  ///       ### 为什么入口在这一行
+  ///
+  ///       它紧挨着那三个拟合格，因为那张图画的就是**这三个函数之一**：来源里这条图是**回归函数**
+  ///       的计算细节，而在这个应用里回归函数只在 `STAT` 面板上。放到别处（比如显示区那颗 `更多…`）
+  ///       就得在这里另造一套「当前是哪条回归」的状态——那是第二个真相源。
+  ///
+  ///       ### 那一刻的点与读数都是**冻结**的
+  ///
+  ///       打开时把三个东西交给面板：**那一刻的 `points`**、那一行读数、以及一个「向控制器要曲线」
+  ///       的回调。面板**不**跟着控制器重建，理由有两条，第二条是承重的：
+  ///
+  ///       1. 数据集**改不动**——编辑数据集的入口在 `STAT` 面板里（打开本面板时它已经关掉了），
+  ///          而这是一张模态面板，键盘在遮罩后面。所以「图上的点」在这一整段时间里不会变。
+  ///       2. 曲线是从**那一刻**的数据集算出来的（[CalculatorController.regressionCurveFor] 的代际
+  ///          守卫挡的是同一件事）。让面板跟着控制器重建，就会有一个「新的点 + 旧的曲线」的瞬间，
+  ///          而那个瞬间在屏幕上看起来是一张完全正常的图。
+  ///
+  ///       **画不出来时不画线**：三种原因（对数不够 / 翻译不过去 / 引擎没答）各有各的话，都由
+  ///       控制器给出（`RegressionCurveOutcome.refusal`），面板只把它印出来。
+  ///
+  /// English: **the regression graph sheet** — HiPER's calculation detail (`Graph of regression`: one
+  ///          fitted curve and all the data points; the sources and how they were checked are on
+  ///          `RegressionGraphSheet`'s class note).
+  ///
+  ///          ### Why the entrance is on this row
+  ///
+  ///          It sits next to the three fit cells because that figure is of **one of those three
+  ///          functions**: in the sources this plot is a calculation detail of the **regression
+  ///          function**, and in this app the regression functions live only on the `STAT` sheet.
+  ///          Anywhere else (the display's `更多…`, say) would mean inventing a "which regression is
+  ///          current" state over there — a second source of truth.
+  ///
+  ///          ### The points and the reading are **frozen** at open time
+  ///
+  ///          Three things are handed to the sheet: **the `points` as they are at that moment**, that
+  ///          row's reading, and a callback that asks the controller for a curve. The sheet does
+  ///          **not** rebuild with the controller, for two reasons, the second of which is
+  ///          load-bearing:
+  ///
+  ///          1. The dataset **cannot change** — its editor is opened from the `STAT` sheet (already
+  ///             closed by the time this one opens) and this is a modal sheet with the keypad behind
+  ///             the barrier. So "the points on the plot" cannot move for as long as it is up.
+  ///          2. The curve is computed from **that moment's** dataset (the generation guard in
+  ///             [CalculatorController.regressionCurveFor] stops the same thing). Letting the sheet
+  ///             rebuild with the controller would create an instant of "new points, old curve", and
+  ///             that instant looks like a perfectly normal figure on screen.
+  ///
+  ///          **When it cannot be drawn, no line is drawn**: the three causes (not enough pairs / does
+  ///          not translate / the engine did not answer) each have a sentence of their own from the
+  ///          controller (`RegressionCurveOutcome.refusal`), and the sheet merely prints it. And those
+  ///          three cells **are always lit** (the reason is written beside them in the sheet) — so "why
+  ///          has the cubic fit no curve" is a question the screen can answer.
+  void _openRegressionGraphSheet() {
+    final points = _controller.regressionGraphPoints;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => RegressionGraphSheet(
+        points: points,
+        fitNames: kFitMinimumPairs.keys.toList(growable: false),
+        loadCurve: _controller.regressionCurveFor,
+        fitReading: _controller.regressionGraphFitReading,
+        pointsUnavailableMessage: _controller.regressionUnavailableMessage,
+      ),
+    );
+  }
 }
 
 /// 中文：`STAT` 面板的内容——**统计入口**。同样只列记号，按下去交给本页的 `_pressKey`。
@@ -176,6 +251,16 @@ class _StatisticsSheet extends StatelessWidget {
   ///          While a cell is dark, **the why sits on the same line** (the controller's
   ///          `fitStatusMessage` rather than a sentence written here). **A grey cell is honest**; a
   ///          cell that answers with an error is not.
+  ///
+  ///          这一行的尾巴上还有一颗 `回归图…`——**HiPER 那条计算细节的入口**（见
+  ///          `_openRegressionGraphSheet`）。它**与那三格用同一条判据亮灭**
+  ///          （`canReadDatasetAsTwoRows`）：读不成两行时图上没有点可画，一颗按下去只打开一张空
+  ///          面板的键与一颗只给错误的键是同一种东西。
+  ///          The row also carries a `回归图…` button at its end — **the entrance to HiPER's
+  ///          calculation detail** (see `_openRegressionGraphSheet`). It **lights and dims on the same
+  ///          judgement as the three cells** (`canReadDatasetAsTwoRows`): with no two-row reading there
+  ///          are no points to plot, and a key that opens an empty sheet is the same thing as a key
+  ///          that answers with an error.
   static const List<(String, String)> _fitEntries = <(String, String)>[
     ('linearfit', 'ins:linearfit'),
     ('quadraticfit', 'ins:quadraticfit'),
@@ -389,6 +474,21 @@ class _StatisticsSheet extends StatelessWidget {
                 child: Text(label,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
+            TextButton(
+              onPressed: controller.canReadDatasetAsTwoRows
+                  ? () {
+                      Navigator.of(context).pop();
+                      page._openRegressionGraphSheet();
+                    }
+                  : null,
+              style: TextButton.styleFrom(
+                foregroundColor: theme.display.indicatorFg,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 38),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('回归图…'),
+            ),
           ],
         ),
         Text(
