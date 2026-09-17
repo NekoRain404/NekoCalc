@@ -619,7 +619,21 @@ class ExpressionParser {
     while (index >= 0 && source[index].trim().isEmpty) {
       index--;
     }
-    return index >= 0 && RegExp(r'[A-Za-z)]').hasMatch(source[index]);
+    // 中文：**数字也算函数名的一部分。** `atan2`/`log2` 以数字结尾，只认字母会把它们判成
+    //       「不是函数调用」，于是 `atan2(7,100)` 里的 `7,100` 被当成千分位剥掉，整条变成
+    //       `atan2(7100)`（一个实参）→ `atan(7100)`。实测：修复前 `1.5706554817254055`，
+    //       修复后 `0.069886001634…`（= atan(7/100)）。`log2(1,024)` 同理。
+    //       放宽到数字不会把 `2(7,100)` 这类误判成调用：那里逗号保留下来之后，解析器对它
+    //       照样报错（圆括号里不接受逗号），两种读法都不是一个合法的表达式。
+    // English: **a digit is part of a function name too.** `atan2`/`log2` end in one, and recognising
+    //          letters only made them count as "not a function call", so the `7,100` in
+    //          `atan2(7,100)` was stripped as a thousands separator and the whole thing became
+    //          `atan2(7100)` (one argument) → `atan(7100)`. Measured: `1.5706554817254055` before,
+    //          `0.069886001634…` (= atan(7/100)) after; `log2(1,024)` is the same story. Widening to
+    //          digits does not misread `2(7,100)` as a call: with the comma kept, the parser rejects it
+    //          anyway (a comma is not allowed inside plain parentheses), so neither reading is a valid
+    //          expression.
+    return index >= 0 && RegExp(r'[A-Za-z0-9)]').hasMatch(source[index]);
   }
 
   static String _normalizeFunctionAliases(String source) {

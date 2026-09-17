@@ -56,6 +56,23 @@ void main() {
     expect(
         parse('cot(45)+sec(60)+csc(30)', degreeMode: true), closeTo(5, 1e-9));
     expect(parse('atan2(1,1)', degreeMode: true), closeTo(45, 1e-9));
+
+    // 中文：**以数字结尾的函数名后面跟一个「看起来像千分位」的实参**——`_startsFunctionArgument`
+    //       只看 `(` 前面的那个字符是不是字母或 `)`，于是 `atan2(` 被判成「不是函数调用」，
+    //       `7,100` 里的逗号被当成千分位剥掉，整条变成 `atan2(7100)`（一个实参）→ `atan(7100)`
+    //       → `1.570796`（实测修复前 `1.570655`，因为 `atan2` 单实参时退化成 `atan`）。
+    //       正确的读法是两个实参 `7` 与 `100` → `atan(7/100)` = `0.069886…`。
+    // English: **a function name ending in a digit followed by an argument that looks like a grouped
+    //          number** — `_startsFunctionArgument` only looks at whether the character before `(` is a
+    //          letter or `)`, so `atan2(` counts as "not a function call" and the comma in `7,100` is
+    //          stripped as a thousands separator, leaving `atan2(7100)` (one argument) → `atan(7100)`.
+    //          The correct reading is two arguments `7` and `100` → `atan(7/100)` = `0.069886…`.
+    expect(parse('atan2(7,100)'), closeTo(0.0698860016, 1e-9));
+    // 中文：第二个实参同样是「看起来像千分位」的形状（`1,234`）——这一条在修复前给
+    //       `atan(1234)` = `1.569…`。
+    // English: the second argument is the same "looks grouped" shape (`1,234`) — before the fix this
+    //          gave `atan(1234)` = `1.569…`.
+    expect(parse('atan2(1,234)'), closeTo(0.0042734783, 1e-9));
   });
 
   test('normalizes common pasted function aliases', () {

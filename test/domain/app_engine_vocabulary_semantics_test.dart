@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
+import 'package:nekocalc/core/math/ast/expression_ast_parser.dart';
 import 'package:nekocalc/core/math/expression_parser.dart';
 
 /// 中文：**名字逐个核对的第二半：取值。** 词表里「引擎对这个拼法的答案能不能用」那一列，
@@ -16,14 +17,14 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///         于是**再出现一个 `log`/`mod`，不管它落在哪个样本上，这张表都会红**——
 ///         而修法只有一条：把它标成不可信（或者改掉应用自己的语义）。
 ///
-///       覆盖面（**具体数字，不吹**）：**40 个样本**，覆盖词表 42 个名字里的 **29 个**，
-///       其中 **8 个名字有 2 个以上样本**（`sin`/`atan2`/`round`/`floor`/`ceil`/`mod`/`root`/…），
-///       其余 21 个各一个。**这不是「每个名字都有多个样本」**——真正的改进是：
-///       应用侧的值**算出来**而不是手写，判据**按名字**判（任一样本分歧 ⇒ 该名字不可信），
-///       并且样本里**有意放了负数、小数、零、多实参与负的第二个实参**——`mod` 与 `log` 的分歧
-///       正是藏在这类地方。**没覆盖到的名字**：词表里那 13 个实参不是数字的名字
-///       （`matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/`rand`，以及 `ncr`/`npr`/`fact`/
-///       `deg`/`rad`/`log` 这几个引擎压根没有对应函数的——它们由下一条测试与形状判据承担）。
+///       覆盖面（**用脚本数出来的，不是手写的**）：词表 **47 个标识符**（41 个函数名 + 6 个常量名，
+///       常量在这一轮才进表，见词表文件头），本文的样本 **45 个**，覆盖其中 **33 个名字**，
+///       **9 个名字有 2 个以上样本**（`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`），
+///       **未覆盖 14 个**：`deg`/`fact`/`ncr`/`npr`/`rad`（引擎压根没有对应函数，由下面第二条测试与
+///       原生侧检查承担）、`matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/`rand`（实参是变量与
+///       范围，没有可直接比对的值，由形状判据承担）、`inf`/`infinity`（两边的取值都不是有限数，
+///       这个表的数值比对放不下它们）。
+///       重算方式：`python3 - <<'PY' …` 见报告第 3 条（脚本与输出都在那里）。
 /// English: **the second half of the per-name check: values.** In fix round 3 the vocabulary's "may
 ///          the engine's answer for this spelling be used" column had **one sample per name and a
 ///          hand-written app-side value** — which is exactly why `log` and `mod` both slipped
@@ -53,12 +54,46 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///          `ncr`/`npr`/`fact`/`deg`/`rad`/`log`, which the engine has no counterpart for at all) — the
 ///          next test and the shape rules carry those.
 void main() {
-  test('应用与引擎的取值逐例核对；有分歧的名字必须在词表里标成不可信', () {
-    // 中文：**按名字判**，不是按样本判——分歧只要出现在**任何一个**样本上，那个名字就不可信
-    //       （`mod` 正是这样：`mod(7,3)` 两边都是 1，`mod(7,-3)` 引擎 `-2`、应用 `1`）。
-    // English: judged **per name**, not per sample — a divergence on **any** sample makes that name
-    //          untrusted (`mod` is exactly this: `mod(7,3)` is 1 on both sides, while `mod(7,-3)` is
-    //          `-2` from the engine and `1` from this app).
+  test('分歧先归因：我们自己读错了要修解析器，引擎读错了才让名字不可信', () {
+    // 中文：**「任何分歧 ⇒ 该名字不可信」是好的探测器、错误的裁决者。** 反例是 `atan2(7,100)`：
+    //       分歧的原因是**应用自己读错了**（`_startsFunctionArgument` 拒绝以数字结尾的函数名，
+    //       逗号被当千分位剥掉，整条变成 `atan(7100)`），引擎那一边是对的。按老规则把 `atan2`
+    //       标成不可信，屏幕上就会出现 `1.570655` 而不是正确的 `0.069886`——**规则会弄坏今天正确
+    //       的行为**。
+    //
+    //       所以先**归因**，再决定：
+    //
+    //       - **我们自己读得忠实**（规范化之后的调用形状与原文一致）而两边仍分歧 ⇒ 是引擎把
+    //         这个标识符读成了别的意思（`log`/`mod`/`phi`）⇒ **该名字不可信**；
+    //       - **我们自己读得不忠实** ⇒ 分歧是**我们的**（解析器把输入改了）⇒ 这条测试**红**，
+    //         要求修解析器，**不许**用「标成不可信」把它盖过去。
+    //
+    //       两条互斥且穷尽（忠实 ∨ 不忠实），所以这不是给 `atan2` 开例外，而是一条判据。
+    //       度量是 **AST 的调用形状**（`名字/实参数`，用应用自己的 `ExpressionAstParser` 取）：
+    //       解析器的 bug 正是把 `atan2/2` 变成了 `atan2/1`（逗号没了），这条度量看得见它
+    //       （下面有一条专门钉它灵敏度的断言）。应用侧的值仍然是**算出来**的。
+    // English: **"any divergence ⇒ untrust" is a good detector and the wrong oracle.** The
+    //          counterexample is `atan2(7,100)`: the divergence is **our own misreading**
+    //          (`_startsFunctionArgument` rejects a function name ending in a digit, the comma is
+    //          stripped as a thousands separator and the whole thing becomes `atan(7100)`), while the
+    //          engine is right. Following the old rule would mark `atan2` untrusted and put `1.570655`
+    //          on the screen instead of the correct `0.069886` — **the rule would break behaviour that
+    //          is right today**.
+    //
+    //          So attribute first, then decide:
+    //
+    //          - **our own reading is faithful** (the normalised text has the same call shapes as the
+    //            source) and the two still differ ⇒ the engine read this identifier as something else
+    //            (`log`/`mod`/`phi`) ⇒ **that name is untrusted**;
+    //          - **our own reading is not faithful** ⇒ the divergence is **ours** (the parser changed the
+    //            input) ⇒ this test goes **red**, demanding a parser fix, and "mark it untrusted" is
+    //            **not** allowed to paper over it.
+    //
+    //          The two are mutually exclusive and exhaustive (faithful ∨ not), so this is a judgement
+    //          rather than an exception for `atan2`. The metric is the **AST call shape**
+    //          (`name/argCount`, from this app's own `ExpressionAstParser`): the parser bug turned
+    //          `atan2/2` into `atan2/1` (the comma vanished), which this metric sees — there is an
+    //          assertion below pinning its sensitivity. The app-side value is still **computed**.
     final byName = <String, List<String>>{};
     for (final entry in _engineValues.entries) {
       final expression = entry.key;
@@ -66,12 +101,19 @@ void main() {
       final appValue = ExpressionParser(expression, degreeMode: false).parse();
       final engineValue = _leadingNumber(entry.value);
       final same = (appValue - engineValue).abs() <= 1e-9 * (1 + appValue.abs());
-      if (!same) {
-        byName.putIfAbsent(name, () => <String>[]).add(
-            '$expression（应用 $appValue / 引擎 ${entry.value}）');
-      } else {
-        byName.putIfAbsent(name, () => <String>[]);
-      }
+      byName.putIfAbsent(name, () => <String>[]);
+      if (same) continue;
+
+      // 中文：先归因——我们自己读忠实了吗？
+      // English: attribute first — is our own reading faithful?
+      final normalised = ExpressionParser.normalizeExpressionInput(expression);
+      expect(
+        _callShapes(normalised),
+        _callShapes(expression),
+        reason: '$expression：**我们自己**把它读成了 `$normalised`（调用形状变了）——'
+            '这是解析器的 bug，先修解析器；把 $name 标成不可信只会把这个错值留在屏幕上。',
+      );
+      byName[name]!.add('$expression（应用 $appValue / 引擎 ${entry.value}）');
     }
 
     for (final entry in byName.entries) {
@@ -83,10 +125,24 @@ void main() {
         divergences.isEmpty,
         reason: divergences.isEmpty
             ? '$name：这张表里的样本两边全一致，词表却说它不可用——一致的样本不该被拦。'
-            : '$name：这些样本两边不一致，词表却说引擎的答案可用——'
+            : '$name：我们读得忠实、而两边取值不一致，词表却说引擎的答案可用——'
                 'tier 1 会直接采用引擎的值。分歧：${divergences.join('；')}',
       );
     }
+  });
+
+  test('调用形状这条度量看得见那个解析器 bug 的指纹', () {
+    // 中文：`_callShapes` 是上面那条归因判据的眼睛，所以它自己也要有测试：
+    //       bug 的形状正是「`atan2` 的两个实参变成一个」（逗号被当千分位剥掉）。
+    //       这条断言在度量失灵时会红——那时上一半会静默地变成「引擎的错」。
+    // English: `_callShapes` is the eye of the attribution above, so it gets a test of its own: the
+    //          bug's fingerprint is exactly "`atan2`'s two arguments become one" (the comma stripped
+    //          as a thousands separator). This assertion turns red if the metric goes blind — at which
+    //          point the half above would silently call it "the engine's fault".
+    expect(_callShapes('atan2(7,100)'), <String>['atan2/2']);
+    expect(_callShapes('atan2(7100)'), <String>['atan2/1']);
+    expect(_callShapes('atan2(7,100)'), isNot(_callShapes('atan2(7100)')));
+    expect(_callShapes('log(100)+sqrt(8)'), <String>['log/1', 'sqrt/1']);
   });
 
   test('引擎根本没有这个函数的名字一律不可信', () {
@@ -96,18 +152,53 @@ void main() {
     //          `ncr`/`npr`/`fact` are neither a function, nor a variable, nor a unit in the engine.
     for (final name in <String>['ncr', 'npr', 'fact']) {
       expect(AppEngineVocabulary.unknownToEngine, contains(name));
-      expect(AppEngineVocabulary.functionNames[name]!.engineKnowsThisName, isFalse);
+      expect(AppEngineVocabulary.identifiers[name]!.engineKnowsThisName, isFalse);
     }
   });
 }
 
-/// 中文：从引擎的打印里取出前导数字。反三角函数那一族会带一个 ` rad` 后缀
-///       （引擎把它们印成角度量），本表只比对数值本身——` rad` 这件事由 `unit` 那一支
-///       在显示层处理（它让引擎这些答案不参与 tier 1 的十进制采用）。
-/// English: the leading number of the engine's printing. The inverse trigonometric family carries a
-///          ` rad` suffix (the engine prints them as angle quantities); this table compares the value
-///          itself — the ` rad` is the display layer's business (the `unit` branch keeps those answers
-///          out of tier 1's decimal adoption).
+/// 中文：一段源码的**调用形状**——每个函数调用的 `名字/实参数`（排序后），用应用自己的语法树
+///       （`ExpressionAstParser`）取。它不取值、不判断对错，只回答「这段文本被读成了哪些调用」，
+///       于是「规范化把 `atan2(7,100)` 变成 `atan(7100)`」这类改动看得见。
+/// English: the **call shape** of a piece of source — `name/argCount` per call, sorted, taken from
+///          this app's own syntax tree (`ExpressionAstParser`). It judges no values and no
+///          right-or-wrong; it only answers "which calls is this text read as", so a change like
+///          "normalisation turns `atan2(7,100)` into `atan(7100)`" is visible.
+List<String> _callShapes(String source) {
+  final shapes = <String>[];
+  void walk(ExprNode node) {
+    if (node is FunctionNode) {
+      shapes.add('${node.name}/${node.args.length}');
+      for (final arg in node.args) {
+        walk(arg);
+      }
+    } else if (node is BinaryNode) {
+      walk(node.left);
+      walk(node.right);
+    } else if (node is UnaryNode) {
+      walk(node.operand);
+    } else if (node is PostfixNode) {
+      walk(node.operand);
+    } else if (node is GroupNode) {
+      walk(node.child);
+    } else if (node is ImplicitProductNode) {
+      walk(node.left);
+      walk(node.right);
+    }
+  }
+  walk(const ExpressionAstParser().parse(source));
+  return shapes..sort();
+}
+
+/// 中文：从引擎的打印里取出前导数字。表里的值全部是数字：探针与桥接层一样钉了角度单位
+///       （`parse_options.set_angle_unit(ANGLE_UNIT_RADIANS)`），所以反三角函数不再带 ` rad`
+///       后缀——修复轮 4 的表里有四个样本带着桥接层永远不会产生的后缀，那是探针与桥不一致
+///       造成的，已经修掉。
+/// English: the leading number of the engine's printing. Every value in the table is a number: the
+///          probe pins the angle unit just as the bridge does
+///          (`parse_options.set_angle_unit(ANGLE_UNIT_RADIANS)`), so the inverse trigonometric results
+///          no longer carry a ` rad` suffix — fix round 4's table had four samples carrying a suffix
+///          the bridge never produces, caused by the probe disagreeing with the bridge, now fixed.
 double _leadingNumber(String engineText) {
   final match = RegExp(r'^[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?')
       .firstMatch(engineText.trim());
@@ -124,9 +215,10 @@ const Map<String, String> _engineValues = <String, String>{
   'sin(-1)': '-0.8414709848078965',
   'cos(0)': '1',
   'tan(0.5)': '0.5463024898437905',
-  'asin(0.5)': '0.5235987755982989 rad',
-  'acos(0.5)': '1.047197551196598 rad',
-  'atan(1)': '0.7853981633974483 rad',
+  'asin(0.5)': '0.5235987755982989',
+  'acos(0.5)': '1.047197551196598',
+  'atan(1)': '0.7853981633974483',
+  'atan2(7,100)': '0.06988600163464250',
   'sinh(1)': '1.175201193643801',
   'cosh(1)': '1.543080634815244',
   'tanh(1)': '0.7615941559557649',
@@ -157,7 +249,11 @@ const Map<String, String> _engineValues = <String, String>{
   'lcm(4,6)': '12',
   'root(27,3)': '3',
   'root(3,27)': '1.041528498231435',
-  'atan2(1,1)': '0.7853981633974483 rad',
+  'atan2(1,1)': '0.7853981633974483',
   'sqrt(9)': '3',
   'exp(0)': '1',
+  'phi(2)': '1',
+  'pi(2)': '6.283185307179586',
+  'e(2)': '5.436563656918090',
+  'tau(2)': '12.56637061435917',
 };

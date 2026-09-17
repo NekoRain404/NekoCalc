@@ -96,7 +96,12 @@ class AppFunction {
 class AppEngineVocabulary {
   const AppEngineVocabulary._();
 
-  static const Map<String, AppFunction> functionNames = <String, AppFunction>{
+  /// 中文：应用自己的**标识符**词汇：函数名**与常量名**。两者都能被写成调用
+  ///       （`sin(1)`、`phi(2)`），所以判据必须覆盖两者——这就是「定义域」这一层。
+  /// English: this app's own **identifier** vocabulary: function names **and** constant names. Both
+  ///          can be written as calls (`sin(1)`, `phi(2)`), so the judgement has to cover both — that
+  ///          is what this domain is.
+  static const Map<String, AppFunction> identifiers = <String, AppFunction>{
     // 两边同名，引擎认得这个拼法，语义相同。
     'sin': AppFunction(engineKnowsThisName: true, engineFunction: 'sin'),
     'cos': AppFunction(engineKnowsThisName: true, engineFunction: 'cos'),
@@ -159,6 +164,33 @@ class AppEngineVocabulary {
     'limit': AppFunction(engineKnowsThisName: true, engineFunction: 'limit'),
     'rand': AppFunction(engineKnowsThisName: true, engineFunction: 'rand'),
 
+    // 中文：**常量也在这张表里。** 这一列的判据是「引擎对这个**标识符**的答案能不能用」，
+    //       而应用的常量同样可以被写成调用（`phi(2)`、`tau(2)`、`pi(2)`）——只覆盖「函数名」
+    //       会让这一类整个漏过去。修复轮 5 的 `phi` 就是这么漏的：引擎里有一个**同名的函数**
+    //       （欧拉 φ 函数），于是 `phi(2)` 走 tier 1 显示 `1`，而应用自己的读法是
+    //       `phi × 2` = `3.236068`。
+    // English: **constants live in this table too.** The column asks "may the engine's answer for this
+    //          **identifier** be used", and this app's constants can be written as calls just as well
+    //          (`phi(2)`, `tau(2)`, `pi(2)`) — covering only "function names" would miss that whole
+    //          class, which is how fix round 5's `phi` slipped: the engine has a **function of the
+    //          same name** (Euler's totient), so `phi(2)` took tier 1 and displayed `1`, where this
+    //          app's own reading is `phi × 2` = `3.236068`.
+    //
+    // 中文：`phi`：引擎里**既有函数也有变量**（量过：`function=1 variable=1`），而被调用时赢的是
+    //       那个**函数**（欧拉 φ）——名字认、意思不认。`tau`/`pi`/`e` 引擎都认识且同义。
+    //       `inf` 引擎里三者皆无（量过），所以 `inf(2)` 由原生侧那条检查挡下。
+    // English: `phi`: the engine has **both a function and a variable** under that name (measured:
+    //          `function=1 variable=1`), and when it is *called* the **function** (the totient) wins —
+    //          the name is known, the meaning is not. `tau`/`pi`/`e` are known and mean the same. `inf`
+    //          is none of the three in the engine (measured), so `inf(2)` is stopped by the native
+    //          check instead.
+    'pi': AppFunction(engineKnowsThisName: true, engineFunction: 'pi'),
+    'e': AppFunction(engineKnowsThisName: true, engineFunction: 'e'),
+    'tau': AppFunction(engineKnowsThisName: true, engineFunction: 'tau'),
+    'phi': AppFunction(engineKnowsThisName: false),
+    'inf': AppFunction(engineKnowsThisName: false),
+    'infinity': AppFunction(engineKnowsThisName: true, engineFunction: 'infinity'),
+
     // 中文：**引擎不认识这几个拼法**——它会把它们拆成符号，于是答案描述的是另一件事。
     //       `ncr`/`fact` 的 `engineFunction` 就是「让它们走引擎」那一步要用的映射；今天没有消费者。
     // English: **the engine does not know these spellings** — it takes them apart into symbols, so its
@@ -175,7 +207,7 @@ class AppEngineVocabulary {
   /// English: the names in this app's vocabulary that **the engine does not know under that
   ///          spelling** — its answers for them are never authoritative.
   static final Set<String> unknownToEngine = <String>{
-    for (final entry in functionNames.entries)
+    for (final entry in identifiers.entries)
       if (!entry.value.engineKnowsThisName) entry.key,
   };
 

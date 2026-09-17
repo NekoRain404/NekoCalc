@@ -368,6 +368,37 @@ void main() {
       controller.dispose();
     });
 
+    test('phi(2)：屏幕上必须是 3.236068（常量 ×2），不是引擎的欧拉函数 1', () async {
+      // 中文：**第三个 `log`，而且它换了个形状。** 引擎里 `phi` 是一个**函数**（欧拉 φ 函数），
+      //       而应用里 `phi` 是**常量**（黄金比）——于是 `phi(2)` 引擎给 `1`、应用给 `1.618…×2`
+      //       = `3.236068`。种类是 `number`、有有限十进制 → tier 1 直接采用引擎的值。
+      //       这一类（**常量被当函数调用**）在修复轮 4 之前整个漏在词表之外：那张表只收函数名。
+      //       现在常量也在表里（`AppEngineVocabulary.identifiers`），`phi` 标成不可信。
+      //       可输入、可粘贴（内联编辑器的文本框与剪贴板都能到它）。
+      // English: **the third `log`, in a different shape.** In the engine `phi` is a **function**
+      //          (Euler's totient); in this app `phi` is a **constant** (the golden ratio) — so
+      //          `phi(2)` gives the engine `1` and this app `1.618… × 2` = `3.236068`. Its kind is
+      //          `number` with a finite decimal, so tier 1 adopted the engine's value. This class —
+      //          **a constant written as a call** — was entirely outside fix round 4's vocabulary,
+      //          which held function names only. Constants are in the table now
+      //          (`AppEngineVocabulary.identifiers`) and `phi` is marked untrusted. It is typeable and
+      //          pasteable (the inline editor's text field and the clipboard both reach it).
+      final engine = _FakeMathEngine(const EngineReplyFixture(
+        displayText: '1',
+        displayTex: '1',
+        kind: EngineResultKind.number,
+      ).reply);
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('phi(2)');
+      await controller.submit();
+
+      expect(controller.result, '3.236068', reason: '引擎的欧拉函数被当成了黄金比');
+      expect(controller.resultDecimal, '3.236068');
+
+      controller.dispose();
+    });
+
     test('mod(7,-3)：屏幕上必须是 1（应用自己的余数），不是引擎的 -2', () async {
       // 中文：**键盘可达的真错值**：`7` → `mod` → `+/-` → `3` 曾显示 `-2`（引擎的余数），
       //       而应用自己的解析器给 `1`（Dart 的 `%` 是欧几里得余数）。其种类是 `number`、
