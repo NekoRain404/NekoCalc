@@ -186,25 +186,41 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.input('+/-');
       case 'ans':
         _controller.append(_controller.reusableResult);
-      // 中文：记忆键。`x→M`（id `memoryStore`）在 HiPER 上是把当前值**写入**寄存器（替换），而控制器
-      //       只有累加的 `memoryAdd`；先清空再累加，两次调用合起来就是替换。写成两次是为了不碰控制器
-      //       正在进行的其它工作，也不必为它加方法——将来控制器真有了 `memoryStore()`，这个 case
-      //       应该直接换成那一次调用。
+      // 中文：记忆键。`x→M`（id `memoryStore`）在 HiPER 上是把当前值**写入**寄存器（替换）——这个
+      //       语义现在住在控制器里（`memoryStore()`）。它以前是主屏上写死的「先清空再累加」，而那个
+      //       写法有一个破坏性缺陷：值放不进 double 时清空照常发生、累加被拒，**用户原来的记忆值
+      //       被一次拒绝静默抹掉**（详见那个方法的注释）。判定必须在清空之前发生，主屏拿不到那个
+      //       判定，所以这一对调用搬进了控制器，这个 case 只剩下一次调用。
+      //
+      //       被拒时控制器回一句话（`String?`），[_reportMemory] 把它交给用户；成功时它回 `null`
+      //       （无话可说）。**这是这三个 case 与从前唯一的行为差别**：放不进 double 的值仍然一律
+      //       被拒、寄存器仍然一动不动，只是这一次拒绝不再静默。`MR`/`MC` 不会拒绝——寄存器里那个
+      //       值总是写得回表达式，而清零在寄存器已经是 0 时是空操作，且那是屏幕上看得见的
+      //       （`M` 徽标本来就不在）。
       // English: Memory keys. On HiPER `x→M` (id `memoryStore`) *writes* the current value into the
-      //          register (a replace), while the controller only offers the accumulating `memoryAdd`;
-      //          clearing first and adding after makes the pair a replace. Doing it in two calls avoids
-      //          touching the work the controller is already doing and avoids adding a method for it —
-      //          if a real `memoryStore()` ever lands on the controller, this case should call that
-      //          instead.
+      //          register (a replace), and that semantics now lives on the controller
+      //          (`memoryStore()`). It used to be a hardcoded "clear, then add" on the screen, and
+      //          that shape had a destructive defect: when the value does not fit a double the clear
+      //          happened anyway and the add was refused, so **one refusal silently wiped the user's
+      //          previous memory value** (see that method's own note). The judgement has to run
+      //          before the clear and the screen cannot make it, so the pair moved into the
+      //          controller and this case is one call again.
+      //
+      //          A refusal comes back as a sentence (`String?`) which [_reportMemory] hands to the
+      //          user; success comes back as `null` (nothing to say). **That is the only behavioural
+      //          difference these three cases have**: a value that does not fit a double is still
+      //          refused and the register still does not move — the refusal is simply no longer
+      //          silent. `MR`/`MC` cannot refuse: the register's value always writes back into the
+      //          expression, and clearing an already-zero register is a no-op that the screen already
+      //          shows (the `M` badge is absent).
       case 'memoryRecall':
         _controller.memoryRecall();
       case 'memoryStore':
-        _controller.memoryClear();
-        _controller.memoryAdd();
+        _reportMemory(_controller.memoryStore());
       case 'memoryAdd':
-        _controller.memoryAdd();
+        _reportMemory(_controller.memoryAdd());
       case 'memorySubtract':
-        _controller.memorySubtract();
+        _reportMemory(_controller.memorySubtract());
       // 中文：**结果行的形态**——`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。HiPER 的手册把
       //       「结果格式」与「数字记法」分成两维（`x⇔E` 是前者、`FSE` 是后者），而 `d/c` 的 SHIFT
       //       标签 `a b/c`（带分数）正是同一格里分数那一个取值，所以这两颗键管的是同**一维**里的
@@ -529,6 +545,43 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
     if (!mounted || message == null) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 中文：记忆键被拒时，把控制器那句话交给用户。通道与 [_showBaseReadout]、以及提交路径的
+  ///       `needsAttention` 是同一条（`SnackBar`），因为它们是同一类事情：用户按了一个键，而这一次
+  ///       没成——不说，屏幕上就什么都没有，看起来像按键失灵。控制器回 `null` 时这里什么都不做
+  ///       （成功是常态，不该有提示）。
+  /// English: hand the controller's sentence to the user when a memory key is refused. Same channel as
+  ///          [_showBaseReadout] and the submit path's `needsAttention` (a `SnackBar`), because they
+  ///          are the same kind of event: the user pressed a key and this time it did not work —
+  ///          unsaid, the screen shows nothing and reads as a dead key. A `null` from the controller
+  ///          does nothing here (success is the normal case and deserves no prompt).
+  void _reportMemory(String? message) {
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 中文：`More...` 面板里的那两个记忆键走这一条（`MR`/`MC` 不会拒绝，走的是同一条但永远无声）。
+  ///       有话要说时**先把面板收掉**：面板盖着屏幕底部那一条，而消息落在右下角那条 `SnackBar`
+  ///       上——量过（800×600 的测试面）：面板占 y=418..600、`SnackBar` 占 y=552..600，两者重叠，
+  ///       被盖住的消息 `hitTestable()` 是 0。顶着面板说，用户根本看不见，那正是这一步要消灭的
+  ///       「按了没反应」；这与同文件 `_action` 的理由是同一个形状（面板盖着键盘，所以动作先关面板）。
+  ///       成功时面板原地留着——那正是面板自己的注释承诺的行为（读数原地更新）。
+  /// English: the path the `More...` sheet's two refusing memory keys take (`MR`/`MC` cannot refuse;
+  ///          they take it too and are simply never heard from). When there is something to say the
+  ///          sheet is **dismissed first**: it covers the bottom strip of the screen while the message
+  ///          lands on the `SnackBar` in that same strip — measured on the 800×600 test surface: the
+  ///          sheet spans y=418..600 and the `SnackBar` y=552..600, they overlap, and a covered
+  ///          message has `hitTestable()` 0. Speaking from behind the sheet means the user never sees
+  ///          it, which is exactly the "pressed it, nothing happened" this step exists to delete; it
+  ///          is the same shape as `_action`'s reason in this file (the sheet covers the keypad, so
+  ///          the action closes it first). On success the sheet stays where it is — which is what the
+  ///          sheet's own comment promises (the reading updates in place).
+  void _reportMemoryFromSheet(String? message) {
+    if (message == null) return;
+    Navigator.of(context).pop();
+    _reportMemory(message);
   }
 
   /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`、

@@ -572,12 +572,18 @@ class _StatisticsSheet extends StatelessWidget {
 
 /// 中文：`More...` 面板的内容。它直接驱动本页的控制器——面板是本页私有的 UI，把十几个回调逐个传进来
 ///       只会更难读，所以它拿页面状态本体。一次性动作（复制、保存、编辑、退格、撤销/重做、光标移动）
-///       先关面板再执行；四个记忆寄存器按钮**不关面板**，这样记忆读数能在原地跟着更新。
+///       先关面板再执行；四个记忆寄存器按钮**不关面板**，这样记忆读数能在原地跟着更新。唯一的例外是
+///       **被拒的记忆键**：控制器有话要说（值放不进寄存器），而那句话落在面板盖住的那一条上，所以
+///       面板先让开——判据与量到的数字在 `_reportMemoryFromSheet` 上。成功时它照旧原地不动。
 /// English: The contents of the `More...` sheet. It drives the page's controller directly: the sheet is
 ///          page-private UI, and threading a dozen callbacks through would hurt readability more than
 ///          passing the state it belongs to. One-shot actions (copy, save, edit, backspace,
 ///          undo/redo, cursor moves) close the sheet first; the four memory-register buttons **keep
-///          it open** so the memory reading updates in place.
+///          it open** so the memory reading updates in place. The one exception is a **refused**
+///          memory key: the controller has something to say (the value does not fit the register)
+///          and that sentence lands on the strip this sheet covers, so the sheet gets out of the way
+///          — the argument and the measured numbers are on `_reportMemoryFromSheet`. On success it
+///          stays put, exactly as before.
 class _MoreSheet extends StatelessWidget {
   const _MoreSheet({required this.page, required this.theme});
 
@@ -662,8 +668,19 @@ class _MoreSheet extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _memoryButton('MR', controller.memoryRecall),
-                _memoryButton('MC', controller.memoryClear),
+                // 中文：`MR`/`MC` 不会拒绝——寄存器里那个值总写得回表达式，清零在已经是 0 时是
+                //       空操作——所以它们永远没有话要说，`null` 就是「无话可说」。
+                // English: `MR`/`MC` cannot refuse — the register's value always writes back into the
+                //          expression and clearing an already-zero register is a no-op — so they never
+                //          have anything to say, and `null` is "nothing to say".
+                _memoryButton('MR', () {
+                  controller.memoryRecall();
+                  return null;
+                }),
+                _memoryButton('MC', () {
+                  controller.memoryClear();
+                  return null;
+                }),
                 _memoryButton('M−', controller.memorySubtract),
                 _memoryButton('M+', controller.memoryAdd),
               ],
@@ -700,15 +717,25 @@ class _MoreSheet extends StatelessWidget {
     );
   }
 
-  /// 中文：记忆寄存器按钮——不关面板，读数就在旁边的同一行里跟着变。
-  /// English: A memory-register button — it keeps the sheet open so the reading beside it updates.
-  Widget _memoryButton(String label, VoidCallback onTap) {
+  /// 中文：记忆寄存器按钮——成功时不关面板，读数就在旁边的同一行里跟着变；`onTap` 返回控制器
+  ///       那句话（`null` = 成了、无话可说），被拒时由 `_reportMemoryFromSheet` 先把面板收掉再说，
+  ///       否则那句话会被面板盖住（判据与量到的数字在那个方法上）。
+  ///       `String? Function()` 而不是 `VoidCallback`：后者会**静默吞掉**那个返回值，于是这颗键
+  ///       又变回无声的——类型摆在这里，谁也别想绕过那句话。`MR`/`MC` 不会拒绝，它们显式回 `null`。
+  /// English: A memory-register button — on success it keeps the sheet open so the reading beside it
+  ///          updates; `onTap` returns the controller's sentence (`null` = it happened, nothing to
+  ///          say), and on a refusal `_reportMemoryFromSheet` dismisses the sheet before speaking,
+  ///          or the sheet would cover that sentence (the measurement and the argument are on that
+  ///          method). `String? Function()` rather than `VoidCallback`: the latter would **silently
+  ///          swallow** that return value and this key would go quiet again — the type is written
+  ///          here so nobody has to remember. `MR`/`MC` cannot refuse and say `null` explicitly.
+  Widget _memoryButton(String label, String? Function() onTap) {
     return Padding(
       padding: const EdgeInsets.only(left: 6),
       child: OutlinedButton(
         onPressed: () {
           page._feedback();
-          onTap();
+          page._reportMemoryFromSheet(onTap());
         },
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,

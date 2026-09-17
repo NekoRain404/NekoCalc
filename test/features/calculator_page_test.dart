@@ -714,6 +714,115 @@ void main() {
       expect(find.text('M 19.5'), findsNothing);
     });
 
+    // 中文：**这一步的红证据**（不修就红）。`M+`/`M−` 拒绝一个装不进 double 的值时，用户必须被告知：
+    //       以前这里是彻底的静默——寄存器没动、屏幕上也没有任何提示，看起来像按键失灵。
+    //
+    //       这条走真实按键流：先粘贴一份只带「记忆值: 12.5」的报告（寄存器里有东西，拒绝才不会与
+    //       「本来就没反应」混为一谈），再把表达式换成 `10^400`（旧求值器连有限值都给不出，于是
+    //       `_currentNumericValue()` 给 null；引擎在 `flutter test` 里没有原生侧，走的正是回落那条路），
+    //       然后按 `M+`。断言是**看得见**（`hitTestable`）而不是「树上存在」——被面板盖住的消息也在树上。
+    //
+    //       最后一条断言（寄存器仍是 12.5）是这句话的另一半：拒绝必须是值中性的。
+    // English: **the red proof for this step** (red without the fix). When `M+`/`M−` refuse a value that
+    //          does not fit a double the user has to be told: this used to be total silence — the
+    //          register did not move and the screen said nothing, which reads as a dead key.
+    //
+    //          The real key flow: paste a report carrying only 「记忆值: 12.5」 (the register holds
+    //          something, so a refusal cannot be confused with "nothing to do anyway"), put `10^400` in
+    //          the expression (the legacy evaluator cannot produce a finite value from it, so
+    //          `_currentNumericValue()` gives null; there is no native side under `flutter test`, which
+    //          is exactly the fallback route), then press `M+`. The assertion is **visibility**
+    //          (`hitTestable`), not "present in the tree" — a message hidden behind the sheet is still
+    //          in the tree.
+    //
+    //          The last assertion (the register still holds 12.5) is the other half of that sentence:
+    //          a refusal has to be value-neutral.
+    testWidgets('M+ 拒绝一个装不进 double 的值时，屏幕上出现一句话', (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.getData') return {'text': '记忆值: 12.5'};
+        return null;
+      });
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+      await _startEditing(tester);
+      await tester.tap(find.byTooltip('粘贴计算详情'));
+      await tester.pumpAndSettle();
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+      // 中文：**先让粘贴自己那条 SnackBar 走完**（`_pasteCalculatorDetails` 会报「已恢复记忆值」）。
+      //       `ScaffoldMessenger` 一次只显示一条，后来者要等前一条那 4 秒结束——那是它本来的行为，
+      //       不是这一步的缺陷，但测试必须把它让开，否则断言的就成了队列而不是这句话。
+      // English: **let the paste's own SnackBar finish first** (`_pasteCalculatorDetails` reports
+      //          "已恢复记忆值"). A `ScaffoldMessenger` shows one at a time and a later one waits for the
+      //          current one's four seconds — its own behaviour and not this step's defect, but the test
+      //          has to get out of its way, or it would be asserting on the queue instead of on this
+      //          sentence.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      await _startEditing(tester);
+      await tester.enterText(find.byType(TextField), '10^400');
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('M+').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('当前值放不进记忆寄存器，寄存器未改动').hitTestable(),
+        findsOneWidget,
+        reason: '按了 M+ 而寄存器没动，用户必须被告知；静默就是这一步要消灭的那个缺陷',
+      );
+
+      // 中文：让 SnackBar 自己走完（4 秒），测试结束时不留挂着的定时器。
+      // English: let the SnackBar run out (4 seconds) so no timer is left pending at the end.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      await _openMore(tester);
+      expect(find.text('M 12.5'), findsOneWidget,
+          reason: '拒绝必须是值中性的：寄存器里还是原来的 12.5');
+    });
+
+    // 中文：同一次拒绝，从 `More...` 面板里按 `M+` 也要看得见。面板盖着屏幕底部那一条，而消息落在
+    //       那一条上的 `SnackBar` 里——面板不让开，这句话就是隐形的（量过：面板 y=418..600、
+    //       `SnackBar` y=552..600，被盖住的消息 `hitTestable()` 为 0）。所以这条同时断言两件事：
+    //       **面板收掉了**、**那句话看得见**。成功时不收面板由上面那条「面板里的记忆读数原地更新」
+    //       的行为守着（`x→M 替换记忆值而不是累加` 走的正是面板里的读数）。
+    // English: the same refusal reached from the `More...` sheet has to be visible too. The sheet
+    //          covers the bottom strip of the screen and the message lands on the `SnackBar` in that
+    //          same strip — with the sheet in place the sentence is invisible (measured: sheet
+    //          y=418..600, `SnackBar` y=552..600, and a covered message has `hitTestable()` 0). So this
+    //          asserts both halves: **the sheet is gone** and **the sentence is visible**. That the
+    //          sheet stays put on success is guarded by the test above (its memory reading updates in
+    //          place, which is the sheet's own promise).
+    testWidgets('面板里的 M+ 被拒时，面板让开、那句话看得见', (tester) async {
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+      await _startEditing(tester);
+      await tester.enterText(find.byType(TextField), '10^400');
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+
+      await _openMore(tester);
+      await tester.tap(find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('M+'),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing,
+          reason: '面板盖着消息落的那一条，有话要说时它必须先让开');
+      expect(
+        find.text('当前值放不进记忆寄存器，寄存器未改动').hitTestable(),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+    });
+
     // 中文：本计划的核心承诺是「改键位表，别的地方不用动」，而这条承诺此前没有任何测试守着——
     //       `×`/`÷` 的 id 与主屏分派对不上，就是这么上的真机。这里逐格走整张表，把每个已启用的 id
     //       真的派发给主屏，并断言它**没有**被当成字面量写进表达式：没接住的 id 会落到 `default`，
