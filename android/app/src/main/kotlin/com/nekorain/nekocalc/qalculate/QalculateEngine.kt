@@ -491,6 +491,54 @@ class QalculateEngine {
             //          that cannot be typed and means nothing. Nothing on the keypad produces a
             //          conversion, so **this exception covers no key at all**: everything the user can
             //          press runs the single evaluation above.
+            // 中文：**度分秒的写法**（HiPER 的 `D°M'S` 那一颗键要的东西）。它印的是**同一个
+            //       `approximated` 结构**——也就是上面那一步刚刚算出来的、十进制那一份用的那个对象
+            //       ——所以两者的值严格相等，`rand()` 也不会因为多印一份而多抽一次样。它必须是
+            //       近似之后那一个结构，理由也是实测的：**精确结构印出来的是每个数的度分秒**，
+            //       而不是整个结果的度分秒——`sqrt(8)` 在精确结构下是
+            //       `2°0′0″ × √(2°0′0″)`，`matrix(2,2,1,2,3,4)` 是 `[1°0′0″  2°0′0″; …]`，
+            //       `pi` 干脆是 `π`（宿主实测，同版本库、同一组选项）。近似结构上这三条分别是
+            //       `2°49′42.33764908628435″`、`3°8′29.73355292325566″` 与一个正常的度分秒数——
+            //       度分秒本来就是**一个实数的写法**，而「一个实数」正是近似之后的那一个。
+            //
+            //       **换算那一支（`KIND_CONVERSION`）不印这一份**：那条路的十进制来自
+            //       `renderOneShot` 的一步式调用，手里没有结构；而且换算的结果是**带单位的量**，
+            //       对它印度分秒会把单位里的每个数都印成度分秒（`90 arcmin` 会成
+            //       `90°0′0″ arcmin`）。Dart 侧读到空串就是「这一次没有度分秒写法」，那一颗键
+            //       于是是空操作——与引擎缺席走同一条路，不猜。
+            //
+            //       LaTeX 那一份**不能用**：同一个数在 `TAG_TYPE_LATEX` 下印成
+            //       `\text{12o34'55.92"}`（宿主实测），是一段字面文本、度符号还是个字母 `o`。
+            //       所以这一份走 `TAG_TYPE_TERMINAL` + unicode 开着（`°`/`′`/`″` 是真字符），
+            //       Dart 侧再把它拼成能排版的 TeX（见 `ResultPresentation`）。
+            //
+            // English: **the degrees-minutes-seconds spelling** (what HiPER's `D°M'S` key is for).
+            //          It prints **the same `approximated` structure** — the very object the decimal
+            //          render above just used — so the two carry strictly equal values and `rand()` is
+            //          not drawn a second time for it. It has to be the approximated structure, for a
+            //          measured reason: **on the exact structure each number inside prints as DMS**
+            //          rather than the result as a whole — `sqrt(8)` comes out
+            //          `2°0′0″ × √(2°0′0″)`, `matrix(2,2,1,2,3,4)` comes out
+            //          `[1°0′0″  2°0′0″; …]`, and `pi` comes out as plain `π` (host-measured, same
+            //          library version and options). On the approximated structure those three are
+            //          `2°49′42.33764908628435″`, `3°8′29.73355292325566″` and an ordinary DMS number —
+            //          and DMS is by definition **a way of writing one real number**, which is exactly
+            //          what the approximation is.
+            //
+            //          **The conversion branch (`KIND_CONVERSION`) does not print it**: that path's
+            //          decimal comes from the one-shot `renderOneShot` call, which leaves no structure
+            //          behind, and a conversion's answer is a **unit-carrying quantity** whose every
+            //          inner number would print as DMS (`90 arcmin` would become
+            //          `90°0′0″ arcmin`). An empty string on the Dart side means "no DMS spelling this
+            //          time" and makes that key a no-op — the same route as an absent engine, never a
+            //          guess.
+            //
+            //          The LaTeX render **cannot** be used here: the same number prints as
+            //          `\text{12o34'55.92"}` under `TAG_TYPE_LATEX` (host-measured) — a literal text
+            //          blob whose degree sign is the letter `o`. So this one goes through
+            //          `TAG_TYPE_TERMINAL` with unicode signs on (`°`/`′`/`″` are real characters),
+            //          and Dart assembles it into typesettable TeX (see `ResultPresentation`).
+            var dmsText = ""
             val decimal = if (kind == KIND_CONVERSION) {
                 renderOneShot(
                     engine,
@@ -502,6 +550,14 @@ class QalculateEngine {
                 val approximated = engine.calculate(
                     evaluated,
                     evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit),
+                )
+                dmsText = engine.print(
+                    approximated,
+                    PRINT_TIMEOUT_MS,
+                    printOptions(latex = false, sexagesimal = true),
+                    false,
+                    0,
+                    libqalculateConstants.TAG_TYPE_TERMINAL,
                 )
                 engine.print(
                     approximated,
@@ -544,6 +600,7 @@ class QalculateEngine {
                 "decimal" to decimal,
                 "latex" to latex,
                 "fraction" to fractionLatex,
+                "dms" to dmsText,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),
                 "kind" to kind,

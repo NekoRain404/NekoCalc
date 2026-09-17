@@ -123,14 +123,17 @@ internal fun evaluationOptions(
 }
 
 /**
- * 中文：一组打印选项。[fractional] 只对 `latex` 那一份有意义，理由见下面 `printOptions` 上的注释。
- * English: One set of print options. [fractional] only means anything for the `latex` render; see the
- *          note on `printOptions` below.
+ * 中文：一组打印选项。[fractional] 只对 `latex` 那一份有意义、[sexagesimal] 只对**度分秒那一份**
+ *       有意义，理由见下面 `printOptions` 上的注释。
+ * English: One set of print options. [fractional] only means anything for the `latex` render and
+ *          [sexagesimal] only for **the degrees-minutes-seconds one**; see the note on
+ *          `printOptions` below.
  */
 internal fun printOptions(
     latex: Boolean,
     machineReadable: Boolean = false,
     fractional: Boolean = false,
+    sexagesimal: Boolean = false,
 ): PrintOptions = PrintOptions().apply {
     // 中文：**这一格决定有理数印成小数还是印成带分数线的分数**，而它现在是两档：
     //
@@ -190,10 +193,82 @@ internal fun printOptions(
     //          still preserved by APPROXIMATION_EXACT on its own path. The value comes from the
     //          IntervalDisplay enum class, confirmed reachable through SWIG.
     setInterval_display(IntervalDisplay.INTERVAL_DISPLAY_MIDPOINT)
+    // 中文：**度分秒那一份**（HiPER 的 `DMS` 指示器、`BaseDisplayResult` 里的那一种写法）：
+    //       同一个数印成 `12°34′55.92″`。它只改**写法**，不改值——与 `fractional` 对称，
+    //       而且用的是**同一个已求值结构**。
+    //
+    //       **这一格是 `base`，不是「60 这个数」**——这两个东西在这里不是同一个字段，实测能分开：
+    //       - `printops.base = BASE_SEXAGESIMAL`（= 60，`includes.h:314`）才是度分秒。库里那条分支
+    //         判的就是它：`if((BASE_IS_SEXAGESIMAL(po.base) || po.base == BASE_TIME) && isReal())`
+    //         （`Number.cc:11254`），随后按 60 进制分三节印，`°`/`′`/`″` 三个符号在
+    //         `Number.cc:11351-11360`（unicode 开着时用真正的 `°`，关着时是字母 `o`）。
+    //         `to sexagesimal` 与 qalc 的 `-s "base sexagesimal"` 设的就是这一个值
+    //         （`Calculator-calculate.cc:1964`、`qalc.cc:1425`+`:1474`），宿主实测
+    //         `12.5822` → `12°34′55.92″`。
+    //       - 而**「把 base 设成 60」会掉进另一个字段**：qalc 的 `-b 60` 与 `-s "base 60"` 因为 60
+    //         不在 `[2, 36]` 里，走的是 `v = BASE_CUSTOM` + `setCustomOutputBase(60)`
+    //         （`qalc.cc:1462-1467`），印出来是**位置记数法的 60 进制**：同一个 `12.5822` 印成
+    //         `C.YttC`（宿主实测）——**不是一个错值，是另一种完全不同的格式**。
+    //         这正是「printOptions 会静静忽略掉你要的格式」那一类坑：值合法、调用成功、屏幕上是
+    //         别的东西。所以这里写的是 `BASE_SEXAGESIMAL` 这个语义常量，而不是字面量 60 的巧合。
+    //
+    //       千分位在这一份上显式关掉：印出来的那一串会被 Dart 侧整体认形状（见 `MathResult.dmsText`），
+    //       里面任何一个分隔符都会让整串判不出来。默认值本来就是 `DIGIT_GROUPING_NONE`
+    //       （`Calculator.cc:52` 的构造函数），写出来是不让它将来漂。
+    //
+    //       它**不改 AppSettings.precision 的含义**：`precision` 仍然是「小数位数」，由 Dart 的
+    //       `formatNumber` 管十进制那一份；度分秒这一份的位数由引擎自己的精度（16 位有效数字，
+    //       见 `QalculateEngine`）决定，与前几份一样是**引擎对这个值的印法**。
+    //
+    // English: **the degrees-minutes-seconds spelling** (HiPER's `DMS` indicator; one of the
+    //          `BaseDisplayResult` spellings): the same number printed as `12°34′55.92″`. Like
+    //          `fractional` it changes the *spelling* only, never the value, and it does so from
+    //          **one already evaluated structure**.
+    //
+    //          **This cell is `base`, not "the number 60"** — and here those are not the same field.
+    //          Measured, they come apart:
+    //          - `printops.base = BASE_SEXAGESIMAL` (= 60, `includes.h:314`) is the DMS one. The
+    //            library's own branch tests exactly it:
+    //            `if((BASE_IS_SEXAGESIMAL(po.base) || po.base == BASE_TIME) && isReal())`
+    //            (`Number.cc:11254`), then prints three base-60 sections with `°`/`′`/`″`
+    //            (`Number.cc:11351-11360`; a real `°` while unicode signs are on, the letter `o`
+    //            otherwise). `to sexagesimal` and qalc's `-s "base sexagesimal"` set this one value
+    //            (`Calculator-calculate.cc:1964`, `qalc.cc:1425` + `:1474`); measured on the host,
+    //            `12.5822` → `12°34′55.92″`.
+    //          - **"set the base to 60" lands in a different field.** qalc's `-b 60` and
+    //            `-s "base 60"` fall outside `[2, 36]`, so they take the `v = BASE_CUSTOM` +
+    //            `setCustomOutputBase(60)` route (`qalc.cc:1462-1467`) and print **positional
+    //            base-60**: the same `12.5822` comes out `C.YttC` (measured on the host) — not a
+    //            wrong value, a completely different format. That is the "printOptions quietly
+    //            ignores the format you asked for" trap: a legal value, a successful call, and
+    //            something else on screen. So what is written here is the semantic constant
+    //            `BASE_SEXAGESIMAL`, not a literal 60 that happens to coincide.
+    //
+    //          Digit grouping is explicitly off for this render: the whole string is shape-checked on
+    //          the Dart side (see `MathResult.dmsText`), and any separator inside it would make the
+    //          whole thing unreadable. The default already is `DIGIT_GROUPING_NONE`
+    //          (`Calculator.cc:52`'s constructor); it is written out so it cannot drift.
+    //
+    //          It does **not** change what `AppSettings.precision` means: `precision` stays "decimal
+    //          places" and governs the decimal render through Dart's `formatNumber`, while the DMS
+    //          render's digit count comes from the engine's own precision (16 significant digits, see
+    //          `QalculateEngine`) — as with the other renders, this is *the engine's way of printing
+    //          this value*.
+    if (sexagesimal) {
+        setBase(BASE_SEXAGESIMAL)
+        setDigit_grouping(DigitGrouping.DIGIT_GROUPING_NONE)
+    }
 }
 
-// 中文：取值来自 libqalculate/includes.h 的 UNICODE_SIGNS_* 匿名枚举，SWIG 没有导出成 Java 常量。
-// English: values from the UNICODE_SIGNS_* anonymous enum in libqalculate/includes.h;
-//          SWIG does not export them as Java constants.
+// 中文：取值来自 libqalculate/includes.h 的 UNICODE_SIGNS_* / BASE_* 匿名枚举，SWIG 没有导出成
+//       Java 常量。`BASE_SEXAGESIMAL` 的字面量来源是 `includes.h:314`，而它的**含义**见上面
+//       `printOptions` 那一段：同一个数是位置记数法的 60 进制、还是度分秒，靠的是这个字段的取值，
+//       不是「60」这个数本身。
+// English: values from the UNICODE_SIGNS_* / BASE_* anonymous enums in libqalculate/includes.h;
+//          SWIG does not export them as Java constants. `BASE_SEXAGESIMAL`'s literal comes from
+//          `includes.h:314`, and what it *means* is the note on `printOptions` above: whether the
+//          same number prints as positional base-60 or as degrees-minutes-seconds depends on the
+//          value of this field, not on the number 60.
 private const val UNICODE_SIGNS_OFF = 0
 private const val UNICODE_SIGNS_ON = 1
+private const val BASE_SEXAGESIMAL = 60
