@@ -159,6 +159,13 @@ const Set<String> _variadicFunctions = <String>{
   //       两行都是**看着像答案的错值**，不是错误。它在本轮之前就存在（`matrix` 早就在词表里、
   //       用户打得进去），而本轮的每一格都要插一条 `matrix(…)`，所以它从「偶发」变成「必然」。
   //       **这一条与本项目最老的那条规矩是同一条**：错值比错误坏。
+  //
+  //       **这一行还不够，这是量出来的。** 第一版只加了这一行就以为好了，红证当场打脸：加上它
+  //       之后 `matrix(2,4,1,100,2,200,3,300,4,400)` 照样并成 `matrix(2,4,1100,2200,3300,4400)`
+  //       ——因为 [_startsFunctionArgument] 原来只答得了**紧跟在 `(` 后面**的那一个数字，
+  //       而这里除第一个以外的每一个都跟在逗号后面。真正让它生效的是同一轮加的
+  //       [_sitsInsideVariadicCall]：一个可变形参调用里**任意位置**的逗号都是分隔符。
+  //       这两处要一起看——名字在这里，位置那一半在那边。
   // English: **`matrix` is load-bearing in this table, and it fixes a silent wrong value that already
   //          existed.** Its parameters are "rows, columns, then the values", so every comma inside it
   //          separates. Without the entry this normalisation eats any pair shaped "comma followed by
@@ -173,6 +180,15 @@ const Set<String> _variadicFunctions = <String>{
   //          has long been in the vocabulary and the user can type it), and every cell this round adds
   //          inserts a `matrix(…)`, so it goes from occasional to certain. **This is the project's
   //          oldest rule**: a wrong value is worse than an error.
+  //
+  //          **This line alone is not enough, and that is measured.** The first version added only
+  //          this and the red proof slapped it down: with it in place
+  //          `matrix(2,4,1,100,2,200,3,300,4,400)` still merged into
+  //          `matrix(2,4,1100,2200,3300,4400)` — because [_startsFunctionArgument] originally
+  //          answered only for the digit group **immediately after `(`**, and here every group but the
+  //          first follows a comma. What actually makes it hold is [_sitsInsideVariadicCall], added in
+  //          the same round: inside a variadic call a comma separates in **every** position. The two
+  //          have to be read together — the name lives here, the position half lives there.
   'matrix',
 };
 
@@ -209,7 +225,33 @@ bool _startsFunctionArgument(String source, int start) {
   while (index >= 0 && source[index].trim().isEmpty) {
     index--;
   }
-  if (index < 0 || source[index] != '(') return false;
+  // 中文：**不是第一个实参的那一份。** 上面那条「紧跟在 `(` 后面」的判据只答得了**第一个**实参
+  //       ——`mean(1,234)` 保住了，`mean(1,2,234,5)` 里的第三个实参却会被并成 `2234`（实测）。
+  //       一个**可变形参**的调用里每一个逗号都必须是分隔符，所以那一边要问的是**包住它的那个调用**。
+  //       固定形参的函数**不走这一支**：那里把逗号全认成分隔符会把一个（并错的）值变成一句实参个数
+  //       错误，那是另一件事，不是这一轮的事。
+  //
+  //       这一段是**回归那一轮新加的**，理由是量出来的：数据集要变成 `matrix(2,n,值…)`，而那些值
+  //       正是任意十进制文本——`matrix(2,4,1,100,2,200,3,300,4,400)` 原来会被并成
+  //       `matrix(2,4,1100,2200,3300,4400)`，**屏幕上写着那 8 个数，引擎算的是另外 4 个**。
+  //       那一类错值本项目有一条硬规矩：错值比错误坏。
+  // English: **the argument that is not the first one.** The "immediately after `(`" test above can
+  //          only answer for the **first** argument — `mean(1,234)` survives while the third argument
+  //          of `mean(1,2,234,5)` is merged into `2234` (measured). Inside a **variadic** call every
+  //          comma must be a separator, so what has to be asked there is the call **enclosing** the
+  //          number. Fixed-arity functions do **not** come this way: reading every comma as a separator
+  //          there would turn a (mis-merged) value into an arity error, which is a different question
+  //          and not this round's.
+  //
+  //          This branch is **new in the regression round** and its reason is measured: the dataset has
+  //          to become `matrix(2,n,values…)` and those values are arbitrary decimal text —
+  //          `matrix(2,4,1,100,2,200,3,300,4,400)` used to merge into
+  //          `matrix(2,4,1100,2200,3300,4400)`, **the screen showing eight numbers while the engine
+  //          computes on four**. That is the class this project has one hard rule about: a wrong value
+  //          is worse than an error.
+  if (index < 0 || source[index] != '(') {
+    return _sitsInsideVariadicCall(source, start);
+  }
   index--;
   while (index >= 0 && source[index].trim().isEmpty) {
     index--;
@@ -236,6 +278,50 @@ bool _startsFunctionArgument(String source, int start) {
   }
   final name = ExpressionParser.canonicalFunctionName(source.substring(index + 1, nameEnd));
   return _multiArgumentFunctions.contains(name);
+}
+
+/// 中文：[start] 处那一组数字是不是坐在一个**可变形参调用**的括号里（任意实参位置）。
+///
+///       从表达式开头数到 [start]，最后那个还没配对的 `(` 就是包住它的那一个（数括号而不是回着找：
+///       它前面可能隔着一整个带括号的实参，`atan2(root(8,3),1,234)` 那种）。再读回那一个 `(` 前面
+///       的标识符——**同一个 [_variadicFunctions]，没有第二份表**——它是不是可变形参的函数。
+///
+///       数不到括号（`1,234` 这种光秃秃的千分位数字）时为假：那不是实参，是千分位。
+///
+/// English: whether the digit group at [start] sits inside a **variadic call's** brackets (in any
+///          argument position).
+///
+///          Count from the start of the expression to [start]; the last `(` still unmatched is the one
+///          enclosing it (counting brackets rather than walking back is deliberate: a whole bracketed
+///          argument may sit in between, as in `atan2(root(8,3),1,234)`). Then read the identifier
+///          before that `(` — **the same [_variadicFunctions], no second table** — and ask whether it
+///          is a variadic function.
+///
+///          No bracket at all (`1,234`, a bare thousands-grouped number) is false: that is not an
+///          argument, it is a thousands separator.
+bool _sitsInsideVariadicCall(String source, int start) {
+  var depth = 0;
+  var openAt = -1;
+  for (var i = 0; i < start; i++) {
+    if (source[i] == '(') {
+      depth++;
+      openAt = i;
+    } else if (source[i] == ')') {
+      depth--;
+    }
+  }
+  if (depth <= 0 || openAt < 0) return false;
+  var index = openAt - 1;
+  while (index >= 0 && source[index].trim().isEmpty) {
+    index--;
+  }
+  final nameEnd = index + 1;
+  while (index >= 0 && RegExp(r'[A-Za-z0-9]').hasMatch(source[index])) {
+    index--;
+  }
+  if (nameEnd == index + 1) return false;
+  return _variadicFunctions
+      .contains(ExpressionParser.canonicalFunctionName(source.substring(index + 1, nameEnd)));
 }
 
 String _normalizeFunctionAliases(String source) {

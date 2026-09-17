@@ -169,6 +169,55 @@ void main() {
       //          is also the counterexample: it is **not** "strip every comma" — the name decides.
       expect(translated('min(1,024,3)'), 'min(1,024,3)');
     });
+
+    test('可变形参调用里，**每一个**实参位置上的逗号都是分隔符', () {
+      // 中文：**统计—回归那一轮修的，理由量出来的。** 上面那条判据原来只答得了**紧跟在 `(` 后面**
+      //       的那一个数字，所以 `mean(1,234)` 保住了，而 `mean(1,2,234,5)` 里的第三个实参被并成
+      //       `2234`——一个可变形参的调用里没有哪个逗号该是千分位。同一个洞让
+      //       `matrix(2,4,1,100,2,200,3,300,4,400)` 变成 `matrix(2,4,1100,2200,3300,4400)`：
+      //       **屏幕上写着 8 个数，引擎算的是另外 4 个。**
+      //       （`matrix` 的两行形状是数据集那三格的全部实参，所以这个错值不再是偶发的。）
+      // English: **fixed in the statistics/regression round, for a measured reason.** That test
+      //          originally answered only for the digit group **immediately after `(`**, so
+      //          `mean(1,234)` survived while the third argument of `mean(1,2,234,5)` merged into
+      //          `2234` — inside a variadic call no comma is a thousands separator. The same hole
+      //          turned `matrix(2,4,1,100,2,200,3,300,4,400)` into `matrix(2,4,1100,2200,3300,4400)`:
+      //          **the screen showing eight numbers while the engine computes on four.** (`matrix`'s
+      //          two-row shape is the whole argument of those three dataset cells, so the wrong value
+      //          is no longer occasional.)
+      expect(translated('mean(1,2,234,5)'), 'mean(1,2,234,5)');
+      expect(translated('matrix(2,4,1,100,2,200,3,300,4,400)'),
+          'matrix(2,4,1,100,2,200,3,300,4,400)');
+      expect(translated('matrix(1,3,1,100,200)'), 'matrix(1,3,1,100,200)');
+
+      // 中文：**同一个改动没有碰固定形参那一族**——那里把一个（并错的）值变成一句实参个数错误是
+      //       另一件事。这一组的实参个数是写死的，所以逗号仍旧按老规矩读。
+      // English: **the same change does not touch the fixed-arity family** — turning a (mis-merged)
+      //          value into an arity error there is a different question. That family's argument count
+      //          is fixed, so its commas are still read by the old rule.
+      // 中文：`translated` 给的是**引擎写法**，`ncr` 在那边叫 `binomial`（翻译表那一列）。
+      // English: `translated` returns the **engine's spelling**, and `ncr` is `binomial` there (the
+      //          translation table's column).
+      expect(translated('ncr(1,2,234)'), 'binomial(1,2234)');
+      expect(translated('round(1,024)'), 'round(1024)');
+      expect(translated('log2(1,024)'), 'log2(1024)');
+
+      // 中文：也不是「有括号就保」——括号外面那一个（`2(1,234)`）与光秃秃的
+      //       `1,234,567` 照旧是千分位。
+      // English: nor is it "keep every comma inside brackets" — the one outside them (`2(1,234)`)
+      //          and the bare `1,234,567` are still thousands separators.
+      // 中文：`translated` 给的是**引擎写法**，那里隐式乘法写成 `*` 而且括号是它自己补的；
+      //       所以下面几条改用归一化自己那一层来钉，那里看到的才是逗号那个决定本身。
+      // English: `translated` returns the **engine's spelling**, where implicit multiplication is
+      //          written `*` and the brackets are the engine's own; so the cases below are pinned at
+      //          the normalisation layer instead, which is where the comma decision itself is visible.
+      String normalized(String source) =>
+          ExpressionParser.normalizeExpressionInput(source);
+      expect(translated('2(1,234)'), '((2)*((1234)))');
+      expect(normalized('2(1,234)'), '2*(1234)');
+      expect(normalized('1,234,567+1'), '1234567+1');
+      expect(normalized('1,234+5'), '1234+5');
+    });
   });
 
   group('标识符层：表外的一律拒绝，别名折到表里的键上', () {
