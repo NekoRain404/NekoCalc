@@ -20,7 +20,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       tooltip: tooltip,
       color: theme.display.statusFg,
       backgroundColor: theme.display.background,
-      borderColor: theme.display.statusFg.withValues(alpha: _CalculatorPageState._cursorBorderAlpha),
+      borderColor: theme.display.statusFg
+          .withValues(alpha: _CalculatorPageState._cursorBorderAlpha),
       onTap: onTap,
       onBlockMove: onBlockMove,
       onRepeat: onRepeat,
@@ -66,7 +67,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       builder: (sheetContext) => _MoreFunctionsSheet(page: this, theme: theme),
     );
@@ -84,7 +86,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       // 中文：**面板交出来的是裸记号，分隔符在这里（也是唯一一处）决定。** 真实按键流是一串
       //       相邻插入（`5` → `km` → `to` → `mi`），不加分隔符它们会粘成 `5kmtomi`——那**一个**
@@ -125,8 +128,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight:
-            MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       builder: (sheetContext) => AnimatedBuilder(
         animation: _controller,
@@ -174,7 +177,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       builder: (sheetContext) => _ComplexSheet(page: this, theme: theme),
     );
@@ -210,7 +214,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       builder: (sheetContext) => _StatisticsSheet(page: this, theme: theme),
     );
@@ -232,7 +237,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       showDragHandle: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
       ),
       builder: (sheetContext) => AnimatedBuilder(
         // 中文：面板里的记忆读数与撤销/重做可用态要跟着控制器走，否则面板打开期间它们会僵住。
@@ -312,7 +318,6 @@ extension _CalculatorPageSheets on _CalculatorPageState {
   }
 }
 
-
 /// 中文：`OTHER` 面板的内容——HiPER 网格上没有专属键位的函数与常数。每一条都按自己的 id 走
 ///       `_pressKey`，所以「面板里有什么」与「键盘能派发什么」用的是同一套词汇，没有第二份映射。
 /// English: The contents of the `OTHER` sheet — the functions and constants with no HiPER grid cell.
@@ -332,11 +337,34 @@ class _MoreFunctionsSheet extends StatelessWidget {
   ///          the rounding family, `min`/`max`, `gcd`/`lcm`/`atan2`, the angle helpers (`deg`/`rad`
   ///          plus the three angle values), `2ˣ`, and the constant shortcuts.
   static const List<String> _entries = [
-    'cot', 'sec', 'csc', 'log₂', 'exp',
-    'floor', 'ceil', 'round', 'min', 'max',
-    'gcd', 'lcm', 'atan2',
-    'deg', 'rad', '90°', '180°', '360°',
-    '2ˣ', 'φ', '√2', 'τ', 'ln2', 'ln10', 'g', 'c', '2π', 'π/2',
+    'cot',
+    'sec',
+    'csc',
+    'log₂',
+    'exp',
+    'floor',
+    'ceil',
+    'round',
+    'min',
+    'max',
+    'gcd',
+    'lcm',
+    'atan2',
+    'deg',
+    'rad',
+    '90°',
+    '180°',
+    '360°',
+    '2ˣ',
+    'φ',
+    '√2',
+    'τ',
+    'ln2',
+    'ln10',
+    'g',
+    'c',
+    '2π',
+    'π/2',
   ];
 
   @override
@@ -524,12 +552,25 @@ class _StatisticsSheet extends StatelessWidget {
             const SizedBox(height: 2),
             // 中文：把「插进去的那串数是什么」与「它怎么改」讲清楚。没有这句话，屏幕上会凭空多出
             //       一串用户没打过的数字，而那看起来像一个错值。
+            //
+            //       第二句同样不是装饰：`stdev`/`var` 用的是**样本（n−1）**约定，而用户默认的多半是
+            //       总体（n）约定——拿 `1,2,3,4` 说，样本 stdev 是 1.290…，总体是 1.118…。**两个都
+            //       是合理的数字**，用户没有任何线索知道屏幕按哪一套算的。若不在这里说，那就是
+            //       一个「看起来合理但按别的约定算」的值——正是这个项目反复消灭的那一类。
             // English: spell out what the inserted run of numbers is and how to change it. Without
             //          this line a run of digits the user never typed appears from nowhere, which
             //          reads as a wrong value.
+            //
+            //          The second sentence is not decoration either: `stdev`/`var` use the **sample
+            //          (n−1)** convention while a user most likely expects the population (n) one —
+            //          for `1,2,3,4` the sample stdev is 1.290… and the population 1.118…. **Both are
+            //          reasonable numbers**, and nothing on screen would tell the user which one this
+            //          is. Left unsaid, that is a plausible-looking value computed under a convention
+            //          the user did not choose — exactly the class this project keeps eliminating.
             Text(
               '插入的是完整调用，实参是一份起手数据；'
-              '括号里的数在内联编辑器里改成你自己的（逗号可以打）。',
+              '括号里的数在内联编辑器里改成你自己的（逗号可以打）。'
+              'stdev/var 按样本（n−1）算。',
               style: TextStyle(color: theme.display.statusFg, fontSize: 12),
             ),
           ],
