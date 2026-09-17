@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../application/app_settings.dart';
 import '../../../application/controllers/calculator_controller.dart';
 import '../../../application/controllers/expression_selection.dart';
+import '../../../core/math/variable_references.dart';
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../../data/local/app_database.dart';
@@ -18,6 +19,7 @@ import 'keypad/hiper_keypad.dart';
 import 'widgets/calculator_display.dart';
 import 'widgets/inline_expression_editor.dart';
 import 'widgets/unit_picker_sheet.dart';
+import 'widgets/variable_picker_sheet.dart';
 
 part 'calculator_key_dispatch.dart';
 part 'calculator_page_sheets.dart';
@@ -67,7 +69,8 @@ class CalculatorPage extends StatefulWidget {
   static const Set<String> dispatchedKeyIds = <String>{
     // 修饰键 / 页面级动作
     'shift', 'hyp', 'drawer', 'openHistory', 'openTools',
-    'openConstants', 'openUnits', 'baseDec', 'baseHex', 'baseBin', 'baseOct',
+    'openConstants', 'openUnits', 'openVariables',
+    'baseDec', 'baseHex', 'baseBin', 'baseOct',
     // 编辑与结果
     'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
     // 记忆寄存器
@@ -75,6 +78,8 @@ class CalculatorPage extends StatefulWidget {
     // 插入文本（`ins:` 前缀）
     'ins:pi', 'ins:e', 'ins:^-1', 'ins:^2', 'ins:^3', 'ins:^', 'ins:10^',
     'ins:e^', 'ins:inf', 'ins:%', 'ins:exp', 'ins:rand',
+    // 变量：`Y` 一下插入 `y`（`x` 从 `X` 打开的面板里插入，那颗键走 `openVariables`）。
+    'ins:y',
     // 微积分与复现：Σ / Π / ∫dx / lim / logₓy——各自插一整条引擎调用，见下面 `_pressKey` 里的
     // 那一段注释（键盘上没有逗号键，半条调用补不完）。
     'ins:sum', 'ins:product', 'ins:integrate', 'ins:limit', 'ins:logxy',

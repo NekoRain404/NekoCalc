@@ -84,7 +84,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
   <String>[
     "dis:dms|D°M'S|off disabled",
     "dis:dc|d/c|off disabled",
-    "dis:x|X|off disabled",
+    "openVariables|X|on variable",
     "dis:xym|XY,M|off disabled",
     "memoryRecall|MR|on variable",
     "memoryStore|x→M|on variable",
@@ -158,7 +158,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
   <String>[
     "dis:stat|STAT|off disabled",
     "dis:abc|a b/c|off disabled",
-    "dis:y|Y|off disabled",
+    "ins:y|Y|on variable",
     "openHistory|HISTORY|on function",
     "memoryAdd|M+|on variable",
     "memorySubtract|M−|on variable",

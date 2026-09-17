@@ -86,6 +86,17 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //            and `onNavigate('tools')` itself (`app_shell_test.dart`); neither is affected.
       case 'openUnits':
         _openUnitSheet();
+      // 中文：**`X` 打开变量面板**（`Y` 走 `ins:y`，见键位表里那两颗键的注释）。这是加法：`dis:x`
+      //       原来是一颗灰键，`X`/`Y` 两个 id 都不在 `dispatchedKeyIds` 里，也没有任何测试钉过它们
+      //       的行为（`keypad_definition_test.dart` 钉的是「逐格快照」与「每个**已启用** id 主屏都
+      //       接得住」，两条都随这一次改动一起更新）。
+      // English: **`X` opens the variable sheet** (`Y` goes through `ins:y`; see the notes on those two
+      //          cells in the key table). This is an addition: `dis:x` was a grey key, neither `X` nor
+      //          `Y` had an id in `dispatchedKeyIds`, and no test pinned their behaviour
+      //          (`keypad_definition_test.dart` pins the per-cell snapshot and "every **enabled** id is
+      //          caught by the screen", both of which are updated with this change).
+      case 'openVariables':
+        _openVariableSheet();
       case 'openConstants':
         _navigate('tools');
       // 中文：**四个进制胶囊从这一步起真的做进制换算**（它们此前只是切到工具箱）。理由与代价：
@@ -245,6 +256,13 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.append('matrix(2,2,1,2,3,4)');
       case 'ins:i':
         _controller.append('i');
+      // 中文：`Y`（横带那格）一下把 `y` 插进表达式——与 `i` 逐字同样的做法。`x` 的字母从 `X` 打开的
+      //       面板里插入（那颗键在那儿是「插入 x」按钮），两个变量因此都进得来。
+      // English: `Y` (the band cell) inserts `y` in one tap — byte for byte what `i` does. The letter
+      //          `x` is inserted from the sheet `X` opens (where it is the "insert x" button), so both
+      //          variables are reachable.
+      case 'ins:y':
+        _controller.append('y');
       // 中文：`ran#` 插的是完整的 `rand()`。`rand` 是引擎的零实参函数
       //       （`BuiltinFunctions-statistics.cc` 的 `MathFunction("rand", 0, 2)`），带括号按下去
       //       就是一个立刻可求值的随机数。

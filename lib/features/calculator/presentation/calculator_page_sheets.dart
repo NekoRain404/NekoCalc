@@ -101,6 +101,53 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     );
   }
 
+  /// 中文：`X` 打开的面板。与 `CONV` 那个同一种做法：插入走控制器的 `input`（与键盘同一个入口，
+  ///       所以光标位置、撤销栈、边打边算全都照旧），读数与按钮的可用态跟着控制器走
+  ///       （`AnimatedBuilder` 的 `animation` 就是控制器，与 `More...` 面板一样），于是「存入当前值」
+  ///       按下去之后那一行在原地变成 `= 4`，不需要关掉重开。
+  ///
+  ///       面板**不自动关闭**：插 `x` 与存值各是一下，两次都要用。关它的方式是点面板外、按返回键，
+  ///       或者点面板里的「关闭」。
+  ///
+  /// English: the sheet `X` opens. Same shape as the `CONV` one: insertion goes through the controller's
+  ///          `input` (the same entrance the keypad uses, so cursor position, the undo stack and
+  ///          as-you-type evaluation all behave as before), and the readings and button availability
+  ///          follow the controller (the `AnimatedBuilder`'s animation is the controller, exactly as in
+  ///          the `More...` sheet), so pressing "store current value" turns that row into `= 4` in
+  ///          place with no need to close and reopen.
+  ///
+  ///          The sheet **does not close itself**: inserting `x` and storing a value are two separate
+  ///          presses and both are wanted. Tapping outside, the back button, or the sheet's own "关闭"
+  ///          closes it.
+  void _openVariableSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight:
+            MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => VariablePickerSheet(
+          readings: <VariableReading>[
+            for (final String name in kBindableVariableNames)
+              VariableReading(
+                name: name,
+                value: _controller.variableValue(name),
+              ),
+          ],
+          storableValue: _controller.storableVariableValue,
+          onInsert: _controller.append,
+          onAssign: _controller.assignVariable,
+          onClear: _controller.clearVariable,
+          onClose: () => Navigator.of(sheetContext).pop(),
+        ),
+      ),
+    );
+  }
+
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），

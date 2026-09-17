@@ -276,9 +276,26 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         base: KeyVariant(label: 'd/c', id: 'dis:dc', enabled: false),
         category: KeyCategory.disabled,
       ),
+      // 中文：**`X` 从这一步起点亮，它打开变量面板**（原来是一颗灰键 `dis:x`）。为什么是「打开
+      //       面板」而不是「直接插入 `x`」：键盘上没有字母键，值总得有个入口，而一个只能插入字母的
+      //       键只会产出**永远答不出来的表达式**（`2x` 永远是符号式）。面板的形状与 `CONV` 那颗键
+      //       完全一致——键盘产不出的记号由一颗键打开的面板送进表达式。
+      //       为什么 `Y` 不是同一颗键：键 id 全局唯一（`keypad_definition_test.dart` 逐格守着），
+      //       而横带里那几颗本来就是**一下就能按到的快捷入口**（`HISTORY`/`M+`/`M−`），所以
+      //       `Y` 保持横带的用法：一下把 `y` 插进表达式；两个变量的赋值都在 `X` 的面板里。
+      // English: **the `X` key lights up from this step on and opens the variable sheet** (it used to
+      //          be a grey `dis:x`). Why "open a sheet" rather than "insert `x` directly": the keypad
+      //          has no letter keys, a value needs an entrance somewhere, and a key that can only
+      //          insert the letter produces **permanently unanswerable expressions** (`2x` stays
+      //          symbolic forever). The shape is exactly what `CONV` does — a token the keypad cannot
+      //          produce is delivered into the expression by a sheet a key opens.
+      //          Why `Y` is not the same key: key ids are globally unique (guarded cell by cell in
+      //          `keypad_definition_test.dart`), and the band's own cells are **one-tap shortcuts**
+      //          (`HISTORY`/`M+`/`M−`), so `Y` keeps the band's convention — one tap inserts `y`;
+      //          both variables are assigned from `X`'s sheet.
       KeypadKey(
-        base: KeyVariant(label: 'X', id: 'dis:x', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'X', id: 'openVariables'),
+        category: KeyCategory.variable,
       ),
       KeypadKey(
         base: KeyVariant(label: 'XY,M', id: 'dis:xym', enabled: false),
@@ -306,10 +323,16 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
           category: KeyCategory.disabled,
         ),
       ),
+      // 中文：`Y` 与 `X` 是一对，但用法不同（见上面 `X` 那一段）：它把 `y` 一下插进表达式，
+      //       与 `i`、`π` 那颗键同一种做法（`ins:` 前缀 = 插入这段文本）。赋值在 `X` 的面板里，
+      //       两个变量都在那儿。
+      // English: `Y` is `X`'s companion, with a different job (see the `X` note above): one tap
+      //          inserts `y`, exactly as the `i` and `π` keys do (`ins:` means "insert this text").
+      //          Assignment lives in `X`'s sheet, which covers both variables.
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'Y', id: 'dis:y', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'Y', id: 'ins:y'),
+          category: KeyCategory.variable,
         ),
       ),
       InlineKey(
