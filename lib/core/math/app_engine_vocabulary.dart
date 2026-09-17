@@ -138,6 +138,7 @@
 ///          report.
 library;
 
+import 'app_unit_catalog.dart';
 import 'engine_expression.dart';
 import 'expression_parser.dart';
 
@@ -439,6 +440,32 @@ class AppEngineVocabulary {
   ///          names (except `phi`, which the translation writes as a value) and `x`/`y`/`i` may;
   ///          anything else (a free variable the engine does not know) may not.
   static String? variableUnknownToEngine(String name) {
+    // 中文：**单位名走同一张封闭表。** `km` 与 `zorkmid` 在这里是同一类输入的两种结果：能插进
+    //       表达式的单位名（[kAppUnits]）放行，表外的一切照旧拒绝。这张表是量出来的（117 个符号
+    //       逐个在宿主上问过），而拒绝的那一半正是「不存在的单位得到一个看似合理的值」那条
+    //       静默错值的入口——实测 `5 zorkmid` 给 `5E-21 B`，没有任何提示。
+    //
+    //       **大小写敏感**：查表用的是原样的名字，不是小写形式。单位名分大小写（`m` 是米），
+    //       折成小写就等于把两个不同的单位当成一个；`KM` 因此留在「表外的自由变量」那一列。
+    //
+    //       注意它与上面那一行的分工：常量名与 `x`/`y`/`i` 折大小写，单位名不折。两者混在一个
+    //       函数里是因为它们回答的是同一个问题——「这个名字能不能原样交给引擎」。
+    // English: **unit names go through the same closed table.** `km` and `zorkmid` are two outcomes of
+    //          one kind of input here: a unit name that can be inserted into an expression
+    //          ([kAppUnits]) passes, everything outside the table is refused as before. That table is
+    //          measured (117 symbols, each asked of the host), and the refused half is exactly the
+    //          entrance to the "a unit that does not exist returns a plausible value" silent wrong
+    //          value — measured, `5 zorkmid` gives `5E-21 B` with nothing to show for it.
+    //
+    //          **Case-sensitive**: the lookup uses the name verbatim rather than its lowercase form.
+    //          Unit names distinguish case (`m` is metre), so folding to lowercase would treat two
+    //          different units as one; `KM` therefore stays in the "free variable outside the table"
+    //          column.
+    //
+    //          Note the division of labour with the line above: constant names and `x`/`y`/`i` fold
+    //          case, unit names do not. Both live in one function because they answer one question —
+    //          "may this name be handed to the engine as it stands".
+    if (isAppUnit(name)) return null;
     final lower = name.toLowerCase();
     const known = <String>{'pi', 'e', 'tau', 'infinity', 'x', 'y', 'i'};
     if (known.contains(lower)) return null;

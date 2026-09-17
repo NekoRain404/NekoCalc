@@ -70,6 +70,73 @@ class _AstCursor {
     return node;
   }
 
+  /// 中文：**换算层：`A to B`，优先级最低（整串之上），右结合。**
+  ///
+  ///       `to` 是一个**词运算符**，不是符号：它由字母组成，所以词边界必须由这里判——`token`、
+  ///       `to`以后跟着字母的名字都不算（前者是标识符，后者由标识符那条路读走）。判据是
+  ///       「当前位置起恰好是 `to`，且它两边都不是名字字符」。
+  ///
+  ///       为什么它属于**语法**而不是显示层：换算进了语法树，渲染层（表达式行）才能把 `to` 当成
+  ///       一个中缀运算符印出来，翻译层才能把它译成引擎的写法，而**应用自己的求值器**
+  ///       （`ExpressionParser`）根本不认识它——它在 `t` 上是「不认识的标识符」，于是换算这件事
+  ///       只有引擎答得出来（判据是既有的那一处：引擎答不出来就回落旧解析器，而旧解析器对
+  ///       `5 km to mi` 给出的是它自己那句「无法识别的内容」）。
+  ///
+  ///       左结合还是右结合没有实际差别（`a to b to c` 在引擎那边也是逐段换算），这里按右结合写：
+  ///       右操作数是**一整段表达式**，于是 `5 km to m/s` 这种右侧带运算符的目标能整段读进去。
+  ///
+  /// English: **The conversion level: `A to B`, the lowest precedence (above everything), and
+  ///          right-associative.**
+  ///
+  ///          `to` is a **word operator** rather than a symbol: it is made of letters, so the word
+  ///          boundary has to be judged here — `token`, or a name that merely starts with `to`, is not
+  ///          it (an identifier is read by the identifier path). The test is "exactly `to` starts here
+  ///          and neither side is a name character".
+  ///
+  ///          Why this belongs in the **grammar** rather than in the display layer: once a conversion is
+  ///          in the syntax tree the renderer (the expression line) can print `to` as an infix
+  ///          operator, the translation can write it the engine's way, and **this app's own evaluator**
+  ///          (`ExpressionParser`) does not know it at all — `t` is an unknown identifier to it, so the
+  ///          conversion is something only the engine can answer (judged in the one existing place: an
+  ///          engine that cannot answer falls back to the legacy parser, whose own reply to
+  ///          `5 km to mi` is its "unrecognised content" error).
+  ///
+  ///          Associativity makes no practical difference (`a to b to c` converts step by step in the
+  ///          engine too); it is written right-associative here because the right operand is a **whole
+  ///          expression**, so a target carrying an operator of its own (`5 km to m/s`) reads in one
+  ///          piece.
+  ExprNode _parseExpression() {
+    final left = _parseAdditive();
+    if (left is ParseErrorNode) return left;
+    _skipSpaces();
+    if (!_atWord('to')) return left;
+    final opStart = _index;
+    _index += 2;
+    final right = _parseExpression();
+    return BinaryNode(
+      'to',
+      left,
+      right,
+      opStart: opStart,
+      opEnd: opStart + 2,
+      start: left.start,
+      end: right.end,
+    );
+  }
+
+  /// 中文：当前位置起是不是恰好这个**词**（前后都不是名字字符）。词运算符（今天只有 `to`）与
+  ///       标识符共用同一片字符区，只有边界判得对，`token` 才不会被读成 `to` + `ken`。
+  /// English: whether exactly this **word** starts here (no name character on either side). Word
+  ///          operators (only `to` today) share their character range with identifiers, and only a
+  ///          correct boundary keeps `token` from reading as `to` + `ken`.
+  bool _atWord(String word) {
+    if (_index + word.length > source.length) return false;
+    if (source.substring(_index, _index + word.length) != word) return false;
+    if (_index > 0 && _isNameChar(source[_index - 1])) return false;
+    final after = _index + word.length;
+    return after >= source.length || !_isNameChar(source[after]);
+  }
+
   /// 中文：错误节点覆盖 [start, 源码末尾)，text 取该区间的原文；调用方只需把自己的起点传进来，
   ///       就能保证"返回的节点覆盖实际消费过的区域"。
   /// English: An error node covers [start, end of source) and keeps that raw text; callers pass
@@ -79,7 +146,7 @@ class _AstCursor {
 
   /// 中文：加减层，左结合；逗号由函数实参列表处理。
   /// English: Additive level, left-associative; commas are handled by argument lists.
-  ExprNode _parseExpression() {
+  ExprNode _parseAdditive() {
     var left = _parseTerm();
     if (left is ParseErrorNode) return left;
     while (true) {
@@ -116,7 +183,13 @@ class _AstCursor {
       if (_atEnd) return left;
       final char = source[_index];
       final isExplicitOperator = char == '*' || char == '/';
-      if (!isExplicitOperator && !_startsFactor(char)) return left;
+      // 中文：**`to` 在项层停住**，否则 `5 km to mi` 会被读成 `5 × km × to × mi` 的隐式乘积，
+      //       换算那一层永远拿不到它。词边界由 [_atWord] 判：`toto`、`2to`（前一格是名字字符）
+      //       都不是这个词。
+      // English: **the term level stops at `to`**, or `5 km to mi` reads as the implicit product
+      //          `5 × km × to × mi` and the conversion level never sees it. The word boundary is
+      //          [_atWord]'s: `toto`, or `2to` (a name character before it), are not this word.
+      if (!isExplicitOperator && (_atWord('to') || !_startsFactor(char))) return left;
       final opStart = _index;
       if (isExplicitOperator) _index++;
       final right = _parseUnary();

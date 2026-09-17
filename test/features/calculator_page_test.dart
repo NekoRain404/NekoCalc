@@ -8,12 +8,47 @@ import 'package:nekocalc/core/math/ast/tex_emitter.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/unit_picker_sheet.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/hiper_keypad.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definition.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 void main() {
+  testWidgets('CONV 打开单位面板，插进去的单位真的进了表达式', (tester) async {
+    // 中文：**键盘上没有字母键，所以这是单位名唯一的入口。** 这条走完整条交互：`CONV` → 面板 →
+    //       单位 → `to` → 目标单位 → 关面板 → 表达式行上是那三段文本。断言读的是显示面板自己的
+    //       `expression`（表达式行的真源），不是某个渲染片段。
+    // English: **the keypad has no letter keys, so this is the only way a unit name gets in.** This runs
+    //          the whole interaction: `CONV` → sheet → unit → `to` → target unit → close → the three
+    //          pieces are on the expression line. The assertion reads the display's own `expression`
+    //          (the source of truth for that line) rather than some rendered fragment.
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('CONV'));
+    await tester.pumpAndSettle();
+    expect(find.byType(UnitPickerSheet), findsOneWidget);
+
+    await tester.tap(find.text('km  千米'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('to'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('mi  英里'));
+    await tester.pumpAndSettle();
+
+    // 中文：面板**刻意不自动关**（一次换算要插三样东西），所以这里手动点面板外关掉它。
+    // English: the sheet deliberately does **not** close itself (one conversion inserts three pieces),
+    //          so it is dismissed here by tapping outside.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<MathExpressionView>(find.byType(MathExpressionView).first).expression,
+      'km to mi',
+    );
+  });
+
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);

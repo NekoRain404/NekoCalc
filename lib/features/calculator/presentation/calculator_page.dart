@@ -17,6 +17,7 @@ import 'keypad/calculator_keypad.dart';
 import 'keypad/hiper_keypad.dart';
 import 'widgets/calculator_display.dart';
 import 'widgets/inline_expression_editor.dart';
+import 'widgets/unit_picker_sheet.dart';
 
 /// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的
 ///       键盘（`CalculatorKeypad`），**不滚动**。UI 只负责布局和输入分发，计算逻辑留在
@@ -400,6 +401,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
+  /// 中文：`CONV` 打开的单位面板。面板**不自动关**（一次换算要插源、`to`、目标三样），插入直接
+  ///       走控制器的 `input`——与键盘同一个入口，所以光标位置、撤销栈、边打边算全都照旧。
+  /// English: the unit sheet `CONV` opens. It does **not** close itself (one conversion inserts the
+  ///          source, a `to` and the target), and insertion goes through the controller's `input` — the
+  ///          same entrance the keypad uses, so cursor position, the undo stack and as-you-type
+  ///          evaluation all behave as before.
+  void _openUnitSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * _moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) =>
+          UnitPickerSheet(onInsert: _controller.input),
+    );
+  }
+
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
@@ -541,8 +561,32 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          `onNavigate` (`MENU` opens the drawer).
       case 'openTools':
         _openMoreFunctionsSheet();
-      case 'openConstants':
+      // 中文：**`CONV` 从此打开单位面板，不再切到工具箱。** 这是本步唯一一处「改了已经工作的键」，
+      //       理由与代价写在这里：
+      //
+      //       - 键盘上**没有字母键**，所以单位名只能由面板送进表达式；而 `CONV` 这个名字本身就是
+      //         「换算」，单位入口放它下面最容易被找到（步骤 6 的 brief 也是这么要求的）。
+      //       - 工具箱那 21 个换算器**没有因此进不去**：抽屉里有独立的「工具箱」入口，
+      //         `CNST` 与四个进制胶囊（DEC/HEX/BIN/OCT）也都仍然切到 `tools`。`CONV` 是**唯一**
+      //         改掉的那一个键，它原来也只是切到同一个页面。
+      //       - 测试钉住的只有这颗键的 id/标签/可用态（`keypad_definition_test.dart`）与
+      //         `onNavigate('tools')` 本身（`app_shell_test.dart`），两者都不受影响。
+      // English: **`CONV` now opens the unit sheet instead of switching to the toolbox.** This is the
+      //          one place this step changes a key that already worked, so the reason and the price are
+      //          written here:
+      //
+      //          - the keypad has **no letter keys**, so a unit name can only reach the expression
+      //            through a sheet; and `CONV` is literally named "conversion", which makes it the most
+      //            discoverable home for the unit entry (the step 6 brief asks for exactly this).
+      //          - the toolbox's 21 converters are **not** cut off: the drawer has its own 工具箱 entry,
+      //            and `CNST` plus the four base pills (DEC/HEX/BIN/OCT) all still navigate to `tools`.
+      //            `CONV` is the **only** key that changed, and it merely switched to that same page
+      //            before.
+      //          - the tests pin only this key's id/label/enabled state (`keypad_definition_test.dart`)
+      //            and `onNavigate('tools')` itself (`app_shell_test.dart`); neither is affected.
       case 'openUnits':
+        _openUnitSheet();
+      case 'openConstants':
       case 'baseDec':
       case 'baseHex':
       case 'baseBin':

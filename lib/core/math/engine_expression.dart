@@ -91,7 +91,23 @@ import 'expression_parser.dart';
 ///          than three because they answer one question: "this spelling is about to be written for the
 ///          engine — have we confirmed it?" Anything absent cannot be translated ⇒ the legacy parser
 ///          answers (hard boundary 1); it is **never** forwarded to the engine verbatim.
-const Set<String> _binaryOperators = <String>{'+', '-', '*', '/', '^'};
+const Set<String> _binaryOperators = <String>{'+', '-', '*', '/', '^', 'to'};
+
+/// 中文：**字母运算符必须在两侧各带一个空格**。`to` 是词不是符号：引擎把 `((5)*(km))to((mi))`
+///       读成 `t`·`o` 的乘积（宿主实测：`8.04672 MB*t*m^2`，**没有报错**），而
+///       `((5)*(km)) to ((mi))` 才是那次换算（`3.106855961186670 mi`，`to_struct` 非空）。
+///       判据按「是不是纯字母」而不是写死 `to`：下一个词运算符（`in`、`per` 之类）走同一句话，
+///       不会再踩一次这个坑。符号运算符保持原样——`(+)` 与 `( + )` 在引擎那边是同一个东西，
+///       而空格会让译出来的字符串离应用原文更远。
+/// English: **An alphabetic operator needs one space on each side.** `to` is a word, not a symbol: the
+///          engine reads `((5)*(km))to((mi))` as the product `t`·`o` (measured on the host:
+///          `8.04672 MB*t*m^2`, with **no error**), while `((5)*(km)) to ((mi))` is the conversion
+///          (`3.106855961186670 mi`, `to_struct` defined). The test is "is it all letters" rather than
+///          a hardcoded `to`, so the next word operator (`in`, `per`) is covered by the same sentence
+///          and cannot step in this hole again. Symbol operators are left as they are — `(+)` and
+///          `( + )` are the same thing to the engine, and spaces would take the translated string
+///          further from the source.
+final RegExp _wordOperator = RegExp(r'^[A-Za-z]+$');
 
 /// 中文：前缀一元运算符。`+`/`-` 是应用语法里仅有的两个（`expression_parser.dart:_parseUnary`）。
 /// English: prefix unary operators; `+`/`-` are the only two this app's grammar produces
@@ -335,8 +351,13 @@ EngineExpression _binary(String op, ExprNode left, ExprNode right) {
   final r = _translate(right);
   if (l is UntranslatableExpression) return l;
   if (r is UntranslatableExpression) return r;
+  // 中文：词运算符两侧各留一个空格，见 [_wordOperator]——不留的话引擎把它读成两个符号的乘积，
+  //       而且**不报错**（宿主实测）。
+  // English: a word operator gets one space on each side; see [_wordOperator] — without them the engine
+  //          reads it as a product of two symbols, and **does not error** (measured on the host).
+  final pad = _wordOperator.hasMatch(op) ? ' ' : '';
   return TranslatedExpression(
-    '((${(l as TranslatedExpression).text})$op(${(r as TranslatedExpression).text}))',
+    '((${(l as TranslatedExpression).text})$pad$op$pad(${(r as TranslatedExpression).text}))',
   );
 }
 

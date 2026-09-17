@@ -133,15 +133,22 @@ void main() {
   group('静默错值三：`5 km + 3 s` —— 量纲不同却相加，引擎原样退回来', () {
     test('真的提交 `5 km + 3 s`：屏幕上是一条错误，不是那个没算出来的算式', () async {
       // 中文：宿主实测 `5 km + 3 s` 的 decimal **逐字就是输入本身**，种类是 `unit`（结果带单位），
-      //       消息队列空。替身配的正是那条实测回执——**它不会被用到**，因为这条路连引擎都到不了
-      //       （`km`/`s` 不是应用词汇里的名字，翻译层先拒绝）。所以这条同时钉住两件事：
-      //       用户拿到的是错误；以及**那个错值没有可能上屏**是因为引擎根本没被问过。
+      //       消息队列空——所以引擎给的是一个「看起来像答案」的东西，而它其实什么都没算。
+      //
+      //       **`km` 与 `s` 现在是应用自己的单位表里的名字**（`CONV` 面板能插进去，见
+      //       `app_unit_catalog.dart`），所以这一条路**真的会问到引擎**——这正是这条错值从「够不着」
+      //       变成「够得着」的那一步，判据必须在这里站住。替身配的是那条实测回执，断言的是：
+      //       引擎答了、而它那串文本**没有上屏**，用户拿到的是一条错误。
       // English: measured on the host, the decimal for `5 km + 3 s` **is the input verbatim**, the kind
-      //          is `unit` (the result carries a unit) and the message queue is empty. The double holds
-      //          exactly that measured receipt — and it is **never used**, because this route does not
-      //          even reach the engine (`km`/`s` are not names in this app's vocabulary, so the
-      //          translation refuses first). So this pins two things at once: the user gets an error,
-      //          and the wrong value has no way onto the screen because the engine was never asked.
+      //          is `unit` (the result carries a unit) and the message queue is empty — so the engine
+      //          hands over something that looks like an answer while having computed nothing.
+      //
+      //          **`km` and `s` are now names in this app's own unit table** (the `CONV` sheet can
+      //          insert them; see `app_unit_catalog.dart`), so this route **really does reach the
+      //          engine** — that is the step that turns this wrong value from "out of reach" into "in
+      //          reach", and the judgement has to hold here. The double holds the measured receipt, and
+      //          what this asserts is: the engine answered, its text **did not land on screen**, and the
+      //          user got an error.
       final engine = _FakeMathEngine(
         const EngineReplyFixture(
           displayText: '5 km + 3 s',
@@ -154,7 +161,8 @@ void main() {
       controller.setExpression('5 km + 3 s');
       final submitted = await controller.submit();
 
-      expect(engine.calls, isEmpty);
+      expect(engine.calls, isNotEmpty,
+          reason: '单位名过得了词汇，引擎会被问到——这是这一步的前提');
       expect(controller.hasError, isTrue);
       expect(controller.result, isNot(contains('5 km')));
       expect(controller.result, isNot(contains('3 s')));
