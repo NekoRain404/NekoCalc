@@ -56,6 +56,79 @@ void main() {
     expect(withoutDecimal.reusableText, '1234.5');
   });
 
+  test('a decimal that fits a finite double gives that double', () {
+    const exact = MathResult(displayText: '4√2', decimalText: '5.656854');
+    const zero = MathResult(displayText: '0', decimalText: '0');
+    const negativeZero = MathResult(displayText: '-0', decimalText: '-0');
+
+    expect(exact.decimalValue, 5.656854);
+    expect(exact.hasFiniteDecimal, isTrue);
+    expect(zero.decimalValue, 0);
+    expect(zero.hasFiniteDecimal, isTrue);
+    // 中文：真的零仍然是零——下溢的判定看的是「数字部分里有没有非零数字」，`-0` 与 `0e-999` 都没有。
+    // English: A real zero is still a zero — underflow is decided by "does the significand contain a
+    //          non-zero digit", and neither `-0` nor `0e-999` does.
+    expect(negativeZero.decimalValue, 0);
+    expect(
+        const MathResult(displayText: '0e-999', decimalText: '0e-999')
+            .decimalValue,
+        0);
+  });
+
+  test('a finite decimal that overflows a double is finite, and has no value',
+      () {
+    // 中文：`2^2000 ≈ 1.148e+602` 是精确引擎给出的**正确答案**，只是超出 double 上限。
+    //       `double.tryParse` 对它返回 `Infinity`——但那是 double 的量程，不是数的性质。
+    // English: `2^2000 ≈ 1.148e+602` is a *correct* answer from an exact engine that merely exceeds
+    //          a double. `double.tryParse` returns `Infinity` for it — but that is the double's
+    //          range, not a property of the number.
+    const huge =
+        MathResult(displayText: '1.148e+602', decimalText: '1.148e+602');
+
+    expect(huge.hasFiniteDecimal, isTrue);
+    expect(huge.decimalValue, isNull);
+    expect(huge.reusableText, '1.148e+602');
+  });
+
+  test('a decimal that underflows must not come back as a silent zero', () {
+    // 中文：`2^-2000 ≈ 9.3e-603`。`double.tryParse` 返回 `0.0` 而不是 null，`isFinite` 也为真——
+    //       若照单全收，`Ans`、`last` 与记忆寄存器拿到的都是一个**静默的 0**。
+    // English: `2^-2000 ≈ 9.3e-603`. `double.tryParse` returns `0.0` rather than null, and `isFinite`
+    //          is true — taking that at face value hands `Ans`, `last` and the memory register a
+    //          *silent zero*.
+    const tiny = MathResult(displayText: '9.3e-603', decimalText: '9.3e-603');
+
+    expect(tiny.hasFiniteDecimal, isTrue);
+    expect(tiny.decimalValue, isNull);
+    expect(tiny.reusableText, '9.3e-603');
+  });
+
+  test('the Infinity and NaN literals are not finite decimals', () {
+    // 中文：`decimalTextOf` 认得这两个字面量（`double.tryParse` 接受它们），所以有限性必须在
+    //       文本层面另判一次——`1/0` 的引擎回包走的正是这条路。
+    // English: `decimalTextOf` accepts these two literals (so does `double.tryParse`), which is why
+    //          finiteness needs a separate text-level test — the engine's receipt for `1/0` takes
+    //          exactly this path.
+    const infinity =
+        MathResult(displayText: 'Infinity', decimalText: 'Infinity');
+    const negative =
+        MathResult(displayText: '-Infinity', decimalText: '-Infinity');
+    const notANumber = MathResult(displayText: 'NaN', decimalText: 'NaN');
+
+    // 中文：`decimalTextOf` **放它过去**（它确实能被 `tryParse` 解析成 `Infinity`），所以挡下它的
+    //       必须是 [MathResult.hasFiniteDecimal] ——这正是那道判定必须存在的原因。
+    // English: `decimalTextOf` lets it through (it really does parse into `Infinity`), so what stops
+    //          it has to be [MathResult.hasFiniteDecimal] — which is why that check exists.
+    expect(infinity.decimalText, 'Infinity');
+    expect(double.tryParse('Infinity')!.isFinite, isFalse);
+    expect(infinity.hasFiniteDecimal, isFalse);
+    expect(negative.hasFiniteDecimal, isFalse);
+    expect(notANumber.hasFiniteDecimal, isFalse);
+    expect(MathResult.decimalTextIsFinite('5.656854'), isTrue);
+    expect(MathResult.decimalTextIsFinite(''), isFalse);
+    expect(MathResult.decimalTextIsFinite('1 m'), isFalse);
+  });
+
   test('equality is by value so undo snapshots still de-duplicate', () {
     const first = MathResult(
       displayText: '4√2',

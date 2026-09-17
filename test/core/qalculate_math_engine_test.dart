@@ -233,7 +233,7 @@ void main() {
     expect(reply.result!.decimalValue, isNull);
   });
 
-  test('a decimal that overflows to infinity still parses, and is not finite',
+  test('a finite decimal beyond the double range stays finite, with no value',
       () async {
     respondWith((_) => <String, String>{
           'ok': 'true',
@@ -243,13 +243,49 @@ void main() {
 
     final reply = await engine.evaluate('1e400', angleMode: 'RAD');
 
-    // 中文：这一条与上一条必须能分开：`decimalValue` 不是 null，而是 `double.infinity`。判「有
-    //       没有十进制形态」与判「是不是有限数」是两件事，提交路径两个都要判。
-    // English: This case has to be distinguishable from the previous one: `decimalValue` is not
-    //          null but `double.infinity`. "Is there a decimal form" and "is it finite" are two
-    //          separate questions, and the submit path asks both.
+    // 中文：这一条与上一条必须能分开。`1e400` 是一个**有限数**（只是超出 double 上限），所以
+    //       `hasFiniteDecimal` 为真——提交路径据此采用它、照常显示；而需要 double 的消费者拿到
+    //       null，于是显式处理「这一次存不下」，绝不会拿到 `Infinity`。
+    // English: This case has to be distinguishable from the previous one. `1e400` is a *finite*
+    //          number (it merely exceeds a double), so `hasFiniteDecimal` is true — which is what
+    //          lets the submit path take it and display it — while consumers that need a double get
+    //          null, so they handle "cannot store this" explicitly and never receive `Infinity`.
     expect(reply.result!.decimalText, '1e400');
-    expect(reply.result!.decimalValue, double.infinity);
-    expect(reply.result!.decimalValue!.isFinite, isFalse);
+    expect(reply.result!.hasFiniteDecimal, isTrue);
+    expect(reply.result!.decimalValue, isNull);
+  });
+
+  test('a comma that is not a grouping separator is not stripped', () async {
+    // 中文：逗号小数分隔符的语言环境下 `5,656854` 里的逗号是**小数点**，无条件剥掉会得到
+    //       `5656854`——一个静默的错值。原生侧已由 `useDecimalPoint(true)` 把小数点钉成 `.`，
+    //       这里是第二道：形状不像千分位就不剥，判不出来就没有十进制形态（fail-closed）。
+    // English: Under a comma-decimal locale the comma in `5,656854` *is the decimal point*, and
+    //          stripping it yields `5656854` — a silently wrong value. The native side already pins
+    //          the point to `.` via `useDecimalPoint(true)`; this is the second layer: a shape that
+    //          does not look like grouping is left alone, and something unreadable ends up with no
+    //          decimal form (fail-closed).
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '5,656854',
+          'latex': '5.656854',
+        });
+
+    final commaDecimal = await engine.evaluate('sqrt(32)', angleMode: 'RAD');
+    expect(commaDecimal.result!.decimalText, isEmpty);
+    expect(commaDecimal.result!.decimalValue, isNull);
+    expect(commaDecimal.result!.displayText, '5,656854',
+        reason: 'the display form the engine gave is kept as it is');
+
+    // 中文：像千分位的照旧剥；指数部分不受影响。
+    // English: What does look like grouping is still stripped, and exponents are untouched.
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '1,234.5e-3',
+          'latex': '1.2345',
+        });
+
+    final grouped = await engine.evaluate('1.2345', angleMode: 'RAD');
+    expect(grouped.result!.decimalText, '1234.5e-3');
+    expect(grouped.result!.decimalValue, 1.2345);
   });
 }

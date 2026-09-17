@@ -38,4 +38,22 @@ void main() {
     expect(duplicate.needsAttention, isFalse);
     expect(duplicate.message, '已计算，重复历史已跳过');
   });
+
+  test('a superseded submit is not a submission and does not ask for attention',
+      () {
+    // 中文：结果被更新的输入取代时，既没有计算结果可以展示，也没有历史可以保存——`submitted`
+    //       为假、`needsAttention` 为假（屏幕上已经是更新那条边打边算的结果，不该再弹提示）。
+    // English: When newer input overtook the result there is no calculation to show and no history
+    //          to save — `submitted` is false and `needsAttention` is false (the newer as-you-type
+    //          result is already on screen, so no banner belongs there).
+    const superseded = CalculatorSubmitResult.superseded();
+
+    expect(superseded.status, CalculatorSubmitStatus.superseded);
+    expect(superseded.submitted, isFalse);
+    expect(superseded.needsAttention, isFalse);
+    expect(superseded.savedToHistory, isFalse);
+    expect(superseded.result, isNull);
+    expect(superseded.expression, isNull);
+    expect(superseded.message, '输入已更新，本次计算结果未采用');
+  });
 }

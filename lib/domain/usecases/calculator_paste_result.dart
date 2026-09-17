@@ -87,43 +87,60 @@ class CalculatorPasteResult {
     return parts.join(' · ');
   }
 
-  /// 中文：当前值的取值顺序——报告里的十进制行（精确形式写不回表达式，只能用它）优先，其次是人类
-  ///       可读的当前值行，最后才是纯文本剪贴板里第一行「看起来像表达式」的内容。
+  /// 中文：当前值的取值顺序——报告里的十进制行优先，其次是人类可读的当前值行，最后才是纯文本剪贴板
+  ///       里第一行「看起来像表达式」的内容。两条报告行都**必须能解析成一个有限数**才算数，实现
+  ///       就是 [_parserSafeCurrentValue]。
   ///
-  ///       **`当前值` 行是显示形态，不是数字**：它只在本身已经是一个可解析、有限的十进制时才被
-  ///       采用（[_parserSafeCurrentValue] 不是数字就返回空串）。旧求值器下显示形态就是十进制形态
-  ///       ——`MathResult.decimalTextOf(displayText)` 就是它自己——复制粘贴的往返靠的正是这一条；
-  ///       而精确形式（`4√2`）没有十进制形态，于是粘贴什么都不恢复：**宁可空手而归，也不把显示
-  ///       文本解析成数字**，更不会用失败解析出的 0 去冒充一个值。
+  ///       每一行各自的情形，逐条写清楚（这是 3c 评审第 2 项的交付物）：
   ///
-  ///       这一条是 3c 评审第 2 项的处置。评审给的两条可选补救（摘要里说明「当前值无法恢复」）
-  ///       都会改变已定型的行为：`test/domain/calculator_result_split_test.dart` 的
-  ///       `pasting a report without a decimal line behaves as before` 把守「显示形态即十进制形态
-  ///       时必须照旧恢复」，而工作区里 `test/domain/calculator_paste_result_test.dart` 的
-  ///       `unusable current value report keeps the unrecognized summary` 把摘要文本钉在了
-  ///       「剪贴板里没有识别到表达式」。所以这里保持行为不变，把规则写在代码里。
+  ///       1. 报告里有 `十进制:` 行且可解析 → 用它。精确形式（`4√2`）的报告正是这一种：控制器在
+  ///          显示文本不是十进制时会额外写这一行，粘贴靠它往返。
+  ///       2. 没有可用的 `十进制:` 行（没有这一行，或者这一行解析不出来），而 `当前值` 行可解析
+  ///          → 用 `当前值` 行。**旧求值器产出的报告都是这一种**：显示形态本身就是十进制形态
+  ///          （`displayTextIsParseable` 为真），`1,234.5` → `1234.5`，复制粘贴的往返靠的就是它。
+  ///       3. 两条都不可用（例如报告只有 `当前值: 4√2`，或者 `当前值: not-a-number`）→
+  ///          **什么都不恢复**：宁可空手而归，也不把显示文本解析成数字，更不会用失败解析出的 0
+  ///          去冒充一个值。这种情况**仍然是静默的**——摘要保持 `剪贴板里没有识别到表达式`，
+  ///          没有额外的提示（3c 评审建议过一条「当前值无法恢复」的摘要，但那会改掉已被钉住的
+  ///          摘要文本，见下），这是接受的裁决，不是未处理的缺口。
   ///
-  /// English: The order current values are taken in — the report's decimal line first (an exact form
-  ///          cannot be written back into the expression, so it is the only usable one), then the
+  ///       行为被两处测试钉住，所以这里只写规则、不改行为：
+  ///       `test/domain/calculator_result_split_test.dart` 的
+  ///       `pasting a report without a decimal line behaves as before` 要求第 2 种情形成立；
+  ///       `test/domain/calculator_paste_result_test.dart` 的
+  ///       `unusable current value report keeps the unrecognized summary` 把第 3 种情形的摘要文本
+  ///       钉在 `剪贴板里没有识别到表达式`。
+  ///
+  /// English: The order current values are taken in — the report's decimal line first, then the
   ///          human-readable current-value line, and finally the first expression-like line of a
-  ///          plain-text clipboard.
+  ///          plain-text clipboard. Both report lines count only if they parse into a finite number,
+  ///          which is what [_parserSafeCurrentValue] enforces.
   ///
-  ///          The current-value line is *display text, not a number*: it is only taken when it is
-  ///          itself a parseable, finite decimal ([_parserSafeCurrentValue] returns an empty string
-  ///          otherwise). Under the legacy evaluator the display form *is* the decimal form —
-  ///          `MathResult.decimalTextOf(displayText)` is the display text itself — and that is what
-  ///          keeps the copy/paste round trip working; an exact form (`4√2`) has no decimal form, so
-  ///          the paste restores nothing: it goes home empty-handed rather than parsing display text,
-  ///          and never passes off a failed parse's 0 as a value.
+  ///          The cases, spelled out one by one (this comment is the deliverable for finding 2 of the
+  ///          3c review):
   ///
-  ///          This is how finding 2 of the 3c review is handled. Both remedies the review offered
-  ///          (a summary saying the current value could not be restored) would change settled
-  ///          behaviour: `pasting a report without a decimal line behaves as before` in
-  ///          `test/domain/calculator_result_split_test.dart` pins that a display form which *is* a
-  ///          decimal must still be restored, and `unusable current value report keeps the
-  ///          unrecognized summary` in the working tree's `test/domain/calculator_paste_result_test.dart`
-  ///          pins the summary text to 剪贴板里没有识别到表达式. So behaviour stays as it is and the
-  ///          rule lives here in the code.
+  ///          1. The report has a parseable `十进制:` line → it wins. A report for an exact form
+  ///             (`4√2`) is exactly this case: the controller writes that line when the display text
+  ///             is not itself a decimal, and the paste round trip rides on it.
+  ///          2. No usable `十进制:` line (absent, or unparseable), and the current-value line
+  ///             parses → the current-value line is used. *Every report the legacy evaluator
+  ///             produces is this case*: the display form is itself the decimal form
+  ///             (`displayTextIsParseable` is true), `1,234.5` becomes `1234.5`, and the copy/paste
+  ///             round trip depends on it.
+  ///          3. Neither is usable (the report carries only `当前值: 4√2`, or `当前值: not-a-number`)
+  ///             → *nothing is restored*: it goes home empty-handed rather than parsing display
+  ///             text, and never passes off a failed parse's 0 as a value. This case is **still
+  ///             silent** — the summary stays `剪贴板里没有识别到表达式` with no extra hint. (The 3c
+  ///             review suggested a "current value could not be restored" summary; that would change
+  ///             summary text pinned by a test, see below.) That is an accepted ruling, not an
+  ///             unhandled gap.
+  ///
+  ///          The behaviour is pinned by two tests, so this states the rule without changing it:
+  ///          `pasting a report without a decimal line behaves as before` in
+  ///          `test/domain/calculator_result_split_test.dart` requires case 2 to hold, and
+  ///          `unusable current value report keeps the unrecognized summary` in
+  ///          `test/domain/calculator_paste_result_test.dart` pins case 3's summary text to
+  ///          剪贴板里没有识别到表达式.
   static String _currentValueExpression({
     required String? decimalValue,
     required String? displayValue,
@@ -133,17 +150,9 @@ class CalculatorPasteResult {
     final decimal =
         decimalValue == null ? '' : _parserSafeCurrentValue(decimalValue);
     if (decimal.isNotEmpty) return decimal;
-    // 中文：`当前值` 行是**显示形态**，只有它本身已经是一个（可解析、有限的）十进制时才可以用。
-    //       旧求值器下显示形态就是十进制形态，复制粘贴的往返靠的正是这一条；而像 `4√2` 这样没有
-    //       十进制形态的精确形式，[_parserSafeCurrentValue] 会 fail-closed 地返回空串——粘贴宁可
-    //       什么都不恢复，也不把显示文本解析成数字（`currentValueMissingDecimal` 会说明原因，
-    //       免得它看起来像一次静默的空操作）。
-    // English: The current-value line is *display text* and is used only when it is itself a
-    //          (parseable, finite) decimal. Under the legacy evaluator the display form *is* the
-    //          decimal form, and that is what keeps the copy/paste round trip working; an exact form
-    //          with no decimal form, such as `4√2`, makes [_parserSafeCurrentValue] return an empty
-    //          string — a paste restores nothing rather than parsing display text (and
-    //          `currentValueMissingDecimal` says why, so it does not look like a silent no-op).
+    // 中文：情形 2 与 3 的分界——`当前值` 行可解析就用，不可解析就什么都不恢复（见上面的 3）。
+    // English: The line between cases 2 and 3 — a parseable current-value line is used, an
+    //          unparseable one restores nothing (see case 3 above).
     if (displayValue != null) return _parserSafeCurrentValue(displayValue);
     return fromReport ? '' : _firstExpressionLikeLine(text);
   }

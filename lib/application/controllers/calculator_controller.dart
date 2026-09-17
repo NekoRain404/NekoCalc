@@ -27,6 +27,7 @@ class CalculatorController extends ChangeNotifier {
     required this.settingsRepository,
     required AppSettings settings,
     MathEngine engine = const QalculateMathEngine(),
+    this.engineTimeout = const Duration(seconds: 5),
   })  : _settings = settings,
         _engine = engine,
         angleMode = settings.angleMode;
@@ -42,6 +43,21 @@ class CalculatorController extends ChangeNotifier {
   ///          double, which makes the "the engine cannot answer, fall back" path assertable under
   ///          `flutter test`.
   final MathEngine _engine;
+
+  /// 中文：提交路径等引擎的上限，超时按「引擎没有可用结果」处理（回落旧解析器，不是报错）。
+  ///       5 秒是给启动后第一次调用留的余量——那一次包含懒加载全局定义。测试注入毫秒级的超时
+  ///       来走这条路径。
+  /// English: How long the submit path waits for the engine, after which the call counts as "the
+  ///          engine has no usable result" (a fallback to the legacy parser, not an error). Five
+  ///          seconds leaves room for the first call after launch, which loads the global
+  ///          definitions lazily. Tests inject a millisecond-scale timeout to exercise it.
+  final Duration engineTimeout;
+
+  /// 中文：在飞的引擎请求，值与它的超时定时器成对。存在的唯一理由是 [dispose] 能把它们一起收掉
+  ///       ——见 [_askEngine]。
+  /// English: Engine requests in flight, each paired with its timeout timer. They exist so that
+  ///          [dispose] can collect both — see [_askEngine].
+  final Map<Completer<EngineReply>, Timer> _engineCalls = {};
 
   AppSettings _settings;
   String expression = '';
@@ -104,6 +120,18 @@ class CalculatorController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _liveEvaluationTimer?.cancel();
+    // 中文：还没回话的引擎请求连同它的超时定时器一起收掉，并补一条失败回执——`submit()` 的
+    //       `await` 因此一定会返回，落到它自己的 `_disposed` 分支上，而不是永远悬着。
+    // English: Requests still in flight are collected together with their timeout timers and handed
+    //          a failure receipt — so `submit()`'s `await` always returns and lands on its own
+    //          `_disposed` branch rather than hanging forever.
+    for (final entry in _engineCalls.entries) {
+      entry.value.cancel();
+      if (!entry.key.isCompleted) {
+        entry.key.complete(EngineReply.failure('engine_disposed'));
+      }
+    }
+    _engineCalls.clear();
     super.dispose();
   }
 
@@ -404,6 +432,14 @@ class CalculatorController extends ChangeNotifier {
     }
     _markStateEdited();
     _liveEvaluationTimer?.cancel();
+    // 中文：本次提交的代际。`_stateRevision` 在每一次「状态被改过」时自增，也包括这次 submit 自己
+    //       的 `_markStateEdited()`，所以在这之后取到的值就是「本次提交开始时的那一代」；回包落地
+    //       之前再比一次，就能认出「用户在这次往返期间又动了什么」。
+    // English: This submit's generation. `_stateRevision` is bumped whenever state is edited,
+    //          including this submit's own `_markStateEdited()`, so the value taken after it is
+    //          "the generation this submit started in"; comparing again before the reply lands is
+    //          what recognises "the user touched something during this round trip".
+    final generation = _stateRevision;
     try {
       final submittedExpression = expression;
       // 中文：只有「按下等号」这条路径问引擎。边打边算（`evaluate()`）一行未动，仍然完全走旧的
@@ -411,7 +447,22 @@ class CalculatorController extends ChangeNotifier {
       // English: Only "pressed =" asks the engine. As-you-type evaluation (`evaluate()`) is
       //          untouched and still runs entirely on the legacy synchronous parser; the timing
       //          risk of moving the live path stays out of this step.
-      _result = await _submittedResult(submittedExpression);
+      final calculated =
+          await _submittedResult(submittedExpression, generation);
+      // 中文：引擎往返期间用户又改了输入——或者控制器已经销毁。两种情况下这次的结果都不许落地：
+      //       它描述的是一个已经不在屏幕上的表达式，落地会覆盖更新的边打边算结果，还会把
+      //       `_lastFiniteResult` 与持久化内容一起带到那条过期的时间线上。
+      //       启动后的第一次提交最容易触发（那一次包含懒加载 `loadGlobalDefinitions()`）。
+      // English: The user edited during the engine round trip — or the controller is gone. Either
+      //          way this result must not land: it describes an expression that is no longer on
+      //          screen, and landing it would overwrite the newer as-you-type result and drag
+      //          `_lastFiniteResult` and the persisted state onto that stale timeline. The first
+      //          submit after launch is the likeliest trigger (it includes the lazy
+      //          `loadGlobalDefinitions()`).
+      if (calculated == null || _disposed) {
+        return const CalculatorSubmitResult.superseded();
+      }
+      _result = calculated;
       hasError = false;
       errorMessage = null;
       final signature =
@@ -448,6 +499,12 @@ class CalculatorController extends ChangeNotifier {
         result: result,
       );
     } catch (error) {
+      // 中文：过期或已销毁时错误同样不许落地——连错误状态也是那条过期时间线上的东西。
+      // English: A stale or disposed submit must not land its error either — the error state
+      //          belongs to that same stale timeline.
+      if (_disposed || generation != _stateRevision) {
+        return const CalculatorSubmitResult.superseded();
+      }
       final message = _friendlyCalculationError(error);
       // 中文：错误文案只是显示文本，没有十进制形态——数值消费者据此不再解析它。
       // English: An error message is display text only and carries no decimal form, which is what
@@ -495,17 +552,33 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void memoryAdd() {
+    // 中文：当前值放不进 double 时**不动寄存器**。以前这里会往寄存器里加一个 0——那是一个静默的
+    //       错值（`2^-2000` 就是这样变成 0 的）；不加，寄存器至少还是用户上一次放进去的那个数。
+    //       `memoryAdd()` 没有返回值，所以这一次拒绝对用户仍然不可见——要让它可见得先有一个
+    //       能给界面看的返回值，那是界面层面的事，不在这一步里。
+    // English: When the current value does not fit a double the register is left alone. This used
+    //          to add a 0 — a silently wrong value (`2^-2000` is exactly how that happens); by not
+    //          adding, the register at least still holds what the user last put there.
+    //          `memoryAdd()` returns nothing, so the refusal is still invisible to the user; making
+    //          it visible needs a return value the UI can show, which is a UI-layer matter and not
+    //          part of this step.
+    final value = _currentNumericValue();
+    if (value == null) return;
     _markStateEdited();
     _recordUndoSnapshot();
-    memoryValue += _currentNumericValue();
+    memoryValue += value;
     unawaited(_persistState());
     notifyListeners();
   }
 
   void memorySubtract() {
+    // 中文：与 [memoryAdd] 同理。
+    // English: Same rule as [memoryAdd].
+    final value = _currentNumericValue();
+    if (value == null) return;
     _markStateEdited();
     _recordUndoSnapshot();
-    memoryValue -= _currentNumericValue();
+    memoryValue -= value;
     unawaited(_persistState());
     notifyListeners();
   }
@@ -609,13 +682,23 @@ class CalculatorController extends ChangeNotifier {
   ///       条件很紧——必须是一个**有限十进制**：
   ///
   ///       - 引擎没有十进制形态（`1 m` 这类带单位的结果）：回落到旧解析器；
-  ///       - 十进制形态解析不出数字（`infinity`、符号表达式）：同样回落，于是 `1/0` 仍然是
+  ///       - 十进制形态根本不是有限数（`infinity` / `NaN` 字面量）：同样回落，于是 `1/0` 仍然是
   ///         今天那条「结果不是有限数值」，而不是一个看起来像结果的 `无效`。
+  ///
+  ///       这个判断发生在**字符串层面**（[MathResult.hasFiniteDecimal]），**不借 double**：
+  ///       `2^2000 ≈ 1.148e+602` 是一个完全正确的有限结果，只是超出 double 上限，用
+  ///       `double.isFinite` 去判会把它当成无穷扔掉——那正是精确引擎存在的理由。同一根因的另一端
+  ///       是下溢：`2^-2000 ≈ 9.3e-603` 会被 `double.tryParse` 变成 `0.0`，见
+  ///       [MathResult.decimalValue]。
   ///
   ///       表达式先过 [_resolveAnswerReferences]，和旧路径一样：引擎不认识 `Ans`/`last`，问它
   ///       之前必须先换成十进制数值，否则它会把 `ans` 当成一个未知变量。回落分支故意把**原始**
   ///       表达式交给 [_calculateResult]，让它自己做同一件事——两次解析结果相同（`_ansValue…`
   ///       记下的正是第一次用的那个值），而跳过它会让 `_ansSource…` 被清空。
+  ///
+  ///       返回 null 表示**这次提交已经过期**（`generation` 不再是当前代际）：调用方什么都不许碰，
+  ///       连回落计算也不许做——`_calculateResult` 会写 `_lastFiniteResult`，那也是过期时间线上的
+  ///       状态。
   ///
   /// English: The result source for the *submit path* (only "pressed =" reaches it): ask the engine
   ///          first, fall back to the legacy parser when it cannot answer.
@@ -624,12 +707,19 @@ class CalculatorController extends ChangeNotifier {
   ///          user: engine not loaded, no native side, aborted, timed out or failed to parse — the
   ///          user sees *today's* result or *today's* error, character for character. So the
   ///          condition for accepting the engine's answer is deliberately tight: it must be a
-  ///          *finite decimal*:
+  ///          *finite decimal*, judged at the string level ([MathResult.hasFiniteDecimal]) and
+  ///          never through a double:
   ///
   ///          - the engine has no decimal form (a result carrying a unit, say `1 m`): fall back;
-  ///          - the decimal form does not parse into a number (`infinity`, a symbolic expression):
+  ///          - the decimal form is not a finite number at all (the `infinity` / `NaN` literals):
   ///            fall back too, so `1/0` still produces today's "result is not finite" rather than a
   ///            `无效` that looks like a result.
+  ///
+  ///          Judging finiteness at the string level matters because `2^2000 ≈ 1.148e+602` is a
+  ///          perfectly correct finite result that merely overflows a double — `double.isFinite`
+  ///          would throw the engine's right answer away, which is the very reason an exact engine
+  ///          exists. The other end of the same root cause is underflow: `2^-2000 ≈ 9.3e-603`
+  ///          becomes `0.0` through `double.tryParse`. See [MathResult.decimalValue].
   ///
   ///          The expression goes through [_resolveAnswerReferences] first, exactly as on the legacy
   ///          path: the engine does not know `Ans`/`last`, so they must be substituted before it is
@@ -637,21 +727,32 @@ class CalculatorController extends ChangeNotifier {
   ///          *original* expression to [_calculateResult] on purpose, letting it do the same thing
   ///          itself — both resolutions produce the same string (`_ansValue…` holds exactly the
   ///          value the first one used), while skipping it would clear `_ansSource…`.
-  Future<MathResult> _submittedResult(String source) async {
+  ///
+  ///          A null return means *this submit is stale* (its `generation` is no longer current):
+  ///          the caller must touch nothing at all, not even run the fallback — `_calculateResult`
+  ///          writes `_lastFiniteResult`, and that too belongs to the stale timeline.
+  Future<MathResult?> _submittedResult(String source, int generation) async {
     final resolvedSource = _resolveAnswerReferences(source);
     final reply = await _askEngine(resolvedSource);
+    // 中文：回包到手的**第一件事**是问一句「这还是当前那一代吗」，在碰任何状态之前——包括
+    //       回落分支会写的那份 `_lastFiniteResult`。
+    // English: The *first* thing to do with a reply is ask "is this still the current generation",
+    //          before touching any state — including the `_lastFiniteResult` the fallback writes.
+    if (_disposed || generation != _stateRevision) return null;
     final engineResult = reply.result;
-    final value = engineResult?.decimalValue;
-    if (reply.ok && engineResult != null && value != null && value.isFinite) {
+    if (reply.ok && engineResult != null && engineResult.hasFiniteDecimal) {
       // 中文：`_lastFiniteResult` 与十进制形态保持一致，规则与 [applyMathResult] 相同——十进制
-      //       形态非空（`decimalValue` 非空已经保证了这一点），于是 `Ans`/`last` 用的是引擎的
-      //       精确值，而不是显示取整后的那一份。
+      //       形态非空（[MathResult.hasFiniteDecimal] 为真已经保证了这一点），于是 `Ans`/`last`
+      //       用的是引擎的精确值，而不是显示取整后的那一份。放不进 double 的值也一样：它保存的
+      //       是**文本**，`Ans`/`last` 写回表达式时用的就是这段文本。
       // English: `_lastFiniteResult` stays in step with the decimal form, the same rule as
-      //          [applyMathResult] — the decimal form is non-empty (which `decimalValue` being
-      //          non-null already guarantees), so `Ans`/`last` resolve to the engine's accurate
-      //          value rather than the display-rounded one.
+      //          [applyMathResult] — the decimal form is non-empty (which
+      //          [MathResult.hasFiniteDecimal] being true already guarantees), so `Ans`/`last`
+      //          resolve to the engine's accurate value rather than the display-rounded one. A value
+      //          that does not fit a double is no different: what is kept is *text*, and that text
+      //          is what `Ans`/`last` write back into the expression.
       _lastFiniteResult = engineResult.decimalText;
-      return _withDisplayRounding(engineResult, value);
+      return _engineMathResult(engineResult);
     }
     // 中文：回落对用户不可见（这是要求），所以必须留下一条日志——否则「引擎其实一次都没答上来」
     //       在设备上和「引擎工作正常」长得一模一样。
@@ -665,32 +766,96 @@ class CalculatorController extends ChangeNotifier {
     return _calculateResult(source);
   }
 
-  /// 中文：问一次引擎。**引擎抛出来的东西在这里停住**——[MathEngine] 的契约要求实现不抛异常，
-  ///       但提交路径不能把「实现有没有守约」当成本钱：守约失败时回落到旧解析器，而不是让一个
-  ///       只在设备上出现的异常变成用户可见的错误。
-  /// English: Ask the engine once. Anything it throws stops here — the [MathEngine] contract says
-  ///          implementations must not throw, but the submit path cannot stake its behaviour on the
-  ///          implementation keeping that promise: a broken promise falls back to the legacy parser
-  ///          instead of turning into a user-visible error that only ever appears on a device.
-  Future<EngineReply> _askEngine(String expression) async {
-    try {
-      return await _engine.evaluate(expression, angleMode: angleMode);
-    } catch (error) {
-      return EngineReply.failure('engine_threw: $error');
-    }
+  /// 中文：问一次引擎，并给它一个上限。两件事都在这里做：
+  ///
+  ///       - **异常在这里停住**。[MathEngine] 的契约要求实现不抛异常，但提交路径不能把「实现有
+  ///         没有守约」当成本钱：守约失败时回落到旧解析器，而不是让一个只在设备上出现的异常变成
+  ///         用户可见的错误。
+  ///       - **等待在这里封顶**。[engineTimeout] 到点还没等到回执，就按「引擎没有可用结果」处理
+  ///         ——回落旧解析器，不是报错。没有它，原生一次卡死会让 `=` 从此静默失效到重启。
+  ///
+  ///       定时器是手写的而不是 `Future.timeout`：只有这样它才**属于控制器**，[dispose] 时能连
+  ///       同还没回话的请求一起收掉。`Future.timeout` 的定时器拿不到句柄，控制器销毁后它还挂在
+  ///       事件循环上（`flutter_test` 的「widget 树销毁后仍有定时器」正是查这个）。收掉时给在飞的
+  ///       请求补一条失败回执，于是 `submit()` 的 `await` 一定会返回、走的是既有的过期分支，
+  ///       而不是永远悬着。
+  ///
+  ///       迟到的原生回包在这里被丢掉（completer 已经完成），所以它不会去覆盖任何已经落地的结果。
+  ///
+  /// English: Ask the engine once, with a bound. Two things happen here:
+  ///
+  ///          - **Exceptions stop here.** The [MathEngine] contract says implementations must not
+  ///            throw, but the submit path cannot stake its behaviour on the implementation keeping
+  ///            that promise: a broken promise falls back to the legacy parser instead of turning
+  ///            into a user-visible error that only ever appears on a device.
+  ///          - **The wait is capped here.** When [engineTimeout] elapses with no receipt the call
+  ///            counts as "the engine has no usable result" — a fallback to the legacy parser, not
+  ///            an error. Without it one stuck native call makes `=` silently dead until restart.
+  ///
+  ///          The timer is hand-rolled rather than `Future.timeout` precisely so that it *belongs to
+  ///          the controller* and [dispose] can collect it together with the request still in
+  ///          flight. A `Future.timeout` timer cannot be reached, so it stays on the event loop
+  ///          after the controller is gone (which is exactly what flutter_test's "a timer is still
+  ///          pending after the widget tree was disposed" catches). Collecting a pending request
+  ///          hands it a failure receipt, so `submit()`'s `await` always returns and takes the
+  ///          existing stale branch instead of hanging forever.
+  ///
+  ///          A late native reply is dropped here (the completer has already completed), so it can
+  ///          never overwrite a result that has already landed.
+  Future<EngineReply> _askEngine(String expression) {
+    final completer = Completer<EngineReply>();
+    final timer = Timer(engineTimeout, () {
+      _engineCalls.remove(completer);
+      if (completer.isCompleted) return;
+      completer.complete(
+        EngineReply.failure(
+            'engine_timeout: ${engineTimeout.inMilliseconds}ms'),
+      );
+    });
+    _engineCalls[completer] = timer;
+    unawaited(
+      _engine.evaluate(expression, angleMode: angleMode).then(
+        (reply) {
+          _engineCalls.remove(completer);
+          if (completer.isCompleted) return;
+          timer.cancel();
+          completer.complete(reply);
+        },
+        onError: (Object error) {
+          _engineCalls.remove(completer);
+          if (completer.isCompleted) return;
+          timer.cancel();
+          completer.complete(EngineReply.failure('engine_threw: $error'));
+        },
+      ),
+    );
+    return completer.future;
   }
 
   /// 中文：把引擎的结果变成屏幕上的结果。引擎的十进制形态是**未取整**的（16 位有效数字），显示
   ///       形态仍然由 `formatNumber` 按 `AppSettings.precision`（小数位数）取整——取整只有这一处
   ///       实现，边打边算与提交路径共用，用户在设置里选的位数对两条路径含义完全相同。引擎负责
   ///       算得准，Dart 负责显示成什么样。
+  ///
+  ///       **放不进 double 的结果**（`2^2000 ≈ 1.148e+602`、`2^-2000 ≈ 9.3e-603`）原样显示引擎
+  ///       那一份十进制文本：Dart 手里没有可以取整的数（`decimalValue` 为 null），硬要走
+  ///       `formatNumber` 只能先把 `Infinity` 或 `0` 喂进去，而那两个都是假值。取整规则没有被搬到
+  ///       引擎里，只是对超出取整能力的结果不假装能取整。
   /// English: Turns the engine's result into the one on screen. The engine's decimal form is
   ///          *unrounded* (16 significant digits) while the display form still comes from
   ///          `formatNumber` at `AppSettings.precision` (a count of decimal places) — rounding has
   ///          exactly one implementation, shared by as-you-type and submit, so the digit count the
   ///          user picked means the same thing on both paths. The engine computes accurately; Dart
   ///          decides what it looks like.
-  MathResult _withDisplayRounding(MathResult engineResult, double value) {
+  ///
+  ///          A result that does not fit a double (`2^2000 ≈ 1.148e+602`, `2^-2000 ≈ 9.3e-603`) is
+  ///          shown as the engine's own decimal text: Dart has no number to round (`decimalValue` is
+  ///          null), and forcing it through `formatNumber` would mean feeding it `Infinity` or `0` —
+  ///          both false. Rounding has not moved into the engine; the code just does not pretend to
+  ///          round what it cannot represent.
+  MathResult _engineMathResult(MathResult engineResult) {
+    final value = engineResult.decimalValue;
+    if (value == null) return engineResult;
     return MathResult(
       displayText: formatNumber(
         value,
@@ -968,22 +1133,23 @@ class CalculatorController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// 中文：记忆寄存器要加/减的数值。表达式能算就用表达式，否则用**结果的十进制形态**；两者都
-  ///       没有时是 0（与拆分前一致：那时解析不了显示文本同样得到 0）。绝不解析显示文本。
+  /// 中文：记忆寄存器要加/减的数值。表达式能算就用表达式，否则用**结果的十进制形态**；
+  ///       **两者都给不出一个能放进 double 的值时返回 null**——调用方据此显式拒绝，而不是往
+  ///       寄存器里加一个 0。绝不解析显示文本。
   /// English: The value the memory register adds or subtracts. The expression wins when it
-  ///          evaluates; otherwise the result's *decimal form* is used, and 0 when neither is
-  ///          available (the same as before the split, where an unparseable display text also
-  ///          yielded 0). The display text is never parsed.
-  double _currentNumericValue() {
+  ///          evaluates; otherwise the result's *decimal form* is used; when neither yields
+  ///          something that fits a double this returns null, and the caller explicitly refuses
+  ///          rather than adding a 0. The display text is never parsed.
+  double? _currentNumericValue() {
     try {
       if (expression.trim().isNotEmpty) {
         return ExpressionParser(_resolveAnswerReferences(expression),
                 degreeMode: angleMode == 'DEG')
             .parse();
       }
-      return _result.decimalValue ?? 0;
+      return _result.decimalValue;
     } catch (_) {
-      return _result.decimalValue ?? 0;
+      return _result.decimalValue;
     }
   }
 

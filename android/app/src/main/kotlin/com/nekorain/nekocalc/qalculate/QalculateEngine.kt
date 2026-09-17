@@ -74,6 +74,23 @@ class QalculateEngine {
         //          (4/6/8), which is a different axis, so rounding stays in Dart's formatNumber —
         //          moving it here would silently change what the user's existing setting means.
         instance.setPrecision(ENGINE_PRECISION)
+        // 中文：小数点钉成 `.`，与 App 自己的表达式语法一致。不钉的话，逗号小数分隔符的语言环境下
+        //       `decimal` 会印成 `5,656854`——Dart 侧如果把逗号当千分位剥掉，就得到一个**静默的
+        //       错值** `5656854`。这一行是那道保险的第一层（第二层在 Dart 侧的按位置剥逗号，
+        //       两层都对不上时 fail-closed）。
+        //
+        //       `useDecimalPoint(boolean)` 在打包进 App 的那个 AAR 里确实存在（`javap` 核对过：
+        //       Calculator 上另有 `useDecimalPoint()` 与 `useDecimalComma()`）。
+        // English: The decimal point is pinned to `.`, matching the app's own expression syntax.
+        //          Without it, a comma-decimal locale prints `decimal` as `5,656854` — and a Dart
+        //          side that strips the comma as a grouping separator ends up with the *silently
+        //          wrong* `5656854`. This is the first layer of that guard (the second is the
+        //          positional comma rule on the Dart side; when both say no it fails closed).
+        //
+        //          `useDecimalPoint(boolean)` really does exist in the AAR packaged into the app
+        //          (verified with `javap`; Calculator also carries `useDecimalPoint()` and
+        //          `useDecimalComma()`).
+        instance.useDecimalPoint(true)
         instance
     }
 

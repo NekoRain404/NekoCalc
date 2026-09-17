@@ -79,11 +79,76 @@ class MathResult {
     return normalized;
   }
 
-  /// 中文：十进制形态解析出的数值；没有十进制形态时为 null。调用方**不得**退回 [displayText]。
-  /// English: The value behind the decimal form, or null when there is none. Callers must *not* fall
-  ///          back to [displayText].
-  double? get decimalValue =>
-      decimalText.isEmpty ? null : double.tryParse(decimalText);
+  /// 中文：十进制形态解析出的数值；**放不进一个有限 double 时为 null**（没有十进制形态时同样是
+  ///       null）。调用方**不得**退回 [displayText]，拿到 null 时要显式处理「这一次存不下」，
+  ///       而不是拿一个错值继续算。
+  ///
+  ///       这里不能只看 `double` 的 `isFinite`，因为 `double.tryParse` 在量程两端都会骗人：
+  ///
+  ///       - **溢出**：`1e602` 是一个完全正确的有限结果（精确引擎正是为这类结果而存在），
+  ///         但 `double.tryParse` 返回 `Infinity`。把它当「不是有限数」就等于扔掉引擎的正确答案。
+  ///       - **下溢**：`1e-602` 返回 **`0.0`**，`isFinite` 为真——于是 `Ans`、`last`、记忆寄存器
+  ///         全都拿到 0。不抛异常、不报错，给一个错值。这是最坏的一种。
+  ///
+  ///       所以下溢也在字符串层面挡掉：解析出 0、但数字部分明明有非零数字，就不是 0，是「存不下」。
+  ///       要问「引擎给的是不是一个有限数」，用 [hasFiniteDecimal]（字符串层面），不要用这里。
+  /// English: The value behind the decimal form, or null when it does not fit in a finite double
+  ///          (and also null when there is no decimal form). Callers must *not* fall back to
+  ///          [displayText]; a null means "this one cannot be stored", which callers handle
+  ///          explicitly rather than continuing with a wrong value.
+  ///
+  ///          The `double`'s own `isFinite` cannot be the only test, because `double.tryParse` lies
+  ///          at both ends of the range:
+  ///
+  ///          - **Overflow**: `1e602` is a perfectly correct finite result (an exact engine exists
+  ///            precisely for results like it), yet `double.tryParse` returns `Infinity`. Treating
+  ///            that as "not finite" throws the engine's right answer away.
+  ///          - **Underflow**: `1e-602` returns **`0.0`** and `isFinite` is true — so `Ans`, `last`
+  ///            and the memory register all take 0. Nothing throws, nothing complains, and the
+  ///            value is wrong. That is the worst of the two.
+  ///
+  ///          Underflow is therefore caught at the string level as well: a parsed 0 from text whose
+  ///          digits contain a non-zero digit is not zero, it is "cannot be stored". To ask whether
+  ///          the engine produced a finite number, use [hasFiniteDecimal] — that one is answered at
+  ///          the string level, not here.
+  double? get decimalValue {
+    if (decimalText.isEmpty) return null;
+    final value = double.tryParse(decimalText);
+    if (value == null || !value.isFinite) return null;
+    if (value == 0 && _hasNonZeroDigit(decimalText)) return null;
+    return value;
+  }
+
+  /// 中文：十进制形态是不是一个**有限数**——在字符串层面判定，不借 double 的量程。
+  ///       `1e602` 超出 double 上限却完全有限，所以为真；`Infinity` / `NaN` 这类字面量为假；
+  ///       空串为假。提交路径用它决定要不要采用引擎的答案。
+  /// English: Whether the decimal form is a *finite number* — decided at the string level, without
+  ///          borrowing the double range. `1e602` overflows a double yet is perfectly finite, so it
+  ///          is true; the `Infinity` / `NaN` literals are false; an empty string is false. The
+  ///          submit path uses this to decide whether to take the engine's answer.
+  bool get hasFiniteDecimal => decimalTextIsFinite(decimalText);
+
+  /// 中文：一段文本是不是一个有限数。见 [hasFiniteDecimal]。
+  /// English: Whether a piece of text is a finite number. See [hasFiniteDecimal].
+  static bool decimalTextIsFinite(String value) {
+    if (value.isEmpty) return false;
+    if (double.tryParse(value) == null) return false;
+    return !_nonFiniteLiteral.hasMatch(value);
+  }
+
+  /// 中文：`double.tryParse` 认得、但**不是有限数**的那两个字面量（大小写放宽只是兜底）。
+  /// English: The two literals `double.tryParse` accepts that are *not* finite numbers (the loose
+  ///          casing is only a backstop).
+  static final RegExp _nonFiniteLiteral =
+      RegExp(r'^[+-]?(infinity|nan)$', caseSensitive: false);
+
+  /// 中文：数字部分里有没有非零数字（指数部分不算，`0e-999` 仍然是零）。用来识别下溢。
+  /// English: Whether the significand contains a non-zero digit (the exponent does not count —
+  ///          `0e-999` is still zero). Used to recognise underflow.
+  static bool _hasNonZeroDigit(String value) {
+    final significand = value.split(RegExp('[eE]')).first;
+    return RegExp('[1-9]').hasMatch(significand);
+  }
 
   /// 中文：可以安全写回表达式、或用作去重键的文本：十进制优先，缺失时退回显示文本（去掉千分位），
   ///       与拆分之前 `result.replaceAll(',', '')` 的结果逐字节一致。

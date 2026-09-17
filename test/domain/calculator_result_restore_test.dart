@@ -102,11 +102,17 @@ void main() {
 
     // 中文：装上「精确形式 + 没有十进制形态」的结果，再用一个会落盘的动作把它写下去
     //       （`applyMathResult` 只改状态、不落盘，它是给引擎接线用的那个写入点）。
+    //       触发落盘用的是一次**只带元数据的粘贴**：它写盘、但不碰结果，也不碰表达式。
+    //       （`memoryAdd` 从前也能当触发器，直到它学会在值放不进 double 时**拒绝**——正是这个
+    //       测试用的那种结果。）
     // English: Install an "exact form with no decimal form" result, then persist it with an action
     //          that writes state (`applyMathResult` only changes state and does not persist — it is
-    //          the write point the engine wiring uses).
+    //          the write point the engine wiring uses). The persist is triggered by a
+    //          *metadata-only paste*: it writes state without touching the result or the expression.
+    //          (`memoryAdd` used to serve as that trigger until it learned to *refuse* when the
+    //          value does not fit a double — which is exactly the kind of result this test uses.)
     controller.applyMathResult(const MathResult(displayText: r'4\sqrt{2}'));
-    controller.memoryAdd();
+    controller.applyPastedText('角度模式: RAD');
     await Future<void>.delayed(Duration.zero);
 
     expect(db.savedSettings.containsKey('calculator_result_decimal'), isTrue);

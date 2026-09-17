@@ -108,18 +108,25 @@ class EngineReply {
 /// 中文：可以求值的引擎。存在的理由是**可被测试替身替换**：真引擎只有设备上才有，而提交路径的
 ///       回落行为必须能在 `flutter test` 里断言。
 ///
-///       实现**不得抛异常**：引擎不可用、通道缺席、超时、解析失败一律通过 [EngineReply] 报告。
+///       实现**不得抛异常**：引擎不可用、通道缺席、解析失败一律通过 [EngineReply] 报告。
 ///       引擎是新增能力，不是新的故障点——一旦它能抛出，提交路径就多了一条只在设备上出现的
 ///       崩溃路径。
+///
+///       实现也**不必自己管超时**：提交路径会给每次调用设一个上限，实现即使永远不回答，界面也
+///       不会卡住（那次调用按「没有可用结果」处理）。
 ///
 /// English: Something that can evaluate. It exists so a test double can stand in for the real
 ///          engine: the real one only exists on a device, while the submit path's fallback
 ///          behaviour has to be assertable under `flutter test`.
 ///
-///          Implementations *must not throw*: an unavailable engine, an absent platform side, a
-///          timeout and a parse failure are all reported through [EngineReply]. The engine is a new
-///          capability, not a new failure point — if it could throw, the submit path would gain a
-///          crash path that only shows up on a device.
+///          Implementations *must not throw*: an unavailable engine, an absent platform side and a
+///          parse failure are all reported through [EngineReply]. The engine is a new capability,
+///          not a new failure point — if it could throw, the submit path would gain a crash path
+///          that only shows up on a device.
+///
+///          Implementations do *not* have to bound their own wait: the submit path puts a cap on
+///          every call, so an implementation that never answers cannot freeze the interface (that
+///          call simply counts as "no usable result").
 abstract class MathEngine {
   /// 中文：求值一次。[angleMode] 是 `DEG` / `RAD`，必须传给引擎：同一个 `sin(30)` 在两种模式下
   ///       是两个不同的数，不传就会让提交路径与边打边算在 DEG 模式下互相矛盾。
