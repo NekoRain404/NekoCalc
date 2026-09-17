@@ -154,4 +154,45 @@ void main() {
     expect(find.text('='), findsOneWidget);
     expect(find.text('5.656854'), findsOneWidget);
   });
+
+  testWidgets('符号结果没有十进制读数：`≈` 那一半整个不存在', (tester) async {
+    // 中文：**真机上量到的缺陷。** 打 `√(2x)·8` 时结果行是
+    //       `= 8 × √2 × √x ≈ 11.31370849898476 * sqrt(x)`：左半边排得整整齐齐，右半边却是引擎那串
+    //       ASCII 印法。而右半边**根本不是一个近似值**——`11.31370849898476 * sqrt(x)` 是同一个式子
+    //       的另一种印法（`*`、`sqrt(x)`），`≈` 那句话在这里是假的。
+    //       判据是引擎给没给十进制形态（`resultDecimal`）：符号结果没有（实测 `sqrt(2x)*8` → 十进制
+    //       `11.31370849898476 * sqrt(x)`、LaTeX `8\times \sqrt{2}\times \sqrt{x}`，宿主 5.12.0，
+    //       与 App 同一组 PrintOptions），于是结果行**整行就是排出来的精确形式**，一个 `≈` 也不加。
+    //       那串文本仍然作为排版失败时的降级文本传下去（`expression`），只是不再单独占一半。
+    // English: **the defect as measured on a device.** Typing `√(2x)·8` gave the result line
+    //          `= 8 × √2 × √x ≈ 11.31370849898476 * sqrt(x)`: the left half typeset, the right half
+    //          the engine's ASCII spelling. And that right half **is not an approximation at all** —
+    //          `11.31370849898476 * sqrt(x)` is the same expression spelled differently (`*`,
+    //          `sqrt(x)`), so the `≈` claim is false here.
+    //          The test is whether the engine supplied a decimal form (`resultDecimal`): a symbolic
+    //          result does not (measured `sqrt(2x)*8` → decimal `11.31370849898476 * sqrt(x)`, LaTeX
+    //          `8\times \sqrt{2}\times \sqrt{x}`, host 5.12.0, the same PrintOptions the app carries),
+    //          so the line **is the typeset exact form** and no `≈` is added. That text still travels
+    //          down as the fallback the typeset fragment degrades to (`expression`); it just no
+    //          longer takes half the line.
+    await tester.pumpWidget(display(
+      expression: 'sqrt(2x)*8',
+      result: '11.31370849898476 * sqrt(x)',
+      resultTex: r'8\times \sqrt{2}\times \sqrt{x}',
+    ));
+
+    expect(tester.takeException(), isNull);
+    expect(typesetResult(), findsOneWidget);
+    expect(
+      tester.widget<MathExpressionView>(typesetResult()).tex,
+      r'8\times \sqrt{2}\times \sqrt{x}',
+      reason: '精确形式仍然走同一套排版',
+    );
+    expect(find.text('≈'), findsNothing);
+    // 中文：引擎那串纯文本印法一个字都不该出现在结果行上——它正是缺陷里的右半边。
+    // English: not one character of the engine's plain spelling may appear on the result line —
+    //          that spelling *is* the defect's right half.
+    expect(find.textContaining('sqrt(x)'), findsNothing);
+    expect(find.text('='), findsOneWidget);
+  });
 }
