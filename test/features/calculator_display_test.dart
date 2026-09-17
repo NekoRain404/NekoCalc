@@ -9,6 +9,8 @@ Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
 Widget display({
   String expression = '1+2',
   String result = '3',
+  String resultTex = '',
+  String resultDecimal = '',
   bool hasError = false,
   int? cursorIndex,
   bool naturalDisplay = true,
@@ -22,6 +24,8 @@ Widget display({
   Widget child = CalculatorDisplay(
     expression: expression,
     result: result,
+    resultTex: resultTex,
+    resultDecimal: resultDecimal,
     hasError: hasError,
     statusTitle: hasError ? '表达式需要修正' : '等待输入',
     statusMessage: hasError ? '缺少右括号' : '',
@@ -130,6 +134,130 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  // 中文：精确形式上屏引入了**新的高度边界**：纯文本结果是一行，而一个精确形式（堆叠分数、
+  //       根号套分数）的高度随字号等比放大，于是结果行成了面板里唯一一个高度不确定的行。
+  //       在文档标注的最小高度（176dp）配合 2 倍文字缩放下，它会把表达式行挤到没有高度，再高
+  //       一点整列就报 RenderFlex 溢出——debug 红屏，release 里用户的字被切掉。
+  //       这一组钉住结果行**自己可缩**：拿到的是「最多能有多高」的上限，真放不下时由里面的
+  //       `FittedBox` 等比缩小，而不是把内容裁掉、也不是把面板的下限调高（后者会波及所有结果）。
+  // English: the exact form on screen introduces a **new height boundary**: a plain-text result is
+  //          one line, while an exact form (a stacked fraction, a radical around a fraction) scales
+  //          with the font size, which makes the result row the one row in the panel whose height is
+  //          not fixed. At the documented minimum (176dp) with a 2× text scale it squeezes the
+  //          expression line down to nothing, and a little taller it makes the whole column report a
+  //          RenderFlex overflow — a red screen in debug, the user's text cut off in release.
+  //          This group pins that the result row **may shrink**: what it receives is a ceiling, and
+  //          when it genuinely does not fit the `FittedBox` inside scales the content down instead of
+  //          clipping it or raising the panel's floor (which would affect every result).
+  group('最小高度 + 大字体缩放下的精确形式', () {
+    // 中文：结果行能拿到的上限。契约里与字体无关的固定部分是状态行 40dp 与上下内边距 18dp、
+    //       两条间距 12dp（见类注释），剩下的一半归结果行，另一半归表达式行。
+    // English: the ceiling the result row may take. The font-independent chrome is the 40dp status
+    //          row, 18dp of vertical padding and 12dp of gaps (see the class comment); the remainder
+    //          is split, half to the result row and half to the expression row.
+    const double panelHeight = 176;
+    const double chrome = 40 + 18 + 12;
+    const double share = (panelHeight - chrome) / 2;
+
+    testWidgets('高瘦精确形式在 2 倍缩放下不溢出', (tester) async {
+      await tester.pumpWidget(display(
+        width: 320,
+        height: panelHeight,
+        scale: 2,
+        result: '0.707107',
+        resultTex: r'\frac{1}{\sqrt{2}}',
+        resultDecimal: '0.7071067811865475',
+      ));
+
+      expect(tester.takeException(), isNull,
+          reason: '最小高度 + 2 倍缩放下，高瘦精确形式必须缩进面板，而不是撑破整列');
+      // 中文：结果行真的画了出来（不是空白），而且表达式行仍然有高度——精确形式不许把它挤没。
+      // English: the result row really drew (not blank), and the expression line still has height —
+      //          the exact form must not squeeze it away.
+      expect(find.byType(MathExpressionView), findsNWidgets(2));
+      expect(
+        tester.getSize(find.byType(MathExpressionView).first).height,
+        greaterThan(0),
+        reason: '表达式行被结果行挤到了零高度',
+      );
+    });
+
+    testWidgets('结果行不会长过它分到的那一份，再高也是自己缩', (tester) async {
+      // 中文：这个形式在 2 倍缩放下自然高度约 86dp——远超上面那 53dp。修之前它照单全收，
+      //       把表达式行挤到 0 附近；现在它拿到的是上限，多出来的部分由 `FittedBox` 缩掉。
+      // English: this form naturally wants about 86dp at a 2× scale — far more than the 53dp above.
+      //          Before the fix it simply took it and squeezed the expression line towards zero; now
+      //          what it gets is a ceiling, and the excess is scaled away by the `FittedBox`.
+      await tester.pumpWidget(display(
+        width: 320,
+        height: panelHeight,
+        scale: 2,
+        result: '0.833333',
+        resultTex: r'\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}',
+        resultDecimal: '0.8333333333333334',
+      ));
+
+      expect(tester.takeException(), isNull);
+      final Rect resultRow = tester.getRect(
+        find.ancestor(of: find.text('≈'), matching: find.byType(Align)).first,
+      );
+      expect(resultRow.height, lessThanOrEqualTo(share + 0.01),
+          reason: '结果行超过了它分到的高度：${resultRow.height} > $share');
+      expect(resultRow.height, greaterThan(0));
+    });
+
+    testWidgets('面板被压到下限以下时，结果行缩下去而不是把整列撑破', (tester) async {
+      // 中文：类注释里那条「矮窗口 + 大字体缩放」的路径。100dp 比文档标注的下限还矮 76dp，此时
+      //       固定行本身就不够放——修之前这里报「A RenderFlex overflowed by 22 pixels on the
+      //       bottom」（实测），修之后结果行先缩，整列不再溢出。
+      // English: the "short window plus a large font scale" route the class comment names. 100dp is
+      //          76dp below the documented floor, so the fixed rows alone no longer fit — before the
+      //          fix this reported "A RenderFlex overflowed by 22 pixels on the bottom" (measured),
+      //          while afterwards the result row shrinks first and the column no longer overflows.
+      await tester.pumpWidget(display(
+        width: 320,
+        height: 100,
+        result: '0.707107',
+        resultTex: r'\frac{1}{\sqrt{2}}',
+        resultDecimal: '0.7071067811865475',
+      ));
+
+      expect(tester.takeException(), isNull,
+          reason: '面板矮于下限时也不许抛出 RenderFlex 溢出');
+    });
+
+    testWidgets('放得下的时候，结果行仍按自然高度排布', (tester) async {
+      // 中文：可缩不等于会缩。常规字号下结果行的尺寸必须与之前逐像素相同——上限只是上限。
+      //       最直接的判据：面板高度从 176dp 变到 230dp 时，这一行的自然高度不变。
+      // English: being shrinkable is not the same as shrinking. At ordinary font sizes this row has
+      //          to be pixel-for-pixel what it was — the ceiling is only a ceiling. The most direct
+      //          check: the row's natural height does not change when the panel goes from 176dp to
+      //          230dp.
+      Future<double> resultRowHeight(double height) async {
+        await tester.pumpWidget(display(
+          width: 320,
+          height: height,
+          result: '0.707107',
+          resultTex: r'\frac{1}{\sqrt{2}}',
+          resultDecimal: '0.7071067811865475',
+        ));
+        expect(tester.takeException(), isNull);
+        return tester
+            .getRect(
+              find.ancestor(of: find.text('≈'), matching: find.byType(Align)).first,
+            )
+            .height;
+      }
+
+      final double atFloor = await resultRowHeight(176);
+      final double atCeiling = await resultRowHeight(230);
+      expect(atFloor, atCeiling,
+          reason: '1 倍缩放下结果行不该随面板高度变化——它应当取自然高度');
+      expect(atFloor, lessThan(share),
+          reason: '这一行在 1 倍缩放下本来就该矮于上限，否则上限的松紧无从谈起');
+    });
   });
 
   testWidgets('More button is tappable when provided', (tester) async {

@@ -126,7 +126,9 @@ class ExpressionParser {
             ? -math.pow(-arg, 1 / 3).toDouble()
             : math.pow(arg, 1 / 3).toDouble(),
         'ln' => math.log(arg),
-        'log' => math.log(arg) / math.ln10,
+        'log' => secondArg == null
+            ? math.log(arg) / math.ln10
+            : math.log(arg) / math.log(secondArg),
         'log2' => math.log(arg) / math.ln2,
         'exp' => math.exp(arg),
         'abs' => arg.abs(),
@@ -359,7 +361,15 @@ class ExpressionParser {
       if (args.isEmpty) throw FormatException('$name needs arguments');
       return;
     }
-    if (const {'atan2', 'mod', 'ncr', 'npr', 'root'}.contains(name)) {
+    // 中文：`log` 也收两个实参——第二个是**底**，与引擎的 `MathFunction("log", 1, 2)` 同一个含义。
+    //       它是加法：一个实参的 `log(x)` 与以前逐字节相同，而两个实参的 `log(8,2)` 以前是
+    //       「log needs 1 argument」，现在算 3。`logₓy` 那颗键因此在引擎缺席时也有答案。
+    // English: `log` takes two arguments too — the second is the **base**, the same meaning as the
+    //          engine's `MathFunction("log", 1, 2)`. This is purely additive: the one-argument
+    //          `log(x)` is byte-for-byte what it was, while `log(8,2)` used to be "log needs 1
+    //          argument" and now evaluates to 3. That gives the `logₓy` key an answer even when the
+    //          engine is absent.
+    if (const {'atan2', 'mod', 'ncr', 'npr', 'root', 'log'}.contains(name)) {
       if (args.isEmpty || args.length > 2) {
         throw FormatException('$name needs 1 or 2 arguments');
       }

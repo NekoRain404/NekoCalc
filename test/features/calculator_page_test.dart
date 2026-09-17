@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
+import 'package:nekocalc/core/math/ast/expression_ast_parser.dart';
+import 'package:nekocalc/core/math/ast/tex_emitter.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
@@ -480,9 +482,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // 中文：表达式行由 MathExpressionView 渲染成富文本，所以读组件的 expression，不用 find.text。
+      //       `gcd(,)` 而不是 `gcd(`：二元调用现在把右括号一起补上（不补的话表达式永远停在
+      //       未闭合状态，解析器把它降级成字面文本），光标落在第一个空槽里，也就是 `(` 之后。
       // English: the expression line is rich text via MathExpressionView, so read the widget's
-      //          expression instead of asserting with find.text.
-      expect(_displayedExpression(tester), 'gcd(');
+      //          expression instead of asserting with find.text. It is `gcd(,)` rather than `gcd(`:
+      //          a binary call now writes its closing bracket too (without it the expression stays
+      //          unclosed and the parser degrades it to literal text), and the caret goes into the
+      //          first empty slot, i.e. just after the `(`.
+      expect(_displayedExpression(tester), 'gcd(,)');
     });
 
     testWidgets('× 与 ÷ 走控制器的运算符，而不是 ASCII 插入', (tester) async {
@@ -708,6 +715,135 @@ void main() {
             reason: '主屏没接住按键 id「$id」，它被当字面量写进了表达式');
       }
     });
+
+    // 中文：新点亮的那七颗引擎键（Σ / Π / ∫dx / d/dx / lim / logₓy / ran#）各自要交出的证据，
+    //       分三层，缺一层都不算数：
+    //
+    //       1. **派发**——按键落进表达式，且文本是预期的样子（含补出来的右括号）；
+    //       2. **排版**——这段表达式经 `ExpressionAstParser` + `TexEmitter` 之后，产物里没有
+    //          `\text{…}`，也就是**没有**降级成字面文本（真机上 `sqrt(8` 显示成灰色字母，就是
+    //          这条路走出来的），而且渲染器自己的解析器（`MathExpressionView.typesetsTex`，
+    //          与结果行同一个判断）认它；
+    //       3. **渲染**——真把组件树建出来：表达式那一行的 `MathExpressionView` 底下找不到那个
+    //          承载降级文本的 `Text`，也就是屏幕上画的是公式而不是字母。
+    //
+    //       第二、三层都要：`typesetsTex` 只问解析器，画不画得出来是渲染阶段的事（`Math.tex` 的
+    //       `onErrorFallback` 是那一道兜底）；反过来只看组件树则分不清"排出来了"和"恰好没抛"。
+    // English: The evidence each of the seven newly lit engine keys (Σ / Π / ∫dx / d/dx / lim /
+    //          logₓy / ran#) has to produce, in three layers — none of them alone is enough:
+    //
+    //          1. **dispatch** — the press reaches the expression and the text is what it should be
+    //             (closing bracket included);
+    //          2. **typesetting** — run through `ExpressionAstParser` + `TexEmitter`, the output
+    //             holds no `\text{…}`, i.e. it did **not** degrade to literal text (the grey
+    //             `sqrt(8` seen on a device comes out of exactly that path), and the renderer's own
+    //             parser accepts it (`MathExpressionView.typesetsTex`, the same judgement the result
+    //             line makes);
+    //          3. **rendering** — the widget tree is really built: no `Text` carrying the fallback
+    //             text exists under the expression line's `MathExpressionView`, so what is drawn is
+    //             a formula rather than letters.
+    //
+    //          Layers two and three are both needed: `typesetsTex` asks the parser only, while
+    //          whether it draws is a render-stage question (`Math.tex`'s `onErrorFallback` is that
+    //          safety net); and the widget tree alone cannot tell "it typeset" from "it merely did
+    //          not throw".
+    testWidgets('新点亮的引擎键：派发、排版、渲染三层证据', (tester) async {
+      // 中文：键 id → 按下去之后表达式应有的样子。右括号是这一步的前置条件，所以它出现在
+      //       每一个预期值里。
+      // English: key id → what the expression should look like after the press. The closing
+      //          bracket is this step's precondition, so it shows up in every expected value.
+      const expected = <String, String>{
+        'ins:sum': 'sum(x,1,10,x)',
+        'ins:product': 'product(x,1,5,x)',
+        'ins:integrate': 'integrate(x^2,0,1,x)',
+        'ins:limit': 'limit(sin(x)/x,0,x)',
+        'ins:logxy': 'log(8,2)',
+        'ins:rand': 'rand()',
+      };
+
+      for (final entry in expected.entries) {
+        await tester.pumpWidget(_testApp(key: ValueKey<String>(entry.key)));
+        await tester.pump();
+        tester
+            .widget<CalculatorKeypad>(find.byType(CalculatorKeypad))
+            .onKey(entry.key);
+        await tester.pump(const Duration(milliseconds: 250));
+
+        final expression = _displayedExpression(tester);
+        expect(expression, entry.value,
+            reason: '按键「${entry.key}」插进去的文本不是预期的形状');
+        expect(_literalTextFragment(expression), isFalse,
+            reason: '按键「${entry.key}」的表达式降级成了字面文本：'
+                '${const TexEmitter().emit(const ExpressionAstParser().parse(expression))}');
+        expect(
+          MathExpressionView.typesetsTex(
+              const TexEmitter().emit(const ExpressionAstParser().parse(expression))),
+          isTrue,
+          reason: '按键「${entry.key}」的表达式排不出来',
+        );
+        expect(
+          find.descendant(
+            of: find.byType(MathExpressionView),
+            matching: find.text(expression),
+          ),
+          findsNothing,
+          reason: '按键「${entry.key}」画成了字面文本而不是公式',
+        );
+      }
+    });
+
+    // 中文：上面那条证明的是"按下去之后的东西排得出来"，这一条证明**填满实参之后**同样排得出来，
+    //       而且形状是那个符号专属的形状（积分号、求和号、上下限）而不是前置函数名。这些表达式
+    //       正是五个键各自的典型用法，`qalc` 5.12.0 上逐条实测过求值结果（见步骤 5 报告）。
+    // English: the test above shows what a press produces typesets; this one shows that the same
+    //          holds **once the arguments are filled in**, and that the shape is the symbol's own
+    //          (an integral sign, a summation sign, bounds) rather than a prefix function name.
+    //          These expressions are each key's typical use and were evaluated one by one with
+    //          `qalc` 5.12.0 (see the step 5 report).
+    testWidgets('填满实参之后：Σ / Π / ∫ / lim / d/dx 排成专属形状', (tester) async {
+      const calls = <String, String>{
+        'sum(x,1,10,x)': r'\sum_{x=1}^{10}x',
+        'product(k,1,5)': r'\prod_{1}^{5}k',
+        'integrate(x^2,0,1,x)': r'\int_{0}^{1}x^{2}\,\mathrm{d}x',
+        'limit(sin(x)/x,0,x)': r'\lim_{x\to 0}\frac{\sin\left(x\right)}{x}',
+        'diff(x^3,x)': r'\frac{\mathrm{d}}{\mathrm{d}x}\left(x^{3}\right)',
+        'log(8,2)': r'\log_{2}\left(8\right)',
+      };
+
+      for (final call in calls.entries) {
+        expect(
+          const TexEmitter().emit(const ExpressionAstParser().parse(call.key)),
+          call.value,
+          reason: '${call.key} 的排版形状不对',
+        );
+        expect(_literalTextFragment(call.key), isFalse);
+        expect(MathExpressionView.typesetsTex(call.value), isTrue,
+            reason: '${call.key} 的排版渲染器不认：${call.value}');
+      }
+
+      // 中文：最后真把整块显示区建出来一次，确认这几段公式都画了出来（没有降到纯文本兜底）。
+      // English: finally build a whole display panel once, confirming these formulas really draw
+      //          (they never take the plain-text fallback).
+      await tester.pumpWidget(_testApp());
+      await tester.pumpAndSettle();
+      for (final call in calls.keys) {
+        await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: MathExpressionView(expression: call),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: '$call 渲染时抛异常');
+        expect(find.text(call), findsNothing, reason: '$call 画成了字面文本');
+        final fragments = find.descendant(
+          of: find.byType(MathExpressionView),
+          matching: find.byType(GestureDetector),
+        );
+        expect(fragments, findsOneWidget);
+        expect(tester.getSize(fragments).width, greaterThan(0),
+            reason: '$call 的片段宽度为 0，等于没画出来');
+      }
+    });
   });
 }
 
@@ -730,6 +866,19 @@ Future<void> _startEditing(WidgetTester tester) async {
 
 String _displayedExpression(WidgetTester tester) =>
     tester.widget<MathExpressionView>(find.byType(MathExpressionView)).expression;
+
+/// 中文：这段表达式转成 TeX 之后是不是**降级成了字面文本**。判据只有一个：产物里有没有
+///       `\text{…}`——`TexEmitter` 只在一种情况下写它，即解析器把这一段判成 `ParseErrorNode`
+///       （未闭合的调用、认不出的字符都走这里）。真机上 `sqrt(8` 显示成灰色字母就是这个产物。
+/// English: Whether this expression **degrades to literal text** once turned into TeX. There is one
+///          criterion: whether the output contains `\text{…}` — `TexEmitter` writes that in exactly
+///          one situation, when the parser judged the fragment a `ParseErrorNode` (unclosed calls
+///          and unrecognised characters both land there). The grey `sqrt(8` seen on a device is
+///          this output.
+bool _literalTextFragment(String expression) =>
+    const TexEmitter()
+        .emit(const ExpressionAstParser().parse(expression))
+        .contains(r'\text{');
 
 /// 中文：被测主屏。`themeMode` 用来区分「应用自己的明暗」与「平台亮度」——`app.dart` 正是用
 ///       `themeMode` 把设置里的浅色/深色/跟随系统落地的；`key` 用于强制重建一块全新的主屏

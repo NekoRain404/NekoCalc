@@ -57,6 +57,68 @@ void main() {
     expect(t('log(x)'), r'\log_{10}\left(x\right)');
   });
 
+  test('log 两个实参时下标是第二个实参（引擎的 log(数, 底)）', () {
+    // 中文：引擎的 `log` 是 `MathFunction("log", 1, 2)`，第二个实参是**底**（`qalc` 5.12.0 实测
+    //       `log(8,2)` → `3`，`log(2,8)` → `0.3333333333`）。两个实参还印 `\log_{10}` 就等于
+    //       把一个以 2 为底的对数说成以 10 为底。
+    // English: the engine's `log` is `MathFunction("log", 1, 2)` and its second argument is the
+    //          **base** (`qalc` 5.12.0 gives `log(8,2)` → `3` and `log(2,8)` → `0.3333333333`).
+    //          Printing `\log_{10}` for two arguments would state a base-2 logarithm was base 10.
+    expect(t('log(8,2)'), r'\log_{2}\left(8\right)');
+    expect(t('log(2,8)'), r'\log_{8}\left(2\right)');
+  });
+
+  // 中文：Σ / Π / ∫ / lim / d÷dx —— 键点亮的五个符号。它们不是 `\sin` 那样的前置函数名，实参
+  //       各自落在符号的结构位上，所以一一钉住产物的形状：上下限在副标/上标，被作用式跟在后面。
+  //       实参个数不匹配模板时，两个方向都不许骗人——既不少印（`root` 的规则），也不多印
+  //       （三个实参的 `integrate` 不补 `dx`，因为源码里没有那个变量）。
+  // English: Σ / Π / ∫ / lim / d÷dx — the five symbols the new keys insert. They are not prefix
+  //          function names like `\sin`: their arguments land on structural positions, so each
+  //          output's shape is pinned: bounds as sub/superscripts, the body following. When the
+  //          argument count does not match a template neither direction may lie — no argument may
+  //          go missing (the `root` rule) and none may be invented (a three-argument `integrate`
+  //          gets no `dx`, because the source holds no such variable).
+  group('Σ / Π / ∫ / lim / d/dx 的专属排版', () {
+    test('Σ：上下限是副标与上标，指标写成 i=起', () {
+      expect(t('sum(x,1,10,x)'), r'\sum_{x=1}^{10}x');
+    });
+
+    test('Σ：三个实参时没有指标，就只有上下限', () {
+      expect(t('sum(x,1,10)'), r'\sum_{1}^{10}x');
+    });
+
+    test('Π：与 Σ 同形', () {
+      expect(t('product(k,1,5)'), r'\prod_{1}^{5}k');
+    });
+
+    test('∫：上下限上符号，积分变量写成 \\mathrm{d}x', () {
+      expect(t('integrate(x^2,0,1,x)'), r'\int_{0}^{1}x^{2}\,\mathrm{d}x');
+    });
+
+    test('∫：三个实参不补积分变量——源码里没有它', () {
+      expect(t('integrate(x^2,0,1)'), r'\int_{0}^{1}x^{2}');
+    });
+
+    test('lim：变量与趋近点都在下标里', () {
+      expect(t('limit(sin(x)/x,0,x)'),
+          r'\lim_{x\to 0}\frac{\sin\left(x\right)}{x}');
+    });
+
+    test('d/dx：阶数作为两侧的指数', () {
+      expect(t('diff(x^3,x)'), r'\frac{\mathrm{d}}{\mathrm{d}x}\left(x^{3}\right)');
+      expect(t('diff(x^3,x,2)'),
+          r'\frac{\mathrm{d}^{2}}{\mathrm{d}x^{2}}\left(x^{3}\right)');
+    });
+
+    test('实参个数不匹配模板时退回完整实参表，一个实参都不少', () {
+      expect(t('sum(1)'), r'\sum\left(1\right)');
+      expect(t('integrate(1)'), r'\int\left(1\right)');
+      expect(t('limit(1)'), r'\lim\left(1\right)');
+      expect(t('diff(1)'), r'\operatorname{diff}{\left(1\right)}');
+      expect(t('diff(1,2,3,4)'), r'\operatorname{diff}{\left(1, 2, 3, 4\right)}');
+    });
+  });
+
   test('常量映射到希腊字母', () {
     expect(t('pi'), r'\pi');
     expect(t('e'), 'e');

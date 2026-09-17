@@ -70,7 +70,10 @@ class CalculatorPage extends StatefulWidget {
     'memoryRecall', 'memoryStore', 'memoryAdd', 'memorySubtract',
     // 插入文本（`ins:` 前缀）
     'ins:pi', 'ins:e', 'ins:^-1', 'ins:^2', 'ins:^3', 'ins:^', 'ins:10^',
-    'ins:e^', 'ins:inf', 'ins:%', 'ins:exp',
+    'ins:e^', 'ins:inf', 'ins:%', 'ins:exp', 'ins:rand',
+    // 微积分与复现：Σ / Π / ∫dx / lim / logₓy——各自插一整条引擎调用，见下面 `_pressKey` 里的
+    // 那一段注释（键盘上没有逗号键，半条调用补不完）。
+    'ins:sum', 'ins:product', 'ins:integrate', 'ins:limit', 'ins:logxy',
     // 一元函数（含只从 `OTHER` 面板进来的那些）
     'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
     'cot', 'sec', 'csc', 'log₂', 'exp', 'floor', 'ceil', 'round',
@@ -607,6 +610,55 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _controller.append('e^');
       case 'ins:inf':
         _controller.append('inf');
+      // 中文：微积分与复现调用那几颗键插的是**完整**的引擎调用，不是 `名字(`：
+      //
+      //       - 它们全都要两个以上实参，而**键盘上没有逗号键**（`defaultInputKeyIds` 里有数字、
+      //         小数点、括号与加减，没有 `,`），所以 `sum(` 这种前缀在键盘上永远补不完；
+      //       - 而没填满的槽位会让整段调用降级成字面文本——`ExpressionAstParser` 把空的实参判成
+      //         `ParseErrorNode`，`_parseCall` 因此让整个调用 `_failure`（实测：`log(,)` 的产物是
+      //         `\text{log(,)}`）。这正是这一步要消灭的那种「只产出坏表达式的键」。
+      //
+      //       插入的实参取自 `qalc` 5.12.0 的实测结果（见步骤 5 报告），按下去就是一个立刻算得出来
+      //       的数：`sum(x,1,10,x)`=55、`product(x,1,5,x)`=120、`integrate(x^2,0,1,x)`=1/3、
+      //       `limit(sin(x)/x,0,x)`=1、`log(8,2)`=3。它们同时把引擎的实参顺序写在屏幕上，用户
+      //       可以照着自己改（内联编辑器里逗号是打得出的）。`OTHER` 面板里的 `√2`→`sqrt(2)` 是
+      //       同一形状，不是新发明的做法。
+      // English: the calculus/randomness keys insert a **complete** engine call rather than a bare
+      //          `name(`:
+      //
+      //          - every one of them takes two or more arguments, and **the keypad has no comma
+      //            key** (`defaultInputKeyIds` holds digits, the decimal point, brackets and the
+      //            two signs — no `,`), so a `sum(` prefix can never be completed from the keypad;
+      //          - an unfilled slot makes the whole call degrade to literal text — the
+      //            `ExpressionAstParser` reads an empty argument as a `ParseErrorNode` and
+      //            `_parseCall` then `_failure`s the entire call (measured: `log(,)` emits
+      //            `\text{log(,)}`). That is exactly the "key that only produces broken
+      //            expressions" this step exists to remove.
+      //
+      //          The arguments come from measurements with `qalc` 5.12.0 (see the step 5 report), so
+      //          a press yields an immediately evaluable number: `sum(x,1,10,x)`=55,
+      //          `product(x,1,5,x)`=120, `integrate(x^2,0,1,x)`=1/3, `limit(sin(x)/x,0,x)`=1,
+      //          `log(8,2)`=3. They also put the engine's argument order on screen, and the user can
+      //          edit from there (the inline editor does accept commas). `√2` → `sqrt(2)` in the
+      //          `OTHER` sheet has the same shape; this is not a new invention.
+      case 'ins:sum':
+        _controller.append('sum(x,1,10,x)');
+      case 'ins:product':
+        _controller.append('product(x,1,5,x)');
+      case 'ins:integrate':
+        _controller.append('integrate(x^2,0,1,x)');
+      case 'ins:limit':
+        _controller.append('limit(sin(x)/x,0,x)');
+      case 'ins:logxy':
+        _controller.append('log(8,2)');
+      // 中文：`ran#` 插的是完整的 `rand()`。`rand` 是引擎的零实参函数
+      //       （`BuiltinFunctions-statistics.cc` 的 `MathFunction("rand", 0, 2)`），带括号按下去
+      //       就是一个立刻可求值的随机数。
+      // English: `ran#` inserts a complete `rand()`. `rand` is the engine's zero-argument function
+      //          (`MathFunction("rand", 0, 2)` in `BuiltinFunctions-statistics.cc`), so the
+      //          parenthesised spelling is immediately evaluable.
+      case 'ins:rand':
+        _controller.append('rand()');
       case 'ins:%':
         _controller.input('%');
       case 'ins:exp':

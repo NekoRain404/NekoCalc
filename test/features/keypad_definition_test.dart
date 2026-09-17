@@ -61,8 +61,8 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "angleMode|DRG|on function",
     "dis:xchgE|x⇔E|off disabled",
     "dis:matrix|MTRX|off disabled",
-    "dis:sum|Σ|off disabled",
-    "dis:integral|∫dx|off disabled",
+    "ins:sum|Σ|on function shift:ins:product|Π|on",
+    "ins:integrate|∫dx|on function",
     "dis:camera|📷|off disabled",
   ],
   <String>[
@@ -145,10 +145,10 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "hint:cos⁻¹",
     "hint:tan⁻¹",
     "dis:angle|∠|off disabled",
-    "dis:logxy|logₓy|off disabled",
+    "ins:logxy|logₓy|on function",
   ],
   <String>[
-    "dis:lim|lim|off disabled",
+    "ins:limit|lim|on function",
     "hint:x³",
     "hint:∛x",
     "hint:ˣ√y",
@@ -186,7 +186,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
   ],
   <String>[
     "openTools|OTHER|on function",
-    "dis:ran|ran#|off disabled",
+    "ins:rand|ran#|on function",
     "ans|Ans|on function",
     "dis:expsi|EXP SI|off disabled",
     "dis:compare|=,＜＞|off disabled",

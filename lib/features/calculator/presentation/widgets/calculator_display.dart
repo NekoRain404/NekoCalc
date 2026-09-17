@@ -65,8 +65,9 @@ const double _errorMessageFontSize = 12;
 ///          horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
 ///          line: right-aligned, an `=` prefix followed by the result — when the engine supplied an
 ///          exact form and that form typesets, it goes through `MathExpressionView` and is followed
-///          by `≈ approximation`; otherwise the whole line stays plain text; 4) error line:
-///          rendered only while `hasError` is true — `statusTitle` above `statusMessage`.
+///          by `≈ approximation`; otherwise the whole line stays plain text. Its height is a
+///          ceiling rather than a fixed size, because an exact form is not one line tall; 4) error
+///          line: rendered only while `hasError` is true — `statusTitle` above `statusMessage`.
 /// 中文：`statusTitle` 出现在错误行（仅 `hasError` 为真时）的上半，见该字段与 `_errorLine` 的
 ///       注释。
 /// English: `statusTitle` appears on the upper half of the error line, which is rendered only
@@ -90,12 +91,18 @@ const double _errorMessageFontSize = 12;
 ///          screen and freeform all land there — and the screen's display band is therefore clamped
 ///          to 176–230dp.
 /// 中文：高度真被压到下限以下（矮窗口 + 大字体缩放）时，先挤表达式行，再由错误行收缩、多出来的
-///       笔画被裁掉——错误行不再是 RenderFlex 溢出的来源。（状态行与结果行这两行固定行本身放不下
-///       是另一回事：它们连同内边距与间距约需 116–136dp。）
+///       笔画被裁掉——错误行不再是 RenderFlex 溢出的来源。**结果行同样可以缩**：引擎的精确形式
+///       （堆叠分数、根号套分数）让这一行的高度不再固定，它拿到的是「最多能有多高」的上限，
+///       真放不下时由 `FittedBox` 等比缩小，而不是把内容裁掉。（状态行是唯一真正固定的行：
+///       它连同内边距与间隙约需 58dp。）
 /// English: Below that minimum (a short window plus a large font scale), the expression line is
 ///          squeezed first and the error line then shrinks with its spare pixels clipped — the
-///          error line is no longer a source of RenderFlex overflow. (The fixed rows themselves are
-///          another matter: with padding and gaps they come to roughly 116–136dp.)
+///          error line is no longer a source of RenderFlex overflow. **The result row may shrink
+///          too**: the engine's exact form (a stacked fraction, a radical around a fraction) makes
+///          this row's height no longer fixed, so what it receives is a ceiling and the `FittedBox`
+///          inside scales the content down when it genuinely does not fit rather than clipping it.
+///          (The status row is the only genuinely fixed row: with padding and gaps it needs about
+///          58dp.)
 ///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠
@@ -277,7 +284,27 @@ class CalculatorDisplay extends StatelessWidget {
             //          from the error line below — neither throws a RenderFlex overflow.
             Expanded(child: _expressionLine()),
             const SizedBox(height: 6),
-            _resultLine(),
+            // 中文：结果行**可以缩**。精确形式（`\frac{1}{\sqrt{2}}` 这类高瘦形状）上屏之后，
+            //       它成了这个面板里唯一一个高度不确定的行：纯文本结果一行高，而一个堆叠分数按
+            //       字号等比放大——2 倍文字缩放 + 176dp 下限时它比可用的高度高出 27px，于是整列
+            //       报 RenderFlex 溢出（debug 红屏、release 里用户的字被切掉）。
+            //       宽松的 `Flexible` 把「最多能有多高」交给它，里面的 `FittedBox` 于是能把内容
+            //       等比缩到放得下——缩的是这一行，不是把内容裁掉，也不是把面板的下限调高
+            //       （调高会波及所有结果）。松配时它按自然高度排布，只在真放不下时才缩，所以
+            //       常规字号下这一行的尺寸与之前逐像素相同。
+            // English: the result line **may shrink**. Once the exact form is on screen (`\frac{1}
+            //          {\sqrt{2}}` and friends) it is the one row in this panel whose height is not
+            //          fixed: a plain-text result is one line tall, while a stacked fraction scales
+            //          with the font size — at a 2× text scale and the 176dp floor it is 27px taller
+            //          than there is room for, and the whole column reports a RenderFlex overflow
+            //          (a red screen in debug; the user's text cut off in release). A loose
+            //          `Flexible` hands it "the most you may be", and the `FittedBox` inside can
+            //          then scale the content down to fit — what shrinks is this row, not the
+            //          content being clipped, and the panel's floor is not raised (raising it would
+            //          affect every result). Laid out loose it still takes its natural height and
+            //          only scales when it genuinely does not fit, so at ordinary font sizes this
+            //          row is pixel-for-pixel what it was.
+            Flexible(fit: FlexFit.loose, flex: 1, child: _resultLine()),
             if (hasError) ...<Widget>[
               const SizedBox(height: 4),
               // 中文：错误行是可收缩的兜底，并且按 2:1 的份额比表达式行拿得多：错误块最多三行文字
@@ -508,6 +535,15 @@ class CalculatorDisplay extends StatelessWidget {
         : '';
     return Align(
       alignment: Alignment.centerRight,
+      // 中文：`heightFactor: 1` 让这一行**按内容取高**，也就是把上面那个宽松上限只当上限用：
+      //       内容矮时它不会撑满分配到的份额。少了这一格，`Align` 会在有界高度里长到上限，
+      //       结果行在常规字号下也会白白占掉表达式行的高度。
+      // English: `heightFactor: 1` makes this row **take its content's height**, i.e. it treats the
+      //          loose ceiling above as a ceiling only: with short content it does not grow into its
+      //          whole share. Without it `Align` would expand to the ceiling inside a bounded
+      //          height, and the result row would eat the expression row's height even at ordinary
+      //          font sizes.
+      heightFactor: 1,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Row(

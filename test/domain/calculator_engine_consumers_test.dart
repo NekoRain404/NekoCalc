@@ -181,6 +181,36 @@ void main() {
       controller.dispose();
     });
 
+    test('寄存器加的是**未取整**的引擎十进制，不是屏幕上那个取整读数', () async {
+      // 中文：`_result` 的两半口径不同——`displayText` 按 `AppSettings.precision` 取整（屏幕上
+      //       写着 `5.656854`），`decimalText` 是引擎给的那一串（`5.656854249492380`，`sqrt(32)`
+      //       在 `qalc` 5.12.0 下的实测值）。`Ans`/`last` 用的是后者，寄存器必须与它们同一口径，
+      //       否则「屏幕上看到的数」与「继续算用的数」会差出六位。这条钉住的就是那句话：加进去的
+      //       是引擎的十进制，不是显示读数。
+      // English: the two halves of `_result` carry different spellings — `displayText` is rounded at
+      //          `AppSettings.precision` (the screen reads `5.656854`) while `decimalText` is the
+      //          engine's own string (`5.656854249492380`, the measured value of `sqrt(32)` under
+      //          `qalc` 5.12.0). `Ans`/`last` use the latter, and the register has to share that
+      //          spelling or "the number on screen" and "the number further maths uses" would differ
+      //          by six digits. This test pins that sentence: what goes in is the engine's decimal,
+      //          not the display reading.
+      final controller = _controller(_FakeDatabase(), engine: _FailingMathEngine());
+
+      controller.setExpression('sqrt(32)');
+      controller.applyMathResult(const MathResult(
+        displayText: '5.656854',
+        displayTex: r'4\sqrt{2}',
+        decimalText: '5.656854249492380',
+      ));
+
+      controller.memoryAdd();
+
+      expect(controller.memoryValue, 5.656854249492380);
+      expect(controller.memoryValue, isNot(5.656854));
+
+      controller.dispose();
+    });
+
     test('引擎结果放不进 double 时寄存器一动不动，不会加一个 0 进去', () async {
       // 中文：`2^-2000 ≈ 8.7e-603`。旧实现里旧解析器自己就把它算成了 `0.0`（下溢），于是「加 0」
       //       悄悄发生；现在判定的是结果里那串**文本**，下溢在那里看得出来，于是寄存器不被改动。

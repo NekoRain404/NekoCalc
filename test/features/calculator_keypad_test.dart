@@ -62,9 +62,15 @@ void main() {
   testWidgets('disabled main keys report nothing', (tester) async {
     final tapped = <String>[];
     await tester.pumpWidget(pad(onKey: tapped.add));
-    // Σ 是第 2 行（`KeypadRow` 计）的主键且为禁用态；不要拿标签行的文字（如 MTRX）来测，
-    // 标签本就不可点，那样会通过但测不到「禁用键不触发」这件事。
-    await tester.tap(find.text('Σ').first, warnIfMissed: false);
+    // 中文：`📷` 是第 2 行（`KeypadRow` 计）的主键且为禁用态，且键面文字在整块键盘上只出现一次；
+    //       不要拿某个标签行的文字来测，标签本就不可点，那样会通过但测不到「禁用键不触发」这件事。
+    //       （Σ 曾经是这里的样本，它在上一步被点亮了，样本因此换成仍禁用的 `📷`。）
+    // English: `📷` is a disabled main key on row 2 (`KeypadRow` counting) whose face text occurs
+    //          exactly once on the whole keypad; do not use a label-band text, which is not
+    //          tappable anyway — that would pass while testing nothing. (Σ used to be the sample
+    //          here and was lit up in the previous step, so the sample moved to the still-disabled
+    //          `📷`.)
+    await tester.tap(find.text('📷').first, warnIfMissed: false);
     await tester.pump();
     expect(tapped, isEmpty);
   });

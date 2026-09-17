@@ -162,12 +162,45 @@ class TexEmitter {
             : '\\sqrt{${_argument(args, 0)}}';
       case 'abs':
         return '\\left|${_argument(args, 0)}\\right|';
+      // 中文：`log` 一个实参是常用对数（题面如此），两个实参是**以第二个实参为底**——
+      //       引擎的 `LognFunction` 正是 `log(number, base)`。两个实参时仍印 `\log_{10}` 会
+      //       把一个以 2 为底的对数写成以 10 为底，那是对用户输入的直接否认；多出来的实参
+      //       照旧一个不丢，退回普通写法。
+      // English: one argument is the common logarithm (as specified), two arguments are the
+      //          logarithm **to the second argument's base** — exactly the engine's
+      //          `LognFunction` shape, `log(number, base)`. Printing `\log_{10}` for two arguments
+      //          would state a base-2 logarithm was base 10, a direct denial of what the user typed;
+      //          extra arguments are still never dropped, the call falls back to the ordinary form.
       case 'log':
+        if (args.length == 2) {
+          return '\\log_{${_emit(args[1], delimited: true)}}'
+              '\\left(${_emit(args[0], delimited: true)}\\right)';
+        }
         return '\\log_{10}${_arguments(args)}';
       case 'log2':
         return '\\log_{2}${_arguments(args)}';
       case 'ln':
         return '\\ln${_arguments(args)}';
+      // 中文：Σ / Π / ∫ / lim / d/dx 这五个是**带结构的**符号，不是 `\sin` 那样的前置函数名：
+      //       它们的实参各自落在符号的上下限、被作用式或微元上。模板只在实参个数正好是那一种
+      //       时启用，其余一律退回完整实参表——显示层是唯一真源的回读，少印一个实参就等于
+      //       显示与输入不一致（`root` 的注释已经为这条定过调）。
+      // English: Σ / Π / ∫ / lim / d÷dx are **structured** symbols rather than prefix function
+      //          names like `\sin`: their arguments land on the bounds, the body or the
+      //          differential. A template is used only at the exact argument count it describes,
+      //          and anything else falls back to the full argument list — the display is the only
+      //          read-back of the source, so printing fewer arguments than were typed is a
+      //          contradiction (the `root` comment above already settled that rule).
+      case 'sum':
+        return _series(r'\sum', args);
+      case 'product':
+        return _series(r'\prod', args);
+      case 'integrate':
+        return _integral(args);
+      case 'limit':
+        return _limit(args);
+      case 'diff':
+        return _derivative(node.name, args);
     }
     final command = _functions[name];
     if (command != null) return '$command${_arguments(args)}';
@@ -189,6 +222,94 @@ class TexEmitter {
 
   String _arguments(List<ExprNode> args) =>
       '\\left(${args.map((arg) => _emit(arg, delimited: true)).join(', ')}\\right)';
+
+  /// 中文：Σ / Π。引擎的形状是 `sum(expr, from, to[, index])`（`BuiltinFunctions-algebra.cc` 的
+  ///       `MathFunction("sum", 3, 4)`，`calculate` 里 `vargs[0]` 是被加式、`vargs[1]` 是起、
+  ///       `vargs[2]` 是止、`vargs[3]` 是被替换的指标），所以上下限落在符号的副标/上标上，
+  ///       被加式跟在后面。四个实参时指标写成 `_{i=from}`——**一个实参都不少**。
+  ///       三个实参以下退回 `\sum\left(…\right)`，理由见 `_call` 里那一段。
+  /// English: Σ / Π. The engine's shape is `sum(expr, from, to[, index])`
+  ///          (`MathFunction("sum", 3, 4)` in `BuiltinFunctions-algebra.cc`; in `calculate`,
+  ///          `vargs[0]` is the summand, `vargs[1]` the start, `vargs[2]` the end and `vargs[3]` the
+  ///          substituted index), so the bounds become the subscript and superscript and the
+  ///          summand follows. With four arguments the index is written into the subscript as
+  ///          `_{i=from}` — **nothing is left out**. Below three arguments the call falls back to
+  ///          `\sum\left(…\right)`; see the note in `_call`.
+  String _series(String command, List<ExprNode> args) {
+    if (args.length < 3) return '$command${_arguments(args)}';
+    final lower = args.length >= 4
+        ? '_{${_emit(args[3], delimited: true)}=${_emit(args[1], delimited: true)}}'
+        : '_{${_emit(args[1], delimited: true)}}';
+    return '$command$lower^{${_emit(args[2], delimited: true)}}'
+        '${_emit(args[0], delimited: true)}';
+  }
+
+  /// 中文：∫。引擎的形状是 `integrate(expr, lower, upper[, var])`
+  ///       （`MathFunction("integrate", 1, 5)`，`calculate` 的 else 分支把 `vargs[1]`/`vargs[2]`
+  ///       当下限/上限、`vargs[3]` 当积分变量）。所以两个界限上符号，被积式跟在后面，
+  ///       积分变量写成 `\,\mathrm{d}x`。
+  ///
+  ///       只有三个实参时**不补** `dx`：那时积分变量由引擎自己取默认值（`x`），源码里没有它，
+  ///       补上去就是显示层凭空造了一个用户没写的符号——与少印一个实参是同一类错误，方向相反。
+  ///       `\mathrm{d}` 与 `\mathrm{d}x` 之间留一个细空格（`\,`），这是唯一一处纯排版选择，
+  ///       它不改变任何一个字符的读法。
+  /// English: ∫. The engine's shape is `integrate(expr, lower, upper[, var])`
+  ///          (`MathFunction("integrate", 1, 5)`; the `else` branch of `calculate` reads
+  ///          `vargs[1]`/`vargs[2]` as the bounds and `vargs[3]` as the integration variable), so
+  ///          the bounds become sub/superscripts, the integrand follows and the variable is written
+  ///          `\,\mathrm{d}x`.
+  ///
+  ///          With three arguments no `dx` is **added**: there the integration variable is the
+  ///          engine's default (`x`) and is absent from the source, so printing it would invent a
+  ///          symbol the user never wrote — the same fault as dropping an argument, pointing the
+  ///          other way. The thin space between `\mathrm{d}` and its variable is the one purely
+  ///          typographic choice here; it changes how no character reads.
+  String _integral(List<ExprNode> args) {
+    if (args.length < 3) return '\\int${_arguments(args)}';
+    final differential = args.length >= 4
+        ? '\\,\\mathrm{d}${_emit(args[3], delimited: true)}'
+        : '';
+    return '\\int_{${_emit(args[1], delimited: true)}}'
+        '^{${_emit(args[2], delimited: true)}}'
+        '${_emit(args[0], delimited: true)}$differential';
+  }
+
+  /// 中文：lim。引擎的形状是 `limit(expr, point[, var])`
+  ///       （`MathFunction("limit", 2, 4)`，`calculate` 里 `vargs[1]` 是趋近点、`vargs[2]` 是变量，
+  ///       默认 `x`）。趋近点与变量都写进 `\lim` 的下标，被求极限的式子跟在后面。同样地，
+  ///       两个实参时**不补** `x`：用户没写它。
+  /// English: lim. The engine's shape is `limit(expr, point[, var])`
+  ///          (`MathFunction("limit", 2, 4)`; in `calculate`, `vargs[1]` is the point approached
+  ///          and `vargs[2]` the variable, defaulting to `x`). Both go under `\lim` and the
+  ///          expression follows. Again, with two arguments no `x` is **added**: the user did not
+  ///          write it.
+  String _limit(List<ExprNode> args) {
+    if (args.length < 3) return '\\lim${_arguments(args)}';
+    return '\\lim_{${_emit(args[2], delimited: true)}'
+        '\\to ${_emit(args[1], delimited: true)}}'
+        '${_emit(args[0], delimited: true)}';
+  }
+
+  /// 中文：d/dx。引擎的形状是 `diff(expr, var[, order])`
+  ///       （`MathFunction("diff", 1, 4)`，`vargs[1]` 是变量、`vargs[2]` 是阶数）。
+  ///       写成 `\frac{\mathrm{d}}{\mathrm{d}x}`，阶数作为两侧的指数；实参个数不是二或三时
+  ///       退回 `\operatorname{diff}{…}`（正体，且实参表一个不少）。
+  /// English: d/dx. The engine's shape is `diff(expr, var[, order])`
+  ///          (`MathFunction("diff", 1, 4)`; `vargs[1]` is the variable and `vargs[2]` the order).
+  ///          It is written `\frac{\mathrm{d}}{\mathrm{d}x}` with the order as the exponent on both
+  ///          sides; any argument count other than two or three falls back to
+  ///          `\operatorname{diff}{…}` — upright, argument list intact.
+  String _derivative(String name, List<ExprNode> args) {
+    if (args.length < 2 || args.length > 3) {
+      return '\\operatorname{${_escapeText(name)}}{${_arguments(args)}}';
+    }
+    final order = args.length == 3 ? _emit(args[2], delimited: true) : '';
+    final power = order.isEmpty ? '' : '^{$order}';
+    final variable = _emit(args[1], delimited: true);
+    return '\\frac{\\mathrm{d}$power}'
+        '{\\mathrm{d}$variable$power}'
+        '\\left(${_emit(args[0], delimited: true)}\\right)';
+  }
 
   /// 中文：`\text{}` 内部的转义表，覆盖 TeX 的十个元字符。
   ///       反斜杠用标准 LaTeX 写法 `\textbackslash`：它是**文本模式**的符号，位置正好对上——

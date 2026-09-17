@@ -34,10 +34,10 @@ import 'keypad_definition.dart';
 /// 禁用键 / Disabled keys:
 /// 中文：计划书里的 `☐` 只是「禁用」记号，不属于 label。禁用键的 label 是 HiPER 原文，
 ///       分类为 `KeyCategory.disabled`，id 用 `dis:` 前缀加名字（矩阵键为 `dis:matrix`，
-///       求和键为 `dis:sum`）。
+///       翻页键为 `dis:pagePrev`）。
 /// English: `☐` in the plan marks "disabled" and is never part of a label. A disabled key
 ///          keeps HiPER's original text as its label, uses `KeyCategory.disabled`, and gets a
-///          `dis:` prefixed id (`dis:matrix`, `dis:sum`, …).
+///          `dis:` prefixed id (`dis:matrix`, `dis:pagePrev`, …).
 ///
 /// 动作 id / Action ids:
 /// 中文：`CalculatorController` 已有方法直接表达的动作不带前缀（`sin`、`backspace`、
@@ -84,13 +84,17 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
   //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
   //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（x⇔E 的 SHIFT 提示）、
-  //       MTRX（矩阵键的 SHIFT 提示）、Π（Σ 的 SHIFT 提示）、d/dx（∫dx 的 SHIFT 提示），
-  //       相机键上方无标签。
+  //       MTRX（矩阵键的 SHIFT 提示）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
+  //       仍未接上：引擎算得出符号导数，但符号结果过不了提交路径的「必须是有限十进制」那道门，
+  //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
   //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
   //          only real band buttons are the four base pills plus hyp, so this one is a
   //          non-tappable hint), FSE (SHIFT hint of x⇔E), MTRX (hint of the matrix key),
-  //          Π (hint of Σ), d/dx (hint of ∫dx); the camera key has no hint.
+  //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, still unwired: the engine can produce a
+  //          symbolic derivative, but a symbolic result does not pass the submit path's "must be a
+  //          finite decimal" gate, so lighting the key up would only produce errors — see the
+  //          step 5 report); the camera key has no hint.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -106,12 +110,13 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         category: KeyCategory.disabled,
       ),
       KeypadKey(
-        base: KeyVariant(label: 'Σ', id: 'dis:sum', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'Σ', id: 'ins:sum'),
+        category: KeyCategory.function,
+        shift: KeyVariant(label: 'Π', id: 'ins:product'),
       ),
       KeypadKey(
-        base: KeyVariant(label: '∫dx', id: 'dis:integral', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: '∫dx', id: 'ins:integrate'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: '📷', id: 'dis:camera', enabled: false),
@@ -130,11 +135,12 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
 
   // 中文：行 3——π / sin / cos / tan / i（禁用）/ e。
   //       上方标签：hyp 实体修饰键（可直接点按，是可查证的刻意偏离）、sin⁻¹/cos⁻¹/tan⁻¹
-  //       三个 SHIFT 提示，以及 ∠、logₓy 两个禁用键。
+  //       三个 SHIFT 提示、禁用的 ∠，以及 logₓy（已启用：它插的是引擎 `log(数, 底)` 的二元调用）。
   //       sin/cos/tan 同时带 SHIFT 变体（asin/acos/atan）与 hyp 变体（sinh/cosh/tanh）。
   // English: Row 3 — π / sin / cos / tan / i (disabled) / e.
   //          Band above: the tappable `hyp` modifier key (a documented deviation from
-  //          HiPER), the sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, and the disabled ∠ and logₓy keys.
+  //          HiPER), the sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, the disabled ∠, and an enabled
+  //          logₓy — it inserts the engine's two-argument `log(number, base)` call.
   //          sin/cos/tan carry both a SHIFT variant (asin/acos/atan) and a hyp variant
   //          (sinh/cosh/tanh).
   KeypadRow(
@@ -188,19 +194,20 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
       ),
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'logₓy', id: 'dis:logxy', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'logₓy', id: 'ins:logxy'),
+          category: KeyCategory.function,
         ),
       ),
     ],
   ),
 
   // 中文：行 4——倒数 / 平方 / 开方 / 幂 / 对数 / 自然对数。
-  //       上方标签：lim 禁用键，以及 x³、∛x、ˣ√y、10ˣ、eˣ 五个 SHIFT 提示——它们分别落在
-  //       下方对应主键的 `shift` 变体上。
+  //       上方标签：lim（已启用：插引擎的 `limit(` 调用），以及 x³、∛x、ˣ√y、10ˣ、eˣ 五个
+  //       SHIFT 提示——它们分别落在下方对应主键的 `shift` 变体上。
   // English: Row 4 — reciprocal / square / square root / power / log / ln.
-  //          Band above: the disabled lim key plus the x³, ∛x, ˣ√y, 10ˣ, eˣ SHIFT hints,
-  //          each of which also lives on the matching key below as its `shift` variant.
+  //          Band above: an enabled lim (it inserts the engine's `limit(` call) plus the x³, ∛x,
+  //          ˣ√y, 10ˣ, eˣ SHIFT hints, each of which also lives on the matching key below as its
+  //          `shift` variant.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -236,8 +243,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
     labels: <KeypadLabel?>[
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'lim', id: 'dis:lim', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'lim', id: 'ins:limit'),
+          category: KeyCategory.function,
         ),
       ),
       ShiftLabel('x³'),
@@ -488,13 +495,14 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   // 中文：行 9——0 / 小数点 / 正负号 / EXP / 等号。
   //       `EXP` 走 `ins:exp` 而不是计划书写的 `ins:e`：`ins:e` 已被上一行的 `e` 常量占用，
   //       两者同 id 会撞上「键的 id 全局唯一」。
-  //       上方标签：OTHER（打开工具箱）、ran# 与 EXP SI 与 =,＜＞ 三个禁用键、Ans。
+  //       上方标签：OTHER（打开工具箱）、ran#（已启用：插引擎的 `rand()`）、禁用的 EXP SI 与
+  //       =,＜＞、Ans。
   // English: Row 9 — 0 / decimal point / sign toggle / EXP / equals.
   //          `EXP` uses `ins:exp` rather than the plan's `ins:e`, which the `e` constant on
   //          the row above already owns — the collision would break the global id-uniqueness
   //          invariant.
-  //          Band above: OTHER (opens the tools), the disabled ran#, EXP SI and =,＜＞ keys,
-  //          and Ans.
+  //          Band above: OTHER (opens the tools), an enabled ran# (it inserts the engine's
+  //          `rand()`), the disabled EXP SI and =,＜＞, and Ans.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -523,8 +531,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
       ),
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'ran#', id: 'dis:ran', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'ran#', id: 'ins:rand'),
+          category: KeyCategory.function,
         ),
       ),
       InlineKey(

@@ -527,8 +527,8 @@ class CalculatorController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final nextPrefix = _wrapTrailingValue(expressionBeforeCursor, name);
-    _replaceAroundCursor(nextPrefix);
+    final insertion = _wrapTrailingValue(expressionBeforeCursor, name);
+    _replaceAroundCursor(insertion.text, cursorBack: insertion.cursorBack);
     _scheduleLiveEvaluation();
     notifyListeners();
   }
@@ -546,9 +546,9 @@ class CalculatorController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final nextPrefix =
+    final insertion =
         _wrapTrailingValue(expressionBeforeCursor, name, binary: true);
-    _replaceAroundCursor(nextPrefix);
+    _replaceAroundCursor(insertion.text, cursorBack: insertion.cursorBack);
     _scheduleLiveEvaluation();
     notifyListeners();
   }
@@ -1648,8 +1648,11 @@ class CalculatorController extends ChangeNotifier {
   ///
   ///       1. 表达式**本身就是一个数**（「继续使用」写回之后正是这种形状）→ 按**文本**判定。文本里
   ///          还留着 double 已经丢掉的信息，这正是它能识破下溢的原因。
-  ///       2. 其余表达式 → **屏幕上那个结果**，只要它是引擎算出来的（[_result] 带 LaTeX 形态）。
-  ///          寄存器要加的就是用户看到的那个数，`Ans`/`last` 用的也是它；此处的判定是结果里那串
+  ///       2. 其余表达式 → **屏幕上那个结果的十进制形态**，只要它是引擎算出来的（[_result] 带 LaTeX
+  ///          形态）。注意这里加的不是屏幕上**显示**的那个数：[_result.displayText] 已经按
+  ///          `AppSettings.precision` 取过整（屏幕上是 `5.656854`），而寄存器拿的是
+  ///          [_result.decimalText]，也就是引擎那一串未取整的十进制（`5.656854249492380`）。
+  ///          这正是 `Ans`/`last` 用的那一份，两者不能是两套口径；此处的判定是结果里那串
   ///          **十进制文本**，`2^-2000` 的 `0.0` 因此不会再被当成一个真值收下。
   ///       3. 引擎没有参与（没有原生侧、kill switch 关掉、超时、答不出有限的十进制）→ 旧解析器，
   ///          与迁移之前逐字节相同。这是硬性回落的另一半：`_currentNumericValue()` 是同步的，
@@ -1963,9 +1966,16 @@ class CalculatorController extends ChangeNotifier {
     cursorIndex = start + token.length;
   }
 
-  void _replaceAroundCursor(String prefix) {
+  /// 中文：把光标左侧的文本换成 [prefix]，并把光标放在它末尾之前 [cursorBack] 个字符处。
+  ///       [cursorBack] 默认为 0（光标落在插入文本的末尾），也就是这个方法的原始行为——
+  ///       函数调用那条路要的是「落在括号里 / 逗号右边」，见 [_wrapTrailingValue]。
+  /// English: Replaces the text left of the caret with [prefix] and puts the caret [cursorBack]
+  ///          characters before its end. The default of 0 — the caret at the end of what was
+  ///          inserted — is this method's original behaviour; the function-call path is what needs
+  ///          "inside the brackets" / "right of the comma", see [_wrapTrailingValue].
+  void _replaceAroundCursor(String prefix, {int cursorBack = 0}) {
     expression = prefix + expressionAfterCursor;
-    cursorIndex = prefix.length;
+    cursorIndex = prefix.length - cursorBack;
   }
 
   String get _selectedExpression =>
@@ -2011,14 +2021,72 @@ class CalculatorController extends ChangeNotifier {
     return current + token;
   }
 
-  String _wrapTrailingValue(String current, String name,
+  /// 中文：把光标左侧的值套进一次函数调用，并把光标放回**第一个空槽**。返回两样东西：要插入
+  ///       光标左侧的文本，以及光标离该文本末尾的字符数（[cursorBack]）。
+  ///
+  ///       **右括号一定要补上。** 这条以前不成立：空输入或光标停在运算符/`(`/`,` 之后时插进去的
+  ///       只有 `name(`，右括号从来没出现。用户接着输入实参，表达式里就永久留下 `sqrt(8` 这样的
+  ///       形状——而解析器**刻意**把未闭合的调用降级成字面文本（`_parseCall` 的 `_failure`），
+  ///       于是屏幕上显示的是灰色的字母 `sqrt(8`，求值也永远是错的。真机实测的复现路径是
+  ///       「按 `√x`、再按 `8`」。
+  ///
+  ///       光标位置按同一条规则定：**落在第一个空槽里**。
+  ///       - 空输入 / 尾部是开口结构：空槽就是 `(` 之后，于是光标停在 `name(|)`；
+  ///       - 左侧有值：一元调用的实参已经填好，没有空槽，光标留在调用之后（与修改前一致）；
+  ///         二元调用还欠第二个实参，空槽是 `,` 之后，光标停在 `name(值|,)` 的逗号右边。
+  ///
+  ///       English: Wraps the value left of the caret in a call and puts the caret back into the
+  ///              **first empty slot**. Two things come back: the text to insert before the caret,
+  ///              and how far from its end the caret sits ([cursorBack]).
+  ///
+  ///              **The closing bracket must always be written.** It used to be missing: for an
+  ///              empty input, or with the caret after an operator / `(` / `,`, only `name(` was
+  ///              inserted and the bracket never appeared. Whatever the user typed next left
+  ///              `sqrt(8` in the expression for good — and the parser **deliberately** degrades an
+  ///              unclosed call to literal text (`_parseCall`'s `_failure`), so the screen showed a
+  ///              grey `sqrt(8` in letters and the value was wrong forever. The reproduction on a
+  ///              device is "press `√x`, then `8`".
+  ///
+  ///              The caret follows one rule: **the first empty slot**.
+  ///              - empty input / a dangling open construct: that slot is just after `(`, so the
+  ///                caret sits at `name(|)`;
+  ///              - a value on the left: a unary call has its argument filled, so there is no
+  ///                empty slot and the caret stays after the call (unchanged); a binary call still
+  ///                owes its second argument, so the slot is after the `,` and the caret sits to
+  ///                the right of the comma in `name(value|,)`.
+  ({String text, int cursorBack}) _wrapTrailingValue(String current, String name,
       {bool binary = false}) {
-    final suffix = binary ? ',' : ')';
-    if (current.isEmpty || _endsWithOpenInput(current)) return '$current$name(';
+    // 中文：没有实参可套时的插入物：一元是 `name()`，二元是 `name(,)`——右括号在两种情况下
+    //       都在。`cursorBack` 把光标放回第一个空槽：一元的空槽紧跟 `(`（退 1 格），二元的
+    //       第一个空槽也在 `(` 之后（退 2 格，越过那个逗号）。
+    // English: What goes in when there is no argument to wrap: `name()` for a unary call,
+    //          `name(,)` for a binary one — the closing bracket is present either way.
+    //          `cursorBack` puts the caret back into the first empty slot: for a unary call that
+    //          slot follows `(` (one step back), and for a binary call the first empty slot is
+    //          after the `(` too (two steps back, past the comma).
+    final String emptySlot = binary ? '(,)' : '()';
+    // 中文：左侧有值时的尾部：一元补右括号就完事，二元补的是「逗号 + 右括号」——第二个实参还空着。
+    // English: The tail once a value is wrapped: a unary call only needs its bracket, a binary one
+    //          needs "comma then bracket" because its second argument is still empty.
+    final String tail = binary ? ',)' : ')';
+    if (current.isEmpty || _endsWithOpenInput(current)) {
+      return (
+        text: '$current$name$emptySlot',
+        cursorBack: binary ? 2 : 1,
+      );
+    }
     final range = _trailingValueRange(current);
-    if (range == null) return '$current$name(';
+    if (range == null) {
+      return (
+        text: '$current$name$emptySlot',
+        cursorBack: binary ? 2 : 1,
+      );
+    }
     final value = current.substring(range.start, range.end);
-    return '${current.substring(0, range.start)}$name($value$suffix';
+    return (
+      text: '${current.substring(0, range.start)}$name($value$tail',
+      cursorBack: binary ? 1 : 0,
+    );
   }
 
   bool _endsWithOpenInput(String current) {
@@ -2106,6 +2174,16 @@ class CalculatorController extends ChangeNotifier {
       'lcm(',
       'root(',
       'atan2(',
+      // 中文：`ran#`、Σ、Π、∫dx、lim、logₓy 插的调用与上面那些同类——紧跟在数值后面是隐式乘法，
+      //       不是并排的两个符号，所以 `2` 之后按 Σ 得到 `2×sum(x,1,10,x)`。
+      // English: the calls inserted by `ran#`, Σ, Π, ∫dx, lim and logₓy belong with the ids above —
+      //          right after a number they are an implicit product rather than two symbols side by
+      //          side, so `2` then Σ gives `2×sum(x,1,10,x)`.
+      'rand(',
+      'sum(',
+      'product(',
+      'integrate(',
+      'limit(',
     ];
     return functionPrefixes.any(token.startsWith);
   }
