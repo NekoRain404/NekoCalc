@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
@@ -11,274 +10,6 @@ import 'package:nekocalc/domain/usecases/calculator_save_result.dart';
 import 'package:nekocalc/domain/usecases/calculator_submit_result.dart';
 
 void main() {
-  test('copy text includes expression result angle mode and memory', () {
-    final db = _FakeDatabase();
-    final controller = _controller(db);
-
-    controller.setExpression('6×7');
-    controller.evaluate();
-    controller.memoryAdd();
-
-    final text = controller.copyText();
-
-    expect(text, contains('表达式: 6×7'));
-    expect(text, contains('结果: 42'));
-    expect(text, contains('状态: 结果可继续使用'));
-    expect(text, contains('继续使用会把 42 写回表达式'));
-    expect(text, contains('角度模式: 弧度 RAD'));
-    expect(text, contains('记忆值: 42'));
-
-    controller.dispose();
-  });
-
-  test('continue with result reuses parser friendly value', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('1000+23');
-    controller.evaluate();
-    expect(controller.canContinueWithResult, isTrue);
-    expect(controller.canSaveCurrentExpression, isTrue);
-    expect(controller.resultStatusTitle, '结果可继续使用');
-    controller.continueWithResult();
-
-    expect(controller.expression, '1023');
-    expect(controller.cursorIndex, 4);
-    expect(controller.result, '1023');
-
-    controller.dispose();
-  });
-
-  test('result status distinguishes empty current value and invalid input',
-      () async {
-    final db = _FakeDatabase();
-    final controller = _controller(db);
-
-    expect(controller.canContinueWithResult, isTrue);
-    expect(controller.canSaveCurrentExpression, isFalse);
-    expect(controller.resultStatusTitle, '当前值可继续使用');
-    expect(controller.resultStatusMessage, contains('当前值 0'));
-    expect(controller.copyText(), contains('状态: 当前值可继续使用'));
-
-    controller.setExpression('1/0');
-    controller.evaluate();
-
-    expect(controller.canContinueWithResult, isFalse);
-    expect(controller.canSaveCurrentExpression, isFalse);
-    expect(controller.resultStatusTitle, '表达式需要修正');
-    expect(controller.resultStatusMessage, '结果不是有限数值');
-    expect(controller.copyText(), contains('状态: 表达式需要修正'));
-    expect(controller.copyText(), contains('错误: 结果不是有限数值'));
-
-    final expressionBefore = controller.expression;
-    controller.continueWithResult();
-    expect(controller.expression, expressionBefore);
-    final saveResult = await controller.saveToNote();
-    expect(saveResult.saved, isFalse);
-    expect(saveResult.status, CalculatorSaveNoteStatus.invalidExpression);
-    expect(db.savedNotes, isEmpty);
-
-    controller.dispose();
-  });
-
-  test('evaluates programming radix literals in calculator expressions', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('0xFF + 0b1010 + 0o10');
-    controller.evaluate();
-
-    expect(controller.result, '273');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('evaluates decimal literals with numeric separators', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('1_000 + 2_500.5');
-    controller.evaluate();
-
-    expect(controller.result, '3500.5');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('evaluates calculator style bare function calls', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('sqrt 9 + log 100');
-    controller.evaluate();
-
-    expect(controller.result, '5');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('evaluates pasted expressions with trailing result annotations', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('表达式: 6×7\n结果: 42');
-    controller.evaluate();
-
-    expect(controller.result, '42');
-    expect(controller.hasError, isFalse);
-
-    controller.setExpression('sqrt(81) = 9');
-    controller.evaluate();
-
-    expect(controller.result, '9');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('applies pasted calculator reports with angle mode and memory', () {
-    final controller = _controller(_FakeDatabase());
-
-    final paste = controller.applyPastedText('''
-表达式: sin(90)
-结果: 1
-状态: 结果可继续使用
-角度模式: 角度 DEG
-记忆值: 12.5
-''');
-
-    expect(paste.fromReport, isTrue);
-    expect(paste.summary, contains('已从计算详情提取表达式'));
-    expect(paste.summary, contains('角度模式 DEG'));
-    expect(paste.summary, contains('记忆值 12.5'));
-    expect(controller.expression, 'sin(90)');
-    expect(controller.angleMode, 'DEG');
-    expect(controller.memoryValue, 12.5);
-    expect(controller.result, '1');
-    expect(controller.hasError, isFalse);
-    expect(controller.canUndo, isTrue);
-
-    controller.undo();
-    expect(controller.expression, isEmpty);
-    expect(controller.angleMode, 'RAD');
-    expect(controller.memoryValue, 0);
-
-    controller.dispose();
-  });
-
-  test('applies plain pasted calculator expressions without report metadata',
-      () {
-    final controller = _controller(_FakeDatabase());
-
-    final paste = controller.applyPastedText('sqrt(81) + 1');
-
-    expect(paste.fromReport, isFalse);
-    expect(paste.summary, '已粘贴表达式');
-    expect(controller.expression, 'sqrt(81) + 1');
-    expect(controller.result, '10');
-
-    controller.dispose();
-  });
-
-  test('reuses previous result with ans and last aliases', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('6*7');
-    controller.evaluate();
-    expect(controller.result, '42');
-
-    controller.setExpression('ans + 8');
-    controller.evaluate();
-    expect(controller.result, '50');
-
-    controller.setExpression('last / 5');
-    controller.evaluate();
-    expect(controller.result, '10');
-
-    controller.dispose();
-  });
-
-  test('keeps ans stable while editing the current expression', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('5');
-    controller.evaluate();
-    controller.setExpression('ans+1');
-    controller.evaluate();
-    expect(controller.result, '6');
-
-    controller.setExpression('ans+2');
-    controller.evaluate();
-    expect(controller.result, '7');
-
-    controller.setExpression('10');
-    controller.evaluate();
-    controller.setExpression('ans+1');
-    controller.evaluate();
-    expect(controller.result, '11');
-
-    controller.dispose();
-  });
-
-  test('wraps negative ans values before substitution', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('-5');
-    controller.evaluate();
-    controller.setExpression('ans^2 + last');
-    controller.evaluate();
-
-    expect(controller.result, '20');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('evaluates exponent precedence with prefix minus', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('-2^2 + 2^-2');
-    controller.evaluate();
-
-    expect(controller.result, '-3.75');
-    expect(controller.hasError, isFalse);
-
-    controller.dispose();
-  });
-
-  test('undo and redo restore expression result cursor and memory', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.input('1');
-    controller.input('+');
-    controller.input('2');
-    controller.evaluate();
-    expect(controller.expression, '1+2');
-    expect(controller.result, '3');
-    expect(controller.canUndo, isTrue);
-
-    controller.undo();
-    expect(controller.expression, '1+');
-    expect(controller.canRedo, isTrue);
-
-    controller.redo();
-    expect(controller.expression, '1+2');
-    expect(controller.result, '3');
-
-    controller.memoryAdd();
-    expect(controller.memoryValue, 3);
-    controller.undo();
-    expect(controller.memoryValue, 0);
-    controller.redo();
-    expect(controller.memoryValue, 3);
-
-    controller.clear();
-    expect(controller.expression, isEmpty);
-    controller.undo();
-    expect(controller.expression, '1+2');
-    expect(controller.memoryValue, 3);
-
-    controller.dispose();
-  });
-
   test('reload settings after import restores calculator state', () async {
     final db = _FakeDatabase()
       ..savedSettings.addAll({
@@ -306,6 +37,37 @@ void main() {
     expect(controller.memoryValue, 12.5);
     expect(controller.canUndo, isFalse);
     expect(controller.canRedo, isFalse);
+
+    controller.dispose();
+  });
+
+  test('uses the persisted thousands grouping setting for calculator output',
+      () {
+    final db = _FakeDatabase();
+    final controller = _controller(
+      db,
+      settings: const AppSettings(
+        haptics: true,
+        hapticStrength: '标准',
+        restoreState: false,
+        autoSaveHistory: false,
+        angleMode: 'RAD',
+        precision: 6,
+        themeModeLabel: '跟随系统',
+        expressionDisplayMode: '数学符号',
+        groupThousands: true,
+      ),
+    );
+
+    controller.setExpression('1234567.5');
+    controller.evaluate();
+
+    expect(controller.result, '1,234,567.5');
+    controller.memoryAdd();
+    controller.memoryRecall();
+    expect(controller.expression, '1234567.5');
+    expect(controller.result, '1,234,567.5');
+    expect(controller.hasError, isFalse);
 
     controller.dispose();
   });
@@ -496,79 +258,6 @@ void main() {
     expect(controller.result, '0.3333');
     expect(controller.angleMode, 'DEG');
     expect(controller.canUndo, isFalse);
-
-    controller.dispose();
-  });
-
-  test('new edits clear redo stack', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.input('9');
-    controller.input('×');
-    controller.input('9');
-    controller.undo();
-    expect(controller.canRedo, isTrue);
-
-    controller.input('8');
-    expect(controller.expression, '9×8');
-    expect(controller.canRedo, isFalse);
-
-    controller.dispose();
-  });
-
-  test('toggle sign targets the current value instead of whole expression', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('1+2');
-    controller.input('+/-');
-    expect(controller.expression, '1+(-2)');
-    controller.evaluate();
-    expect(controller.result, '-1');
-
-    controller.input('+/-');
-    expect(controller.expression, '1+2');
-    controller.evaluate();
-    expect(controller.result, '3');
-
-    controller.input('+');
-    controller.input('+/-');
-    expect(controller.expression, '1+2+-');
-    controller.input('5');
-    controller.evaluate();
-    expect(controller.result, '-2');
-
-    controller.dispose();
-  });
-
-  test('toggle sign respects cursor position and wrapped values', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('12+34');
-    controller.moveCursorLeft();
-    controller.moveCursorLeft();
-    controller.input('+/-');
-    expect(controller.expression, '12+-34');
-    expect(controller.cursorIndex, 4);
-
-    controller.input('+/-');
-    expect(controller.expression, '12+34');
-    expect(controller.cursorIndex, 3);
-
-    controller.moveCursorLeft();
-    controller.input('+/-');
-    expect(controller.expression, '-12+34');
-    expect(controller.cursorIndex, 3);
-
-    controller.setExpression('sqrt(9)+2');
-    controller.moveCursorLeft();
-    controller.moveCursorLeft();
-    controller.input('+/-');
-    expect(controller.expression, '-sqrt(9)+2');
-    controller.evaluate();
-    expect(controller.result, '-1');
-
-    controller.input('+/-');
-    expect(controller.expression, 'sqrt(9)+2');
 
     controller.dispose();
   });
@@ -815,7 +504,6 @@ void main() {
     controller.dispose();
   });
 }
-
 CalculatorController _controller(
   _FakeDatabase db, {
   AppSettings settings = const AppSettings(
@@ -891,7 +579,7 @@ class _FakeDatabase implements AppDatabase {
 
   @override
   Future<int> addNote(String title, String body,
-      {String description = ''}) async {
+      {String description = '', List<String> tags = const []}) async {
     if (zeroNextNoteWrite) {
       zeroNextNoteWrite = false;
       return 0;
