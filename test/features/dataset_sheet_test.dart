@@ -350,6 +350,74 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('拟合格：三格各自的下限（2/3/4），灰的那一格旁边写着为什么', (tester) async {
+    // 中文：**同一个面板上，三格的亮暗可以不同**——这是它们与上面那三格最要紧的分别。共用下限
+    //       会让 `quadraticfit` 在两对值时亮着，而它按下去插的调用引擎答不出来（实测：种类
+    //       `arithmetic`、不显示 ⇒ 屏幕上是一句错误）。
+    // English: **on one sheet the three cells can differ** — that is the most important difference from
+    //          the three above. A shared floor would leave `quadraticfit` lit at two pairs, and the
+    //          call it inserts is one the engine cannot answer (measured: kind `arithmetic`, not
+    //          displayable ⇒ an error on screen).
+    await _pumpPage(tester);
+    await _addValues(tester, <String>['1', '2', '100', '200']);
+
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectFitCells(tester, enabled: <String>['linearfit']);
+    expect(find.textContaining('quadraticfit 要 3 对'), findsOneWidget);
+    expect(find.textContaining('cubicfit 要 4 对'), findsOneWidget);
+
+    await _closeSheet(tester);
+    await _addValues(tester, <String>['3', '300']);
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectFitCells(tester, enabled: <String>['linearfit', 'quadraticfit']);
+  });
+
+  testWidgets('空数据集时拟合格三格全灰，理由说清三格各要几对', (tester) async {
+    await _pumpPage(tester);
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+
+    _expectFitCells(tester, enabled: const <String>[]);
+    expect(find.textContaining('linearfit 要 2 对'), findsOneWidget);
+    // 中文：**两行各有一条理由，而且各有一串只属于自己开头的字。** 两句话里都出现「数据集是
+    //       空的」，所以拿那一串去找会同时命中两行；能分清的是各自的开头（拟合那一行以
+    //       「拟合把数据集读成两行」起头）。
+    // English: **each row carries a reason, and each has an opening run belonging to itself alone.**
+    //          Both sentences contain "数据集是空的", so searching on that hits both rows; what tells
+    //          them apart is their openings (the fit row starts "拟合把数据集读成两行").
+    expect(find.textContaining('拟合把数据集读成两行'), findsOneWidget);
+    expect(find.textContaining('现在数据集是空的'), findsOneWidget);
+  });
+
+  testWidgets('拟合那一格按下去插的是两个行矩阵，而且排得出来', (tester) async {
+    // 中文：**插入的形状与 `pearson` 那一格不同，理由是量出来的**：两行矩阵喂给拟合，n>2 时给一个
+    //       向量、n=2 时给一个 X/Y 反了的函数，两者都上屏。这一条钉住屏幕上真的写着两个行矩阵。
+    // English: **the shape inserted differs from the `pearson` cell's, and the reason is measured**:
+    //          feeding the fits a two-row matrix yields a vector at n>2 and an X/Y-swapped function at
+    //          n=2, and both reach the screen. This pins that the screen really says two row matrices.
+    await _pumpPage(tester);
+    await _addValues(tester, <String>['1', '2', '3', '100', '200', '300']);
+    await _press(tester, 'clear');
+
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectFitCells(tester, enabled: <String>['linearfit', 'quadraticfit']);
+
+    await tester.tap(find.text('linearfit'));
+    await tester.pumpAndSettle();
+
+    const expected = 'linearfit(matrix(1,3,1,2,3),matrix(1,3,100,200,300))';
+    expect(_expression(tester), expected);
+    expect(_literalTextFragment(expected), isFalse,
+        reason: '插进去的调用排不出来就等于降级成字面文本');
+    final tex =
+        const TexEmitter().emit(const ExpressionAstParser().parse(expected));
+    expect(tex, contains(r'\operatorname{linearfit}'));
+    expect(tex, contains(r'\operatorname{matrix}'));
+  });
+
   testWidgets('屏幕上没有可加的数时，「加入当前结果」是灰的（看得见的拒绝）', (tester) async {
     await _pumpPage(tester);
 
@@ -451,6 +519,22 @@ void _expectRegressionCellsDisabled(WidgetTester tester) {
       find.widgetWithText(TextButton, name),
     );
     expect(button.onPressed, isNull, reason: '`$name` 读不成两行时必须是灰的');
+  }
+}
+
+/// 中文：拟合格此刻的亮暗**逐格**对照 [enabled]——判据同样是那个控件本身（`TextButton.onPressed`），
+///       不是「那段文字在不在」。逐格写出来是这三格与上面那三格的分别所在：它们各有各的下限。
+/// English: the fit cells' lit/dark state, checked **cell by cell** against [enabled] — the criterion is
+///          again the control itself (`TextButton.onPressed`), not "is that text present". Spelling it
+///          out per cell is exactly where these three differ from the three above: each has its own
+///          floor.
+void _expectFitCells(WidgetTester tester, {required List<String> enabled}) {
+  for (final name in <String>['linearfit', 'quadraticfit', 'cubicfit']) {
+    final button = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, name),
+    );
+    expect(button.onPressed, enabled.contains(name) ? isNotNull : isNull,
+        reason: '`$name` 此刻的亮暗与它自己的下限对不上');
   }
 }
 

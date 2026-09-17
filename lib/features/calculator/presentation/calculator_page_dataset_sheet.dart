@@ -154,6 +154,34 @@ class _StatisticsSheet extends StatelessWidget {
     ('covar', 'ins:covar'),
   ];
 
+  /// 中文：**三个拟合格**——回归的那些格的下一行。它们与上面那三格的分别有两处，两处都是量出来的：
+  ///
+  ///       1. **要几对值不同，而且三格各不相同**（`kFitMinimumPairs`：2/3/4）。所以这一行的
+  ///          `onPressed` **按格判**，不是整行一个布尔——用同一个下限会让两格各按下去插一条
+  ///          引擎答不出来的调用，屏幕上是一句错误。
+  ///       2. **它们插的形状不同**（两个行矩阵，不是两行矩阵）：理由与实测表在 `fitCall` 上。
+  ///
+  ///       暗淡的那几格旁边**同一行里就写着为什么**（控制器的 `fitStatusMessage`，不是这里另写
+  ///       一句）。**灰键是诚实的**；一个按下去只给错误的键不是。
+  /// English: **the three fit cells** — the row below the regression ones. They differ from the three
+  ///          above in two ways, both measured:
+  ///
+  ///          1. **How many pairs they need differs, and differs per cell** (`kFitMinimumPairs`:
+  ///             2/3/4). So this row's `onPressed` is judged **cell by cell** rather than by one boolean
+  ///             for the whole row — a shared floor would make two of them insert a call the engine
+  ///             cannot answer, which is an error on screen.
+  ///          2. **The shape they insert differs** (two row matrices, not a two-row matrix): the
+  ///             reasons and the measurement table are on `fitCall`.
+  ///
+  ///          While a cell is dark, **the why sits on the same line** (the controller's
+  ///          `fitStatusMessage` rather than a sentence written here). **A grey cell is honest**; a
+  ///          cell that answers with an error is not.
+  static const List<(String, String)> _fitEntries = <(String, String)>[
+    ('linearfit', 'ins:linearfit'),
+    ('quadraticfit', 'ins:quadraticfit'),
+    ('cubicfit', 'ins:cubicfit'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -193,6 +221,11 @@ class _StatisticsSheet extends StatelessWidget {
             AnimatedBuilder(
               animation: page._controller,
               builder: (context, _) => _regressionRow(context),
+            ),
+            const SizedBox(height: 6),
+            AnimatedBuilder(
+              animation: page._controller,
+              builder: (context, _) => _fitRow(context),
             ),
             const SizedBox(height: 6),
             // 中文：两句都不是装饰。①不说「那串数是从哪儿来的」，屏幕上就凭空多出一串用户没打过的
@@ -310,6 +343,56 @@ class _StatisticsSheet extends StatelessWidget {
           available
               ? '数据集读成两行：${controller.regressionCall('pearson')}'
               : controller.regressionUnavailableMessage,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.display.statusFg, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  /// 中文：三个拟合格，以及它们各自的禁用态与那一行的读数（读数为什么是这个形状见
+  ///       `CalculatorController.fitStatusMessage`：三格各有各的下限，所以**一格亮两格灰是常态**，
+  ///       读数因此永远给出下限与个数，再在至少有一格亮着时接上第一条会插进去的调用）。
+  /// English: the three fit cells, with their own disabled states and the row's reading (why the
+  ///          reading has this shape is on `CalculatorController.fitStatusMessage`: the three cells
+  ///          have a floor each, so **one lit and two dark is the normal state**, and the reading
+  ///          therefore always gives the floors and the count, appending the first call that would be
+  ///          inserted once at least one cell is lit).
+  Widget _fitRow(BuildContext context) {
+    final controller = page._controller;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '拟合',
+              style: TextStyle(color: theme.display.statusFg, fontSize: 12),
+            ),
+            for (final (label, id) in _fitEntries)
+              TextButton(
+                onPressed: controller.fitCall(label) == null
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                        page._pressKey(id);
+                      },
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.display.indicatorFg,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ],
+        ),
+        Text(
+          controller.fitStatusMessage,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: theme.display.statusFg, fontSize: 12),
         ),

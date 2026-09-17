@@ -463,6 +463,22 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _appendRegressionCall('covar');
       case 'ins:spearman':
         _appendRegressionCall('spearman');
+      // 中文：**三个拟合格。** 与上面三格共用 `_appendRegressionCall` 那一条规矩（判据说 `null`
+      //       就什么都不做），但**判据与形状都不是同一个**：下限按函数取（2/3/4），插的是两个
+      //       行矩阵而不是一个两行矩阵——理由与实测表在 `CalculatorController.fitCall` 上。
+      //       面板上那三格各自的禁用态用的是同一条判据。
+      // English: **the three fit cells.** They share the rule `_appendRegressionCall` follows ("the
+      //          judgement says `null` ⇒ do nothing") but neither the judgement nor the shape is the
+      //          same: the floor is per function (2/3/4) and what lands is two row matrices rather than
+      //          one two-row matrix — the reasons and the measurement table are on
+      //          `CalculatorController.fitCall`. Each cell's disabled state on the sheet uses that same
+      //          judgement.
+      case 'ins:linearfit':
+        _appendFitCall('linearfit');
+      case 'ins:quadraticfit':
+        _appendFitCall('quadraticfit');
+      case 'ins:cubicfit':
+        _appendFitCall('cubicfit');
       case 'ins:%':
         _controller.input('%');
       case 'ins:exp':
@@ -620,6 +636,20 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
   ///          the sheet** and insert a call the engine cannot answer.
   void _appendRegressionCall(String function) {
     final call = _controller.regressionCall(function);
+    if (call == null) return;
+    _controller.append(call);
+  }
+
+  /// 中文：三个拟合格共用的一条，与 [_appendRegressionCall] 逐字同形（判据说 `null` 就什么都不做，
+  ///       判据仍然只有 `fitCall` 一处）。**它是分开的一个方法，因为判据不同**：三个拟合各有各的
+  ///       下限，所以「哪几格亮」不是整行一个布尔。
+  /// English: the one path the three fit cells share, word for word the shape
+  ///          [_appendRegressionCall] has (the judgement says `null` ⇒ do nothing, and that judgement
+  ///          is still written once, on `fitCall`). **It is a separate method because the judgement
+  ///          differs**: each fit has its own floor, so "which cells are lit" is not one boolean for the
+  ///          whole row.
+  void _appendFitCall(String function) {
+    final call = _controller.fitCall(function);
     if (call == null) return;
     _controller.append(call);
   }
