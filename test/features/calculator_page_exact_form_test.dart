@@ -15,9 +15,10 @@ import 'package:nekocalc/features/calculator/presentation/widgets/math_expressio
 //       同一组 PrintOptions）：`sqrt(8)` → 十进制 `2.828427124746190`、LaTeX `2\times \sqrt{2}`。
 //       精度 6 位小数下的显示形态是 `2.828427`。
 //
-//       除了这一次引擎问答，按键路径是**真的**：`√x` 再 `8` 再 `)` 打出的表达式是 `sqrt(8)`——注意
-//       没有那个右括号时表达式是 `sqrt(8`，解析器会把它降级成字面文本（这是任务 1 查清的根因，
-//       不是这里要测的东西）。
+//       除了这一次引擎问答，按键路径是**真的**：`√x` 再 `8` 打出的表达式是 `sqrt(8)`——**不要**再按
+//       一次 `)`：`√x` 自己就补出了整对括号，再按一次得到的是 `sqrt(8))`（实测），那是一个解析不了的
+//       表达式，按本轮的判据引擎根本不会被问到。这个文件的旧版本把这一步写成「`√x` 再 `8` 再 `)`」，
+//       而循环里从来没有那个 `)`——修复轮 8 改了文件头（错的是文件头那一方，见下面循环上的注释）。
 // English: **End to end**: from a keypad key on the main screen, through the real controller, the real
 //          `QalculateMathEngine` and a replaced platform channel, to the exact form typeset on the
 //          result line. This step's deliverable is "the engine's headline capability is visible to the
@@ -29,10 +30,12 @@ import 'package:nekocalc/features/calculator/presentation/widgets/math_expressio
 //          `2.828427124746190`, LaTeX `2\times \sqrt{2}`. At six decimal places the display form is
 //          `2.828427`.
 //
-//          Apart from that one engine exchange the keystrokes are **real**: `√x`, `8` and `)` produce
-//          the expression `sqrt(8)` — without that closing bracket the expression is `sqrt(8`, which
-//          the parser degrades to literal text (that is the root cause task 1 pinned down, not
-//          something under test here).
+//          Apart from that one engine exchange the keystrokes are **real**: `√x` and `8` produce the
+//          expression `sqrt(8)` — **do not** press `)` as well: `√x` writes the whole bracket pair and a
+//          second `)` gives `sqrt(8))` (measured), an expression that does not parse and that, by this
+//          round's criterion, is never even asked of the engine. The old version of this file said
+//          "`√x`, `8` and `)`" in the header while the loop never pressed that `)` — fix round 8 changed
+//          the header, since the header was the wrong side (see the comment over the loop).
 void main() {
   const channel = MethodChannel('nekocalc/qalculate');
 
@@ -56,7 +59,12 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  testWidgets('按 √x 8 ) 之后，结果行给出「排版好的精确形式 + 近似值」', (tester) async {
+  // 中文：测试名跟着循环走（修复轮 8 的 nit）：按的是 `√x` 与 `8`，**没有** `)`——`√x` 自己就把括号
+  //       补全了，名字里那个 `)` 是旧版本留下的、与循环不符的说法。
+  // English: the test name follows the loop (fix round 8's nit): the keys are `√x` and `8`, with **no**
+  //          `)` — `√x` closes the pair itself, and the `)` in the old name was a leftover that did not
+  //          match the loop.
+  testWidgets('按 √x 8 之后，结果行给出「排版好的精确形式 + 近似值」', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: CalculatorPage(
