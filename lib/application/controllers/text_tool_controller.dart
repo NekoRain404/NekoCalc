@@ -22,6 +22,7 @@ part 'text_tool_regex_tools.dart';
 part 'text_tool_shared_text.dart';
 part 'text_tool_text_stats_tools.dart';
 part 'text_tool_timestamp_tools.dart';
+part 'text_tool_url_codec_tools.dart';
 part 'text_tool_url_query_tools.dart';
 part 'text_tool_uuid_tools.dart';
 
