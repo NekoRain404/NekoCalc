@@ -226,6 +226,130 @@ void main() {
         reason: '负号与小数点不能被读成别的形状（降级成字面文本就是一种）');
   });
 
+  testWidgets('两变量三格：数据集读成两行时插的是那条两行矩阵调用，而且排得出来', (tester) async {
+    await _pumpPage(tester);
+    await _addValues(tester, <String>['1', '100', '2', '200']);
+    await _press(tester, 'clear');
+
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('数据集读成两行：pearson(matrix(2,2,1,100,2,200))'),
+        findsOneWidget,
+        reason: '那串数里的 2 与 2 必须有个来历，否则屏幕上就是两个凭空出现的数字');
+
+    await tester.tap(find.text('pearson'));
+    await tester.pumpAndSettle();
+
+    expect(_expression(tester), 'pearson(matrix(2,2,1,100,2,200))');
+    // 中文：插进去的那条调用也要排得出来（不是降级成字面文本）——与上面四格那条同一条判据。
+    // English: the inserted call has to typeset too (no fallback to literal text) — the same criterion
+    //          the four cells above are held to.
+    expect(_literalTextFragment(_expression(tester)), isFalse);
+    // 中文：TeX 的**形状**逐字钉住，不只断言 `typesetsTex`——只断言排得出来的话，换成别的写法
+    //       照样绿。矩阵那一层也在此（`matrix` 走 `\operatorname`，与实参不粘连）。
+    // English: the **shape** of the TeX is pinned word for word rather than only `typesetsTex` — that
+    //          alone stays green under a different spelling. The matrix layer is in there too
+    //          (`matrix` goes through `\operatorname` and does not stick to its arguments).
+    expect(
+      const TexEmitter()
+          .emit(const ExpressionAstParser().parse(_expression(tester))),
+      r'\operatorname{pearson}{\left(\operatorname{matrix}{\left(2, 2, 1, 100, 2, 200\right)}\right)}',
+    );
+    // 第四层：屏幕上画的是公式，不是承载降级文本的那个 `Text`。
+    // Layer four: what is drawn is a formula, not the `Text` that carries degraded text.
+    expect(
+      find.descendant(
+        of: find.byType(MathExpressionView),
+        matching: find.text(_expression(tester)),
+      ),
+      findsNothing,
+      reason: '`${_expression(tester)}` 画成了字面文本而不是公式',
+    );
+  });
+
+  testWidgets('两变量另外两格也真的在动（covar / spearman 各自插自己那一条）', (tester) async {
+    await _pumpPage(tester);
+    await _addValues(tester, <String>['1', '2', '3', '4']);
+
+    for (final name in <String>['covar', 'spearman']) {
+      await _press(tester, 'clear');
+      _openStatistics(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+      expect(_expression(tester), '$name(matrix(2,2,1,2,3,4))');
+      expect(_literalTextFragment(_expression(tester)), isFalse);
+    }
+  });
+
+  testWidgets('数据集读不成两行时，两变量三格是灰的，而且旁边写着为什么', (tester) async {
+    await _pumpPage(tester);
+
+    // 中文：空数据集。
+    // English: an empty dataset.
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectRegressionCellsDisabled(tester);
+    expect(find.textContaining('现在数据集是空的'), findsOneWidget,
+        reason: '灰键不解释自己为什么灰，就等于没说');
+
+    await _closeSheet(tester);
+
+    // 中文：奇数个值——两行读法需要偶数个，这里**拒绝，不是四舍五入**。
+    // English: an odd count — the two-row reading needs an even one, and here it is **refused, not
+    //          rounded**.
+    await _setDataset(tester, <String>['1', '2', '3']);
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectRegressionCellsDisabled(tester);
+    expect(find.textContaining('需要偶数个值，现在有 3 个'), findsOneWidget);
+
+    await _closeSheet(tester);
+
+    // 中文：只有一对（2 个值）——宿主实测 `pearson(matrix(2,1,1,2))` 给的是未求值的 `0 / 0`。
+    // English: one pair only (two values) — measured on the host, `pearson(matrix(2,1,1,2))` returns
+    //          the unevaluated `0 / 0`.
+    await _setDataset(tester, <String>['1', '2']);
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectRegressionCellsDisabled(tester);
+    expect(find.textContaining('每行至少 2 个值，现在有 2 个'), findsOneWidget);
+  });
+
+  testWidgets('数据集一够长，那三格当场亮起来（不必关掉面板重开）', (tester) async {
+    await _pumpPage(tester);
+    await _addValues(tester, <String>['1', '2', '3']);
+
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+    _expectRegressionCellsDisabled(tester);
+
+    // 中文：从面板进编辑面板，再加一个值——回到 STAT 面板时那三格必须是亮的（读数跟着控制器走，
+    //       与上面那行数据集读数是同一个 `AnimatedBuilder`）。
+    // English: from the sheet into the editor sheet, add one more value — on returning to the `STAT`
+    //          sheet those three cells must be lit (the reading follows the controller, the same
+    //          `AnimatedBuilder` the dataset line above uses).
+    await tester.tap(find.text('数据集…'));
+    await tester.pumpAndSettle();
+    await _type(tester, '4');
+    await tester.tap(find.text('加入当前结果'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+
+    // 中文：`数据集…` 那一按会**先把 STAT 面板收掉**（面板盖着键盘，两层叠着的面板谁也看不清），
+    //       所以从编辑面板回来之后要再打开一次 STAT 面板。
+    // English: pressing `数据集…` **closes the `STAT` sheet first** (the sheet covers the keypad and
+    //          two stacked sheets are legible to nobody), so the `STAT` sheet is reopened after coming
+    //          back from the editor.
+    _openStatistics(tester);
+    await tester.pumpAndSettle();
+
+    _expectRegressionCellsEnabled(tester);
+    expect(find.textContaining('数据集读成两行：pearson(matrix(2,2,1,2,3,4))'),
+        findsOneWidget);
+  });
+
   testWidgets('屏幕上没有可加的数时，「加入当前结果」是灰的（看得见的拒绝）', (tester) async {
     await _pumpPage(tester);
 
@@ -288,6 +412,55 @@ Future<void> _type(WidgetTester tester, String digits) async {
 Future<void> _closeSheet(WidgetTester tester) async {
   await tester.tapAt(const Offset(10, 10));
   await tester.pumpAndSettle();
+}
+
+/// 中文：逐个把 [values] 算到屏幕上、加进数据集、再回主屏。四个值的两行读法是这一组的前提。
+/// English: put each of [values] on screen, add it to the dataset and return to the main screen. A
+///          four-value two-row reading is the precondition of this group.
+Future<void> _addValues(WidgetTester tester, List<String> values) async {
+  for (final value in values) {
+    await _type(tester, value);
+    await _openDatasetSheet(tester);
+    await tester.tap(find.text('加入当前结果'));
+    await tester.pumpAndSettle();
+    await _closeSheet(tester);
+  }
+}
+
+/// 中文：把数据集换成 [values]（先清空再加）——同一个 `testWidgets` 里数据集是**累积**的，
+///       而这一组要逐个看空 / 奇数 / 一对这三种状态。
+/// English: replace the dataset with [values] (clear first, then add) — the dataset **accumulates**
+///          within one `testWidgets`, and this group looks at the empty / odd / one-pair states in
+///          turn.
+Future<void> _setDataset(WidgetTester tester, List<String> values) async {
+  await _openDatasetSheet(tester);
+  await tester.tap(find.text('清空'));
+  await tester.pumpAndSettle();
+  await _closeSheet(tester);
+  await _addValues(tester, values);
+}
+
+/// 中文：三格此刻都是灰的——**判据是那个控件本身**（`TextButton.onPressed` 为 null），
+///       不是「那段文字在不在」。灰键不做事，而一个 `onPressed` 非空的键无论如何都会做点什么。
+/// English: all three cells are grey right now — **the criterion is the control itself**
+///          (`TextButton.onPressed` is null), not "is that text present". A grey cell does nothing,
+///          while a cell with a non-null `onPressed` always does something.
+void _expectRegressionCellsDisabled(WidgetTester tester) {
+  for (final name in <String>['pearson', 'spearman', 'covar']) {
+    final button = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, name),
+    );
+    expect(button.onPressed, isNull, reason: '`$name` 读不成两行时必须是灰的');
+  }
+}
+
+void _expectRegressionCellsEnabled(WidgetTester tester) {
+  for (final name in <String>['pearson', 'spearman', 'covar']) {
+    final button = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, name),
+    );
+    expect(button.onPressed, isNotNull, reason: '`$name` 数据够长时必须亮着');
+  }
 }
 
 Future<void> _startEditing(WidgetTester tester) async {

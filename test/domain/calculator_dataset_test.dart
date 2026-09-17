@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
+import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
+import 'package:nekocalc/core/math/engine_expression.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
 import 'package:nekocalc/data/local/app_database.dart';
@@ -426,6 +428,128 @@ void main() {
       controller.addDatasetValue();
 
       expect(controller.statisticsCall('mean'), 'mean(0.3333333333333333)');
+
+      controller.dispose();
+    });
+
+    // 中文：**同一个数据集的第二种读法**——两行（前一半 X、后一半 Y），给 `pearson`/`covar`/
+    //       `spearman` 那三格用。这一组钉的是三件事：形状（一个 `matrix(2,n,…)`）、切法（按行，
+    //       前一半是第一行）、以及**读不成两行时拒绝而不是凑一个**。
+    // English: **the second reading of the same dataset** — two rows (the first half X, the second
+    //          half Y), for the `pearson`/`covar`/`spearman` cells. This group pins three things: the
+    //          shape (one `matrix(2,n,…)`), the cut (row by row, the first half is the first row), and
+    //          **a refusal rather than a make-do while the dataset cannot be read as two rows**.
+    test('数据集读成两行时，插的是一个两行矩阵，前一半是 X、后一半是 Y', () async {
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: _FakeMathEngine(_failure),
+        storedDataset: '["1","100","2","200","3","300","4","400"]',
+      );
+      await controller.restoreIfEnabled();
+
+      expect(controller.datasetPairCount, 4);
+      expect(controller.canReadDatasetAsTwoRows, isTrue);
+      expect(controller.regressionCall('pearson'),
+          'pearson(matrix(2,4,1,100,2,200,3,300,4,400))');
+      expect(controller.regressionCall('covar'),
+          'covar(matrix(2,4,1,100,2,200,3,300,4,400))');
+      expect(controller.regressionCall('spearman'),
+          'spearman(matrix(2,4,1,100,2,200,3,300,4,400))');
+
+      // 中文：四格那一边**一个字符都没变**——两种读法读的是同一串值，切法不同而已。
+      // English: the four cells' side is **not one character different** — both readings read the same
+      //          run of values, only the cut differs.
+      expect(controller.statisticsCall('mean'),
+          'mean(1,100,2,200,3,300,4,400)');
+
+      controller.dispose();
+    });
+
+    test('读不成两行时拒绝：空、奇数个、只有一对，三种都返回 null 并说出理由', () async {
+      // 中文：一对为什么不算数——**量出来的**：宿主 `qalc` 5.12.0 上 `pearson(matrix(2,1,1,2))`
+      //       给的是未求值的 `0 / 0`（一个式子，不是数），`covar(matrix(2,1,1,2))` 给一个没有信息
+      //       的 `0`。两句都不是用户要的答案，所以这里直接拒绝，而不是把 `0` 放上屏。
+      // English: why one pair does not count — **measured**: on the host `qalc` 5.12.0
+      //          `pearson(matrix(2,1,1,2))` returns the unevaluated `0 / 0` (an expression, not a
+      //          number) and `covar(matrix(2,1,1,2))` returns an uninformative `0`. Neither is the
+      //          answer the user wants, so it is refused here rather than putting a `0` on screen.
+      for (final stored in <String>['[]', '["5"]', '["5","12"]', '["5","12","13"]']) {
+        final controller = _controller(
+          _FakeDatabase(),
+          engine: _FakeMathEngine(_failure),
+          storedDataset: stored,
+        );
+        await controller.restoreIfEnabled();
+
+        expect(controller.canReadDatasetAsTwoRows, isFalse,
+            reason: '`$stored` 读不成两行');
+        expect(controller.regressionCall('pearson'), isNull,
+            reason: '读不成两行时不能拼出一条调用来——拼出来就是一条引擎答不出来的式子');
+        expect(controller.regressionUnavailableMessage, isNotEmpty,
+            reason: '拒绝必须被说出来，否则用户看到的是三格不解释自己的灰键');
+        controller.dispose();
+      }
+    });
+
+    test('四个值（两对）起就成立，上限跟着 kMaxDatasetValues 走', () async {
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: _FakeMathEngine(_failure),
+        storedDataset: '["1","3","2","4"]',
+      );
+      await controller.restoreIfEnabled();
+
+      expect(controller.canReadDatasetAsTwoRows, isTrue);
+      expect(controller.regressionCall('covar'), 'covar(matrix(2,2,1,3,2,4))');
+
+      controller.dispose();
+    });
+
+    test('三个名字都在词表里，翻译层真的把它们送去引擎', () {
+      // 中文：**名字不是猜的**。HiPER 那边叫 `LINEAR_REG`/`PEARSON`…，而引擎里
+      //       `grep -rni "regression"` 一处都没有；这三个是 `functions.xml.in` 里的真名
+      //       （`<title>Correlation</title>` / `<title>Covariance</title>` 那两节）。
+      //       不折进词表的话翻译层会拒绝它们（「标识符不在应用词汇表里，不送去让引擎猜」），
+      //       引擎**根本不会被问**，屏幕上是一句错误。
+      // English: **the names are not guessed.** HiPER calls them `LINEAR_REG`/`PEARSON`…, while
+      //          `grep -rni "regression"` finds nothing at all in the engine; these three are the real
+      //          names in `functions.xml.in` (the `<title>Correlation</title>` /
+      //          `<title>Covariance</title>` sections). Without the vocabulary entries the translation
+      //          layer refuses them ("identifier not in the app's vocabulary, not sent for the engine to
+      //          guess at"), the engine is **never asked**, and the screen shows an error.
+      for (final name in <String>['pearson', 'covar', 'spearman']) {
+        expect(AppEngineVocabulary.identifiers, contains(name));
+        final translated = engineExpressionFor(
+          '$name(matrix(2,2,1,3,2,4))',
+        );
+        expect(translated, isA<TranslatedExpression>(),
+            reason: '`$name` 本该翻译得了');
+        expect(AppEngineVocabulary.canRead('$name(matrix(2,2,1,3,2,4))'), isTrue);
+      }
+    });
+
+    test('引擎缺席时，两变量那条调用回落旧解析器并报错——绝不猜一个数', () async {
+      // 中文：与上面四格那条逐字同形。旧解析器没有实现 `pearson`/`covar`/`spearman`
+      //       （实测：`pearson(1)` 抛 `FormatException: Unknown function pearson`），
+      //       所以引擎答不出来时屏幕上是一句错误。
+      // English: the same shape, word for word, as the four cells' test above. The legacy parser does
+      //          not implement `pearson`/`covar`/`spearman` (measured: `pearson(1)` throws
+      //          `FormatException: Unknown function pearson`), so an absent engine means an error on
+      //          screen.
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: _FakeMathEngine(_failure),
+        storedDataset: '["1","2","3","4","5","6"]',
+      );
+      await controller.restoreIfEnabled();
+
+      controller.setExpression(controller.regressionCall('pearson')!);
+      expect(controller.expression, 'pearson(matrix(2,3,1,2,3,4,5,6))');
+      await controller.submit();
+
+      expect(controller.hasError, isTrue,
+          reason: '旧解析器读不懂 `pearson`，这一条只能是一句错误');
+      expect(controller.result, isNot(contains('1.0')));
 
       controller.dispose();
     });
