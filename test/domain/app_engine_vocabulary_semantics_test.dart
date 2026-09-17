@@ -239,6 +239,14 @@ void main() {
         'median',
         'stdev',
         'var',
+        // 中文：双变量统计那三个（统计—回归那一轮）。同上：应用自己的解析器没有实现它们
+        //       （`pearson(1)` 实测抛 `Unknown function pearson`），只有引擎答得出来。
+        // English: the three two-variable statistics (the statistics/regression round). As above:
+        //          this app's own parser does not implement them (`pearson(1)` measured throwing
+        //          `Unknown function pearson`), so only the engine can answer.
+        'pearson',
+        'spearman',
+        'covar',
       };
       expect(
         AppEngineVocabulary.identifiers.keys.toSet().difference(parserAccepted),

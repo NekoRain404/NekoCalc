@@ -106,6 +106,18 @@ const Set<String> _twoArgumentFunctions = <String>{
   'npr',
   'root',
   'log',
+  // 中文：`STAT` 面板那三格（`pearson`/`covar`/`spearman`）插进去的是**一个**实参
+  //       （`pearson(matrix(2,4,…))`），所以它们在这里**不是承重的**——实测过：把它们删掉，
+  //       那一格插进去的文本逐字节不变。写进来是因为它们确实是两个形参的函数，
+  //       而这张表问的就是那一句话（同 `atan2`/`root`）。承重的是下面 `matrix`。
+  // English: the three `STAT` cells (`pearson`/`covar`/`spearman`) insert **one** argument
+  //          (`pearson(matrix(2,4,…))`), so these entries are **not load-bearing** — measured:
+  //          removing them leaves the text that cell inserts byte-for-byte identical. They are here
+  //          because each really does take two parameters and that is this table's one question (as
+  //          with `atan2`/`root`). What is load-bearing is `matrix` below.
+  'pearson',
+  'covar',
+  'spearman',
 };
 
 /// 中文：可变形参的函数（一个以上都收）。
@@ -135,6 +147,33 @@ const Set<String> _variadicFunctions = <String>{
   'median',
   'stdev',
   'var',
+  // 中文：**`matrix` 在这一张表里是承重的，而且它修的是一个已经存在的静默错值。**
+  //       它的形参是「行数、列数、然后是那些值」，所以它里面的逗号全是分隔符。不写进来的话，
+  //       这段归一化会把任何「逗号后面正好三位数字」的那一对吃掉——实测（归一化之后）：
+  //
+  //       | 输入 | 不写 `matrix` 时归一化成 | 后果 |
+  //       |---|---|---|
+  //       | `matrix(1,3,1,100,200)` | `matrix(1,3,1100200)` | 1×3 的矩阵只剩**一个**值 |
+  //       | `matrix(1,5,1,8,27,64,125)` | `matrix(1,5,1,8,27,64125)` | 最后一个值从 125 变成 64125 |
+  //
+  //       两行都是**看着像答案的错值**，不是错误。它在本轮之前就存在（`matrix` 早就在词表里、
+  //       用户打得进去），而本轮的每一格都要插一条 `matrix(…)`，所以它从「偶发」变成「必然」。
+  //       **这一条与本项目最老的那条规矩是同一条**：错值比错误坏。
+  // English: **`matrix` is load-bearing in this table, and it fixes a silent wrong value that already
+  //          existed.** Its parameters are "rows, columns, then the values", so every comma inside it
+  //          separates. Without the entry this normalisation eats any pair shaped "comma followed by
+  //          exactly three digits" — measured, after normalisation:
+  //
+  //          | input | normalised without `matrix` | consequence |
+  //          |---|---|---|
+  //          | `matrix(1,3,1,100,200)` | `matrix(1,3,1100200)` | the 1×3 matrix has **one** value left |
+  //          | `matrix(1,5,1,8,27,64,125)` | `matrix(1,5,1,8,27,64125)` | the last value becomes 64125 |
+  //
+  //          Both are **plausible-looking wrong values**, not errors. It predates this round (`matrix`
+  //          has long been in the vocabulary and the user can type it), and every cell this round adds
+  //          inserts a `matrix(…)`, so it goes from occasional to certain. **This is the project's
+  //          oldest rule**: a wrong value is worse than an error.
+  'matrix',
 };
 
 /// 中文：上两张表的并集——「这个名字可能接两个以上实参」。

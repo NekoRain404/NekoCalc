@@ -335,6 +335,83 @@ class AppEngineVocabulary {
     'limit': AppFunction(engineKnowsThisName: true, engineFunction: 'limit'),
     'rand': AppFunction(engineKnowsThisName: true, engineFunction: 'rand'),
 
+    // 中文：**双变量统计那三个。** 它们与上面 `mean`/`median`/`stdev`/`var` 是同一类（只在引擎那边
+    //       成立、键盘上没有键、由 `STAT` 面板插完整调用），差别只在**实参的形状**：上面那四个吃
+    //       一行矩阵，这三个吃**两行**（第一行 X、第二行 Y）。
+    //
+    //       **名字是量出来的，不是猜的，而且猜的那个是错的。** HiPER 自己的命令名是
+    //       `LINEAR_REG`/`PEARSON`…（weblate 上的 `command.name.*`），而**引擎里一个都不叫这些**：
+    //       `grep -rni "regression" libqalculate-5.12.0/` 在源码与数据文件里**一处都没有**，
+    //       `functions.xml.in` 那一族的真名是 `linearfit`/`quadraticfit`/`cubicfit`（`<title>Regression</title>`
+    //       那一节）与 `pearson`/`spearman`/`covar`（`<title>Correlation</title>`/`<title>Covariance</title>`）。
+    //       宿主实测（`qalc` 5.12.0，与本 AAR 同版本，`-t`，同一串实参）：
+    //
+    //       | 输入 | 引擎印出来的 | 说明 |
+    //       |---|---|---|
+    //       | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,10))` | `1.000000000` | 皮尔逊相关系数 |
+    //       | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` | `0.9958932065` | 同上，不完美相关 |
+    //       | `spearman(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` | `1.000000000` | 斯皮尔曼秩相关 |
+    //       | `covar(matrix(2,3,1,2,3,4,5,6))` | `0.6666666667` | 协方差 |
+    //
+    //       **「两行矩阵当两个实参」这条机制查到了源码**（`MathStructure-calculate.cc` 那一段
+    //       `arg->handlesVector() && (arg->type() != ARGUMENT_TYPE_VECTOR || CHILD(i).isMatrix())`）：
+    //       实参声明是 `vector` 而拿到的是一个矩阵时引擎把它拆开用。**只有行数等于形参数时才成立**：
+    //       `covar(matrix(3,3,…))` 与 `covar(matrix(1,3,…))` 都被原样退回来（实测），
+    //       而 `covar`/`pearson`/`spearman` 恰好都是两个形参。
+    //
+    //       **`linearfit`/`quadraticfit`/`cubicfit` 故意不在这一列**——理由不是「没量」，是量出来
+    //       它们**在这个应用里只能变成一句错误**：它们的答案是 `2x`/`x²`/`x³`（**一个函数**，
+    //       实测），引擎把它判成 `symbolic`，而 `_selectEngineResult` 对 `symbolic` 那一条要求
+    //       「应用自己的语言表达不了这个输入」——`linearfit(matrix(…),matrix(…))` 的实参全是数字、
+    //       语法树里没有 `VariableNode`，于是它**表达得了**，引擎的答案不算，旧解析器给出的是一句
+    //       「表达式错误」。**把这三个名字加进这张表只会让三格按键各插一条错误**，所以没加。
+    //       完整的量法与结论在 `.superpowers/backup/stat-regression-report.md`。
+    // English: **the three two-variable statistics.** They are the same class as
+    //          `mean`/`median`/`stdev`/`var` above (they hold only on the engine's side, have no key on
+    //          the keypad and the `STAT` sheet inserts a complete call) — the difference is **the shape
+    //          of the argument**: those four take a one-row matrix, these three take **two rows**
+    //          (first row X, second row Y).
+    //
+    //          **The names are measured, not guessed — and the guess is wrong.** HiPER's own command
+    //          names are `LINEAR_REG`/`PEARSON`… (`command.name.*` on weblate), and **none of them is
+    //          what the engine calls it**: `grep -rni "regression" libqalculate-5.12.0/` finds **not
+    //          one hit** in the sources or the data files, and the real names in `functions.xml.in` are
+    //          `linearfit`/`quadraticfit`/`cubicfit` (under `<title>Regression</title>`) and
+    //          `pearson`/`spearman`/`covar` (under `<title>Correlation</title>` /
+    //          `<title>Covariance</title>`). Measured on the host (`qalc` 5.12.0, the version this AAR
+    //          bundles, `-t`, the same argument string):
+    //
+    //          | input | what the engine prints | note |
+    //          |---|---|---|
+    //          | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,10))` | `1.000000000` | Pearson's r |
+    //          | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` | `0.9958932065` | the same, imperfectly correlated |
+    //          | `spearman(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` | `1.000000000` | Spearman's rho |
+    //          | `covar(matrix(2,3,1,2,3,4,5,6))` | `0.6666666667` | covariance |
+    //
+    //          **The "two-row matrix becomes two arguments" mechanism was found in the source**
+    //          (`MathStructure-calculate.cc`: the `arg->handlesVector() && (arg->type() !=
+    //          ARGUMENT_TYPE_VECTOR || CHILD(i).isMatrix())` branch): when an argument is declared
+    //          `vector` and receives a matrix, the engine takes it apart. **It holds only while the
+    //          row count equals the arity**: `covar(matrix(3,3,…))` and `covar(matrix(1,3,…))` both
+    //          come straight back unevaluated (measured), and `covar`/`pearson`/`spearman` all have
+    //          exactly two parameters.
+    //
+    //          **`linearfit`/`quadraticfit`/`cubicfit` are deliberately not in this column** — not
+    //          because they were not measured but because what was measured is that they **can only
+    //          become an error in this app**: their answer is `2x`/`x²`/`x³` (**a function**,
+    //          measured), the engine kinds it `symbolic`, and `_selectEngineResult` takes a `symbolic`
+    //          answer only when "this app's own language cannot express this input" —
+    //          `linearfit(matrix(…),matrix(…))` has nothing but numbers for arguments and no
+    //          `VariableNode` in its tree, so it **can** express it, the engine's answer does not
+    //          count, and the legacy parser answers with "expression error". **Adding those three
+    //          names to this table would buy three cells that each insert an error**, so they are not
+    //          here. The full measurement and conclusion are in
+    //          `.superpowers/backup/stat-regression-report.md`.
+    'pearson': AppFunction(engineKnowsThisName: true, engineFunction: 'pearson'),
+    'spearman':
+        AppFunction(engineKnowsThisName: true, engineFunction: 'spearman'),
+    'covar': AppFunction(engineKnowsThisName: true, engineFunction: 'covar'),
+
     // 中文：**常量也在这张表里。** 这一列的判据是「引擎对这个**标识符**的答案能不能用」，
     //       而应用的常量同样可以被写成调用（`phi(2)`、`tau(2)`、`pi(2)`）——只覆盖「函数名」
     //       会让这一类整个漏过去。修复轮 5 的 `phi` 就是这么漏的：引擎里有一个**同名的函数**
