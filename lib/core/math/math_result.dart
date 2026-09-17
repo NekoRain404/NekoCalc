@@ -111,13 +111,45 @@ class MathResult {
   ///          digits contain a non-zero digit is not zero, it is "cannot be stored". To ask whether
   ///          the engine produced a finite number, use [hasFiniteDecimal] — that one is answered at
   ///          the string level, not here.
-  double? get decimalValue {
-    if (decimalText.isEmpty) return null;
-    final value = double.tryParse(decimalText);
-    if (value == null || !value.isFinite) return null;
+  double? get decimalValue => decimalValueOf(decimalText);
+
+  /// 中文：**一段十进制文本 → 一个可用的 double**，放不下时给 null。这是全应用唯一的实现，
+  ///       提交路径、粘贴路径与任何要 double 的消费者都从这里过——写第二份的话，两份迟早会漂移
+  ///       （这正是修复轮 2 要收的那个尾：守卫在提交路径上修好了，消费者的表达式分支却没有）。
+  ///
+  ///       判定按上面的顺序：空 → null；不是数 → null；不是有限（溢出成 `Infinity`、`NaN`）→ null；
+  ///       解析出 0 而数字部分有非零数字（下溢）→ null。**它绝不返回 `Infinity`，也绝不返回一个
+  ///       静默下溢的 0。**
+  /// English: **A piece of decimal text into a usable double**, or null when it does not fit. This is
+  ///          the app's single implementation: the submit path, the paste path and any consumer that
+  ///          needs a double all come through here — a second copy would eventually drift, which is
+  ///          exactly the tail fix round 2 is collecting (the guard was fixed on the submit path
+  ///          while a consumer's expression branch kept the old rule).
+  ///
+  ///          The order is as above: empty → null; not a number → null; not finite (overflowed to
+  ///          `Infinity`, or `NaN`) → null; parsed 0 whose significand contains a non-zero digit
+  ///          (underflow) → null. It **never returns `Infinity`, and never a silently underflowed
+  ///          0**.
+  static double? decimalValueOf(String decimalText) {
+    if (decimalText.trim().isEmpty) return null;
+    final parsed = double.tryParse(decimalText);
+    if (parsed == null) return null;
+    final value = usableDouble(parsed);
+    if (value == null) return null;
     if (value == 0 && _hasNonZeroDigit(decimalText)) return null;
     return value;
   }
+
+  /// 中文：一个**已经算出来的** double 能不能交给消费者：`Infinity` / `NaN` 不能，其余（包括真正的 0）
+  ///       都能。它判不了下溢——`double.tryParse('9.3e-603')` 给的是 `0.0`，一个 double 自己说不清
+  ///       它是「真的是 0」还是「小到装不下」——所以**凡手里有文本的地方一律先走 [decimalValueOf]**，
+  ///       只有拿到的是一个算出来的 double 时才用它。
+  /// English: Whether an *already computed* double may be handed to a consumer: `Infinity` / `NaN`
+  ///          may not, everything else (a genuine 0 included) may. It cannot detect underflow —
+  ///          `double.tryParse('9.3e-603')` yields `0.0`, and a double cannot say whether that is
+  ///          "really zero" or "too small to store" — so **anywhere text is available, go through
+  ///          [decimalValueOf] first**; use this only for a double that was computed.
+  static double? usableDouble(double value) => value.isFinite ? value : null;
 
   /// 中文：十进制形态是不是一个**有限数**——在字符串层面判定，不借 double 的量程。
   ///       `1e602` 超出 double 上限却完全有限，所以为真；`Infinity` / `NaN` 这类字面量为假；
@@ -129,11 +161,21 @@ class MathResult {
   bool get hasFiniteDecimal => decimalTextIsFinite(decimalText);
 
   /// 中文：一段文本是不是一个有限数。见 [hasFiniteDecimal]。
+  ///
+  ///       先 trim 再判：`double.tryParse` 自己会跳过首尾空白，而下面那个字面量正则不会，
+  ///       于是 `' Infinity '` 会被判成有限数——这是等着被踩的坑（适配层先 trim 过，所以今天
+  ///       走不到，但下一个调用方未必）。
   /// English: Whether a piece of text is a finite number. See [hasFiniteDecimal].
+  ///
+  ///          Trims first: `double.tryParse` skips surrounding whitespace on its own while the
+  ///          literal regex below does not, so `' Infinity '` used to come back as a finite number —
+  ///          a trap waiting to be stepped on (the adapter trims before calling, so it is
+  ///          unreachable today, but the next caller need not).
   static bool decimalTextIsFinite(String value) {
-    if (value.isEmpty) return false;
-    if (double.tryParse(value) == null) return false;
-    return !_nonFiniteLiteral.hasMatch(value);
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return false;
+    if (double.tryParse(trimmed) == null) return false;
+    return !_nonFiniteLiteral.hasMatch(trimmed);
   }
 
   /// 中文：`double.tryParse` 认得、但**不是有限数**的那两个字面量（大小写放宽只是兜底）。

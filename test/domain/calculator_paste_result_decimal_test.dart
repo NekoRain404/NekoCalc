@@ -101,6 +101,34 @@ void main() {
     );
   });
 
+  test('a value that does not survive a double is not a value', () {
+    // 中文：`9.303768583076e-603` 能被 `double.tryParse` 解析成一个**有限的** `0.0`，于是它以前
+    //       被当成可用值粘回来——**「解析成功」不等于「值保住了」**：粘回来的是一个比原值小
+    //       10^600 倍的数，静默错值。`1.148130695274255E602` 是同一根因的另一端（解析成
+    //       `Infinity`）。两者现在与提交路径、记忆寄存器共用同一处判定，一律拒绝（fail-closed）。
+    // English: `9.303768583076e-603` used to be accepted because `double.tryParse` turns it into a
+    //          *finite* `0.0` — but "it parsed" is not "the value survived": pasting it back yields a
+    //          number 10^600 times smaller, a silent wrong value. `1.148130695274255E602` is the
+    //          other end of the same root cause (it parses into `Infinity`). Both now share one
+    //          judgement implementation with the submit path and the memory register and are refused
+    //          (fail-closed).
+    expect(
+      CalculatorPasteResult.fromText('当前值: 9.303768583076e-603').expression,
+      isEmpty,
+    );
+    expect(
+      CalculatorPasteResult.fromText('当前值: 1.148130695274255E602').expression,
+      isEmpty,
+    );
+    // 中文：`十进制:` 行走的是同一个取值函数，所以同样拒绝——精确形式那份报告也不会被粘错。
+    // English: The `十进制:` line goes through the same accessor and is refused the same way, so an
+    //          exact form's report cannot paste a wrong number either.
+    expect(
+      CalculatorPasteResult.fromText('十进制: 9.303768583076e-603').expression,
+      isEmpty,
+    );
+  });
+
   test('a non-finite current value is not a value', () {
     // 中文：`Infinity`/`NaN` 能被 `double.tryParse` 认出来，却不是可以写回表达式的数值。
     // English: `double.tryParse` accepts `Infinity`/`NaN`, but neither is a value that can be

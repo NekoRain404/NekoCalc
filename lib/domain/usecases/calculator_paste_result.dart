@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../core/math/math_result.dart';
 import '../../core/utils/number_formatter.dart';
 
 enum CalculatorPasteStatus {
@@ -157,6 +158,26 @@ class CalculatorPasteResult {
     return fromReport ? '' : _firstExpressionLikeLine(text);
   }
 
+  /// 中文：报告里的一行数字文本，能不能安全地写回表达式。判定用
+  ///       [MathResult.decimalValueOf]——与提交路径、记忆寄存器**同一处实现**。
+  ///
+  ///       以前的判据是「`double.tryParse` 成功且 `isFinite`」，于是 `9.303768583076e-603`
+  ///       会被接受，理由是它解析成了一个**有限的** `0.0`。**「解析成功」不等于「值保住了」**：
+  ///       那个 0.0 是下溢，粘回来的是一个比原值小 10^600 倍的数——正是修复轮 1 在提交路径上
+  ///       修掉的那类静默错值，只是这里没修。`decimalValueOf` 对下溢返回 null，于是这一行被拒，
+  ///       粘贴什么都不恢复（fail-closed，与「当前值不是数字」同一条路）。
+  ///
+  /// English: Whether a numeric line from a report is safe to write back into the expression. The
+  ///          judgement is [MathResult.decimalValueOf] — the *same implementation* the submit path
+  ///          and the memory register use.
+  ///
+  ///          The old test was "`double.tryParse` succeeds and `isFinite`", which accepted
+  ///          `9.303768583076e-603` on the grounds that it parses into a *finite* `0.0`.
+  ///          "It parsed" is not "the value survived": that 0.0 is an underflow, and pasting it
+  ///          back yields a number 10^600 times smaller — the same silent wrong value fix round 1
+  ///          eliminated on the submit path, only not here. `decimalValueOf` returns null for
+  ///          underflow, so the line is refused and the paste restores nothing (fail-closed, the
+  ///          same route as "the current value is not a number").
   static String _parserSafeCurrentValue(String raw) {
     var normalized = raw.replaceAll(',', '').trim();
     if (normalized.startsWith('-.')) {
@@ -164,8 +185,7 @@ class CalculatorPasteResult {
     } else if (normalized.startsWith('.')) {
       normalized = '0$normalized';
     }
-    final value = double.tryParse(normalized);
-    return value != null && value.isFinite ? normalized : '';
+    return MathResult.decimalValueOf(normalized) == null ? '' : normalized;
   }
 
   static String? _labeledValue(String text, List<String> labels) {

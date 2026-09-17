@@ -416,6 +416,127 @@ void main() {
     controller.dispose();
   });
 
+  test(
+      'a beyond-double value written back into the expression never reaches the memory',
+      () async {
+    // 中文：**可从界面走通**的那条路（修复轮 2 的第 1 条）：
+    //       `2^-2000` → `=` →「继续使用」→ `M+`。
+    //       「继续使用」把结果文本写回表达式之后，记忆寄存器的表达式分支会直接问旧解析器，
+    //       而那个 double 早就丢了量程：`…E-603` 变成 `0.0`（寄存器静默变 0），
+    //       `…E602` 变成 `Infinity`（寄存器里是 Infinity，还会持久化、重启后还在）。
+    //       现在这条分支与提交路径共用同一处判定。
+    // English: The path *reachable from the UI* (fix round 2, item 1):
+    //          `2^-2000` → `=` → "continue with result" → `M+`.
+    //          Once "continue with result" has written the result text back, the memory register's
+    //          expression branch asks the legacy parser directly, and that double lost the range
+    //          long ago: `…E-603` becomes `0.0` (the register silently turns 0) and `…E602` becomes
+    //          `Infinity` (the register holds Infinity — which persists across a restart). That
+    //          branch now shares one judgement implementation with the submit path.
+    const tiny = '8.709809816217217E-603';
+    const huge = '1.148130695274255E602';
+    final engine = _FakeMathEngine(
+      EngineReply.success(const MathResult(displayText: '5', decimalText: '5')),
+    );
+    final db = _FakeDatabase();
+    final controller = _controller(
+      db,
+      engine: engine,
+      settings: _settings(restoreState: true),
+    );
+
+    // 中文：寄存器先有一个真实的非零值，「加了 0」「加了 Infinity」与「什么都没加」才分得开。
+    // English: Give the register a real non-zero value first, so "added a 0", "added Infinity" and
+    //          "added nothing" are distinguishable.
+    controller.setExpression('5');
+    await controller.submit();
+    controller.memoryAdd();
+    expect(controller.memoryValue, 5);
+
+    for (final (expression, beyondDouble) in [
+      ('2^-2000', tiny),
+      ('2^2000', huge),
+    ]) {
+      engine.reply = EngineReply.success(
+        MathResult(displayText: beyondDouble, decimalText: beyondDouble),
+      );
+      controller.setExpression(expression);
+      await controller.submit();
+      controller.continueWithResult();
+      expect(controller.expression, beyondDouble, reason: expression);
+
+      controller.memoryAdd();
+      expect(controller.memoryValue, 5, reason: '$expression / M+');
+      controller.memorySubtract();
+      expect(controller.memoryValue, 5, reason: '$expression / M-');
+
+      // 中文：寄存器里的**数值**分不开「加了 0」与「什么都没加」（5 + 0 还是 5），所以下溢那一行
+      //       要看副作用：成功时 `memoryAdd` 会推撤销快照、改状态代际并落盘，被拒时一件都不做。
+      //       这两句之间没有 `await`，那个 32ms 的实时求值定时器插不进来。
+      // English: The register's *value* cannot tell "added a 0" from "added nothing" (5 + 0 is still
+      //          5), so the underflow row has to look at the side effects: a successful `memoryAdd`
+      //          pushes an undo snapshot, bumps the state revision and persists, a refused one does
+      //          none of it. Nothing `await`s between these two lines, so the 32ms live-evaluation
+      //          timer cannot slip in.
+      db.savedSettings.clear();
+      controller.memoryAdd();
+      expect(db.savedSettings, isEmpty, reason: '$expression / 被拒时不许有任何副作用');
+
+      // 中文：也不能被持久化成一个错值（`Infinity` 会活过一次重启）。
+      // English: And it must not be persisted as a wrong value (`Infinity` survives a restart).
+      controller.applyPastedText('角度模式: RAD');
+      await Future<void>.delayed(Duration.zero);
+      expect(db.savedSettings['calculator_memory'], '5.0', reason: expression);
+    }
+
+    controller.dispose();
+  });
+
+  test('an expression that evaluates to infinity is not added to the memory',
+      () async {
+    // 中文：表达式分支的另一半——表达式不是单个数字时走旧解析器，算出来的 double 同样要过判定。
+    //       `1/0` 以前会把 `Infinity` 放进去，而且同样会持久化。
+    // English: The other half of the expression branch — a non-literal expression goes to the
+    //          legacy parser, and the double it computes goes through the same judgement. `1/0` used
+    //          to put `Infinity` in the register, where it persisted too.
+    final controller =
+        _controller(_FakeDatabase(), engine: _FakeMathEngine(null));
+
+    controller.setExpression('5');
+    await controller.submit();
+    controller.memoryAdd();
+    expect(controller.memoryValue, 5);
+
+    controller.setExpression('1/0');
+    controller.memoryAdd();
+    expect(controller.memoryValue, 5);
+
+    controller.dispose();
+  });
+
+  test('a synchronously throwing engine still falls back', () async {
+    // 中文：这是修复轮 1 **引入的回归**。`async` 实现抛出来是一个被拒绝的 Future（走 `onError`），
+    //       但同步实现可以在返回 Future 之前直接抛——把引擎调用移出原来那个 `try` 之后，这一抛
+    //       会一路冒到 `submit()` 的 catch，`=` 于是从「回落旧解析器给出 5」变成「表达式错误」。
+    // English: This is the regression fix round 1 *introduced*. An `async` implementation's throw
+    //          becomes a rejected future (handled by `onError`), but a synchronous implementation can
+    //          throw before it returns a future at all — and once the engine call moved out of the old
+    //          `try`, that throw reached `submit()`'s catch, turning "=" from a legacy fallback
+    //          yielding 5 into 表达式错误.
+    final controller = _controller(
+      _FakeDatabase(),
+      engine: _SyncThrowingMathEngine(),
+    );
+
+    controller.setExpression('2+3');
+    final submitted = await controller.submit();
+
+    expect(controller.result, '5');
+    expect(controller.hasError, isFalse);
+    expect(submitted.status, CalculatorSubmitStatus.calculated);
+
+    controller.dispose();
+  });
+
   test('an engine that never answers times out and falls back', () async {
     // 中文：原生卡住不回时提交路径必须自己停止等待——否则 `=` 从此静默失效直到重启（单线程引擎
     //       队列里还排着那一次调用）。超时按既有约定走回落，不是报错。
@@ -437,6 +558,60 @@ void main() {
     expect(controller.result, '5');
     expect(controller.hasError, isFalse);
     expect(submitted.submitted, isTrue);
+
+    controller.dispose();
+  });
+
+  test('a reply that arrives after a timeout does not overwrite the fallback',
+      () async {
+    // 中文：超时已经触发、界面已经回落到旧解析器的结果之后，原生那个**慢响应**才回来。
+    //       它必须什么都不改：既不能覆盖显示，也不能碰 `_lastFiniteResult` 或持久化。
+    //       （这是修复轮 1 报告里说「有」、复审说「没有」的那条——复审找错了名字，
+    //       `an engine that never answers times out and falls back` 确实存在；真正缺的是这一条：
+    //       超时**之后**迟到的那一次回包。）
+    // English: After the timeout has fired and the interface has fallen back to the legacy result,
+    //          the slow native response finally arrives. It must change nothing: neither the display
+    //          nor `_lastFiniteResult` nor what gets persisted. (This is the case round 1's report
+    //          claimed to have and the re-review said was missing — the re-review looked for the
+    //          wrong name: `an engine that never answers times out and falls back` does exist. What
+    //          was genuinely missing is this one: the *late* reply arriving after the timeout.)
+    final engine = _PendingMathEngine();
+    final db = _FakeDatabase();
+    final controller = _controller(
+      db,
+      engine: engine,
+      settings: _settings(restoreState: true),
+      engineTimeout: const Duration(milliseconds: 20),
+    );
+
+    controller.setExpression('sqrt(32)');
+    final submitted = await controller.submit();
+
+    // 中文：超时 → 回落：结果是旧解析器那条，提交本身是成功的。
+    // English: Timeout → fallback: the result is the legacy one and the submit still succeeds.
+    expect(controller.result, engineDisplay);
+    expect(controller.resultTex, isEmpty);
+    expect(submitted.status, CalculatorSubmitStatus.calculated);
+
+    // 中文：慢响应现在才回来，带着引擎那份结果。
+    // English: The slow response arrives only now, carrying the engine's result.
+    engine.answer(sqrt32Reply());
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.result, engineDisplay);
+    expect(controller.resultTex, isEmpty);
+    expect(controller.resultDecimal, engineDisplay);
+    expect(controller.reusableResult, engineDisplay,
+        reason: '_lastFiniteResult must not have been touched');
+
+    // 中文：落盘的内容也必须还是回落那份——迟到的回包不许把自己写进持久化。
+    // English: What gets persisted has to stay the fallen-back result too — the late reply must not
+    //          write itself into persistence.
+    controller.applyPastedText('角度模式: RAD');
+    await Future<void>.delayed(Duration.zero);
+    expect(db.savedSettings['calculator_result'], engineDisplay);
+    expect(db.savedSettings['calculator_result_tex'], isEmpty);
+    expect(db.savedSettings['calculator_result_decimal'], engineDisplay);
 
     controller.dispose();
   });
@@ -605,6 +780,20 @@ class _FakeMathEngine implements MathEngine {
     final thrown = throwOnEvaluate;
     if (thrown != null) throw thrown;
     return reply ?? EngineReply.failure('no reply configured');
+  }
+}
+
+/// 中文：**同步**抛出的替身：在返回 Future 之前就抛。`async` 方法做不到这一点（它的抛出会变成
+///       一个被拒绝的 Future），所以这个替身必须是普通方法。
+/// English: A *synchronous* thrower: it throws before returning a future. An `async` method cannot
+///          do that (its throw becomes a rejected future), so this double must be a plain method.
+class _SyncThrowingMathEngine implements MathEngine {
+  @override
+  Future<EngineReply> evaluate(
+    String expression, {
+    required String angleMode,
+  }) {
+    throw PlatformException(code: 'sync_throw', message: '炸在返回 Future 之前');
   }
 }
 

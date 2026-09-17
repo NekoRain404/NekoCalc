@@ -129,6 +129,50 @@ void main() {
     expect(MathResult.decimalTextIsFinite('1 m'), isFalse);
   });
 
+  test('whitespace does not smuggle a non-finite literal past the check', () {
+    // 中文：`double.tryParse` 自己会跳过首尾空白，`^…$` 那个字面量正则不会——不先 trim 的话
+    //       `' Infinity '` 与 `'NaN '` 都会被判成有限数。适配层先 trim 过所以今天走不到，
+    //       但那是等着被下一个调用方踩的坑。
+    // English: `double.tryParse` skips surrounding whitespace on its own while the `^…$` literal
+    //          regex does not — without trimming first, `' Infinity '` and `'NaN '` both came back
+    //          as finite numbers. The adapter trims before calling, so it is unreachable today, but
+    //          it is a trap for the next caller.
+    expect(MathResult.decimalTextIsFinite(' Infinity '), isFalse);
+    expect(MathResult.decimalTextIsFinite('NaN '), isFalse);
+    expect(MathResult.decimalTextIsFinite('\t-Infinity\n'), isFalse);
+    expect(MathResult.decimalTextIsFinite(' 5 '), isTrue);
+    expect(MathResult.decimalTextIsFinite('   '), isFalse);
+    // 中文：`decimalValue` 走同一处实现，所以空白包着的值该给的还是给。
+    // English: `decimalValue` runs through the same implementation, so a whitespace-wrapped value
+    //          still yields its number.
+    expect(
+        const MathResult(displayText: 'x', decimalText: ' 5 ').decimalValue, 5);
+    expect(
+      const MathResult(displayText: 'x', decimalText: ' Infinity ')
+          .decimalValue,
+      isNull,
+    );
+  });
+
+  test('the shared judgement is the only place that turns text into a value',
+      () {
+    // 中文：`decimalValueOf` 是「一段十进制文本 → 可用的 double」在全应用唯一的实现，提交路径、
+    //       粘贴路径、记忆寄存器的表达式分支都从这里过。这条测试钉的是它的四个出口。
+    // English: `decimalValueOf` is the app's single implementation of "decimal text into a usable
+    //          double" — the submit path, the paste path and the memory register's expression branch
+    //          all come through it. This pins its four exits.
+    expect(MathResult.decimalValueOf('5.656854'), 5.656854);
+    expect(MathResult.decimalValueOf(''), isNull);
+    expect(MathResult.decimalValueOf('1 m'), isNull);
+    expect(MathResult.decimalValueOf('1e602'), isNull, reason: 'overflow');
+    expect(MathResult.decimalValueOf('9.3e-603'), isNull, reason: 'underflow');
+    expect(MathResult.decimalValueOf('0'), 0);
+    expect(MathResult.decimalValueOf('0e-999'), 0, reason: 'a real zero');
+    expect(MathResult.usableDouble(5), 5);
+    expect(MathResult.usableDouble(double.infinity), isNull);
+    expect(MathResult.usableDouble(double.nan), isNull);
+  });
+
   test('equality is by value so undo snapshots still de-duplicate', () {
     const first = MathResult(
       displayText: '4√2',

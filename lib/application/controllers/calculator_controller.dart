@@ -813,22 +813,36 @@ class CalculatorController extends ChangeNotifier {
       );
     });
     _engineCalls[completer] = timer;
-    unawaited(
-      _engine.evaluate(expression, angleMode: angleMode).then(
-        (reply) {
-          _engineCalls.remove(completer);
-          if (completer.isCompleted) return;
-          timer.cancel();
-          completer.complete(reply);
-        },
-        onError: (Object error) {
-          _engineCalls.remove(completer);
-          if (completer.isCompleted) return;
-          timer.cancel();
-          completer.complete(EngineReply.failure('engine_threw: $error'));
-        },
-      ),
-    );
+
+    /// 中文：引擎回话（或抛出来）时的收尾，两条路共用。
+    /// English: The wrap-up for whichever way the engine answers (or throws); both paths share it.
+    void settle(EngineReply reply) {
+      _engineCalls.remove(completer);
+      if (completer.isCompleted) return;
+      timer.cancel();
+      completer.complete(reply);
+    }
+
+    try {
+      unawaited(
+        _engine.evaluate(expression, angleMode: angleMode).then(
+              settle,
+              onError: (Object error) =>
+                  settle(EngineReply.failure('engine_threw: $error')),
+            ),
+      );
+    } catch (error) {
+      // 中文：`evaluate` 在返回 Future 之前就抛了出来——异步方法抛算是被拒绝的 Future（走
+      //       `onError`），但一个同步实现可以在返回之前直接抛。这一条在修复轮 1 把引擎调用搬出
+      //       原来那个 `try` 时丢掉了，`=` 于是从「回落旧解析器」变成「表达式错误」；这里补回来，
+      //       并且顺手把定时器收掉。
+      // English: `evaluate` threw before it returned a Future — an `async` method's throw becomes a
+      //          rejected future (handled by `onError`), but a synchronous implementation can throw
+      //          before it returns at all. Fix round 1 lost this when it moved the engine call out of
+      //          the old `try`, which turned "=" from a legacy fallback into "表达式错误"; this puts
+      //          it back and collects the timer while it is at it.
+      settle(EngineReply.failure('engine_threw: $error'));
+    }
     return completer.future;
   }
 
@@ -1135,17 +1149,49 @@ class CalculatorController extends ChangeNotifier {
 
   /// 中文：记忆寄存器要加/减的数值。表达式能算就用表达式，否则用**结果的十进制形态**；
   ///       **两者都给不出一个能放进 double 的值时返回 null**——调用方据此显式拒绝，而不是往
-  ///       寄存器里加一个 0。绝不解析显示文本。
+  ///       寄存器里加一个 0 或一个 `Infinity`。绝不解析显示文本。
+  ///
+  ///       判定用的是 [MathResult.decimalValueOf] / [MathResult.usableDouble]——与提交路径、粘贴
+  ///       路径**同一处实现**，不另写一份。这条分支以前直接把旧解析器的 double 交给寄存器，于是：
+  ///
+  ///       - `2^-2000` → `=` →「继续使用」把 `8.7e-603` 写回表达式 → `M+`：解析器给 `0.0`，
+  ///         寄存器里静默变成 0；
+  ///       - `2^2000` → 同样的路 → 解析器给 `Infinity`，寄存器里是 `Infinity`，而且会持久化、
+  ///         重启后还在。
+  ///
+  ///       表达式**本身就是一个数**时（「继续使用」写回之后正是这种形状）先按**文本**判定，
+  ///       因为文本里还留着 double 已经丢掉的信息——这正是它能识破下溢的原因；一般的表达式才交给
+  ///       旧解析器算，算出来的 double 同样要过 [MathResult.usableDouble]。
+  ///
   /// English: The value the memory register adds or subtracts. The expression wins when it
   ///          evaluates; otherwise the result's *decimal form* is used; when neither yields
   ///          something that fits a double this returns null, and the caller explicitly refuses
-  ///          rather than adding a 0. The display text is never parsed.
+  ///          rather than adding a 0 or an `Infinity`. The display text is never parsed.
+  ///
+  ///          The judgement is [MathResult.decimalValueOf] / [MathResult.usableDouble] — the *same
+  ///          implementation* the submit path and the paste path use, never a second copy. This
+  ///          branch used to hand the legacy parser's double straight to the register, so:
+  ///
+  ///          - `2^-2000` → `=` → "continue with result" writes `8.7e-603` back into the expression
+  ///            → `M+`: the parser yields `0.0` and the register silently becomes 0;
+  ///          - `2^2000` → the same route → the parser yields `Infinity`, the register holds
+  ///            `Infinity`, and it persists across a restart.
+  ///
+  ///          When the expression *is itself a number* (exactly the shape "continue with result"
+  ///          leaves behind) it is judged as **text** first, because the text still carries what the
+  ///          double has already lost — which is what lets it see the underflow; only a general
+  ///          expression goes to the legacy parser, and the double it computes goes through
+  ///          [MathResult.usableDouble] as well.
   double? _currentNumericValue() {
     try {
       if (expression.trim().isNotEmpty) {
-        return ExpressionParser(_resolveAnswerReferences(expression),
-                degreeMode: angleMode == 'DEG')
-            .parse();
+        final source = _resolveAnswerReferences(expression);
+        if (MathResult.decimalTextIsFinite(source)) {
+          return MathResult.decimalValueOf(source);
+        }
+        return MathResult.usableDouble(
+          ExpressionParser(source, degreeMode: angleMode == 'DEG').parse(),
+        );
       }
       return _result.decimalValue;
     } catch (_) {
