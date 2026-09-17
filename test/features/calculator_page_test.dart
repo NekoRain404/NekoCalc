@@ -759,6 +759,11 @@ void main() {
         'ins:limit': 'limit(sin(x)/x,0,x)',
         'ins:logxy': 'log(8,2)',
         'ins:rand': 'rand()',
+        // 中文：矩阵与虚数单位（本轮新点亮）：两条都是完整的插入物，`i` 单独一个字母。
+        // English: the matrix and the imaginary unit (lit this round): both are complete insertions,
+        //          `i` being a single letter.
+        'ins:matrix': 'matrix(2,2,1,2,3,4)',
+        'ins:i': 'i',
       };
 
       for (final entry in expected.entries) {

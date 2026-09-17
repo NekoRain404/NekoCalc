@@ -187,30 +187,112 @@ class QalculateEngine {
             //          engine's internal spelling.
             val normalized = engine.unlocalizeExpression(expression, evaluation.parse_options)
 
-            // 中文：十进制那一份明确要求近似（SINGLE = 只显示近似值）。
-            //       近似值在引擎内部就是一个区间（Number 用 MPFR 的上下界对表示），
-            //       但「怎么印区间」由 PrintOptions.interval_display 决定，与求值无关。
-            //       这正是上一轮找错了抽屉的地方：APPROXIMATION_APPROXIMATE 和
-            //       AUTOMATIC_APPROXIMATION_SINGLE 属于求值/近似，max_decimals 只把区间收窄；
-            //       真正管这件事的是 INTERVAL_DISPLAY_MIDPOINT —— 打印区间中点那一个普通十进制数。
-            //       见 Number.cc:11970（打印路径）与 includes.h:398-407（枚举）。
-            // English: the decimal rendering explicitly asks for the approximation (SINGLE = show
-            //          only the approximate value). Inside the engine an inexact value *is* an
-            //          interval — a Number of type FLOAT stores an MPFR low/high bound pair — but
-            //          how that interval is *printed* is PrintOptions.interval_display, which has
-            //          nothing to do with evaluation. That is the drawer the previous attempt
-            //          looked in the wrong place for: APPROXIMATION_APPROXIMATE and
-            //          AUTOMATIC_APPROXIMATION_SINGLE belong to evaluation/approximation, and
-            //          max_decimals only narrows the interval. INTERVAL_DISPLAY_MIDPOINT is what
-            //          prints the interval's midpoint as a plain decimal. See Number.cc:11970 for
-            //          the print path and includes.h:398-407 for the enum.
-            val decimal = render(
-                engine,
+            // 中文：**一次求值，两次打印。** 这是整个调用里唯一会算的地方，因此带随机性的函数
+            //       （`rand()`）只抽一次样，`decimal` 与 `latex` 描述的是同一个值。
+            //
+            //       以前这里是**两次独立求值**：`decimal` 走 `calculateAndPrint(字符串, …)`、
+            //       `latex` 走 `parse` + `calculate` + `print`。于是 `rand()` 的两个形态是两次独立的
+            //       随机——设备实测 `decimal=0.4889249895812834` 而
+            //       `latex=\num{0.5484658763631625}`，同一行上的「精确形式」与「近似值」来自两个
+            //       不同的数。`calculateAndPrint` 还是一次调用里就改掉引擎逗号解释的那个入口
+            //       （见 `evaluationOptions` 里那一段），于是它之后的所有解析都换了一种逗号解释。
+            //
+            //       字符串重载（`Calculator.h:441`）自己处理结尾的 `to`/`where` 指令，所以丢掉
+            //       `calculateAndPrint` 不损失那部分能力——后者自己的文档就说它多出来的职责正是
+            //       「处理结尾的 to-命令」。
+            // English: **one evaluation, two printings.** This is the only place in the call that
+            //          computes anything, so a function carrying randomness (`rand()`) draws exactly
+            //          once and `decimal` and `latex` describe the same value.
+            //
+            //          This used to be **two independent evaluations**: `decimal` went through
+            //          `calculateAndPrint(string, …)` and `latex` through `parse` + `calculate` +
+            //          `print`. So `rand()`'s two forms were two independent draws — measured on a
+            //          device as `decimal=0.4889249895812834` against
+            //          `latex=\num{0.5484658763631625}` — the "exact form" and the "approximation"
+            //          on one line came from two different numbers. `calculateAndPrint` is also the
+            //          entry point that rewrites the engine's comma interpretation inside a single
+            //          call (see the note in `evaluationOptions`), after which every later parse
+            //          interprets commas differently.
+            //
+            //          The string overload (`Calculator.h:441`) handles trailing `to`/`where`
+            //          commands itself, so dropping `calculateAndPrint` loses none of that — its own
+            //          documentation says handling ending "to"-commands is what it adds.
+            val evaluated = engine.calculate(
                 normalized,
-                evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit),
-                machineReadable,
-                AutomaticApproximation.AUTOMATIC_APPROXIMATION_SINGLE,
+                evaluationOptions(ApproximationMode.APPROXIMATION_EXACT, angleUnit),
             )
+
+            // 中文：精确形态先印——它要的是**未近似**的结构（`4√2`），所以必须在下面那一步之前印。
+            //       不走 `calculateAndPrint`：它在 TAG_TYPE_LATEX 上会把 "$\displaystyle " 无条件
+            //       插入两次（上游 bug），`4√2` 会变成 "$\displaystyle $\displaystyle 4\sqrt{2}$"。
+            //       `print()` 不做任何 $ 包裹，调用方拿到裸 LaTeX。
+            // English: the exact form is printed first — it wants the **unapproximated** structure
+            //          (`4√2`), so it has to happen before the step below. It does not go through
+            //          `calculateAndPrint`: on TAG_TYPE_LATEX that inserts "$\displaystyle "
+            //          unconditionally twice (an upstream bug), turning `4√2` into
+            //          "$\displaystyle $\displaystyle 4\sqrt{2}$". `print()` adds no $ wrapper,
+            //          so the caller gets bare LaTeX.
+            val latex = engine.print(evaluated, PRINT_TIMEOUT_MS, printOptions(latex = true), true, 0, libqalculateConstants.TAG_TYPE_LATEX)
+
+            // 中文：十进制那一半由**同一个结构**再算一次得到，不是重新解析字符串：`evaluated` 里
+            //       已经是一个求过值的数（`rand()` 的那次抽样已经发生），再算一次只是把它近似成
+            //       十进制。宿主实测（同版本库、同一串调用）：`4 * sqrt(2)` 的精确结构印成
+            //       `5.656854249492380`，而 `rand()` 的两个形态**逐字节相同**。
+            //       近似值在引擎内部是一个区间（Number 用 MPFR 的上下界对表示），但「怎么印区间」
+            //       由 `PrintOptions.interval_display` 决定，与求值无关：真正管这件事的是
+            //       INTERVAL_DISPLAY_MIDPOINT —— 打印区间中点那一个普通十进制数。
+            //       见 Number.cc:11970（打印路径）与 includes.h:398-407（枚举）。
+            // English: the decimal half comes from evaluating **the same structure** again rather
+            //          than re-parsing the string: `evaluated` already holds an evaluated value
+            //          (`rand()`'s draw has happened), so this step only approximates it. Measured on
+            //          the host (same library version, same call sequence): the exact structure
+            //          `4 * sqrt(2)` prints as `5.656854249492380`, and `rand()`'s two forms are
+            //          **byte-for-byte identical**. Inside the engine an inexact value *is* an
+            //          interval — a Number of type FLOAT stores an MPFR low/high bound pair — but how
+            //          that interval is *printed* is `PrintOptions.interval_display`, which has
+            //          nothing to do with evaluation: INTERVAL_DISPLAY_MIDPOINT is what prints its
+            //          midpoint as a plain decimal. See Number.cc:11970 for the print path and
+            //          includes.h:398-407 for the enum.
+            // 中文：**例外只有一条：结尾的 `to <命令>`。** 真机实测 `1.5° to arcmin` 走上面那一步
+            //       就够了（字符串重载自己处理单位换算，`90 arcmin`），但 `100 to hex` 不够——
+            //       十进制会印成 `100`，也就是那条命令被**忽略**了：`to hex`/`to binary`/`to factors`
+            //       这一类是 `calculateAndPrint` 独家负责的（它的文档就写着这一条）。所以带
+            //       ` to ` 的表达式仍旧走那条老路，代价是它们会被算两次——随机函数与 `to hex`
+            //       同时出现时两个形态仍可能对不上，而那是一个既打不出来、也没有意义的组合。
+            //       键位表里没有任何东西能产生 `to`，所以**这条例外覆盖不到任何一颗键**：
+            //       用户按出来的每一个表达式都走上面的单次求值。
+            // English: **there is exactly one exception: a trailing `to <command>`.** Measured on a
+            //          device: `1.5° to arcmin` is fine through the step above (the string overload
+            //          handles unit conversion itself — `90 arcmin`), but `100 to hex` is not — the
+            //          decimal prints as `100`, i.e. the command was **ignored**: `to hex`,
+            //          `to binary`, `to factors` and friends are `calculateAndPrint`'s own job (its
+            //          documentation says so). Expressions containing ` to ` therefore still travel
+            //          that older path, and the price is that they are evaluated twice — a random
+            //          function combined with `to hex` could still disagree between its two forms,
+            //          a combination that cannot be typed and means nothing. Nothing on the keypad
+            //          produces `to`, so **this exception covers no key at all**: everything the user
+            //          can press runs the single evaluation above.
+            val decimal = if (normalized.contains(" to ")) {
+                renderOneShot(
+                    engine,
+                    normalized,
+                    evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit),
+                    machineReadable,
+                )
+            } else {
+                val approximated = engine.calculate(
+                    evaluated,
+                    evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit),
+                )
+                engine.print(
+                    approximated,
+                    PRINT_TIMEOUT_MS,
+                    machineReadable,
+                    false,
+                    0,
+                    libqalculateConstants.TAG_TYPE_TERMINAL,
+                )
+            }
 
             // 中文：**曾经**还有第三份渲染：`dual`（`AUTOMATIC_APPROXIMATION_DUAL` +
             //       `TAG_TYPE_TERMINAL`），形状是 `4 ⋅ √(2) ≈ 5.6568542`。它占这次调用约三分之一的
@@ -241,35 +323,6 @@ class QalculateEngine {
             //          after the evaluation or it describes a previous request.
             val aborted = engine.aborted()
 
-            // 中文：LaTeX 不走 calculateAndPrint —— 它在 TAG_TYPE_LATEX 上会把 "$\displaystyle "
-            //       无条件插入两次（上游 bug），4√2 会变成 "$\displaystyle $\displaystyle 4\sqrt{2}$"。
-            //       改走 parse → calculate → print，print() 不做任何 $ 包裹，调用方拿到裸 LaTeX。
-            //       注意这里用的是按值返回的 calculate 重载（Calculator.h:460），因此不依赖
-            //       SWIG 指针写回的语义，代价是这一步没有超时。
-            // English: LaTeX does not go through calculateAndPrint — on the TAG_TYPE_LATEX path it
-            //          inserts "$\displaystyle " unconditionally twice (an upstream bug), turning
-            //          4√2 into "$\displaystyle $\displaystyle 4\sqrt{2}$". It goes through
-            //          parse → calculate → print instead; print() adds no $ wrapper, so the caller
-            //          gets bare LaTeX. Note this uses the by-value calculate overload
-            //          (Calculator.h:460), so it does not rely on SWIG pointer write-back
-            //          semantics — at the cost of having no timeout on this step.
-            //
-            // 中文：LaTeX 这一步必须用 EXACT。TRY_EXACT 下结构里留下的是近似值，印出来就是一个
-            //       十进制数——精确形态的反面。EXACT 才让结构里留下 4√2。
-            //       （interval_display = MIDPOINT 之后这里不再出现 \num{interval(…)}；那个宏
-            //       flutter_math_fork 也不认。但「印出 5.6568542」同样不是我们想要的精确形态，
-            //       EXACT 依然是必需的。）
-            // English: this step must use EXACT. Under TRY_EXACT the structure holds the
-            //          approximation, and printing it yields a decimal — the opposite of an exact
-            //          form. EXACT is what leaves 4√2 in the structure. (With
-            //          interval_display = MIDPOINT, \num{interval(…)} no longer appears here — that
-            //          macro is one flutter_math_fork rejects anyway — but "5.6568542" is just as
-            //          far from the exact form we want, so EXACT is still required.)
-            val exactEvaluation = evaluationOptions(ApproximationMode.APPROXIMATION_EXACT, angleUnit)
-            val parsed = engine.parse(normalized, exactEvaluation.parse_options)
-            val evaluated = engine.calculate(parsed, exactEvaluation)
-            val latex = engine.print(evaluated, PRINT_TIMEOUT_MS, printOptions(latex = true), true, 0, libqalculateConstants.TAG_TYPE_LATEX)
-
             mapOf(
                 "expression" to expression,
                 "normalized" to normalized,
@@ -296,31 +349,26 @@ class QalculateEngine {
     }
 
     /**
-     * 中文：一步式求值，目前只有 `decimal` 这一份走它。calculateAndPrint 自己会处理结尾的
-     *       to/where 指令和进制换算，所以它仍然是那条主路径。自动分数格式与自动近似都以参数形式
-     *       传进来：同一条路径靠它们印出「只有一个十进制数」的近似值（见调用点）。
-     * English: One-shot evaluation, which today only `decimal` takes. calculateAndPrint handles
-     *          trailing to/where commands and base conversion itself, so it is still the primary
-     *          path. The automatic fraction format and the automatic approximation arrive as
-     *          parameters: they are how this one path prints a single-decimal approximation (see the
-     *          call site).
+     * 中文：一步式求值——**只**给带结尾 `to <命令>` 的表达式用（见调用点那段注释）。`calculateAndPrint`
+     *       自己会处理结尾的 to/where 命令和进制换算，代价是它在内部重新解析、重新求值一次。
+     * English: one-shot evaluation — used **only** for expressions ending in a `to <command>` (see the
+     *          note at the call site). `calculateAndPrint` handles trailing to/where commands and base
+     *          conversion itself; the price is that it parses and evaluates the string again.
      */
-    private fun render(
+    private fun renderOneShot(
         engine: Calculator,
         expression: String,
         evaluation: EvaluationOptions,
         options: PrintOptions,
-        approximation: AutomaticApproximation,
     ): String = engine.calculateAndPrint(
         expression,
         PRINT_TIMEOUT_MS,
         evaluation,
         options,
         AutomaticFractionFormat.AUTOMATIC_FRACTION_OFF,
-        approximation,
+        AutomaticApproximation.AUTOMATIC_APPROXIMATION_SINGLE,
         // 中文：parsed_expression 在 Java 侧是 SWIGTYPE_p_std__string，读不出来，只能传 null。
         // English: parsed_expression is a SWIGTYPE_p_std__string on the Java side — unreadable.
-        //          null is the only legal value.
         null,
         -1,
         // 中文：result_is_comparison 同理，是 SWIGTYPE_p_bool。
@@ -366,6 +414,41 @@ class QalculateEngine {
         //          the bytecode), so setting it here sets it on this evaluation's options rather
         //          than on a copy that would be thrown away.
         parse_options.setAngle_unit(angleUnit)
+        // 中文：**必须显式写这一行。** `ParseOptions::ParseOptions()`（`Calculator.cc:103`）的初始化
+        //       列表里**漏掉了 `comma_as_separator`**——结构体里只有它是没初始化的 POD
+        //       （`includes.h:722` 的注释写着 "Default: false"，但那个默认值从来没有被真正设上）。
+        //       于是每个 `ParseOptions` 的这一个字节是**未初始化内存**，而这个字节恰好决定
+        //       `Calculator::unlocalizeExpression` 会不会把用户写的逗号当数字分隔符**删掉**
+        //       （`Calculator-parse.cc:1373-1383`：`(dot_type == 1 || po.comma_as_separator)` 成立时
+        //       `str.erase(i, 1)`）。
+        //
+        //       设备实测的后果：`matrix(2,2,1,2,3,4)` 会被解析成 `matrix(221234)`（一个参数、
+        //       五位数字），引擎随即报 "You need at least 3 argument"——而 `nCr`/`nPr`/`root`/`gcd`
+        //       这些**已经上线**的多实参键走的是同一条路，用户会拿到一个静默的错值。
+        //       哪一次调用会中招取决于那一块内存当时的内容，所以它看起来像「第一次调用出错」，
+        //       其实是「哪个 ParseOptions 对象恰好带着脏字节」。
+        //
+        //       写成 `false`（库自己文档写的默认值）：逗号保留，由解析器当实参分隔符用。
+        // English: **this line is not optional.** `ParseOptions::ParseOptions()`
+        //          (`Calculator.cc:103`) omits `comma_as_separator` from its initializer list — it is
+        //          the one POD member of the struct that stays uninitialized (`includes.h:722` calls
+        //          "false" its default, but that default is never actually applied). Each
+        //          `ParseOptions` therefore carries one byte of **uninitialized memory**, and that
+        //          byte decides whether `Calculator::unlocalizeExpression` treats the user's commas
+        //          as digit separators and **deletes** them (`Calculator-parse.cc:1373-1383`: when
+        //          `(dot_type == 1 || po.comma_as_separator)` holds, `str.erase(i, 1)`).
+        //
+        //          Measured on a device: `matrix(2,2,1,2,3,4)` parsed as `matrix(221234)` — one
+        //          argument, five digits — and the engine then reported "You need at least 3
+        //          argument". The already-shipped multi-argument keys (`nCr`, `nPr`, `root`, `gcd`)
+        //          travel the same path, so the user gets a silently wrong value. Which call is hit
+        //          depends on what that memory happened to hold, which is why it looked like "the
+        //          first call misbehaves": really it is "whichever ParseOptions object carries the
+        //          dirty byte".
+        //
+        //          Written as `false` — the default the library documents but forgets to apply:
+        //          commas survive and the parser uses them as the argument separator.
+        parse_options.setComma_as_separator(false)
     }
 
     private fun printOptions(latex: Boolean, machineReadable: Boolean = false): PrintOptions = PrintOptions().apply {

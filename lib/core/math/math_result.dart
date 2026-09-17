@@ -140,6 +140,106 @@ class MathResult {
     return value;
   }
 
+  /// 中文：**可显示**——引擎这一次给出的东西能不能放到结果行上。它与 [hasFiniteDecimal] 是**两个
+  ///       判据，不是同一个**：
+  ///
+  ///       - [hasFiniteDecimal] 问的是「**能不能当数字用**」（`Ans`/`last`/记忆/继续使用/历史去重/
+  ///         粘贴回填要的是这个）；
+  ///       - [isDisplayable] 问的是「**能不能显示**」。矩阵、复数、解集、精确形式都没有有限十进制，
+  ///         但它们是引擎算出来的**值**，恰恰是这个应用引入引擎的理由。
+  ///
+  ///       它判的是 [displayText]——也就是**结果行上会出现的那个字符串**——而不是 [decimalText]：
+  ///       适配层对非数字答案**故意**不写 `decimalText`（那正是这个类存在的意义），所以拿
+  ///       `decimalText` 去判「能不能显示」会让矩阵和复数永远为假。
+  ///
+  ///       两个判据分开，正是 [MathResult] 拆成三个字段的本意；把它们合成一个，就等于「有十进制
+  ///       才配显示」——那会让矩阵与复数永远上不了屏。
+  /// English: **Displayable** — whether what the engine produced this time may go on the result line.
+  ///          It is a **second judgement, not the same one** as [hasFiniteDecimal]:
+  ///
+  ///          - [hasFiniteDecimal] asks "**can this be used as a number**" (what `Ans`/`last`/memory/
+  ///            continue-with/history de-duplication/paste round-trip need);
+  ///          - [isDisplayable] asks "**can this be shown**". A matrix, a complex number, a solution
+  ///            set or an exact form has no finite decimal, yet each is a *value* the engine
+  ///            computed — which is the whole reason this app took the engine on.
+  ///
+  ///          It judges [displayText] — the string that would appear on the result line — rather than
+  ///          [decimalText]: the adapter **deliberately** leaves `decimalText` empty for a non-numeric
+  ///          answer (that is what this class is for), so asking `decimalText` "may this be shown"
+  ///          would answer no for every matrix and every complex number.
+  ///
+  ///          Keeping the two apart is what the three-field split of [MathResult] was for; merging
+  ///          them says "only what has a decimal deserves to be shown", which would keep matrices and
+  ///          complex numbers off the screen forever.
+  bool get isDisplayable => textIsDisplayable(displayText);
+
+  /// 中文：一段文本能不能显示（[isDisplayable] 用它判 [displayText]）。**只拒绝两类**，都在字符串层面判：
+  ///
+  ///       1. **真正非有限的字面量**：`∞` / `-∞` / `+∞` / `infinity` / `-infinity` / `NaN`
+  ///          （`ln(0)` 实测印成 `-infinity`）。
+  ///       2. **引擎没算、把式子原样退回来的那种形态**：整个文本就是一个「数字 运算符 数字」。
+  ///          `1/0` 实测印成 `1 / 0`、`0/0` 印成 `0 / 0`、`2/0` 印成 `2 / 0`——引擎拒绝做这次除法，
+  ///          于是把算式本身退回来。**这不是「取消检查」，是换一个检查**：它仍然拦着那三种形态，
+  ///          而矩阵（`[1  2; 3  4]`）、复数（`1 + 2i`）、符号结果（`2x`）一个都不受影响，
+  ///          因为它们身上没有「两个数字之间夹一个运算符」这个形状。
+  ///
+  ///       **空串为假**：没有十进制形态的失败回执不该被当成可显示的结果（那是 [EngineReply] 的
+  ///       `ok: false` 那一类，由调用方处理）。
+  ///
+  ///       实现**只有这一处**，与 [decimalValueOf] / [hasFiniteDecimal] 放在一起——这个类已经挪过
+  ///       三次，再散开必然重演。
+  /// English: Whether a piece of text may be displayed ([isDisplayable] uses it on [displayText]). The two things it rejects are judged at the
+  ///          string level:
+  ///
+  ///          1. **genuinely non-finite literals**: `∞` / `-∞` / `+∞` / `infinity` / `-infinity` /
+  ///             `NaN` (`ln(0)` prints as `-infinity`, measured).
+  ///          2. **an arithmetic the engine did not perform and handed straight back**: the whole
+  ///             text is one `number <operator> number`. `1/0` prints as `1 / 0`, `0/0` as `0 / 0`
+  ///             and `2/0` as `2 / 0` (all measured) — the engine refuses the division and returns the
+  ///             expression itself. This is **swapping the check, not deleting it**: those three
+  ///             shapes stay off the screen, while a matrix (`[1  2; 3  4]`), a complex number
+  ///             (`1 + 2i`) and a symbolic result (`2x`) are untouched, because none of them has a
+  ///             number on both sides of an operator.
+  ///
+  ///          An **empty string is not displayable**: a failure receipt with no result is not a
+  ///          result (that is [EngineReply]'s `ok: false` family, the caller's business).
+  ///
+  ///          This is the **only** implementation, and it lives beside [decimalValueOf] /
+  ///          [hasFiniteDecimal] — this class has moved three times already, and a second copy would
+  ///          only start the same drift again.
+  static bool textIsDisplayable(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    if (_displayNonFiniteLiteral.hasMatch(_withoutSign(trimmed))) return false;
+    return !_unperformedArithmetic.hasMatch(trimmed);
+  }
+
+  /// 中文：`[符号]非有限字面量`。与 [_nonFiniteLiteral] 分开是免得两处的含义被读成一处：
+  ///       [_nonFiniteLiteral] 是「`double.tryParse` 认得但不是有限数」，这里还多接受 `∞` 这两个
+  ///       字符（`double.tryParse` 根本不认它，但 `PrintOptions.use_unicode_signs` 开着时引擎会印）。
+  /// English: `[sign]non-finite literal`. Kept apart from [_nonFiniteLiteral] so the two meanings are
+  ///          not read as one: that one covers what `double.tryParse` accepts but is not finite,
+  ///          while this also accepts the `∞` character (which `double.tryParse` rejects outright but
+  ///          the engine prints when `PrintOptions.use_unicode_signs` is on).
+  static final RegExp _displayNonFiniteLiteral =
+      RegExp(r'^(infinity|nan|∞)$', caseSensitive: false);
+
+  /// 中文：去掉一个前导正负号，供 [_displayNonFiniteLiteral] 判。
+  /// English: strips one leading sign for [_displayNonFiniteLiteral].
+  static String _withoutSign(String text) =>
+      text.startsWith('+') || text.startsWith('-') ? text.substring(1) : text;
+
+  /// 中文：`数字 运算符 数字`——引擎退回来的一次未做运算。数字允许小数与科学计数法，
+  ///       两边都必须是纯数字：`1 + 2i` 的右边不是纯数字，`2x` 也是，所以它们不受影响。
+  /// English: `number operator number` — one arithmetic operation the engine handed back unperformed.
+  ///          Numbers may be decimal or scientific, and both sides must be *pure* numbers: the right
+  ///          side of `1 + 2i` is not, and neither is `2x`, so those are unaffected.
+  static final RegExp _unperformedArithmetic = RegExp(
+    r'^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
+    r'\s*[+\-*/^]\s*'
+    r'[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$',
+  );
+
   /// 中文：一个**已经算出来的** double 能不能交给消费者：`Infinity` / `NaN` 不能，其余（包括真正的 0）
   ///       都能。它判不了下溢——`double.tryParse('9.3e-603')` 给的是 `0.0`，一个 double 自己说不清
   ///       它是「真的是 0」还是「小到装不下」——所以**凡手里有文本的地方一律先走 [decimalValueOf]**，

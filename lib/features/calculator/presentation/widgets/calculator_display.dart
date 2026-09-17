@@ -95,6 +95,22 @@ const double _errorMessageFontSize = 12;
 ///       （堆叠分数、根号套分数）让这一行的高度不再固定，它拿到的是「最多能有多高」的上限，
 ///       真放不下时由 `FittedBox` 等比缩小，而不是把内容裁掉。（状态行是唯一真正固定的行：
 ///       它连同内边距与间隙约需 58dp。）
+///
+///       **实测数字**（`flutter_test`，320dp 宽；「结果行高度」= 结果行那一个 `Align` 的高度；
+///       面板 176dp 无错误行时它分到的上限是 53dp =（176 − 40 − 12 − 18）/ 2）：
+///
+///       | 场景 | 结果行 | 整列 |
+///       |---|---|---|
+///       | 176dp / 1×，精确形式 `\frac{1}{\sqrt{2}}` | 32.4dp（自然高度） | 无溢出 |
+///       | 230dp / 1×，同一形式 | 32.4dp（逐像素相同） | 无溢出 |
+///       | 176dp / 2×，同一形式 | 53.0dp（被上限截住） | 无溢出 |
+///       | 176dp / 2×，`\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 53.0dp** | 无溢出 |
+///       | 100dp / 1×，`\frac{1}{\sqrt{2}}` | — | **修之前 `A RenderFlex overflowed by 22 pixels on the bottom.`**，修之后无溢出 |
+///
+///       即：结果行在 2× 及更大的字号下**先缩**（缩的是这一行，不是内容被裁），176dp 这条下限
+///       本身没有变。brief 里记的「176dp + 2× 溢出 27px」在本机**复现不出来**——同样条件下结果行
+///       自然高度 54.8dp、分到 88dp，没有溢出；真正的缺陷是它**没有上限**：形态再高一点就拿走
+///       85.68dp（上限 53dp），把表达式行挤到 0 附近，再往下压整列就报溢出（100dp 那条实测）。
 /// English: Below that minimum (a short window plus a large font scale), the expression line is
 ///          squeezed first and the error line then shrinks with its spare pixels clipped — the
 ///          error line is no longer a source of RenderFlex overflow. **The result row may shrink
@@ -103,6 +119,26 @@ const double _errorMessageFontSize = 12;
 ///          inside scales the content down when it genuinely does not fit rather than clipping it.
 ///          (The status row is the only genuinely fixed row: with padding and gaps it needs about
 ///          58dp.)
+///
+///          **Measured numbers** (`flutter_test`, 320dp wide; "result row height" is the height of
+///          that row's `Align`; in a 176dp panel with no error line its ceiling is 53dp =
+///          (176 − 40 − 12 − 18) / 2):
+///
+///          | case | result row | column |
+///          |---|---|---|
+///          | 176dp / 1×, exact form `\frac{1}{\sqrt{2}}` | 32.4dp (natural) | no overflow |
+///          | 230dp / 1×, same form | 32.4dp (pixel-for-pixel) | no overflow |
+///          | 176dp / 2×, same form | 53.0dp (held at the ceiling) | no overflow |
+///          | 176dp / 2×, `\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 53.0dp** | no overflow |
+///          | 100dp / 1×, `\frac{1}{\sqrt{2}}` | — | **before the fix: `A RenderFlex overflowed by 22 pixels on the bottom.`** — after it, none |
+///
+///          So the result row **shrinks first** at 2× and above (this row shrinks; the content is not
+///          clipped), and the 176dp floor itself is unchanged. The "27px overflow at 176dp + 2×"
+///          recorded in the brief does **not** reproduce here — under exactly those conditions the
+///          row is 54.8dp naturally against 88dp available and nothing overflows; the real defect was
+///          that it had **no ceiling at all**: a slightly taller form took 85.68dp (against a 53dp
+///          share), squeezing the expression line towards zero, and pressing further makes the
+///          column overflow (the 100dp case, measured).
 ///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠

@@ -74,6 +74,9 @@ class CalculatorPage extends StatefulWidget {
     // 微积分与复现：Σ / Π / ∫dx / lim / logₓy——各自插一整条引擎调用，见下面 `_pressKey` 里的
     // 那一段注释（键盘上没有逗号键，半条调用补不完）。
     'ins:sum', 'ins:product', 'ins:integrate', 'ins:limit', 'ins:logxy',
+    // 矩阵与虚数单位：`MTRX` 插一整条 `matrix(行, 列, 元素…)`（引擎实测 `[1  2; 3  4]`），
+    // `i` 插引擎认识的虚数单位（`2i+1` 实测 `1 + 2i`）。
+    'ins:matrix', 'ins:i',
     // 一元函数（含只从 `OTHER` 面板进来的那些）
     'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
     'cot', 'sec', 'csc', 'log₂', 'exp', 'floor', 'ceil', 'round',
@@ -651,6 +654,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _controller.append('limit(sin(x)/x,0,x)');
       case 'ins:logxy':
         _controller.append('log(8,2)');
+      // 中文：`MTRX` 与 `i` 同样是**完整**的插入物，理由与上面那几颗一样（多实参 + 没有逗号键）。
+      //       矩阵的实参顺序取自引擎自己的 `MathFunction("matrix", 3)`：行、列、元素；插入的
+      //       2×2 在 `qalc` 5.12.0 与真机上都印成 `[1  2; 3  4]`。
+      //       `i` 插在数值后面不做任何加工——`2` 之后按 `i` 得到 `2i`，两个解析器都读成隐式乘法。
+      // English: `MTRX` and `i` are **complete** insertions for the same reason as the ids above
+      //          (several arguments, and no comma key). The matrix arguments follow the engine's own
+      //          `MathFunction("matrix", 3)` — rows, columns, elements — and the 2×2 inserted here
+      //          prints as `[1  2; 3  4]` on both `qalc` 5.12.0 and the device. `i` is inserted
+      //          unmodified: after a number it gives `2i`, which both parsers read as an implicit
+      //          product.
+      case 'ins:matrix':
+        _controller.append('matrix(2,2,1,2,3,4)');
+      case 'ins:i':
+        _controller.append('i');
       // 中文：`ran#` 插的是完整的 `rand()`。`rand` 是引擎的零实参函数
       //       （`BuiltinFunctions-statistics.cc` 的 `MathFunction("rand", 0, 2)`），带括号按下去
       //       就是一个立刻可求值的随机数。

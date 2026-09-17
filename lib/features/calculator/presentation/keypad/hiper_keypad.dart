@@ -84,7 +84,7 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
   //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
   //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（x⇔E 的 SHIFT 提示）、
-  //       MTRX（矩阵键的 SHIFT 提示）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
+  //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
   //       仍未接上：引擎算得出符号导数，但符号结果过不了提交路径的「必须是有限十进制」那道门，
   //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
@@ -106,8 +106,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         category: KeyCategory.disabled,
       ),
       KeypadKey(
-        base: KeyVariant(label: 'MTRX', id: 'dis:matrix', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: 'Σ', id: 'ins:sum'),
@@ -133,13 +133,13 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
     ],
   ),
 
-  // 中文：行 3——π / sin / cos / tan / i（禁用）/ e。
+  // 中文：行 3——π / sin / cos / tan / i / e。
   //       上方标签：hyp 实体修饰键（可直接点按，是可查证的刻意偏离）、sin⁻¹/cos⁻¹/tan⁻¹
-  //       三个 SHIFT 提示、禁用的 ∠，以及 logₓy（已启用：它插的是引擎 `log(数, 底)` 的二元调用）。
+  //       三个 SHIFT 提示、仍禁用的 ∠，以及 logₓy（已启用：它插的是引擎 `log(数, 底)` 的二元调用）。
   //       sin/cos/tan 同时带 SHIFT 变体（asin/acos/atan）与 hyp 变体（sinh/cosh/tanh）。
-  // English: Row 3 — π / sin / cos / tan / i (disabled) / e.
+  // English: Row 3 — π / sin / cos / tan / i / e.
   //          Band above: the tappable `hyp` modifier key (a documented deviation from
-  //          HiPER), the sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, the disabled ∠, and an enabled
+  //          HiPER), the sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, the still-disabled ∠, and an enabled
   //          logₓy — it inserts the engine's two-argument `log(number, base)` call.
   //          sin/cos/tan carry both a SHIFT variant (asin/acos/atan) and a hyp variant
   //          (sinh/cosh/tanh).
@@ -168,8 +168,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         hyp: KeyVariant(label: 'tanh', id: 'tanh'),
       ),
       KeypadKey(
-        base: KeyVariant(label: 'i', id: 'dis:i', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: 'i', id: 'ins:i'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: 'e', id: 'ins:e'),

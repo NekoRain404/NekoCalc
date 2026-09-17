@@ -794,7 +794,7 @@ class CalculatorController extends ChangeNotifier {
     //          not a queue.
     final owed = _liveEngineDirty;
     _liveEngineDirty = false;
-    final accepted = _acceptedEngineResult(reply);
+    final accepted = _selectEngineResult(reply, source)?.result;
     if (generation != _stateRevision || expression != source) {
       // 中文：过期。这一发的回答属于一条已经不在屏幕上的时间线，什么都不许落地。
       // English: Stale. This answer belongs to a timeline that is no longer on screen, so nothing may
@@ -1205,19 +1205,27 @@ class CalculatorController extends ChangeNotifier {
     // English: The *first* thing to do with a reply is ask "is this still the current generation",
     //          before touching any state — including the `_lastFiniteResult` the fallback writes.
     if (_disposed || generation != _stateRevision) return null;
-    final accepted = _acceptedEngineResult(reply);
-    if (accepted != null) {
-      // 中文：`_lastFiniteResult` 与十进制形态保持一致，规则与 [applyMathResult] 相同——十进制
-      //       形态非空（[MathResult.hasFiniteDecimal] 为真已经保证了这一点），于是 `Ans`/`last`
-      //       用的是引擎的精确值，而不是显示取整后的那一份。放不进 double 的值也一样：它保存的
-      //       是**文本**，`Ans`/`last` 写回表达式时用的就是这段文本。
-      // English: `_lastFiniteResult` stays in step with the decimal form, the same rule as
-      //          [applyMathResult] — the decimal form is non-empty (which
-      //          [MathResult.hasFiniteDecimal] being true already guarantees), so `Ans`/`last`
+    final selected = _selectEngineResult(reply, source);
+    if (selected != null) {
+      final accepted = selected.result;
+      // 中文：`_lastFiniteResult` 只在这一份结果**能当数字用**时才更新，规则与 [applyMathResult]
+      //       相同——数值消费者依旧只认有限十进制，放宽的是「能不能显示」，不是这一条。矩阵、复数
+      //       这类结果的 `decimalText` 本来是空的，写进去等于把 `Ans`/`last` 变成空串，所以这里
+      //       连试都不试。
+      //       能当数字用时，它与十进制形态保持一致：`Ans`/`last` 用的是引擎的精确值，而不是显示
+      //       取整后的那一份。放不进 double 的值也一样——存的是**文本**，写回表达式时用的就是它。
+      // English: `_lastFiniteResult` is updated only while this result is **usable as a number**,
+      //          the same rule as [applyMathResult] — numeric consumers still accept nothing but a
+      //          finite decimal; what was relaxed is "may it be shown", not this. A matrix or a
+      //          complex number carries an empty `decimalText` anyway, and writing that would turn
+      //          `Ans`/`last` into an empty string, so it is not even attempted here.
+      //          When it is usable as a number it stays in step with the decimal form: `Ans`/`last`
       //          resolve to the engine's accurate value rather than the display-rounded one. A value
-      //          that does not fit a double is no different: what is kept is *text*, and that text
-      //          is what `Ans`/`last` write back into the expression.
-      _lastFiniteResult = accepted.decimalText;
+      //          that does not fit a double is no different — what is kept is *text*, and that text
+      //          is what gets written back into the expression.
+      if (selected.usableAsNumber) {
+        _lastFiniteResult = accepted.decimalText;
+      }
       return accepted;
     }
     // 中文：回落对用户不可见（这是要求），所以必须留下一条日志——否则「引擎其实一次都没答上来」
@@ -1357,6 +1365,80 @@ class CalculatorController extends ChangeNotifier {
     final engineResult = reply.result;
     if (engineResult == null || !engineResult.hasFiniteDecimal) return null;
     return _engineMathResult(engineResult);
+  }
+
+  /// 中文：**能不能显示**（第二个判据，与「能不能当数字用」分开）。矩阵、复数、解集、精确形式都没有
+  ///       有限十进制，但它们是引擎算出来的值——「有十进制才配显示」会让它们永远上不了屏，
+  ///       而它们正是引入引擎的理由。判据本身在 [MathResult.isDisplayable] 里，只有那一处实现。
+  /// English: **Whether it may be shown** — the second judgement, kept apart from "can it be used as
+  ///          a number". A matrix, a complex number, a solution set or an exact form has no finite
+  ///          decimal, yet each is a value the engine computed; "only what has a decimal deserves to
+  ///          be shown" would keep them off the screen forever, and they are why the engine is here.
+  ///          The judgement itself lives in [MathResult.isDisplayable], the one implementation.
+  MathResult? _displayableEngineResult(EngineReply reply) {
+    if (!reply.ok) return null;
+    final engineResult = reply.result;
+    if (engineResult == null || !engineResult.isDisplayable) return null;
+    return _engineMathResult(engineResult);
+  }
+
+  /// 中文：**引擎这一次的回答该怎么取舍**——提交路径与边打边算共用这一处，不写第二份。
+  ///       两级，顺序不能反：
+  ///
+  ///       1. **能当数字用**（有限十进制）→ 用引擎的。与迁移引擎之前逐字节一致：数值消费者要的
+  ///          就是它，`Ans`/`last` 拿到的是引擎的精确十进制。
+  ///       2. **只能显示**（矩阵、复数、符号结果…）→ **先问旧解析器**。旧解析器认的是这个应用
+  ///          自己的词汇表（`ncr`/`npr`/`fact`/`log2` 是应用的名字，引擎并不认识——设备实测
+  ///          `ncr(5,10)` 被引擎解释成一串带单位的量 `[(1.49896229n'r' km/us) …]`）。那种情况下
+  ///          引擎的「答案」是它把表达式理解成别的东西之后的产物，而旧解析器给的是这个应用一贯的
+  ///          答案；**已经上线的键因此逐字节不变**。旧解析器答不出来（矩阵、复数、`solve`）时，
+  ///          才用引擎的显示形态。
+  ///
+  ///       `usableAsNumber` 就是第 1 级与第 2 级的分界，调用方据此决定 `_lastFiniteResult`——
+  ///       数值消费者依旧只认有限十进制，这一条**没有放宽**。
+  /// English: **How this engine answer is to be taken** — the submit path and as-you-type evaluation
+  ///          share this one place; no second copy. Two tiers, and the order matters:
+  ///
+  ///          1. **usable as a number** (a finite decimal) → take the engine's. Byte-for-byte what it
+  ///             was before the engine was wired in: numeric consumers want exactly this, and
+  ///             `Ans`/`last` get the engine's accurate decimal.
+  ///          2. **displayable only** (a matrix, a complex number, a symbolic result, …) → **ask the
+  ///             legacy parser first**. The legacy parser knows this app's own vocabulary
+  ///             (`ncr`/`npr`/`fact`/`log2` are the app's names; the engine does not know them — on a
+  ///             device `ncr(5,10)` came back as a list of unit-carrying quantities,
+  ///             `[(1.49896229n'r' km/us) …]`). In that case the engine's "answer" is what it made of
+  ///             an expression it read as something else, while the legacy parser gives the answer
+  ///             this app has always given; **keys that already work are therefore unchanged**.
+  ///             Only when the legacy parser cannot answer (matrices, complex numbers, `solve`) is the
+  ///             engine's displayable form used.
+  ///
+  ///          `usableAsNumber` is the boundary between the two tiers, and the caller uses it to decide
+  ///          `_lastFiniteResult` — numeric consumers still accept nothing but a finite decimal, and
+  ///          that has **not** been relaxed.
+  ({MathResult result, bool usableAsNumber})? _selectEngineResult(
+    EngineReply reply,
+    String source,
+  ) {
+    final numeric = _acceptedEngineResult(reply);
+    if (numeric != null) return (result: numeric, usableAsNumber: true);
+    final displayable = _displayableEngineResult(reply);
+    if (displayable == null) return null;
+    final legacy = _tryLegacyResult(source);
+    if (legacy != null) return (result: legacy, usableAsNumber: true);
+    return (result: displayable, usableAsNumber: false);
+  }
+
+  /// 中文：旧解析器**试一次**——答不出来时给 null 而不是抛异常。[_calculateResult] 是那条会抛的
+  ///       出口，两者共用同一份实现：这里只是把异常收成 null。
+  /// English: one **attempt** at the legacy parser — null instead of throwing when it cannot answer.
+  ///          [_calculateResult] is the throwing exit; both share one implementation, this only turns
+  ///          the exception into null.
+  MathResult? _tryLegacyResult(String source) {
+    try {
+      return _calculateResult(source);
+    } catch (_) {
+      return null;
+    }
   }
 
   MathResult _engineMathResult(MathResult engineResult) {
