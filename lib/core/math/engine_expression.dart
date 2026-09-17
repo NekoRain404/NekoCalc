@@ -395,6 +395,8 @@ EngineExpression _call(String name, List<ExprNode> args) {
   final mapped = AppEngineVocabulary.engineNameFor(name.toLowerCase());
   if (mapped is UntranslatableExpression) return mapped;
   final engineName = (mapped as TranslatedExpression).text;
+  final shape = _seriesShapeRefusal(name, args);
+  if (shape != null) return shape;
   final translated = <String>[];
   for (final arg in args) {
     final t = _translate(arg);
@@ -402,4 +404,102 @@ EngineExpression _call(String name, List<ExprNode> args) {
     translated.add((t as TranslatedExpression).text);
   }
   return TranslatedExpression('$engineName(${translated.join(',')})');
+}
+
+/// 中文：**拟合调用只在这一种形状下写给引擎：每一个实参都是一行矩阵（`matrix(1,…)`）。**
+///       其余形状一律拒绝，理由是**量出来的**——引擎对它们答的不是这个调用，而答案照样上屏。
+///
+///       实测（宿主 libqalculate 5.12.0，按桥的调用序列与选项，种类判据逐行照抄
+///       `QalculateEngine.kt:386-397`，探测程序在 `/tmp/nekocalc_fit_probe/probe.cc`）：
+///
+///       | 调用 | 引擎印出来 | 种类 | `isDisplayable` |
+///       |---|---|---|---|
+///       | `linearfit(matrix(2,5,1,2,3,4,5,2,4,6,8,10))` | `[x  2x  3x  4x  5x]` | `structured` | **放行** |
+///       | `linearfit(matrix(2,2,1,2,3,4))` | `x + 1`（**X、Y 反了**，正解 `x + 2`） | `symbolic` | **放行** |
+///       | `linearfit(matrix(1,3,1,2,3),matrix(3,3,…1…9))` | `[(3x - 2)  (3x - 1)  3x]` | `structured` | **放行** |
+///       | `linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))` | `2x`（正解） | `symbolic` | 放行 |
+///       | `linearfit(matrix(5,2,1,2,2,4,3,6,4,8,5,10))` | `2x`（正解，两**列**） | `symbolic` | 放行 |
+///       | `quadraticfit(matrix(2,3,1,2,3,1,4,9))` | 原样退回 | `arithmetic` | 不放行 |
+///       | `quadraticfit(matrix(3,3,…))` | `element(multisolve(…))` | `arithmetic` | 不放行 |
+///
+///       前两行是**第一个**实参多行，第三行是**第二个**实参多行——两个方向都实测过。第三行尤其
+///       要紧：它说明「只有第一个实参要管」是错的，而它自己也是这次量出来的。
+///
+///       **为什么判据只能问输入。** 正确形状的答复（`2x`）与第二行那个错值（`x + 1`）**种类相同
+///       （都是 `symbolic`）、印出来的形状也相同**，`_selectEngineResult` 收到的两份回执在这两项
+///       上逐字一样——没有任何一条按结果看的规则分得开它们。所以判据落在翻译层，与
+///       [AppEngineVocabulary.engineNameFor] 是同一处、同一种做法：**形状不对，引擎根本不会被问。**
+///
+///       括号先剥掉（[GroupNode] 就是括号本身）：`linearfit((matrix(1,5,…)),matrix(1,5,…))`
+///       实测印的正是 `2x`，而 `linearfit((matrix(2,5,…)))` 实测在 else 那一支上——剥掉括号之后
+///       前者被收下、后者被拒，两边的读数都对。**只剥括号**：`+`、乘法这些包装一概不剥，
+///       它们都落进拒绝那一侧（关上的一侧）。
+///
+///       形状之外的拒绝**没有放宽、也没有收紧任何东西**：这条只作用于
+///       [AppFunction.oneSeriesPerArgument] 为真的那三行。
+/// English: **a fit call is written for the engine under exactly one shape: every argument is a one-row
+///          matrix (`matrix(1,…)`).** Every other shape is refused, and the reason is **measured** —
+///          the engine does not answer such a call, and the answer reaches the screen anyway.
+///
+///          Measured (host libqalculate 5.12.0, the bridge's call sequence and options, the kind
+///          predicate copied line by line from `QalculateEngine.kt:386-397`; the probe is
+///          `/tmp/nekocalc_fit_probe/probe.cc`):
+///
+///          | call | what the engine prints | kind | `isDisplayable` |
+///          |---|---|---|---|
+///          | `linearfit(matrix(2,5,1,2,3,4,5,2,4,6,8,10))` | `[x  2x  3x  4x  5x]` | `structured` | **admitted** |
+///          | `linearfit(matrix(2,2,1,2,3,4))` | `x + 1` (**X and Y swapped**; the answer is `x + 2`) | `symbolic` | **admitted** |
+///          | `linearfit(matrix(1,3,1,2,3),matrix(3,3,…1…9))` | `[(3x - 2)  (3x - 1)  3x]` | `structured` | **admitted** |
+///          | `linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))` | `2x` (right) | `symbolic` | admitted |
+///          | `linearfit(matrix(5,2,1,2,2,4,3,6,4,8,5,10))` | `2x` (right, two **columns**) | `symbolic` | admitted |
+///          | `quadraticfit(matrix(2,3,1,2,3,1,4,9))` | handed straight back | `arithmetic` | not admitted |
+///          | `quadraticfit(matrix(3,3,…))` | `element(multisolve(…))` | `arithmetic` | not admitted |
+///
+///          The first two rows have a multi-row **first** argument and the third a multi-row **second**
+///          one — both directions were measured. The third matters most: it shows "only the first
+///          argument needs watching" is false, and it is itself a product of this round.
+///
+///          **Why the judgement can only ask the input.** The right shape's answer (`2x`) and the second
+///          row's wrong value (`x + 1`) have the **same kind** (both `symbolic`) and the same printed
+///          shape — the two receipts `_selectEngineResult` sees are word for word alike on both counts,
+///          and no result-side rule can tell them apart. So the judgement sits in the translation layer,
+///          the same place and the same device as [AppEngineVocabulary.engineNameFor]: **wrong shape,
+///          the engine is never asked.**
+///
+///          Parentheses are stripped first ([GroupNode] *is* the parentheses):
+///          `linearfit((matrix(1,5,…)),matrix(1,5,…))` measures `2x` and `linearfit((matrix(2,5,…)))`
+///          measures the else branch — stripped, the first is taken in and the second refused, and both
+///          readings are right. **Only parentheses are stripped**: `+`, products and every other
+///          wrapper fall on the refused side (the closed side).
+///
+///          Nothing outside the shape is relaxed or tightened: this acts only on the rows where
+///          [AppFunction.oneSeriesPerArgument] is true.
+UntranslatableExpression? _seriesShapeRefusal(String name, List<ExprNode> args) {
+  final canonical = AppEngineVocabulary.canonicalIdentifier(name);
+  if (canonical == null) return null;
+  if (!AppEngineVocabulary.identifiers[canonical]!.oneSeriesPerArgument) return null;
+  if (args.every(_isOneRowMatrixCall)) return null;
+  return UntranslatableExpression(
+    '`$canonical` 要的是每个实参一条序列（写成 `matrix(1,…)`）：这个形状引擎读成'
+    '「按列各拟合一次」或另一对 X、Y，而答案照样上屏',
+  );
+}
+
+/// 中文：**这个节点是不是「一行矩阵」这个应用写法**——`matrix(<1>, …)`，外面的括号先剥掉。
+///       它只认应用自己的写法：`matrix` 是词表里的名字（[ExpressionParser.canonicalFunctionName]
+///       折别名与大小写，与词表用的是同一个折叠），行数只认**字面量** `1`。认出别的写法就等于
+///       替引擎猜它的意思，而这一层不猜（见 [_seriesShapeRefusal]）。
+/// English: **is this node "a one-row matrix" in this app's spelling** — `matrix(<1>, …)`, with
+///          enclosing parentheses stripped first. It only recognises this app's own spelling:
+///          `matrix` is a name in the vocabulary ([ExpressionParser.canonicalFunctionName] folds
+///          aliases and case, the same fold the vocabulary uses) and the row count is accepted only as
+///          the **literal** `1`. Recognising other spellings would mean guessing what the engine makes
+///          of them, and this layer does not guess (see [_seriesShapeRefusal]).
+bool _isOneRowMatrixCall(ExprNode node) {
+  final inner = node is GroupNode ? node.child : node;
+  if (inner is! FunctionNode) return false;
+  if (ExpressionParser.canonicalFunctionName(inner.name) != 'matrix') return false;
+  if (inner.args.isEmpty) return false;
+  final rows = inner.args.first;
+  return rows is NumberNode && num.tryParse(rows.literal.replaceAll('_', '')) == 1;
 }

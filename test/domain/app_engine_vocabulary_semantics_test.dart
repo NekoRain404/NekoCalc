@@ -247,6 +247,16 @@ void main() {
         'pearson',
         'spearman',
         'covar',
+        // 中文：三个拟合（拟合那一轮）。同上：应用自己的解析器没有实现它们
+        //       （`linearfit(1)` 实测抛 `Unknown function linearfit`），只有引擎答得出来。
+        //       它们与上面那一批多一列：`oneSeriesPerArgument`——调用时必须两个实参各一条序列。
+        // English: the three fits (the fitting round). As above: this app's own parser does not
+        //          implement them (`linearfit(1)` measured throwing `Unknown function linearfit`), so
+        //          only the engine can answer. They carry one column the batch above does not:
+        //          `oneSeriesPerArgument` — a call must give one series per argument.
+        'linearfit',
+        'quadraticfit',
+        'cubicfit',
       };
       expect(
         AppEngineVocabulary.identifiers.keys.toSet().difference(parserAccepted),
@@ -299,15 +309,20 @@ void main() {
           .toList();
       expect(unbound, isNotEmpty, reason: '这一条不许空转——空转就什么也没钉');
       // 中文：词表之外的两类也在这一条里量过，因为判据同样把它们判成「没绑定」：
-      //       **词表里没有的名字**（`linearfit`——回归拟合那三个的名字，翻译层会拒绝它；
-      //       `zorkmid`——随手一个不存在的名字）与**被当成调用名的变量**（`x(2)` 在应用自己的
-      //       语法树里是一个名为 `x` 的调用，而应用自己的求值器不认这个名字）。
+      //       **词表里没有的名字**（`zorkmid`——随手一个不存在的名字；`polyfit`——引擎也不认识的
+      //       另一个拟合拼法，实测 `getFunction` 返回空）与**被当成调用名的变量**（`x(2)` 在应用
+      //       自己的语法树里是一个名为 `x` 的调用，而应用自己的求值器不认这个名字）。
+      //       `linearfit` **从这一行里移出去了**（拟合那一轮）：它现在在词表里，所以由上面那个
+      //       `unbound` 循环覆盖——同一条断言，只是它换了来源那一栏，不是被删掉。
       // English: the two classes outside the vocabulary are measured here as well, because the
-      //          judgement calls them unbound too: **names the vocabulary lacks** (`linearfit` — the
-      //          regression fits' real name, which the translation layer refuses; `zorkmid` — any
-      //          nonexistent name) and **a variable used as a call name** (`x(2)` is a call named `x`
-      //          in this app's tree, and this app's own evaluator does not know that name).
-      for (final name in <String>[...unbound, 'linearfit', 'zorkmid', 'x']) {
+      //          judgement calls them unbound too: **names the vocabulary lacks** (`zorkmid` — any
+      //          nonexistent name; `polyfit` — another fit spelling the engine does not know either,
+      //          measured `getFunction` returning nothing) and **a variable used as a call name**
+      //          (`x(2)` is a call named `x` in this app's tree, and this app's own evaluator does not
+      //          know that name). `linearfit` **moved out of this list** (the fitting round): it is in
+      //          the vocabulary now, so the `unbound` loop above covers it — the same assertion, from
+      //          a different column, not a deleted one.
+      for (final name in <String>[...unbound, 'zorkmid', 'polyfit', 'x']) {
         expect(
           () => ExpressionParser('$name(1)', degreeMode: false).parse(),
           throwsA(isA<FormatException>().having(
