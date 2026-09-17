@@ -45,25 +45,57 @@ import 'package:flutter_test/flutter_test.dart';
 ///            `.superpowers/backup/qalculate-step5-fix2-report.md`.
 void main() {
   test('原生桥显式钉住 comma_as_separator=false（源码级守卫）', () {
-    final bridge = File(
-      'android/app/src/main/kotlin/com/nekorain/nekocalc/qalculate/QalculateEngine.kt',
+    // 中文：**扫整个目录，不写死文件名**。这一条曾经写死 `QalculateEngine.kt`，而 2026-09-18 的
+    //       拆分把 `evaluationOptions` 连同 pin 一起搬到了 `QalculateOptions.kt`——**守卫当场变红，
+    //       而拆分本身是纯净的搬移**。写死文件名会让「代码搬到哪」变成「守卫失不失效」，
+    //       那不是它该守的东西。它要守的是「这一行**存在，且在正确的函数体里**」。
+    // English: **scan the directory rather than naming one file.** This used to hard-code
+    //          `QalculateEngine.kt`, and the 2026-09-18 split moved `evaluationOptions` — and the pin
+    //          with it — into `QalculateOptions.kt`, turning the guard red for a change that was a
+    //          pure move. Naming a file makes "where the code lives" into "whether the guard holds",
+    //          which is not what this guards. What it guards is that the line **exists, and sits in
+    //          the right function body**.
+    final dir = Directory(
+      'android/app/src/main/kotlin/com/nekorain/nekocalc/qalculate',
     );
-    expect(bridge.existsSync(), isTrue,
-        reason: '找不到原生桥文件，这条守卫就失去意义：${bridge.path}');
-    final source = bridge.readAsStringSync();
+    expect(dir.existsSync(), isTrue, reason: '找不到原生桥目录，这条守卫就失去意义：${dir.path}');
+    final sources = <String, String>{
+      for (final f in dir.listSync().whereType<File>())
+        if (f.path.endsWith('.kt')) f.path: f.readAsStringSync(),
+    };
+    expect(sources, isNotEmpty, reason: '目录里一个 .kt 都没有：${dir.path}');
 
-    expect(source, contains('parse_options.setComma_as_separator(false)'),
-        reason: 'libqalculate 的 ParseOptions::ParseOptions() 没有初始化 comma_as_separator'
-            '（Calculator.cc:103），不显式钉住它，那个字节就是未初始化内存，'
-            '用户写的逗号会被 unlocalizeExpression 当千分位删掉 → 多实参表达式的静默错值');
+    final withPin = sources.entries
+        .where((e) =>
+            e.value.contains('parse_options.setComma_as_separator(false)'))
+        .toList();
+    expect(withPin, hasLength(1),
+        reason:
+            'libqalculate 的 ParseOptions::ParseOptions() 没有初始化 comma_as_separator'
+            '（Calculator.cc:103），不显式钉住一次——且只钉一次——那个字节就是未初始化内存，'
+            '用户写的逗号会被 unlocalizeExpression 当千分位删掉 → 多实参表达式的静默错值。'
+            '实际命中的文件：${withPin.map((e) => e.key).toList()}');
 
     // 中文：这一行必须与角度单位那一段在同一个 `evaluationOptions` 里——分开写会让「每个
     //       ParseOptions 都被钉过」这件事变成看图说话。
     // English: the line has to live in the same `evaluationOptions` as the angle unit; keeping the
     //          two apart would turn "every ParseOptions is pinned" into a matter of opinion.
-    expect(source, contains('parse_options.setAngle_unit(angleUnit)'));
+    final withOptions = sources.entries
+        .where(
+            (e) => e.value.contains('parse_options.setAngle_unit(angleUnit)'))
+        .toList();
+    expect(withOptions, hasLength(1),
+        reason: '角度单位必须恰好在一处设置；实际：${withOptions.map((e) => e.key).toList()}');
+    expect(withOptions.single.key, withPin.single.key,
+        reason: '角度单位与 comma pin 必须在同一个文件里（它们同属 evaluationOptions）');
+
+    // 中文：不绑死可见性修饰符——`private` 在单文件里成立，跨文件必须放宽成 `internal`，
+    //       而**那不是这条守卫该管的事**。只要求 `evaluationOptions` 这个函数存在。
+    // English: do not bind to the visibility modifier — `private` works within one file and has to
+    //          relax to `internal` across files, and **that is not this guard's business**. Require
+    //          only that the function exists.
     expect(
-      bodyOf(source, 'private fun evaluationOptions('),
+      bodyOf(withPin.single.value, 'fun evaluationOptions('),
       contains('parse_options.setComma_as_separator(false)'),
       reason: '钉住的那一行必须在 evaluationOptions 的**函数体**里'
           '（每个 ParseOptions 都经过它；挪到别处就不再钉住任何东西）',
