@@ -384,6 +384,7 @@ void main() {
 
     expect(await kindOf('conversion'), EngineResultKind.conversion);
     expect(await kindOf('unit_mismatch'), EngineResultKind.unitMismatch);
+    expect(await kindOf('quantity'), EngineResultKind.quantity);
     expect(await kindOf('unit'), EngineResultKind.unit);
     expect(await kindOf('structured'), EngineResultKind.structured);
     expect(await kindOf('number'), EngineResultKind.number);

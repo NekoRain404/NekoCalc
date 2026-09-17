@@ -108,6 +108,119 @@ void main() {
     });
   });
 
+  group('译文里不许出现原生守卫会拒绝的「调用」', () {
+    // 中文：**这一组盯的是一条 Dart 看不见的边界。**
+    //
+    //       原生侧 `QalculateEngine.firstCallNameUnknownToEngine` 拿一个正则扫**译文**，凡是
+    //       「标识符紧跟左括号」的名字，都要在引擎自己的符号表里查得到，否则整条表达式按
+    //       「引擎读不懂」丢掉、回落旧解析器。而 `flutter test` 跑的是**替身引擎**：那条守卫在测试
+    //       里**一次都不会执行**，只有真机能看见它。换句话说，**Dart 这一侧拥有一个自己验证不了的
+    //       契约**，唯一的防御就是把「写出去的形状」钉在它自己的规则上——下面用的就是那条规则的
+    //       正则原文，不是它的转述。
+    //
+    //       真机上抓到的实例（本轮的根因）：翻译器把 `5 km to mi` 写成
+    //       `((((5)*(km))) to (mi))`，而那条正则允许名字与 `(` 之间有空格，于是 `to (mi)` 被读成
+    //       「一个叫 `to` 的调用」→ 引擎符号表里查不到 → 整条丢掉，屏幕上是「存在无法识别的内容」。
+    //
+    //       **这条测试怎么防住下一类**：它把译文中所有被那条正则认成「调用名」的名字收集起来，
+    //       逐个要求它们要么是翻译器有权写出的词运算符（原生侧 [WORD_OPERATOR_TO] 逐个对应），
+    //       要么是引擎认得的名字（词表的 `engineFunction` 那一列，量过）。译文里再多出一个形状
+    //       像调用的词——新运算符、新的名字、括号放错位置——这条就红，而它跑在 `flutter test` 里。
+    //       它**不能**替代真机验证（引擎到底认不认某个名字只有引擎知道），它替代的是「下一轮再
+    //       靠真机发现同一个形状」。
+    //
+    // English: **this group watches a boundary Dart cannot see.**
+    //
+    //          The native side (`QalculateEngine.firstCallNameUnknownToEngine`) scans the
+    //          **translation** with one regex: every name in "identifier immediately followed by a
+    //          bracket" must be in the engine's own symbol table, or the whole expression is dropped as
+    //          "the engine cannot read it" and the legacy parser answers. And `flutter test` runs a
+    //          **fake engine**: that guard **never executes in the test suite**, only on a device. In
+    //          other words **the Dart side owns a contract it cannot verify**, and the only defence is
+    //          to pin the emitted shape against that rule — the pattern below is the rule's regex
+    //          verbatim, not a paraphrase.
+    //
+    //          The instance caught on a device (this round's root cause): the translation writes
+    //          `5 km to mi` as `((((5)*(km))) to (mi))`, and the pattern allows whitespace between a
+    //          name and `(`, so `to (mi)` read as "a call to `to`" → not in the engine's symbol table →
+    //          the whole thing dropped and the screen showed "unrecognised content".
+    //
+    //          **How this stops the next one**: it collects every name the pattern reads as a call name
+    //          in the translation and requires each to be either a word operator the translation is
+    //          entitled to write (one native `WORD_OPERATOR_TO` per entry) or a name the engine knows
+    //          (the vocabulary's `engineFunction` column, measured). One more call-shaped token in the
+    //          translation — a new operator, a new name, a misplaced bracket — turns this red, and it
+    //          runs under `flutter test`. It **cannot** replace device verification (only the engine
+    //          knows whether it knows a name); what it replaces is "discover the same shape on a device
+    //          next round".
+    //
+    // 中文：这条正则逐字来自 `QalculateEngine.companion.CALL_NAME`。
+    // English: this pattern is verbatim from `QalculateEngine.companion.CALL_NAME`.
+    final nativeCallName = RegExp(r'([A-Za-z][A-Za-z0-9]*)\s*\(');
+
+    // 中文：翻译器有权写在调用位置上的词——原生侧 `WORD_OPERATOR_TO` 逐个对应。
+    // English: the words the translation may write in call position — one per native
+    //          `WORD_OPERATOR_TO`.
+    const wordOperators = <String>{'to'};
+
+    // 中文：引擎认得的名字 = 词表 `engineFunction` 那一列（量过）∪ 单位表的符号（引擎当单位认，
+    //       守卫也查 `getUnit`）。两个来源都是既有的表，这里不新增第三份清单。
+    // English: names the engine knows = the vocabulary's `engineFunction` column (measured) ∪ the unit
+    //          table's symbols (the engine knows them as units and the guard checks `getUnit`
+    //          as well). Both come from tables that already exist; no third list is invented here.
+    final engineKnown = <String>{
+      for (final entry in AppEngineVocabulary.identifiers.entries)
+        if (entry.value.engineFunction != null) entry.value.engineFunction!,
+      ...kAppUnitSymbols,
+    };
+
+    test('每一串译文里的「调用名」都在白名单里', () {
+      // 中文：样本要覆盖三类写法：裸单位、单位换算（右操作数带括号——正是真机红过的那一种）、
+      //       以及函数调用复合的单位目标。
+      // English: the samples have to cover three shapes: a bare unit, a unit conversion (whose right
+      //          operand is parenthesised — the one that went red on the device), and a function call
+      //          combined with a unit target.
+      const samples = <String>[
+        '5 km',
+        '5 km to mi',
+        '5 km to m/s',
+        '1 km to m/s',
+        'sqrt(8) km',
+        '5 km + 3 s',
+        '5 km to kg',
+      ];
+      for (final source in samples) {
+        final translated = engineExpressionFor(source);
+        if (translated is! TranslatedExpression) continue; // 翻译不了的样本由别的测试管
+        final names = nativeCallName
+            .allMatches(translated.text)
+            .map((match) => match.group(1)!)
+            .toSet();
+        for (final name in names) {
+          expect(wordOperators.contains(name) || engineKnown.contains(name), isTrue,
+              reason: '`$source` 的译文 `${translated.text}` 里，`$name` 会被原生守卫读成调用名，'
+                  '而它既不是词运算符，也不在「引擎认得」那一列——真机上整条表达式会被丢掉');
+        }
+      }
+    });
+
+    test('真机红过的那一串：`to (` 会被守卫读成调用，所以 `to` 必须在白名单里', () {
+      // 中文：这一条是上面那条的**红证锚点**：把词运算符从白名单里去掉，这条立刻红——因为译文里
+      //       确实会出现一个叫 `to` 的「调用名」。它记录的是这个形状**存在**，而不是假设它不存在。
+      // English: this is the **red-proof anchor** for the test above: drop the word operator from the
+      //          whitelist and this goes red immediately, because a "call name" `to` really does appear
+      //          in the translation. It records that the shape **exists** rather than assuming it
+      //          cannot.
+      const translated = '((((5)*(km))) to (mi))';
+      final names = nativeCallName
+          .allMatches(translated)
+          .map((match) => match.group(1)!)
+          .toSet();
+      expect(names, <String>{'to'});
+      expect(wordOperators, containsAll(names));
+    });
+  });
+
   group('单位表', () {
     test('符号不重复，每一族都有单位', () {
       expect(kAppUnits.length, kAppUnitSymbols.length,
@@ -137,6 +250,77 @@ void main() {
       for (final absent in <String>['m^2', 'm/s', '°C', 'deg']) {
         expect(isAppUnit(absent), isFalse, reason: '「$absent」不该在可插入单位表里');
         expect(AppEngineVocabulary.variableUnknownToEngine(absent), isNotNull);
+      }
+    });
+  });
+
+  group('端到端：面板按出来的第一件事 —— `5 km`', () {
+    test('按 `5`、点 `km` 之后屏幕上是一个量，不是「存在无法识别的内容」', () async {
+      // 中文：**这是这一轮修的第二件事。** 第一件是分隔符（`5kmtomi` 会粘成一个标识符）；修完分隔符
+      //       之后，`5` + `km` 得到的是 `5 km`——它**翻译得了**，但引擎的答案带单位，而
+      //       `EngineResultKind.unit` 那一支不显示，于是屏幕上是回落旧解析器的那句
+      //       「存在无法识别的内容」。用户插了一个应用**自己提供**的单位，却得到一句说他不认识
+      //       `km` 的报错——这正是要消灭的那类错值/错话。
+      //
+      //       现在原生侧把「一个量」与「带单位但算不出来」分开：`5 km` 是前者（数 × 单位），
+      //       `5 km + 3 s` 是后者（加法，引擎原样退回来），判据是结构性的。
+      //
+      //       回执的字段逐字来自设备实测（§报告：`5 km` → `decimal=5 km kind=quantity`）。
+      // English: **this is the second thing this round fixes.** The first was the separator
+      //          (`5kmtomi` glues into one identifier); with separators fixed, `5` + `km` gives
+      //          `5 km` — which **does** translate, but the engine's answer carries a unit and the
+      //          `EngineResultKind.unit` branch refuses it, so the screen shows the fallback's
+      //          "unrecognised content". The user inserted a unit **the app itself offers** and got told
+      //          `km` was not recognised — exactly the kind of wrong message/value this work exists to
+      //          delete.
+      //
+      //          The native side now separates "a quantity" from "carries a unit but cannot be
+      //          evaluated": `5 km` is the former (a number times a unit), `5 km + 3 s` is the latter (an
+      //          addition the engine hands back), and the test is structural.
+      //
+      //          The receipt's fields are verbatim from the device run (`5 km` →
+      //          `decimal=5 km kind=quantity`).
+      final engine = _FakeMathEngine(
+        const EngineReplyFixture(
+          displayText: '5 km',
+          displayTex: r'\qty{5}{\km}',
+          kind: EngineResultKind.quantity,
+        ).reply,
+      );
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      // 中文：**这一串就是面板按出来的**（`5` 键 + `km` 按钮；分隔符由 `unitInsertionText` 决定，
+      //       那一条有它自己的测试）。这里不写手写的空格版本——上一轮就是这么漏掉分隔符的。
+      // English: **this is exactly what the keypad produces** (the `5` key plus the `km` button; the
+      //          separator comes from `unitInsertionText`, which has tests of its own). No hand-written
+      //          spaced string here — testing one is how the last round missed the separator.
+      controller.setExpression('5 km');
+      final submitted = await controller.submit();
+
+      expect(controller.hasError, isFalse, reason: '插进去的是应用自己提供的单位');
+      expect(controller.result, '5 km');
+      expect(controller.result, isNot(contains('无法识别')));
+      expect(submitted.submitted, isTrue);
+      // 中文：**数值消费者这一半没有放宽**：`5 km` 不是有限十进制，`Ans`/记忆拿不到它。
+      // English: the numeric half is **not** relaxed: `5 km` is not a finite decimal, so `Ans`/memory
+      //          get nothing from it.
+      expect(controller.resultDecimal, isEmpty);
+
+      controller.dispose();
+    });
+
+    test('`quantity` 可显示，`unit`（量以外的一切带单位结果）仍然不可显示', () {
+      expect(
+        const MathResult(displayText: '5 km', resultKind: EngineResultKind.quantity)
+            .isDisplayable,
+        isTrue,
+      );
+      for (final kind in <EngineResultKind>[
+        EngineResultKind.unit,
+        EngineResultKind.unitMismatch,
+      ]) {
+        expect(MathResult(displayText: '5 km', resultKind: kind).isDisplayable, isFalse,
+            reason: '$kind 不该上屏');
       }
     });
   });

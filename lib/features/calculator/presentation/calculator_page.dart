@@ -415,8 +415,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * _moreSheetHeightRatio,
       ),
-      builder: (sheetContext) =>
-          UnitPickerSheet(onInsert: _controller.input),
+      // 中文：**面板交出来的是裸记号，分隔符在这里（也是唯一一处）决定。** 真实按键流是一串
+      //       相邻插入（`5` → `km` → `to` → `mi`），不加分隔符它们会粘成 `5kmtomi`——那**一个**
+      //       标识符，翻译层拒收、旧解析器读不懂。见 [unitInsertionText] 上的长注释。
+      // English: **the sheet hands over bare tokens and the separators are decided here (the only
+      //          place).** The real keypad flow is a run of adjacent insertions (`5` → `km` → `to` →
+      //          `mi`) and without separators they glue into `5kmtomi` — **one** identifier, refused by
+      //          the translation and unreadable by the legacy parser. See the long note on
+      //          [unitInsertionText].
+      builder: (sheetContext) => UnitPickerSheet(
+        onInsert: (token) =>
+            _controller.input(unitInsertionText(token, _controller.expression)),
+      ),
     );
   }
 

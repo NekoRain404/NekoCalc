@@ -25,9 +25,45 @@ enum EngineResultKind {
   /// English: the engine performed a conversion (`to`, `->`, `→`, …). The user asked for it.
   conversion,
 
-  /// 中文：结果带单位。**应用自己的语言里没有单位**——见 [MathResult.isDisplayable]。
-  /// English: the result carries a unit. **This app's language has no units** — see
-  ///          [MathResult.isDisplayable].
+  /// 中文：**一个量**：一个（或几个）数字与单位的乘积（`5 km`、`9.8 m/s^2`、`3 m^2`）。原生侧用
+  ///       `MathStructure` 判出来的（`QalculateEngine.isPlainQuantity`）：结果里除了数字、单位、
+  ///       单位的幂之外**什么都没有**——没有加法（`5 km + 3 s` 算不出来，引擎把它原样退回来，
+  ///       它不是量）、没有变量、没有函数。
+  ///
+  ///       **这一支放行的理由与 [unit] 拒绝的理由是同一条的两面，而且两侧都量过**：
+  ///       - 应用自己的语法**现在有单位了**（`CONV` 面板那块封闭表，117 个符号），所以「带单位的
+  ///         答案不可能来自这个语法」那句话不再成立；
+  ///       - 输入是闭的：翻译层只放行词表里的名字与单位表里的符号，于是带单位的结果里那些单位
+  ///         只可能来自用户插进去的那几个；
+  ///       - 「引擎把我们的某个名字读成单位」这条老路量过了：词表全部名字 + 常数 + `x`/`y`/`i`
+  ///         逐个问过引擎，除单位表自己之外只有 `min` 与 `inf` 命中，而两者都到不了引擎
+  ///         （`min` 作为裸变量被词表拒绝，`inf` 由翻译写成 `infinity`）。
+  ///       **判据是结构性的**（「这是不是一个量」），不是「哪些单位可以显示」的清单。
+  ///
+  /// English: **a quantity**: a product of numbers and units (`5 km`, `9.8 m/s^2`, `3 m^2`). Judged
+  ///          natively from the `MathStructure` (`QalculateEngine.isPlainQuantity`): the result holds
+  ///          **nothing but** numbers, units and powers of units — no addition (`5 km + 3 s` cannot be
+  ///          evaluated, the engine hands it back, and it is not a quantity), no variable, no function.
+  ///
+  ///          **Why this branch passes is the other face of why [unit] refuses, and both halves are
+  ///          measured**:
+  ///          - this app's syntax **has units now** (the closed table behind the `CONV` sheet, 117
+  ///            symbols), so "an answer carrying a unit cannot have come from this syntax" no longer
+  ///            holds;
+  ///          - the input is closed: the translation lets through only vocabulary names and unit-table
+  ///            symbols, so the units in a unit-carrying result can only be ones the user inserted;
+  ///          - the old path — "the engine reads one of our names as a unit" — was measured: every
+  ///            vocabulary name, constant and `x`/`y`/`i` was asked of the engine, and outside the unit
+  ///            table only `min` and `inf` matched, neither of which reaches the engine (`min` is
+  ///            refused as a bare variable, `inf` is written `infinity` by the translation).
+  ///          **The test is structural** ("is this a quantity"), not a list of displayable units.
+  quantity,
+
+  /// 中文：带单位，但**不是一个量**：算不出来的加法（`5 km + 3 s` 被原样退回来）、带变量或函数的
+  ///       结果（`x km`）、以及「引擎把我们的某个标识符读成了单位」那一类。一律不显示。
+  /// English: carries a unit but is **not a quantity**: an unevaluated addition (`5 km + 3 s` handed
+  ///          straight back), a result carrying a variable or a function (`x km`), and the class where
+  ///          the engine read one of our identifiers as a unit. Not displayed.
   unit,
 
   /// 中文：**用户要了一次换算，而引擎没做。** 原生侧判出来的（`QalculateEngine.conversionLanded`）：
@@ -235,7 +271,12 @@ class MathResult {
   ///         矩阵、复数、解集在放宽之前被整条丢掉。
   ///       - [EngineResultKind.conversion]：用户明确要求了一次换算，引擎自己确认做过了
   ///         （`to_struct`）。带单位但用户要的，收。
-  ///       - [EngineResultKind.unit]：**应用自己的语法里没有单位名**——它只认两个单位式后缀：
+  ///       - [EngineResultKind.quantity]：**一个量**（数 × 单位）。放行的理由与 [EngineResultKind.unit]
+  ///         拒绝的理由是同一条的两面，且两侧都量过（见那一支的注释）：应用自己的语法**现在有单位
+  ///         了**，而输入是闭的，所以一个量里的单位只可能来自用户从面板插进去的那几个。
+  ///       - [EngineResultKind.unit]：**带单位但不是一个量**——算不出来的加法（`5 km + 3 s` 被原样
+  ///         退回来）、带变量或函数的结果（`x km`）。
+  ///         曾经它还是「应用自己的语法里没有单位名」那条理由的落点：那时的语法只认两个单位式后缀：
   ///         `°`（`ExpressionParser` 把它改写成 `rad(...)`，`expression_parser.dart:487`）与
   ///         `%`（百分号，同样是固定算术，`:599`），两者都由旧解析器按自己的算术处理。
   ///         所以一个带**具名单位**的引擎答案不可能来自这个语法表达得出的东西——除非用户用
@@ -322,6 +363,7 @@ class MathResult {
       EngineResultKind.conversion => true,
       EngineResultKind.structured => true,
       EngineResultKind.number => true,
+      EngineResultKind.quantity => true,
       EngineResultKind.unit => false,
       EngineResultKind.unitMismatch => false,
       EngineResultKind.arithmetic => false,

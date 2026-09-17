@@ -349,7 +349,8 @@ class QalculateEngine {
                 !toStruct.isUndefined() && !conversionLanded(engine, evaluated, toStruct, angleUnit) ->
                     KIND_UNIT_MISMATCH
                 !toStruct.isUndefined() -> KIND_CONVERSION
-                evaluated.containsType(StructureType.STRUCT_UNIT, true, true, false) > 0 -> KIND_UNIT
+                evaluated.containsType(StructureType.STRUCT_UNIT, true, true, false) > 0 ->
+                    if (isPlainQuantity(evaluated)) KIND_QUANTITY else KIND_UNIT
                 evaluated.isMatrix() || evaluated.isVector() -> KIND_STRUCTURED
                 evaluated.isNumber() -> KIND_NUMBER
                 else -> KIND_ARITHMETIC
@@ -752,6 +753,72 @@ class QalculateEngine {
         return evaluatedQuotient.containsType(StructureType.STRUCT_UNIT, true, true, false) <= 0
     }
 
+    /**
+     * 中文：**这是一个「量」吗**——一个（或几个）数字与单位的乘积，此外什么都没有：
+     *       `5 km`（数 × 单位）、`9.8 m/s^2`（数 × 单位 × 单位的负幂）、`3 m^2`（数 × 单位的幂）。
+     *
+     *       判据里**没有**「加法」这一支，所以「引擎算不出来的加法」自然落选：`5 km + 3 s` 是一个
+     *       Addition，它既不是单位、也不是单位的幂、也不是「每一项都是数或单位」的乘积，于是它
+     *       仍旧报 `unit`（不显示）。同理，任何带变量或函数的结果（`x km`、`sin(x) m`）也不是量。
+     *
+     *       **为什么这个判据可以放行而 `unit` 不行**（两侧都是量出来的）：
+     *       - 输入是闭的：翻译层只放行应用词表里的名字与**本单位表**里的 117 个符号，别的一律拒绝
+     *         （`engine_expression.dart` 的白名单 + `AppEngineVocabulary`），所以一个带单位的结果，
+     *         它的单位只可能来自用户从面板插进去的那几个；
+     *       - 「引擎把我们的某个名字读成单位」这条老路被量过：把应用词表的**全部**名字
+     *         （49 个函数名 + 常量 + `x`/`y`/`i`）+ 单位表 117 个符号逐个问过引擎「`1 <名字>`
+     *         的结果带不带单位」，**除单位表自己之外只有两个命中**：`min`（引擎读成分钟）与
+     *         `inf`（读成 `'f' in`）——而这两个都到不了引擎：`min` 是应用函数、作为裸变量被词表
+     *         拒绝，`inf` 由翻译写成 `infinity`。`e` 实测**不**带单位（引擎读的是欧拉常数）。
+     *         量测程序与完整输出在步骤 6 修复轮的报告里。
+     *
+     *       所以判据是**结构性的**（「这个结果是不是一个量」），而不是一张「哪些单位可以显示」的
+     *       清单——后者是开放面，本仓库已经在那上面栽过几次。
+     *
+     * English: **is this a "quantity"** — a product of numbers and units, and nothing else: `5 km`
+     *          (a number times a unit), `9.8 m/s^2` (a number, a unit and a unit's negative power),
+     *          `3 m^2` (a number and a power of a unit).
+     *
+     *          There is deliberately **no addition branch**, so "an addition the engine could not
+     *          evaluate" fails it: `5 km + 3 s` is an Addition — not a unit, not a power of one, and
+     *          not a product whose every child is a number or a unit — so it still reports `unit` (do
+     *          not display). For the same reason anything carrying a variable or a function (`x km`,
+     *          `sin(x) m`) is not a quantity.
+     *
+     *          **Why this verdict may pass where `unit` may not** (both halves measured):
+     *          - the input is closed: the translation lets through only names from the app's vocabulary
+     *            and the 117 symbols of the app's own unit table, refusing everything else
+     *            (`engine_expression.dart`'s whitelists plus `AppEngineVocabulary`), so the units in a
+     *            unit-carrying result can only be ones the user inserted from the sheet;
+     *          - the old path — "the engine reads one of our names as a unit" — was measured: every name
+     *            in the app vocabulary (49 function names plus the constants plus `x`/`y`/`i`) and all
+     *            117 unit symbols were asked, one by one, whether `1 <name>` carries a unit, and
+     *            **only two matched outside the unit table itself**: `min` (the engine reads a minute)
+     *            and `inf` (read as `'f' in`) — and neither reaches the engine: `min` is an app function
+     *            and is refused as a bare variable by the vocabulary, while `inf` is written `infinity`
+     *            by the translation. `e` measures **no unit** (the engine reads Euler's constant). The
+     *            measuring program and its full output are in the step 6 fix-round report.
+     *
+     *          So the test is **structural** ("is this result a quantity") rather than a list of "which
+     *          units may be displayed" — the latter is an open surface, and this repository has been
+     *          burned by those more than once.
+     */
+    private fun isPlainQuantity(m: MathStructure): Boolean = when {
+        m.isNumber() -> true
+        m.isUnit() -> true
+        m.isPower() -> isPlainQuantity(m.base())
+        m.isMultiplication() -> {
+            var all = true
+            var i: Long = 1
+            while (all && i <= m.size()) {
+                all = isPlainQuantity(m.getChild(i))
+                i++
+            }
+            all
+        }
+        else -> false
+    }
+
     private fun firstCallNameUnknownToEngine(engine: Calculator, expression: String): String? {
         for (match in CALL_NAME.findAll(expression)) {
             val name = match.groupValues[1]
@@ -772,6 +839,59 @@ class QalculateEngine {
             //          `deg`/`rad` being units changes nothing — the app-side vocabulary is stricter
             //          and stops those names before the engine is asked
             //          (`AppEngineVocabulary.canRead`).
+            // 中文：**换算关键字 `to` 不是调用名，跳过它。**
+            //
+            //       这一条是**真机上抓到的**：`5 km to mi` 在设备上回的是
+            //       `engine_error: engine_unrecognised_identifier: to`，于是整条表达式被丢掉、回落到
+            //       旧解析器（它读不了单位），屏幕上是「存在无法识别的内容」——**是应用自己的守卫
+            //       拒绝了应用自己的翻译器写出来的字符串**。
+            //
+            //       怎么发生的：`to` 是**词运算符**，翻译器把它写成 `((((5)*(km))) to (mi))`（两侧
+            //       必须有空格，见 `engine_expression.dart` 的 `_wordOperator`：不带空格引擎会把它读成
+            //       `t`·`o` 的乘积）。而 CALL_NAME 的正则允许名字与 `(` 之间有空白，于是 `to (mi)`
+            //       看起来就是一个叫 `to` 的调用——而引擎的符号表里三者皆无，判据于是拒绝。
+            //
+            //       **为什么跳过它是安全的**：这一段代码问的是「表达式里有没有引擎读不懂的**调用**」，
+            //       而 `to` 从来不是这个应用能写出来的调用——用户敲 `to(2)` 时，翻译层的封闭词表
+            //       （`AppEngineVocabulary.engineNameFor`，表外的名字一律拒绝）在**桥看到它之前**就
+            //       把整个表达式判成不可翻译，引擎根本不会被问到。所以这里唯一可能出现的 `to (`
+            //       就是翻译器自己的换算写法。
+            //
+            //       这里只写一个单词，是因为**能够出现在调用位置上的词只有翻译器写出来的运算符**，
+            //       而翻译器今天只写 `to`（`_binaryOperators` 里唯一的字母运算符）。那张表在 Dart 侧，
+            //       加第二个词运算符时也要在这里加一行——Dart 侧有一条测试盯着写出去的形状（见
+            //       `test/domain/unit_conversion_expression_test.dart` 里那条用**这个正则原文**扫
+            //       译文的测试），它会在漏加时先红。
+            //
+            // English: **the conversion keyword `to` is not a call name — skip it.**
+            //
+            //          This was caught **on a real device**: `5 km to mi` came back as
+            //          `engine_error: engine_unrecognised_identifier: to`, so the whole expression was
+            //          thrown away and the legacy parser (which cannot read units) answered — the screen
+            //          said "unrecognised content". **The app's own guard was rejecting the string the
+            //          app's own translator wrote.**
+            //
+            //          How: `to` is a **word operator**, and the translation writes it as
+            //          `((((5)*(km))) to (mi))` (the spaces are required — see `_wordOperator` in
+            //          `engine_expression.dart`: without them the engine reads `t`·`o` as a product).
+            //          CALL_NAME's pattern allows whitespace between a name and `(`, so `to (mi)` looks
+            //          like a call to `to` — and the engine's symbol table has none of the three under
+            //          that name, so the judgement refuses it.
+            //
+            //          **Why skipping it is safe**: this block asks "does the expression call anything the
+            //          engine cannot read", and `to` is not a call this app can produce — when a user
+            //          types `to(2)` the translation's closed table (`AppEngineVocabulary.engineNameFor`,
+            //          which refuses every name outside it) judges the whole expression untranslatable
+            //          **before the bridge ever sees it**, so the engine is never asked. The only `to (`
+            //          that can appear here is the translator's own conversion.
+            //
+            //          It is a single word because **the only words that can appear in call position are
+            //          the operators the translation writes**, and it writes exactly `to` today (the only
+            //          alphabetic entry in `_binaryOperators`). That table lives in Dart, so a second word
+            //          operator means a line here too — and a Dart test watching the emitted shape (the
+            //          one in `test/domain/unit_conversion_expression_test.dart` that scans the
+            //          translation with **this regex, verbatim**) goes red first if that line is missed.
+            if (name == WORD_OPERATOR_TO) continue
             if (engine.getFunction(name) != null) continue
             if (engine.getVariable(name) != null) continue
             if (engine.getUnit(name) != null) continue
@@ -812,10 +932,26 @@ class QalculateEngine {
 
         /** 中文：要了换算而换算没发生（见 [conversionLanded]）。Dart 侧一律不显示。 */
         const val KIND_UNIT_MISMATCH = "unit_mismatch"
+
+        /** 中文：**一个量**（数 × 单位，见 [isPlainQuantity]）。Dart 侧显示它。 */
+        const val KIND_QUANTITY = "quantity"
+
+        /** 中文：带单位但**不是一个量**（算不出来的加法、带变量或函数的结果、引擎把我们的名字读成单位）。不显示。 */
         const val KIND_UNIT = "unit"
         const val KIND_STRUCTURED = "structured"
         const val KIND_NUMBER = "number"
         const val KIND_ARITHMETIC = "arithmetic"
+
+        /**
+         * 中文：翻译器写出来的**词运算符**（换算关键字）。它看起来像调用（`to (mi)`），但不是——
+         *       见 [firstCallNameUnknownToEngine] 里那一段。Dart 侧的 `_binaryOperators` 是那张表的
+         *       真源；这里加第二个词时那边也要加。
+         * English: the **word operator** (conversion keyword) the translation writes. It looks like a
+         *          call (`to (mi)`) and is not one — see the note in [firstCallNameUnknownToEngine].
+         *          `_binaryOperators` on the Dart side is that table's source of truth; a second word
+         *          there means a second one here.
+         */
+        const val WORD_OPERATOR_TO = "to"
 
         /** 中文：函数调用的形状（标识符紧跟左括号），与应用自己的语法一致。 */
         private val CALL_NAME = Regex("([A-Za-z][A-Za-z0-9]*)\\s*\\(")

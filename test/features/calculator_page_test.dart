@@ -26,6 +26,16 @@ void main() {
     await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();
 
+    // 中文：**先按 `5`，再开面板** —— 这一步与本仓库的其余测试一样，模拟的是真实按键流。
+    //       上一轮漏掉的正是这条：四处验证用的都是手写的带空格字符串，而按键产生的是
+    //       `5` + `km` + `to` + `mi` 这样一串相邻插入，不加分隔符会粘成 `5kmtomi`（一个标识符）。
+    // English: **press `5` first, then open the sheet** — like the rest of this repository's tests,
+    //          this simulates the real keypad flow. That is exactly what the last round missed: every
+    //          verification used a hand-written spaced string, while key presses produce a run of
+    //          adjacent insertions (`5` + `km` + `to` + `mi`) that glues into `5kmtomi` (one
+    //          identifier) without separators.
+    await tester.tap(find.text('5'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('CONV'));
     await tester.pumpAndSettle();
     expect(find.byType(UnitPickerSheet), findsOneWidget);
@@ -45,7 +55,8 @@ void main() {
 
     expect(
       tester.widget<MathExpressionView>(find.byType(MathExpressionView).first).expression,
-      'km to mi',
+      '5 km to mi',
+      reason: '按出来的那一串必须是应用自己的语法读得懂的',
     );
   });
 

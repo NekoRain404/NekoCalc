@@ -138,6 +138,11 @@ class QalculateMathEngine implements MathEngine {
         //          (judged natively by `conversionLanded`). Like `unit` it lands in the "do not
         //          display" branch; see [EngineResultKind.unitMismatch].
         'unit_mismatch' => EngineResultKind.unitMismatch,
+        // 中文：`quantity` —— 一个量（数 × 单位），**可以显示**：单位是用户从面板插进去的，
+        //       见 [EngineResultKind.quantity]。
+        // English: `quantity` — a quantity (a number times a unit) and **displayable**: its units are
+        //          ones the user inserted from the sheet; see [EngineResultKind.quantity].
+        'quantity' => EngineResultKind.quantity,
         'unit' => EngineResultKind.unit,
         'structured' => EngineResultKind.structured,
         'number' => EngineResultKind.number,
