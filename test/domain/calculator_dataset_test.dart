@@ -429,6 +429,34 @@ void main() {
 
       controller.dispose();
     });
+
+    test('引擎缺席时，数据集拼出来的那条调用回落旧解析器并报错——绝不猜一个数', () async {
+      // 中文：硬性边界 2 在这一条新路上的形式。数据集拼出来的 `mean(5,12)` 走的是与面板其余各格
+      //       完全一样的那条路，而旧解析器**没有实现** `mean`（上一轮逐个量过：八个名字它一律
+      //       `throwsA(isA<FormatException>())`）。所以「引擎答不出来」的后果是一句错误，绝不是一个
+      //       看起来合理的数字——这正是硬性边界 4 要的 fail closed。
+      // English: hard boundary 2's form on this new path. The `mean(5,12)` the dataset builds travels
+      //          exactly the path the sheet's other cells do, and the legacy parser **does not
+      //          implement** `mean` (measured name by name last round: all eight throw
+      //          `FormatException`). So "the engine cannot answer" ends in an error, never in a
+      //          plausible-looking number — which is what hard boundary 4 asks for.
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: _FakeMathEngine(_failure),
+        storedDataset: '["5","12"]',
+      );
+      await controller.restoreIfEnabled();
+
+      controller.setExpression(controller.statisticsCall('mean'));
+      expect(controller.expression, 'mean(5,12)');
+      await controller.submit();
+
+      expect(controller.hasError, isTrue,
+          reason: '旧解析器读不懂 `mean`，这一条只能是一句错误');
+      expect(controller.result, isNot(contains('10')));
+
+      controller.dispose();
+    });
   });
 }
 
