@@ -39,18 +39,32 @@ enum ResultForm {
   /// English: the engine's exact spelling alone (HiPER's `EXPR` indicator).
   exact,
 
-  /// 中文：只要**分数写法**（HiPER 结果格式系统里 `fraction` 那一格，就是 `d/c` 那一颗键）。
-  ///       `a b/c`（`d/c` 的 SHIFT）**不是这一格的反面，而是另一格** `mixed number`：手册 v12.0
-  ///       p.6 把两个键帽并排印着——「用 `d/c` 输入分数」「用 `a b/c` 输入带分数」——而命令表里
-  ///       它们是两条命令（`command.name.FRACTION` = 'Fraction'、`command.name.MIXED_NUMBER`
-  ///       = 'Mixed Number'）。所以 `d/c` 既不是 Casio 的 `S⇔D`，也不是「假分数 ⇄ 带分数」的开关。
-  /// English: the **fraction spelling** alone (the `fraction` cell of HiPER's result-format system,
-  ///          which is the `d/c` key). `a b/c` (`d/c`'s SHIFT) is **not the other side of this cell
-  ///          but another cell**, `mixed number`: manual v12.0 p.6 prints both key caps side by side
-  ///          — "use `d/c` to enter a fraction", "use `a b/c` to enter a mixed number" — and the
-  ///          command table has them as two commands (`command.name.FRACTION` = 'Fraction',
-  ///          `command.name.MIXED_NUMBER` = 'Mixed Number'). So `d/c` is neither Casio's `S⇔D` nor
-  ///          a "improper ⇄ mixed" toggle.
+  /// 中文：只要**分数写法**（HiPER 结果格式系统里 `fraction` 那一格）。
+  ///
+  ///       **`d/c` 是两条分数命令里的「分数」那一颗，`a b/c`（它的 SHIFT）是另一颗**——它们是
+  ///       **两条命令**（`command.name.FRACTION` = 'Fraction'、`command.name.MIXED_NUMBER`
+  ///       = 'Mixed Number'），不是一颗键的两个状态。手册 v12.0 p.6 把两个**键帽字形**并排印着，
+  ///       一个是 `□/□`（配「用这颗**输入分数**」），一个是 `□ □/□`（配「用这颗**输入带分数**」），
+  ///       帮助文本把这两句分别绑在 `<key:FRACTION>` 与 `<key:MIXED_NUMBER>` 上。
+  ///       **这是配对推断，不是字面命中**：手册印的是字形，不是 `d/c` / `a b/c` 这几个字母——
+  ///       那几个字母是本应用沿用的 Casio 式键名（HiPER 自 10.5 起有「Casio style / Sharp
+  ///       style」键名设置，见 `releaseNotes`）。命令表里只有这两条分数命令，配对没有第二种可能。
+  ///       所以 `d/c` 既不是 Casio 的 `S⇔D`，也不是「假分数 ⇄ 带分数」的开关。
+  /// English: the **fraction spelling** alone (the `fraction` cell of HiPER's result-format system).
+  ///
+  ///          **`d/c` is the "fraction" one of two fraction commands, and `a b/c` (its SHIFT) is the
+  ///          other** — they are **two commands** (`command.name.FRACTION` = 'Fraction',
+  ///          `command.name.MIXED_NUMBER` = 'Mixed Number'), not two states of one key. Manual v12.0
+  ///          p.6 prints the two **key-cap glyphs** side by side, one `□/□` (with "use this to
+  ///          **enter a fraction**") and one `□ □/□` (with "use this to **enter a mixed number**"),
+  ///          and the help text binds those two sentences to `<key:FRACTION>` and
+  ///          `<key:MIXED_NUMBER>` respectively.
+  ///          **This is a pairing inference, not a literal string match**: the manual prints glyphs,
+  ///          not the letters `d/c` / `a b/c` — those letters are the Casio-style key titles this app
+  ///          borrows (HiPER has had a "Casio style / Sharp style" key-title setting since 10.5; see
+  ///          `releaseNotes`). The command table holds exactly these two fraction commands, so the
+  ///          pairing has no second candidate.
+  ///          So `d/c` is neither Casio's `S⇔D` nor an "improper ⇄ mixed" toggle.
   fraction,
 
   /// 中文：只要**度分秒写法**（HiPER 结果格式系统里 `DMS` 那一格：`12°34′55.92″`）。
@@ -114,9 +128,9 @@ enum ResultForm {
   ///         `MIXED` 是一句**关于画面上那个东西的假话**，所以宁可沉默。
   ///         （「fraction 与 mixed number 是两格」现在**有据**：`rfMenu` 的六条菜单项
   ///         （`Decimal` / `Expression` / `Fraction` / `Mixed number` / `Degrees, mins, secs` /
-  ///         `Polar coordinates`）与手册 v12.0 p.6 的两个键帽都这么说。但手册 p.7 的灯仍然只有
-  ///         `EXPR` `MIXED` `DMS` `POLAR` 四盏，**没有一盏以分数命名**——所以这一格不点灯，
-  ///         是来源说它没有灯，而不是来源说不清。）
+  ///         `Polar coordinates`）与手册 v12.0 p.6 的两个键帽字形（分数、带分数）都这么说。但手册
+  ///         p.7 的灯仍然只有 `EXPR` `MIXED` `DMS` `POLAR` 四盏，**没有一盏以分数命名**——所以这一格
+  ///         不点灯，是来源说它没有灯，而不是来源说不清。）
   ///       - [dms]：`DMS`。HiPER 的 sexagesimal 格式，`D°M'S` / `x⇔E` 那一格。
   ///       - [decimal]：**不点灯**——HiPER 那一格本来就没有灯（四盏灯对五种格式）。
   ///
