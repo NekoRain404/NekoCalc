@@ -1,5 +1,50 @@
 import 'package:flutter/foundation.dart';
 
+/// 中文：**引擎这次给出的答案是什么形状**——由原生侧用引擎自己的 `MathStructure` 判据回答
+///       （`isMatrix`/`isVector`/`isNumber`/`containsType(STRUCT_UNIT…)`），以及引擎自己做没做过一次
+///       换算（`to_struct`）。**没有一个字是从印出来的文本猜的。**
+///
+///       [`MathResult.isDisplayable`] 用它决定「这个答案配不配放到结果行上」：矩阵/复数/解集配，
+///       其余不配——理由见那个 getter 上的长注释。
+/// English: **What shape the engine's answer has** — answered by the native side with the engine's own
+///          `MathStructure` predicates (`isMatrix`/`isVector`/`isNumber`/`containsType(STRUCT_UNIT…)`),
+///          plus whether the engine performed a conversion (`to_struct`). **Not one word of it is
+///          guessed from the printed text.**
+///
+///          [`MathResult.isDisplayable`] uses it to decide whether the answer belongs on the result
+///          line: matrices, complex numbers and solution sets do, everything else does not — see the
+///          long note on that getter.
+enum EngineResultKind {
+  /// 中文：不是引擎给的（旧解析器、占位文本、错误文案）。形状这一层对它不生效——它没有形状，
+  ///       也从来不经过这道判据。
+  /// English: not from the engine (the legacy parser, a placeholder, an error message). The shape
+  ///          layer does not apply to it: it has no shape and never reaches this judgement.
+  notFromEngine,
+
+  /// 中文：引擎做了一次换算（`to`、`->`、`→` …）。用户明确要的，所以照收。
+  /// English: the engine performed a conversion (`to`, `->`, `→`, …). The user asked for it.
+  conversion,
+
+  /// 中文：结果带单位。**应用自己的语言里没有单位**——见 [MathResult.isDisplayable]。
+  /// English: the result carries a unit. **This app's language has no units** — see
+  ///          [MathResult.isDisplayable].
+  unit,
+
+  /// 中文：矩阵 / 向量（解集也是向量）。
+  /// English: a matrix or a vector (a solution set is a vector).
+  structured,
+
+  /// 中文：引擎的 Number——复数走这一支（实数在 Dart 侧已经是十进制了）。
+  /// English: the engine's Number — complex numbers land here (a real number is already a decimal by
+  ///          the time Dart sees it).
+  number,
+
+  /// 中文：其余一切：乘积、幂、函数调用、符号和。这些**应用自己的语言表达得了**，所以旧解析器才是权威。
+  /// English: everything else: products, powers, calls, symbolic sums. **This app's language can
+  ///          express these**, so the legacy parser is the authority for them.
+  arithmetic,
+}
+
 /// 中文：一次求值的结果，把「给人看的形态」「给排版看的形态」「给机器算的形态」分开保存。
 /// English: One evaluation result, keeping the human-readable form, the typeset form and the
 ///          machine-parseable form apart.
@@ -24,6 +69,7 @@ class MathResult {
     required this.displayText,
     this.displayTex = '',
     this.decimalText = '',
+    this.resultKind = EngineResultKind.notFromEngine,
   });
 
   /// 中文：旧求值器的产物——显示文本本身就是十进制文本（去掉千分位之后），并且没有 LaTeX。
@@ -58,6 +104,15 @@ class MathResult {
   /// English: The LaTeX form without `$` delimiters; empty while no engine is involved. Never feed
   ///          it to a numeric consumer.
   final String displayTex;
+
+  /// 中文：引擎这次答案的形状，以及它做没做过换算——原生侧用引擎自己的判据填。旧解析器与
+  ///       占位文本是 [EngineResultKind.notFromEngine]。**只有 [isDisplayable] 读它**：它是
+  ///       「能不能显示」这道判据的输入之一，不是给别的消费者看的。
+  /// English: the shape of the engine's answer, and whether it performed a conversion — filled in by
+  ///          the native side from the engine's own predicates. The legacy parser and placeholders use
+  ///          [EngineResultKind.notFromEngine]. **Only [isDisplayable] reads it**: it is one of the
+  ///          inputs to the "may this be displayed" judgement, not something other consumers look at.
+  final EngineResultKind resultKind;
 
   /// 中文：十进制形态——**唯一**允许被数值消费者解析的形态（Ans/last、记忆、继续使用、历史去重、
   ///       粘贴回填）。空串表示「没有可解析的十进制表示」，这不是错误，调用方必须照常工作。
@@ -145,46 +200,102 @@ class MathResult {
   ///
   ///       - [hasFiniteDecimal] 问的是「**能不能当数字用**」（`Ans`/`last`/记忆/继续使用/历史去重/
   ///         粘贴回填要的是这个）；
-  ///       - [isDisplayable] 问的是「**能不能显示**」。矩阵、复数、解集、精确形式都没有有限十进制，
-  ///         但它们是引擎算出来的**值**，恰恰是这个应用引入引擎的理由。
+  ///       - [isDisplayable] 问的是「**能不能显示**」：引擎的答案要么是十进制（`ln(0)` 那种
+  ///         非有限字面量除外），要么是**应用自己的语言表达不了的那种值**。
   ///
-  ///       它判的是 [displayText]——也就是**结果行上会出现的那个字符串**——而不是 [decimalText]：
-  ///       适配层对非数字答案**故意**不写 `decimalText`（那正是这个类存在的意义），所以拿
-  ///       `decimalText` 去判「能不能显示」会让矩阵和复数永远为假。
+  ///       判据分两层，第一层看**文本**（[textIsDisplayable]：非有限字面量不算数），第二层看**形状**
+  ///       （[resultKind]，由引擎自己的判据回答）。第二层的四个分支各有理由，合起来是**穷尽**的
+  ///       ——它是引擎结果空间的一个划分，不是一张举例清单：
   ///
-  ///       两个判据分开，正是 [MathResult] 拆成三个字段的本意；把它们合成一个，就等于「有十进制
-  ///       才配显示」——那会让矩阵与复数永远上不了屏。
+  ///       - [EngineResultKind.structured]（矩阵 / 向量 / 解集）与 [EngineResultKind.number]
+  ///         （复数）：**类型本身**是应用的语言表达不了的。这正是这一步放宽这道判据的理由——
+  ///         矩阵、复数、解集在放宽之前被整条丢掉。
+  ///       - [EngineResultKind.conversion]：用户明确要求了一次换算，引擎自己确认做过了
+  ///         （`to_struct`）。带单位但用户要的，收。
+  ///       - [EngineResultKind.unit]：**应用的语言里根本没有单位**——键位表、`ExpressionAstParser`、
+  ///         `ExpressionParser` 三处都没有一个单位记号，单位换算住在另一个工具页里。所以一个带单位的
+  ///         答案只可能来自「引擎把我们的某个标识符读成了单位」（`fact(-1)` → `-10 aa*t`，
+  ///         `ncr(5,10)` → 一串 `n'r' km/us`），那正是「把垃圾读成合理的形状」。
+  ///       - [EngineResultKind.arithmetic]：乘积、幂、函数调用、符号和——**应用的语言表达得了**，
+  ///         所以旧解析器才是权威：它要么给出一个值（那就它说了算），要么明确拒绝，而它的拒绝
+  ///         就是这个应用对这一行的答案。`1 / 0`、`mod(2; 0)`、`root(2; 0)`、`x / 0`、`2x`、
+  ///         `x^2 + 1`、`sin(x rad)` 全落在这一支。
+  ///       - [EngineResultKind.notFromEngine]：旧解析器与占位文本，形状这一层对它们不适用。
+  ///
+  ///       为什么「带单位」压过形状：`ncr(5,10)` 的结果**是**一个向量，只是每一项都带单位——
+  ///       按形状它就漏进去了。
+  ///
+  ///       **这条规则顶掉了一条旧的举例清单**（它只匹配「数字 运算符 数字」，于是 `i/0`、
+  ///       `(1+i)/0`、`matrix(...)/0`、`2 mod 0`、`root(2,0)`、`x/0` 全都漏了过去——而 `i` 与
+  ///       `MTRX` 正是那一步点亮的键）。新规则不看算式长什么样，只看**引擎这次给出的是哪一类值**。
   /// English: **Displayable** — whether what the engine produced this time may go on the result line.
-  ///          It is a **second judgement, not the same one** as [hasFiniteDecimal]:
+  ///          A **second judgement, not the same one** as [hasFiniteDecimal]:
   ///
   ///          - [hasFiniteDecimal] asks "**can this be used as a number**" (what `Ans`/`last`/memory/
   ///            continue-with/history de-duplication/paste round-trip need);
-  ///          - [isDisplayable] asks "**can this be shown**". A matrix, a complex number, a solution
-  ///            set or an exact form has no finite decimal, yet each is a *value* the engine
-  ///            computed — which is the whole reason this app took the engine on.
+  ///          - [isDisplayable] asks "**can this be shown**": the engine's answer is either a decimal
+  ///            (bar the non-finite literals like `ln(0)`) or **a value this app's own language cannot
+  ///            express**.
   ///
-  ///          It judges [displayText] — the string that would appear on the result line — rather than
-  ///          [decimalText]: the adapter **deliberately** leaves `decimalText` empty for a non-numeric
-  ///          answer (that is what this class is for), so asking `decimalText` "may this be shown"
-  ///          would answer no for every matrix and every complex number.
+  ///          Two layers: the first reads the **text** ([textIsDisplayable] — a non-finite literal
+  ///          does not count), the second reads the **shape** ([resultKind], answered by the engine's
+  ///          own predicates). The four branches of the second layer each have a reason, and together
+  ///          they are **exhaustive** — it is a partition of the engine's result space, not a list of
+  ///          examples:
   ///
-  ///          Keeping the two apart is what the three-field split of [MathResult] was for; merging
-  ///          them says "only what has a decimal deserves to be shown", which would keep matrices and
-  ///          complex numbers off the screen forever.
-  bool get isDisplayable => textIsDisplayable(displayText);
+  ///          - [EngineResultKind.structured] (matrices / vectors / solution sets) and
+  ///            [EngineResultKind.number] (complex numbers): their **type itself** cannot be expressed
+  ///            in this app's language. That is exactly why this judgement was relaxed — matrices,
+  ///            complex numbers and solution sets were being thrown away whole.
+  ///          - [EngineResultKind.conversion]: the user explicitly asked for a conversion and the
+  ///            engine confirms it performed one (`to_struct`). Unit-carrying because it was asked for.
+  ///          - [EngineResultKind.unit]: **this app's language has no units at all** — not one unit
+  ///            token in the keypad, in `ExpressionAstParser` or in `ExpressionParser`; unit conversion
+  ///            lives in a separate tool page. So a unit-carrying answer can only have come from the
+  ///            engine reading one of our identifiers as a unit (`fact(-1)` → `-10 aa*t`, `ncr(5,10)`
+  ///            → a list of `n'r' km/us`), which is precisely "garbage read into a plausible shape".
+  ///          - [EngineResultKind.arithmetic]: products, powers, calls, symbolic sums — **this app's
+  ///            language can express these**, so the legacy parser is the authority: it either
+  ///            produces a value (and that value wins) or refuses, and its refusal is this app's
+  ///            answer for that line. `1 / 0`, `mod(2; 0)`, `root(2; 0)`, `x / 0`, `2x`, `x^2 + 1`
+  ///            and `sin(x rad)` all land here.
+  ///          - [EngineResultKind.notFromEngine]: the legacy parser and placeholders; the shape layer
+  ///            does not apply to them.
+  ///
+  ///          Why "carries a unit" outranks the shape: the result of `ncr(5,10)` **is** a vector, only
+  ///          every element of it carries a unit — by shape alone it would slip through.
+  ///
+  ///          **This rule replaces a list of examples** (the old one matched only `number operator
+  ///          number`, so `i/0`, `(1+i)/0`, `matrix(...)/0`, `2 mod 0`, `root(2,0)` and `x/0` all got
+  ///          through — and `i` and `MTRX` are exactly the keys that step lit up). The new rule does
+  ///          not look at what the arithmetic looks like; it looks at **which kind of value the engine
+  ///          produced this time**.
+  bool get isDisplayable {
+    if (!textIsDisplayable(displayText)) return false;
+    return switch (resultKind) {
+      EngineResultKind.notFromEngine => true,
+      EngineResultKind.conversion => true,
+      EngineResultKind.structured => true,
+      EngineResultKind.number => true,
+      EngineResultKind.unit => false,
+      EngineResultKind.arithmetic => false,
+    };
+  }
 
   /// 中文：一段文本能不能显示（[isDisplayable] 用它判 [displayText]）。**只拒绝两类**，都在字符串层面判：
   ///
   ///       1. **真正非有限的字面量**：`∞` / `-∞` / `+∞` / `infinity` / `-infinity` / `NaN`
-  ///          （`ln(0)` 实测印成 `-infinity`）。
-  ///       2. **引擎没算、把式子原样退回来的那种形态**：整个文本就是一个「数字 运算符 数字」。
-  ///          `1/0` 实测印成 `1 / 0`、`0/0` 印成 `0 / 0`、`2/0` 印成 `2 / 0`——引擎拒绝做这次除法，
-  ///          于是把算式本身退回来。**这不是「取消检查」，是换一个检查**：它仍然拦着那三种形态，
-  ///          而矩阵（`[1  2; 3  4]`）、复数（`1 + 2i`）、符号结果（`2x`）一个都不受影响，
-  ///          因为它们身上没有「两个数字之间夹一个运算符」这个形状。
+  ///          （`ln(0)` 实测印成 `-infinity`）。这一条**不能省**：`-infinity` 在引擎那里是一个
+  ///          Number，形状那一层会把它当 [EngineResultKind.number] 放行。
   ///
   ///       **空串为假**：没有十进制形态的失败回执不该被当成可显示的结果（那是 [EngineReply] 的
   ///       `ok: false` 那一类，由调用方处理）。
+  ///
+  ///       它**曾经还有第二条**：整个文本是「数字 运算符 数字」就当成「引擎没算」。那是一条举例
+  ///       清单，只匹配一种写法，实测漏掉了 `i/0`、`(1+i)/0`、`matrix(...)/0`、`2 mod 0`、
+  ///       `root(2,0)`、`x/0`。现在这一类由 [resultKind] 的
+  ///       [EngineResultKind.arithmetic] 从**结构上**挡住（引擎自己说这个结果是乘积/幂/函数调用），
+  ///       不再看算式长什么样——所以那第二条被删掉了，而不是又补了几个例子。
   ///
   ///       实现**只有这一处**，与 [decimalValueOf] / [hasFiniteDecimal] 放在一起——这个类已经挪过
   ///       三次，再散开必然重演。
@@ -193,13 +304,8 @@ class MathResult {
   ///
   ///          1. **genuinely non-finite literals**: `∞` / `-∞` / `+∞` / `infinity` / `-infinity` /
   ///             `NaN` (`ln(0)` prints as `-infinity`, measured).
-  ///          2. **an arithmetic the engine did not perform and handed straight back**: the whole
-  ///             text is one `number <operator> number`. `1/0` prints as `1 / 0`, `0/0` as `0 / 0`
-  ///             and `2/0` as `2 / 0` (all measured) — the engine refuses the division and returns the
-  ///             expression itself. This is **swapping the check, not deleting it**: those three
-  ///             shapes stay off the screen, while a matrix (`[1  2; 3  4]`), a complex number
-  ///             (`1 + 2i`) and a symbolic result (`2x`) are untouched, because none of them has a
-  ///             number on both sides of an operator.
+  ///             measured). This clause **cannot be dropped**: `-infinity` is a Number on the engine's
+  ///             side, and the shape layer would wave it through as [EngineResultKind.number].
   ///
   ///          An **empty string is not displayable**: a failure receipt with no result is not a
   ///          result (that is [EngineReply]'s `ok: false` family, the caller's business).
@@ -210,8 +316,7 @@ class MathResult {
   static bool textIsDisplayable(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return false;
-    if (_displayNonFiniteLiteral.hasMatch(_withoutSign(trimmed))) return false;
-    return !_unperformedArithmetic.hasMatch(trimmed);
+    return !_displayNonFiniteLiteral.hasMatch(_withoutSign(trimmed));
   }
 
   /// 中文：`[符号]非有限字面量`。与 [_nonFiniteLiteral] 分开是免得两处的含义被读成一处：
@@ -229,16 +334,6 @@ class MathResult {
   static String _withoutSign(String text) =>
       text.startsWith('+') || text.startsWith('-') ? text.substring(1) : text;
 
-  /// 中文：`数字 运算符 数字`——引擎退回来的一次未做运算。数字允许小数与科学计数法，
-  ///       两边都必须是纯数字：`1 + 2i` 的右边不是纯数字，`2x` 也是，所以它们不受影响。
-  /// English: `number operator number` — one arithmetic operation the engine handed back unperformed.
-  ///          Numbers may be decimal or scientific, and both sides must be *pure* numbers: the right
-  ///          side of `1 + 2i` is not, and neither is `2x`, so those are unaffected.
-  static final RegExp _unperformedArithmetic = RegExp(
-    r'^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
-    r'\s*[+\-*/^]\s*'
-    r'[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$',
-  );
 
   /// 中文：一个**已经算出来的** double 能不能交给消费者：`Infinity` / `NaN` 不能，其余（包括真正的 0）
   ///       都能。它判不了下溢——`double.tryParse('9.3e-603')` 给的是 `0.0`，一个 double 自己说不清
@@ -316,15 +411,17 @@ class MathResult {
     return other is MathResult &&
         other.displayText == displayText &&
         other.displayTex == displayTex &&
-        other.decimalText == decimalText;
+        other.decimalText == decimalText &&
+        other.resultKind == resultKind;
   }
 
   @override
-  int get hashCode => Object.hash(displayText, displayTex, decimalText);
+  int get hashCode =>
+      Object.hash(displayText, displayTex, decimalText, resultKind);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
-        'decimalText: $decimalText)';
+        'decimalText: $decimalText, resultKind: ${resultKind.name})';
   }
 }

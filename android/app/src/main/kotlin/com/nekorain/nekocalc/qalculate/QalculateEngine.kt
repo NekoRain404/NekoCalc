@@ -9,8 +9,10 @@ import com.jherkenhoff.libqalculate.Calculator
 import com.jherkenhoff.libqalculate.DigitGrouping
 import com.jherkenhoff.libqalculate.EvaluationOptions
 import com.jherkenhoff.libqalculate.IntervalDisplay
+import com.jherkenhoff.libqalculate.MathStructure
 import com.jherkenhoff.libqalculate.NumberFractionFormat
 import com.jherkenhoff.libqalculate.PrintOptions
+import com.jherkenhoff.libqalculate.StructureType
 import com.jherkenhoff.libqalculate.libqalculateConstants
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -217,10 +219,61 @@ class QalculateEngine {
             //          The string overload (`Calculator.h:441`) handles trailing `to`/`where`
             //          commands itself, so dropping `calculateAndPrint` loses none of that — its own
             //          documentation says handling ending "to"-commands is what it adds.
+            // 中文：`to_struct` 是**引擎自己**的「这个输入里有没有换算」的答案：`calculate` 会在
+            //       结尾的 to-命令（`to`、`->`、`→`、`−>` 以及 dingbats——引擎自己的
+            //       `separateToExpression`，`Calculator-calculate.cc:3596`）真的做了一次换算时，
+            //       把换算结果写回这个结构。Dart/Kotlin 侧**不判断**哪些写法算「到」——那种清单
+            //       已经错过一次（`100 -> hex` 曾经被漏掉），这里让引擎说了算。
+            // English: `to_struct` is **the engine's own** answer to "does this input contain a
+            //          conversion": `calculate` writes the conversion's result back into it when a
+            //          trailing to-command (`to`, `->`, `→`, `−>` and the dingbats — the engine's own
+            //          `separateToExpression`, `Calculator-calculate.cc:3596`) really converted
+            //          something. Neither Dart nor Kotlin decides which spellings count as "to" —
+            //          such a list has already been wrong once (`100 -> hex` was missed); the engine
+            //          decides here.
+            val parsedStruct = MathStructure()
+            val toStruct = MathStructure()
             val evaluated = engine.calculate(
                 normalized,
                 evaluationOptions(ApproximationMode.APPROXIMATION_EXACT, angleUnit),
+                parsedStruct,
+                toStruct,
+                true,
             )
+            // 中文：**这个结果是什么形状**——全部由引擎自己的判据回答，没有一个字是从印出来的
+            //       文本猜的（Dart 侧据此决定「能不能显示」，见 `MathResult.isDisplayable`）：
+            //
+            //       - `conversion`：引擎做了一次换算（上面那个 `to_struct`）；
+            //       - `unit`：结果带单位（`containsType(STRUCT_UNIT, 递归, …)`）；
+            //       - `structured`：矩阵 / 向量（解集也是向量）；
+            //       - `number`：引擎的 Number（复数走这一支——实数在 Dart 侧就已经是十进制了）；
+            //       - `arithmetic`：其余一切（乘积、幂、函数调用、符号和）。
+            //
+            //       顺序有意义：**带单位压过形状**。`ncr(5,10)` 的结果是一个向量（`isVector()` 为真）
+            //       但它每一项都带着单位——引擎把 `n`/`c`/`r` 读成了单位与常量。带单位的判据先跑，
+            //       它就落不进 `structured`。
+            // English: **what shape this result is** — answered entirely by the engine's own
+            //          predicates, not one word of it guessed from the printed text (Dart uses it to
+            //          decide "may this be displayed"; see `MathResult.isDisplayable`):
+            //
+            //          - `conversion`: the engine performed a conversion (the `to_struct` above);
+            //          - `unit`: the result carries a unit (`containsType(STRUCT_UNIT, recursive, …)`);
+            //          - `structured`: a matrix or a vector (a solution set is a vector);
+            //          - `number`: the engine's Number (complex numbers land here — a real number is
+            //            already a decimal by the time Dart sees it);
+            //          - `arithmetic`: everything else (products, powers, calls, symbolic sums).
+            //
+            //          The order matters: **carrying a unit outranks the shape**. The result of
+            //          `ncr(5,10)` is a vector, yet every element of it carries a unit — the engine
+            //          read `n`, `c` and `r` as units and constants. The unit test runs first, so it
+            //          never reaches `structured`.
+            val kind = when {
+                !toStruct.isUndefined() -> KIND_CONVERSION
+                evaluated.containsType(StructureType.STRUCT_UNIT, true, true, false) > 0 -> KIND_UNIT
+                evaluated.isMatrix() || evaluated.isVector() -> KIND_STRUCTURED
+                evaluated.isNumber() -> KIND_NUMBER
+                else -> KIND_ARITHMETIC
+            }
 
             // 中文：精确形态先印——它要的是**未近似**的结构（`4√2`），所以必须在下面那一步之前印。
             //       不走 `calculateAndPrint`：它在 TAG_TYPE_LATEX 上会把 "$\displaystyle " 无条件
@@ -253,26 +306,38 @@ class QalculateEngine {
             //          nothing to do with evaluation: INTERVAL_DISPLAY_MIDPOINT is what prints its
             //          midpoint as a plain decimal. See Number.cc:11970 for the print path and
             //          includes.h:398-407 for the enum.
-            // 中文：**例外只有一条：结尾的 `to <命令>`。** 真机实测 `1.5° to arcmin` 走上面那一步
-            //       就够了（字符串重载自己处理单位换算，`90 arcmin`），但 `100 to hex` 不够——
-            //       十进制会印成 `100`，也就是那条命令被**忽略**了：`to hex`/`to binary`/`to factors`
-            //       这一类是 `calculateAndPrint` 独家负责的（它的文档就写着这一条）。所以带
-            //       ` to ` 的表达式仍旧走那条老路，代价是它们会被算两次——随机函数与 `to hex`
-            //       同时出现时两个形态仍可能对不上，而那是一个既打不出来、也没有意义的组合。
-            //       键位表里没有任何东西能产生 `to`，所以**这条例外覆盖不到任何一颗键**：
-            //       用户按出来的每一个表达式都走上面的单次求值。
-            // English: **there is exactly one exception: a trailing `to <command>`.** Measured on a
-            //          device: `1.5° to arcmin` is fine through the step above (the string overload
-            //          handles unit conversion itself — `90 arcmin`), but `100 to hex` is not — the
-            //          decimal prints as `100`, i.e. the command was **ignored**: `to hex`,
-            //          `to binary`, `to factors` and friends are `calculateAndPrint`'s own job (its
-            //          documentation says so). Expressions containing ` to ` therefore still travel
-            //          that older path, and the price is that they are evaluated twice — a random
-            //          function combined with `to hex` could still disagree between its two forms,
-            //          a combination that cannot be typed and means nothing. Nothing on the keypad
-            //          produces `to`, so **this exception covers no key at all**: everything the user
-            //          can press runs the single evaluation above.
-            val decimal = if (normalized.contains(" to ")) {
+            // 中文：**例外只有一条，而且它由引擎自己的答案决定**：引擎做了一次换算（`kind` 是
+            //       `conversion`）时，十进制仍旧走 `calculateAndPrint` 那条一步式老路。
+            //       理由是实测的：`1.5° to arcmin` 两种走法都对（`90 arcmin`），但
+            //       `100 to hex` / `100 -> hex` / `100 → hex` 只有一步式那条路给出 `64`——
+            //       `to hex`/`to binary`/`to factors` 这一族是 `calculateAndPrint` 独家负责的
+            //       （它的文档就写着这一条）。
+            //
+            //       判据从「字符串里有没有 ` to `」改成「引擎有没有真的换算」之后，覆盖面**与引擎
+            //       自身的规则逐条相同**——`->`/`→`/`−>`/dingbats 全都在内，因为判断就是引擎在
+            //       `separateToExpression` 里做的，而不是这里猜的。
+            //
+            //       代价：这类表达式会被算两次，随机函数与换算同时出现时两个形态仍可能对不上——
+            //       那是一个既打不出来、也没有意义的组合。键位表里没有任何东西能产生换算，所以
+            //       **这条例外覆盖不到任何一颗键**：用户按出来的每一个表达式都走单次求值。
+            // English: **there is exactly one exception, and the engine's own answer decides it**: when
+            //          the engine performed a conversion (`kind == conversion`) the decimal still
+            //          travels the one-shot `calculateAndPrint` path. Measured: `1.5° to arcmin` is
+            //          right either way (`90 arcmin`), but `100 to hex`, `100 -> hex` and `100 → hex`
+            //          only give `64` through the one-shot path — `to hex`/`to binary`/`to factors`
+            //          and friends are `calculateAndPrint`'s own job (its documentation says so).
+            //
+            //          Moving the test from "does the string contain ` to `" to "did the engine really
+            //          convert" makes its coverage **identical to the engine's own rule** — `->`,
+            //          `→`, `−>` and the dingbats included, because the decision is made by
+            //          `separateToExpression` inside the engine rather than guessed here.
+            //
+            //          The price: such expressions are evaluated twice, and a random function combined
+            //          with a conversion could still disagree between its two forms — a combination
+            //          that cannot be typed and means nothing. Nothing on the keypad produces a
+            //          conversion, so **this exception covers no key at all**: everything the user can
+            //          press runs the single evaluation above.
+            val decimal = if (kind == KIND_CONVERSION) {
                 renderOneShot(
                     engine,
                     normalized,
@@ -331,6 +396,7 @@ class QalculateEngine {
                 "latex" to latex,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),
+                "kind" to kind,
                 "angleMode" to angleMode,
             )
         } catch (error: Throwable) {
@@ -512,6 +578,14 @@ class QalculateEngine {
         // 中文：取值来自 libqalculate/includes.h 的 UNICODE_SIGNS_* 匿名枚举，SWIG 没有导出成 Java 常量。
         // English: values from the UNICODE_SIGNS_* anonymous enum in libqalculate/includes.h;
         //          SWIG does not export them as Java constants.
+        // 中文：结果形状的取值——Dart 侧 `EngineResultKind` 与它们逐字对应（`"conversion"` 等）。
+        // English: the result-shape values — Dart's `EngineResultKind` matches them verbatim.
+        const val KIND_CONVERSION = "conversion"
+        const val KIND_UNIT = "unit"
+        const val KIND_STRUCTURED = "structured"
+        const val KIND_NUMBER = "number"
+        const val KIND_ARITHMETIC = "arithmetic"
+
         private const val UNICODE_SIGNS_OFF = 0
         private const val UNICODE_SIGNS_ON = 1
     }

@@ -96,6 +96,16 @@ class QalculateMathEngine implements MathEngine {
       MathResult(
         displayText: decimal,
         displayTex: (payload['latex'] ?? '').trim(),
+        // 中文：形状由原生侧用引擎自己的判据填（见 `QalculateMathEngine` 那一侧的 `kind`）。
+        //       **认不出来的一律按 `arithmetic` 处理**：那是「不显示」的那一支，也就是放宽之前的
+        //       行为——原生侧要是没发这个字段（版本不匹配），整个 tier 2 就自动退回旧行为，
+        //       而不是默默什么都放行。
+        // English: the shape is filled in by the native side from the engine's own predicates (the
+        //          `kind` there). **Anything unrecognised counts as `arithmetic`**: that is the
+        //          "do not display" branch, i.e. the behaviour from before the relaxation. If the
+        //          native side does not send the field at all (a version mismatch), tier 2 falls back
+        //          to the old behaviour instead of silently letting everything through.
+        resultKind: _resultKindFrom(payload['kind']),
         // 中文：十进制形态就是洗干净的 decimal 本身，**不再过 `decimalTextOf`**：那个方法会无条件
         //       剥逗号，而逗号刚在上面按位置判过——再剥一次等于把 fail-closed 的那道判定又拆掉
         //       （`5,656854` 会变成 `5656854`，一个静默的错值）。这里只问一句「它是不是一个有限
@@ -114,6 +124,19 @@ class QalculateMathEngine implements MathEngine {
       messages: messages,
     );
   }
+
+  /// 中文：原生侧发来的形状字符串 → [EngineResultKind]。取值逐字对应 `QalculateEngine.KIND_*`；
+  ///       认不出（含字段缺失、空串）一律 [EngineResultKind.arithmetic]——理由见调用点。
+  /// English: the native shape string → [EngineResultKind]. The values match `QalculateEngine.KIND_*`
+  ///          verbatim; anything unrecognised (a missing field, an empty string) becomes
+  ///          [EngineResultKind.arithmetic] — see the call site for why.
+  static EngineResultKind _resultKindFrom(String? raw) => switch (raw) {
+        'conversion' => EngineResultKind.conversion,
+        'unit' => EngineResultKind.unit,
+        'structured' => EngineResultKind.structured,
+        'number' => EngineResultKind.number,
+        _ => EngineResultKind.arithmetic,
+      };
 
   /// 中文：Unicode 减号 → ASCII `-`、剥掉千分位、去首尾空白。这些脏东西都会让 `double.tryParse`
   ///       返回 null 而不抛异常——静默失败。

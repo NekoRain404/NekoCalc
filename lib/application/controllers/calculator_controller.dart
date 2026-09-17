@@ -794,14 +794,24 @@ class CalculatorController extends ChangeNotifier {
     //          not a queue.
     final owed = _liveEngineDirty;
     _liveEngineDirty = false;
-    final accepted = _selectEngineResult(reply, source)?.result;
+    // 中文：**过期守卫必须在 `_selectEngineResult` 之前。** 取舍那一处可能走到旧解析器
+    //       （`_tryLegacyResult` → `_calculateResult`），而那条路会写 `_lastFiniteResult`——
+    //       那是 `Ans`/`last` 的取值处。守卫放在后面，一个**过期的**回包就能悄悄把它们挪到
+    //       一条已经不在屏幕上的时间线上。提交路径一直守着这一点（`_submittedResult` 的第一件事
+    //       就是问这一代对不对），边打边算这条以前靠「取舍不改状态」侥幸成立，放宽判据之后就
+    //       不成立了。
+    // English: **the staleness guard has to run before `_selectEngineResult`.** That selection may
+    //          reach the legacy parser (`_tryLegacyResult` → `_calculateResult`), and that path writes
+    //          `_lastFiniteResult` — where `Ans`/`last` read from. With the guard after it, a **stale**
+    //          reply could quietly move them onto a timeline that is no longer on screen. The submit
+    //          path has always guarded this (`_submittedResult`'s first act is to ask whether the
+    //          generation still matches); the as-you-type path only held by the accident that
+    //          selection touched no state, and relaxing the judgement ended that.
     if (generation != _stateRevision || expression != source) {
-      // 中文：过期。这一发的回答属于一条已经不在屏幕上的时间线，什么都不许落地。
-      // English: Stale. This answer belongs to a timeline that is no longer on screen, so nothing may
-      //          land from it.
       if (owed) _scheduleLiveEngineFollowUp();
       return;
     }
+    final accepted = _selectEngineResult(reply, source)?.result;
     if (accepted == null) {
       if (!liveResultPolicy.showsLegacyResult) {
         _evaluateLegacy();

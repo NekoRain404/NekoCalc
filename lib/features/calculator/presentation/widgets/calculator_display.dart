@@ -108,9 +108,10 @@ const double _errorMessageFontSize = 12;
 ///       | 100dp / 1×，`\frac{1}{\sqrt{2}}` | — | **修之前 `A RenderFlex overflowed by 22 pixels on the bottom.`**，修之后无溢出 |
 ///
 ///       即：结果行在 2× 及更大的字号下**先缩**（缩的是这一行，不是内容被裁），176dp 这条下限
-///       本身没有变。brief 里记的「176dp + 2× 溢出 27px」在本机**复现不出来**——同样条件下结果行
-///       自然高度 54.8dp、分到 88dp，没有溢出；真正的缺陷是它**没有上限**：形态再高一点就拿走
-///       85.68dp（上限 53dp），把表达式行挤到 0 附近，再往下压整列就报溢出（100dp 那条实测）。
+///       本身没有变。brief 里记的「176dp + 2× 溢出 27px」在本机**复现不出来**：同样条件下
+///       `\frac{1}{\sqrt{2}}` 的结果行自然高度 54.8dp，而它分到的上限是 53.0dp（上表那一行），
+///       表达式行还剩 25.3dp，没有溢出。真正的缺陷是它**没有上限**：形态再高一点就拿走 85.68dp
+///       （上限 53dp），把表达式行挤到 0 附近，再往下压整列就报溢出（100dp 那条实测）。
 /// English: Below that minimum (a short window plus a large font scale), the expression line is
 ///          squeezed first and the error line then shrinks with its spare pixels clipped — the
 ///          error line is no longer a source of RenderFlex overflow. **The result row may shrink
@@ -134,10 +135,11 @@ const double _errorMessageFontSize = 12;
 ///
 ///          So the result row **shrinks first** at 2× and above (this row shrinks; the content is not
 ///          clipped), and the 176dp floor itself is unchanged. The "27px overflow at 176dp + 2×"
-///          recorded in the brief does **not** reproduce here — under exactly those conditions the
-///          row is 54.8dp naturally against 88dp available and nothing overflows; the real defect was
-///          that it had **no ceiling at all**: a slightly taller form took 85.68dp (against a 53dp
-///          share), squeezing the expression line towards zero, and pressing further makes the
+///          recorded in the brief does **not** reproduce here: under exactly those conditions
+///          `\frac{1}{\sqrt{2}}`'s result row is 54.8dp naturally while its ceiling is 53.0dp (the
+///          table row above), the expression line keeps 25.3dp, and nothing overflows. The real defect
+///          was that the row had **no ceiling at all**: a slightly taller form took 85.68dp (against a
+///          53dp share), squeezing the expression line towards zero, and pressing further makes the
 ///          column overflow (the 100dp case, measured).
 ///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
@@ -322,8 +324,9 @@ class CalculatorDisplay extends StatelessWidget {
             const SizedBox(height: 6),
             // 中文：结果行**可以缩**。精确形式（`\frac{1}{\sqrt{2}}` 这类高瘦形状）上屏之后，
             //       它成了这个面板里唯一一个高度不确定的行：纯文本结果一行高，而一个堆叠分数按
-            //       字号等比放大——2 倍文字缩放 + 176dp 下限时它比可用的高度高出 27px，于是整列
-            //       报 RenderFlex 溢出（debug 红屏、release 里用户的字被切掉）。
+            //       字号等比放大——2 倍文字缩放 + 176dp 下限时它按**自然高度**排（`\frac{1}{\sqrt{2}}`
+            //       量到 54.8dp，而分到的上限是 53dp；更高的形态量到 85.68dp），把表达式行挤到 0 附近，
+            //       面板再矮一点（100dp）整列就报 RenderFlex 溢出（debug 红屏、release 里用户的字被切掉）。
             //       宽松的 `Flexible` 把「最多能有多高」交给它，里面的 `FittedBox` 于是能把内容
             //       等比缩到放得下——缩的是这一行，不是把内容裁掉，也不是把面板的下限调高
             //       （调高会波及所有结果）。松配时它按自然高度排布，只在真放不下时才缩，所以
@@ -331,9 +334,12 @@ class CalculatorDisplay extends StatelessWidget {
             // English: the result line **may shrink**. Once the exact form is on screen (`\frac{1}
             //          {\sqrt{2}}` and friends) it is the one row in this panel whose height is not
             //          fixed: a plain-text result is one line tall, while a stacked fraction scales
-            //          with the font size — at a 2× text scale and the 176dp floor it is 27px taller
-            //          than there is room for, and the whole column reports a RenderFlex overflow
-            //          (a red screen in debug; the user's text cut off in release). A loose
+            //          with the font size — at a 2× text scale and the 176dp floor it takes its
+            //          **natural height** (54.8dp measured for `\frac{1}{\sqrt{2}}` against a 53dp
+            //          ceiling; 85.68dp for a taller form), squeezing the expression line towards
+            //          zero, and a slightly shorter panel (100dp) makes the whole column report a
+            //          RenderFlex overflow (a red screen in debug; the user's text cut off in
+            //          release). A loose
             //          `Flexible` hands it "the most you may be", and the `FittedBox` inside can
             //          then scale the content down to fit — what shrinks is this row, not the
             //          content being clipped, and the panel's floor is not raised (raising it would

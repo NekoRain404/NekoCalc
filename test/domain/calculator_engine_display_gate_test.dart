@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
@@ -57,17 +59,35 @@ void main() {
       }
     });
 
-    test('引擎没做的那次运算不可显示（1/0 不许印成 `1 / 0`）', () {
-      // 中文：真机实测 `1/0` → `1 / 0`、`0/0` → `0 / 0`、`2/0` → `2 / 0`：引擎拒绝做这次除法，
-      //       把**算式本身**退回来。判据不是「取消检查」而是「换一个检查」，这几条仍然被挡住。
-      // English: measured on a device — `1/0` → `1 / 0`, `0/0` → `0 / 0`, `2/0` → `2 / 0`: the
-      //          engine refuses the division and hands the **expression itself** back. The rule is
-      //          not "delete the check" but "swap it", and these stay out.
-      expect(MathResult.textIsDisplayable('1 / 0'), isFalse);
-      expect(MathResult.textIsDisplayable('0 / 0'), isFalse);
-      expect(MathResult.textIsDisplayable('2 / 0'), isFalse);
-      expect(MathResult.textIsDisplayable('1/0'), isFalse);
-      expect(MathResult.textIsDisplayable('1 + 2'), isFalse);
+    test('形状决定配不配显示：矩阵/向量/复数/换算是唯一放行的四种', () {
+      // 中文：`resultKind` 由引擎自己的判据回答，Dart 侧只做这条策略。四支放行、两支拒绝，
+      //       合起来是引擎结果空间的一个划分（见 `MathResult.isDisplayable` 的长注释）。
+      // English: `resultKind` is answered by the engine's own predicates and Dart only applies this
+      //          policy. Four branches pass and two do not; together they partition the engine's
+      //          result space (see the long note on `MathResult.isDisplayable`).
+      MathResult withKind(EngineResultKind kind) =>
+          MathResult(displayText: 'whatever', resultKind: kind);
+
+      expect(withKind(EngineResultKind.structured).isDisplayable, isTrue);
+      expect(withKind(EngineResultKind.number).isDisplayable, isTrue);
+      expect(withKind(EngineResultKind.conversion).isDisplayable, isTrue);
+      expect(withKind(EngineResultKind.notFromEngine).isDisplayable, isTrue);
+      expect(withKind(EngineResultKind.unit).isDisplayable, isFalse);
+      expect(withKind(EngineResultKind.arithmetic).isDisplayable, isFalse);
+    });
+
+    test('非有限字面量即便形状是 number 也不可显示', () {
+      // 中文：这一条是文本层的存在理由——`ln(0)` 在引擎那里是一个 Number（形状层会放行），
+      //       只有非有限字面量这一条拦得住它。
+      // English: why the text layer still exists — `ln(0)` is a Number on the engine's side (the shape
+      //          layer would wave it through), and only the non-finite literal clause stops it.
+      for (final text in <String>['-infinity', 'infinity', 'NaN', '∞']) {
+        final result = MathResult(
+          displayText: text,
+          resultKind: EngineResultKind.number,
+        );
+        expect(result.isDisplayable, isFalse, reason: '「$text」不该上结果行');
+      }
     });
 
     test('空串不可显示', () {
@@ -104,6 +124,139 @@ void main() {
     });
   });
 
+  group('收紧：形状不配显示的答案一律回落旧解析器', () {
+    // 中文：**这一组是修复轮 2 的核心。** 上一条规则（「整个文本是『数字 运算符 数字』」）是一张
+    //       举例清单，实测漏掉了一整类；现在由引擎自己报的形状决定，下面每一条都是**真机实测的
+    //       原文**（`decimal` 与引擎判据同时列出）。
+    // English: **this group is the heart of fix round 2.** The previous rule ("the whole text is
+    //          `number operator number`") was a list of examples and missed a whole class; the shape
+    //          the engine itself reports now decides. Every row below is verbatim **device-measured**
+    //          (the `decimal` together with the engine's predicates).
+    const rows = <({String expression, String decimal, EngineResultKind kind, bool legacyAnswers})>[
+      // 引擎把 app 自己的名字读成了单位或常量——一个带单位的量。
+      (expression: 'fact(-1)', decimal: '-10 aa*t', kind: EngineResultKind.unit, legacyAnswers: false),
+      (
+        expression: 'ncr(5,10)',
+        decimal: "[(1.49896229n'r' km/us)  (2.99792458n'r' km/us)]",
+        kind: EngineResultKind.unit,
+        // 旧解析器认得 `ncr`（它是应用自己的词汇），所以它给得出一个答案——那正是要的：
+        // 引擎的乱码不上屏，应用一贯的答案照旧。
+        legacyAnswers: true,
+      ),
+      // 引擎拒绝做这次运算，把结果留成一个未求值的形状：乘积 / 幂 / 函数调用。
+      (expression: '1/0', decimal: '1 / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (expression: 'i/0', decimal: 'i / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (expression: '(1+i)/0', decimal: '(1 + i) / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (
+        expression: 'matrix(2,2,1,2,3,4)/0',
+        decimal: '[1  2; 3  4] / 0',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false,
+      ),
+      (expression: '2 mod 0', decimal: 'mod(2; 0)', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (expression: 'root(2,0)', decimal: 'root(2; 0)', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (expression: 'x/0', decimal: 'x / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+    ];
+
+    for (final row in rows) {
+      test('${row.expression} 不显示引擎的「${row.decimal}」', () async {
+        final engine = _FakeMathEngine(EngineReplyFixture(
+          displayText: row.decimal,
+          displayTex: '',
+          kind: row.kind,
+        ).reply);
+        final controller = _controller(_FakeDatabase(), engine: engine);
+
+        controller.setExpression(row.expression);
+        await controller.submit();
+
+        expect(controller.result, isNot(row.decimal),
+            reason: '${row.expression} 把引擎的乱码印上了结果行');
+        if (!row.legacyAnswers) {
+          expect(controller.hasError, isTrue,
+              reason: '${row.expression} 应当由旧解析器给出错误');
+        }
+
+        controller.dispose();
+      });
+    }
+  });
+
+  group('过期回包不许动 Ans/last（修的是守卫的顺序）', () {
+    test('过期的 tier 2 回包不写 `_lastFiniteResult`', () async {
+      // 中文：**这一条必须走得到 tier 2。** `_tryLegacyResult` → `_calculateResult` 会写
+      //       `_lastFiniteResult`，而那是 `ans`/`last` 的取值处；旧测试用的都是数值回包
+      //       （引擎有十进制），tier 1 直接采用、根本不碰旧解析器，所以覆盖不到这条路。
+      //
+      //       构造方式：让第一发引擎调用在飞时改掉输入（代际因此前进），再放行那一发——
+      //       它落地时代际已经不匹配，什么都不许写。`ans` 会被替换成哪个值，是通过**问引擎时
+      //       实际发过去的字符串**观测的（替身记下了每一次调用）。
+      // English: **this one has to reach tier 2.** `_tryLegacyResult` → `_calculateResult` writes
+      //          `_lastFiniteResult`, which is what `ans`/`last` resolve from; the older staleness
+      //          tests all used numeric replies (the engine had a decimal), which are adopted at tier
+      //          1 without ever touching the legacy parser — so they cannot reach this path.
+      //
+      //          Construction: change the input while the first engine call is in flight (the
+      //          generation moves on), then release that call — by the time it lands the generation no
+      //          longer matches and nothing may be written. Which value `ans` gets replaced with is
+      //          observed from **the string actually sent to the engine** (the double records each
+      //          call).
+      final engine = _DeferredMathEngine();
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: engine,
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+
+      // 中文：第一段时间线：`6*7`，旧解析器给出 42 → `_lastFiniteResult` = 42；引擎那一发在飞。
+      // English: first timeline: `6*7`, the legacy parser answers 42 → `_lastFiniteResult` = 42; the
+      //          engine call is in flight.
+      controller.setExpression('6*7');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(engine.calls.map((c) => c.expression), contains('6*7'));
+
+      // 中文：第二段时间线：`1+1` → 2，于是 `_lastFiniteResult` = 2。
+      // English: second timeline: `1+1` → 2, so `_lastFiniteResult` = 2.
+      controller.setExpression('1+1');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(controller.result, '2');
+
+      // 中文：放行**第一发**（过期的那个）：它的形状是 tier 2（矩阵），所以取舍那一处会去问
+      //       旧解析器；而过期的源表达式 `6*7` 旧解析器答得出来 —— 42。
+      // English: release the **first** call (the stale one): its shape is tier 2 (a matrix), so the
+      //          selection asks the legacy parser, and the stale source `6*7` has an answer — 42.
+      engine.answer(const EngineReplyFixture(
+        displayText: '[1  2; 3  4]',
+        displayTex: r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}',
+        kind: EngineResultKind.structured,
+      ).reply);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      // 中文：屏幕上还该是 2。此时那一发「还欠一次」的跟进已经在飞，用一个**失败**回执把它收掉：
+      //       失败回执什么都不写，于是 `_lastFiniteResult` 保持在第 2 段时间线的值上——
+      //       这样后面那一次观测到的差异只可能来自过期的那一发。
+      // English: the screen still reads 2. The follow-up "one more is owed" is now in flight; retire
+      //          it with a **failure** receipt: a failure writes nothing, so `_lastFiniteResult` stays
+      //          on the second timeline's value — which leaves the stale call as the only possible
+      //          source of a difference in the observation below.
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      engine.answer(EngineReply.failure('test: nothing lands'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      // 中文：`ans` 必须解析成 **2**——被问到的字符串就是答案（替身记下了每一次调用）。
+      // English: `ans` has to resolve to **2** — the string it was asked about is the answer (the
+      //          double records every call).
+      expect(controller.result, '2');
+      controller.setExpression('ans');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(engine.calls.last.expression, '2',
+          reason: '过期的回包把 Ans/last 挪到了旧时间线上（应当是 2，不是 42）');
+
+      controller.dispose();
+    });
+  });
+
   group('新点亮的两个形态在渲染器里排得出来', () {
     test('矩阵的排版形态（引擎给的 LaTeX）与复数的排版形态都认', () {
       // 中文：这两条是**引擎印出来的**精确形态（真机日志原文），结果行会原样把它们交给
@@ -128,6 +281,7 @@ void main() {
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '[1  2; 3  4]',
         displayTex: r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}',
+        kind: EngineResultKind.structured,
       ).reply);
       final controller = _controller(_FakeDatabase(), engine: engine);
 
@@ -146,6 +300,7 @@ void main() {
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '1 + 2i',
         displayTex: '1 + 2i',
+        kind: EngineResultKind.number,
       ).reply);
       final controller = _controller(_FakeDatabase(), engine: engine);
 
@@ -172,8 +327,17 @@ void main() {
       // English: for this one the engine answers **ok** and simply hands the expression back. The
       //          whole thing falls through to the legacy parser, and the user still sees today's
       //          "结果不是有限数值".
+      // 中文：真机实测 `1/0` 的形状是「乘积 / 幂」——引擎拒绝做这次除法，把算式原样退回来，
+      //       所以原生侧报的是 `arithmetic`（不是列表式的「看它像不像一个算式」）。
+      // English: measured on a device, `1/0`'s shape is a product/a power — the engine refuses the
+      //          division and hands the expression back, so the native side reports `arithmetic`
+      //          (rather than a list-like "does this look like an arithmetic").
       final engine = _FakeMathEngine(
-        const EngineReplyFixture(displayText: '1 / 0', displayTex: r'\frac{1}{0}').reply,
+        const EngineReplyFixture(
+          displayText: '1 / 0',
+          displayTex: r'\frac{1}{0}',
+          kind: EngineResultKind.arithmetic,
+        ).reply,
       );
       final controller = _controller(_FakeDatabase(), engine: engine);
 
@@ -218,6 +382,7 @@ void main() {
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '[1  2; 3  4]',
         displayTex: r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}',
+        kind: EngineResultKind.structured,
       ).reply);
       // 中文：两段延迟都要压短：`evaluate()` 由防抖定时器（`liveEvaluationDelay`）叫起，引擎那
       //       一发由它再排（`liveEngineFollowUpDelay`）。
@@ -245,10 +410,21 @@ void main() {
 /// 中文：一条引擎回执的固定装置——把「引擎给出什么形态」写成可读的三个字段。
 /// English: A fixture for one engine receipt — the three shapes the engine hands over, spelled out.
 class EngineReplyFixture {
-  const EngineReplyFixture({required this.displayText, required this.displayTex});
+  const EngineReplyFixture({
+    required this.displayText,
+    required this.displayTex,
+    this.kind = EngineResultKind.arithmetic,
+  });
 
   final String displayText;
   final String displayTex;
+
+  /// 中文：引擎自己报的形状（原生侧由 `MathStructure` 的判据回答）。默认取**不显示**的那一支，
+  ///       于是「忘了写形状」的测试不会意外地让垃圾上屏。
+  /// English: the shape the engine reported (the native side answers it from `MathStructure`
+  ///          predicates). The default is the **do-not-display** branch, so a test that forgets to
+  ///          state a shape cannot accidentally let garbage through.
+  final EngineResultKind kind;
 
   EngineReply get reply => EngineReply.success(MathResult(
         displayText: displayText,
@@ -259,6 +435,7 @@ class EngineReplyFixture {
         //          written only when it **is** a finite number; matrices and complex numbers leave it
         //          empty, and numeric consumers stop there.
         decimalText: MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+        resultKind: kind,
       ));
 }
 
@@ -273,6 +450,34 @@ class _FakeMathEngine implements MathEngine {
     required String angleMode,
   }) async =>
       reply ?? EngineReply.failure('no reply configured');
+}
+
+/// 中文：**手动放行**的引擎替身——回答由测试在某个时刻给，于是「回包到达时状态已经变了」这个
+///       条件可以被精确地构造出来。同时记下每一次被问到的表达式，`ans` 被替换成了什么因此可观测。
+/// English: an engine double the test **releases by hand** — the answer is supplied at a chosen
+///          moment, so "a reply lands after the state has moved on" can be constructed exactly. It
+///          also records every expression it was asked about, which makes what `ans` was replaced
+///          with observable.
+class _DeferredMathEngine implements MathEngine {
+  final List<({String expression, String angleMode})> calls = [];
+  final List<Completer<EngineReply>> _pending = [];
+
+  @override
+  Future<EngineReply> evaluate(
+    String expression, {
+    required String angleMode,
+  }) {
+    calls.add((expression: expression, angleMode: angleMode));
+    final completer = Completer<EngineReply>();
+    _pending.add(completer);
+    return completer.future;
+  }
+
+  /// 中文：放行**最老的那一发**在飞的请求。
+  /// English: releases the **oldest** request still in flight.
+  void answer(EngineReply reply) {
+    _pending.removeAt(0).complete(reply);
+  }
 }
 
 CalculatorController _controller(
