@@ -408,6 +408,39 @@ class QalculateEngine {
             //          so the caller gets bare LaTeX.
             val latex = engine.print(evaluated, PRINT_TIMEOUT_MS, printOptions(latex = true), true, 0, libqalculateConstants.TAG_TYPE_LATEX)
 
+            // 中文：**分数的写法**（HiPER 的 `d/c` 那一颗键要的东西）：同一个 `evaluated`、同一组
+            //       LaTeX 选项、只把 `number_fraction_format` 从 `FRACTION_DECIMAL` 换成
+            //       `FRACTION_FRACTIONAL`。它们与 `latex` 是**同一个结构的两次打印**，所以两份的值
+            //       逐字节相同（理由与实测见 `printOptions` 的注释）——这不是一次新的求值，因此
+            //       `rand()` 不会在这里被抽第二次。
+            //
+            //       为什么它不是「白烧 CPU 的第二份 `dual`」（那一份在下面被删掉了）：`dual` 是
+            //       **没人读**的终端格式，而这一份是 `d/c` 那颗键的全部内容——`\frac{1}{3}` 排得出来，
+            //       `\num{0.3333333333333333}` 排不出来，所以没有它 `1/3` 永远只是一个十进制数。
+            //       Dart 侧读出 `''`（引擎缺席、旧解析器上屏）时那颗键就是空操作，见
+            //       `MathResult.fractionTex`。
+            // English: **the fraction spelling** (what HiPER's `d/c` key is for): the same `evaluated`,
+            //          the same LaTeX options, with `number_fraction_format` switched from
+            //          `FRACTION_DECIMAL` to `FRACTION_FRACTIONAL`. It and `latex` are **two prints of
+            //          one structure**, so the two carry the identical value (the reason and the
+            //          measurements are on `printOptions`) — this is not another evaluation, so `rand()`
+            //          is not drawn a second time here.
+            //
+            //          Why it is not "a second `dual` burning CPU" (that one was deleted just below):
+            //          `dual` was a **terminal format nobody read**, whereas this one *is* the whole
+            //          content of the `d/c` key — `\frac{1}{3}` typesets and `\num{0.3333333333333333}`
+            //          does not, so without it `1/3` can never be anything but a decimal. When Dart
+            //          reads `''` (engine absent, legacy parser on screen) that key is a no-op; see
+            //          `MathResult.fractionTex`.
+            val fractionLatex = engine.print(
+                evaluated,
+                PRINT_TIMEOUT_MS,
+                printOptions(latex = true, fractional = true),
+                true,
+                0,
+                libqalculateConstants.TAG_TYPE_LATEX,
+            )
+
             // 中文：十进制那一半由**同一个结构**再算一次得到，不是重新解析字符串：`evaluated` 里
             //       已经是一个求过值的数（`rand()` 的那次抽样已经发生），再算一次只是把它近似成
             //       十进制。宿主实测（同版本库、同一串调用）：`4 * sqrt(2)` 的精确结构印成
@@ -510,6 +543,7 @@ class QalculateEngine {
                 "ok" to "true",
                 "decimal" to decimal,
                 "latex" to latex,
+                "fraction" to fractionLatex,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),
                 "kind" to kind,

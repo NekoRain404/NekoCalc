@@ -122,8 +122,50 @@ internal fun evaluationOptions(
     parse_options.setComma_as_separator(false)
 }
 
-internal fun printOptions(latex: Boolean, machineReadable: Boolean = false): PrintOptions = PrintOptions().apply {
-    setNumber_fraction_format(NumberFractionFormat.FRACTION_DECIMAL)
+/**
+ * 中文：一组打印选项。[fractional] 只对 `latex` 那一份有意义，理由见下面 `printOptions` 上的注释。
+ * English: One set of print options. [fractional] only means anything for the `latex` render; see the
+ *          note on `printOptions` below.
+ */
+internal fun printOptions(
+    latex: Boolean,
+    machineReadable: Boolean = false,
+    fractional: Boolean = false,
+): PrintOptions = PrintOptions().apply {
+    // 中文：**这一格决定有理数印成小数还是印成带分数线的分数**，而它现在是两档：
+    //
+    //       - 默认（`fractional = false`）是 `FRACTION_DECIMAL`：`1/3` 印成 `\num{0.3333333333333333}`。
+    //         这一档是**所有既有行为的基线**——`latex` 那一份从引擎接入起就一直是它，一个字节不改。
+    //       - `fractional = true` 是 `FRACTION_FRACTIONAL`：同一个 `1/3` 印成 `\frac{1}{3}`，
+    //         `10/4` 印成 `\frac{5}{2}`（假分数，正是 HiPER `d/c` 那一颗键的形态）。
+    //
+    //       **两档印的是同一个值**，因为它们是**同一个已经求过值的结构**（`QalculateEngine` 里那句
+    //       `print(evaluated, …)`）的两种写法，中间没有任何一次重新求值。宿主实测（`qalc` 5.12.0，
+    //       与本 AAR 同版本）：`0.333333` → `\frac{333333}{1000000}`、`0.1+0.2` → `\frac{3}{10}`、
+    //       `pi/4` → `\pi / 4`、`\sqrt{2}/2` → `1 / \sqrt{2}`——**全部严格相等**，没有一条是近似。
+    //       引擎在值上从不四舍五入成另一个分数，它只是换一种写法。
+    //
+    // English: **this one field decides whether a rational prints as a decimal or as a fraction with a
+    //          bar**, and it now has two settings:
+    //
+    //          - the default (`fractional = false`) is `FRACTION_DECIMAL`: `1/3` prints as
+    //            `\num{0.3333333333333333}`. That setting is **the baseline for every existing
+    //            behaviour** — the `latex` render has used it since the engine landed, unchanged.
+    //          - `fractional = true` is `FRACTION_FRACTIONAL`: the same `1/3` prints `\frac{1}{3}` and
+    //            `10/4` prints `\frac{5}{2}` (an improper fraction — exactly the shape HiPER's `d/c`
+    //            key is for).
+    //
+    //          **Both settings print the same value**, because they are two spellings of **one already
+    //          evaluated structure** (the `print(evaluated, …)` call in `QalculateEngine`) with no
+    //          re-evaluation in between. Measured on the host (`qalc` 5.12.0, the version this AAR
+    //          bundles): `0.333333` → `\frac{333333}{1000000}`, `0.1+0.2` → `\frac{3}{10}`, `pi/4` →
+    //          `\pi / 4`, `\sqrt{2}/2` → `1 / \sqrt{2}` — **every one of them exactly equal**, none of
+    //          them an approximation. The engine never rounds a value into a different fraction; it
+    //          only changes how it is written.
+    setNumber_fraction_format(
+        if (fractional) NumberFractionFormat.FRACTION_FRACTIONAL
+        else NumberFractionFormat.FRACTION_DECIMAL
+    )
     // 中文：C++ 里这是 int 不是 boolean。LaTeX 必须关掉 Unicode 符号，否则拿到的是「√」而不是「\sqrt」。
     //       机器可解析的那一份（`decimal`）同样要关：开着的时候负号是 `−`(U+2212)，Dart 侧
     //       `double.tryParse` 直接返回 null。
