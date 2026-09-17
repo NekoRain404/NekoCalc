@@ -13,24 +13,44 @@
 ///       所以规则要问的是**输入**：表达式里只要有一个「属于应用词汇、引擎不认识这个拼法」的名字，
 ///       引擎这一次的答案就**不权威**，不论它返回什么种类。
 ///
-///       **修复轮 6 之后它是「冗余的第一道防线」。** 运行时真正下判断的是 `CalculatorController`
-///       里的**值一致判据**（应用解析得了就以应用的值为准，见那里的长注释）：它不需要知道任何
-///       名字或拼法，因此能覆盖没人预先知道的冲突——`φ(2)` 这种 ASCII 表看不见的拼法就是它挡下的
-///       （实测：撤掉值判据、保留本表，`φ(2)` 立刻上屏 ✗）。这张表的价值因此变成两条：在引擎
-///       **被问到之前**就答一次（省一次往返），以及在**名字**这一层独立挡住最明显的那一批
-///       （实测：撤掉值判据时 `phi(2)`/`log(100)`/`mod(7,-3)` 仍被它挡住 ✓）。两边都不会放宽
-///       对方的拒绝。**它不是必需品**：删掉它只会在那几种名字上多走一次引擎往返。
+///       **修复轮 7 之后：这张表是翻译表，[canRead] 那一层是防御性的第二道判断。**
+///
+///       - **真正消歧义的是翻译**（`engine_expression.dart`）：问引擎之前先把表达式写成引擎的
+///         写法，于是 `log` 写成 `log10`、`phi` 写成它的数值、`ncr`/`fact` 写成
+///         `binomial`/`factorial`，`mod`/`npr`/`deg`/`rad` **根本不问**。上面那张表就是那份映射
+///         （`engineNameFor`）：从「防御性的枚举」变成**正向的翻译表**，`engineFunction` 那一列
+///         因此有了消费者。
+///       - [canRead] 这一层的拒绝（本列里 engineKnowsThisName 为假的每一行）**在修复轮 7 之后不再
+///         改变屏幕上任何一个值**：它挡下的每一个名字，翻译那一层都已经处理过了。修复轮 6 用来
+///         证明它「不是冗余副本」的那条证据是 `log(1.0000000001)`：当时值判据的绝对下限让引擎的
+///         `1e-10` 上屏，而那个 `1e-10` 是**原串**的读法（引擎的 `log` 是自然对数，
+///         `ln(1.0000000001)` = `1e-10`）。翻译之后引擎被问的是 `log10(1.0000000001)`，
+///         它的答案是 `4.342944818815371e-11`，应用自己给 `4.342945178152236e-11`，
+///         两者**显示成同一个数**
+///         （`formatNumber(…, precision: 6)` → `4.342945e-11`）——那条证据已经不成立。
+///         两串值都按**桥的调用序列**在宿主上对 libqalculate 5.12.0 量得
+///         （`unlocalizeExpression` → `calculate(EXACT)` → `calculate(APPROXIMATE)` →
+///         `print(TERMINAL)`，精度 16、`INTERVAL_DISPLAY_MIDPOINT`，见
+///         `tool/qalculate_semantics_probe/probe.cc` 的同一条序列；原串 `log(1.0000000001)`
+///         量出来正是 `9.9999999995e-11`，也就是那个 `1e-10` 的来源）。
+///         把它架空之后整套测试里变红的只有两类：断言这张表**自身返回值**的那一条，以及
+///         **替身仍按未翻译的表达式回话**的那几条（`log(100)` 的替身回 `ln` 的
+///         `4.605170185988091`、`phi(2)` 的替身回欧拉函数的 `1`；真引擎被问的是 `log10(100)`
+///         与 `(1.618033988749895)*(2)`，它的答案就是应用的意思）。
+///       - **它因此不是必需品**，留下的理由只有一条：**两道独立的判断**，谁也不放宽对方的拒绝，
+///         而第二道很便宜。注意它并**不省一次往返**——两条路径都是先问引擎、拿到回包之后才做
+///         这次判断，所以删掉它只是少一次丢弃。
 ///
 ///       两列事实分开记，因为它们回答两个不同的问题：
 ///
 ///       - [AppFunction.engineKnowsThisName]：**引擎对这个拼法的答案能不能用**——「这个名字它认不认」
-///         与「它的意思跟我们的相不相同」两件事合起来量出来的，规则用它；
-///       - [AppFunction.engineFunction]：**引擎里的对应函数**（若有）——留给「让这些键走引擎」
-///         那一步，今天没有消费者。
+///         与「它的意思跟我们的相不相同」两件事合起来量出来的，[canRead] 用它；
+///       - [AppFunction.engineFunction]：**引擎里的对应函数**（若有）——`engineNameFor` 用它。
 ///
 ///       `ncr` 与 `fact` 正是两列不同的例子：引擎**不认识** `ncr`/`fact` 这两个拼法，
-///       但它有语义相同的 `binomial`/`factorial`。今天它们只能由旧解析器作答；等到那一步做了映射，
-///       [canRead] 就会判「引擎读得懂」——**这一处不需要再改**。
+///       但它有语义相同的 `binomial`/`factorial`。修复轮 7 把这一列接成了映射：这两个名字现在
+///       由引擎作答（`binomial(5,2)` = 10），**而 [canRead] 仍旧判「不可信」**——两道判断各自
+///       成立，翻译不需要它松口。
 ///
 ///       **这一列是量出来的，不是记得的**：名字那一半用引擎自己的符号表问过
 ///       （`Calculator::getFunction(name)`，libqalculate 5.12.0）——`ncr`/`npr`/`fact`/`deg`/`rad`
@@ -53,18 +73,52 @@
 ///          calls a name that belongs to this app's vocabulary and the engine does not know that
 ///          spelling, the engine's answer this time is **not authoritative**, whatever kind it returns.
 ///
+///          **After fix round 7 this table is the translation table, and [canRead] is a defensive
+///          second judgement.**
+///
+///          - **The translation is what removes the ambiguity** (`engine_expression.dart`): the
+///            expression is written the engine's way before the engine is asked, so `log` is written
+///            `log10`, `phi` as its value and `ncr`/`fact` as `binomial`/`factorial`, while
+///            `mod`/`npr`/`deg`/`rad` are **not asked at all**. The table above is that mapping
+///            (`engineNameFor`): a defensive enumeration turned into a **positive translation table**,
+///            which is what gives `engineFunction` a consumer.
+///          - The refusal at [canRead]'s layer (every row whose `engineKnowsThisName` is false) **no
+///            longer changes any value on screen after fix round 7**: the translation layer already
+///            handles every name it stops. The evidence fix round 6 used to show it was "not a
+///            redundant copy" was `log(1.0000000001)`: the value comparison's absolute floor let the
+///            engine's `1e-10` onto the screen, and that `1e-10` was the **raw string's** reading (the
+///            engine's `log` is the natural logarithm, `ln(1.0000000001)` = `1e-10`). After the
+///            translation the engine is asked `log10(1.0000000001)` and answers
+///            `4.342944818815371e-11` while this app gives `4.342945178152236e-11` — and the two
+///            **display as the same number** (`formatNumber(…, precision: 6)` → `4.342945e-11`). That
+///            evidence no longer holds. Both strings were measured on the host against libqalculate
+///            5.12.0 **through the bridge's own call sequence** (`unlocalizeExpression` →
+///            `calculate(EXACT)` → `calculate(APPROXIMATE)` → `print(TERMINAL)`, precision 16,
+///            `INTERVAL_DISPLAY_MIDPOINT`, the sequence in `tool/qalculate_semantics_probe/probe.cc`);
+///            the raw `log(1.0000000001)` measures `9.9999999995e-11`, which is where that `1e-10`
+///            came from. Forcing it open turns exactly two kinds of test red: the one asserting this
+///            table's **own return values**, and the ones whose **double still answers for the
+///            untranslated expression** (`log(100)`'s double returns `ln`'s `4.605170185988091`,
+///            `phi(2)`'s returns the totient's `1`; the real engine is asked `log10(100)` and
+///            `(1.618033988749895)*(2)`, whose answers mean what this app means).
+///          - **It is therefore not a necessity**, and what keeps it is one thing: **two independent
+///            judgements**, neither relaxing the other's refusal, the second of them cheap. Note it
+///            does **not** save a round trip — both paths ask the engine first and run this judgement
+///            on the reply, so deleting it only removes a discard.
+///
 ///          The two facts are recorded separately because they answer two different questions:
 ///
 ///          - [AppFunction.engineKnowsThisName]: **may the engine's answer for this spelling be used**
-///            — measured from both "does it know the name" and "does it mean the same thing"; the rule
-///            uses it;
-///          - [AppFunction.engineFunction]: **the engine's function for it**, if any — held for the
-///            step that moves these keys onto the engine; nothing consumes it today.
+///            — measured from both "does it know the name" and "does it mean the same thing";
+///            [canRead] uses it;
+///          - [AppFunction.engineFunction]: **the engine's function for it**, if any — `engineNameFor`
+///            uses it.
 ///
 ///          `ncr` and `fact` are exactly the two-column case: the engine does **not** know the
-///          spellings `ncr`/`fact`, but it has `binomial`/`factorial` with the same meaning. Today they
-///          can only be answered by the legacy parser; once that mapping exists, [canRead] will judge
-///          "the engine reads this" — **nothing else here needs to change**.
+///          spellings `ncr`/`fact`, but it has `binomial`/`factorial` with the same meaning. Fix round
+///          7 wired that column up as a mapping, so those two names are answered by the engine now
+///          (`binomial(5,2)` = 10) — **while [canRead] still judges them untrusted**: the two
+///          judgements each stand on their own, and the translation needs no permission from it.
 ///
 ///          **This column is measured, not remembered**: the name half was asked of the engine's own
 ///          symbol table (`Calculator::getFunction(name)`, libqalculate 5.12.0) — `ncr`/`npr`/`fact`/
@@ -94,9 +148,11 @@ class AppFunction {
   ///          logarithm, the app's the common one).
   final bool engineKnowsThisName;
 
-  /// 中文：引擎里语义相同的函数名（若有）。**规则不用它**——它留给「让这些键走引擎」那一步。
-  /// English: the engine's function with the same meaning, if any. **The rule does not use it** — it is
-  ///          held for the step that moves these keys onto the engine.
+  /// 中文：引擎里语义相同的函数名（若有）。**翻译用它**（`engineNameFor` 把 `ncr` 写成 `binomial`）；
+  ///       [canRead] 不用它——「引擎的答案能不能用」与「引擎里该写什么」是两个问题。
+  /// English: the engine's function with the same meaning, if any. **The translation uses it**
+  ///          (`engineNameFor` writes `ncr` as `binomial`); [canRead] does not — "may this answer be
+  ///          used" and "what should be written for the engine" are two different questions.
   final String? engineFunction;
 }
 
@@ -202,10 +258,13 @@ class AppEngineVocabulary {
     'infinity': AppFunction(engineKnowsThisName: true, engineFunction: 'infinity'),
 
     // 中文：**引擎不认识这几个拼法**——它会把它们拆成符号，于是答案描述的是另一件事。
-    //       `ncr`/`fact` 的 `engineFunction` 就是「让它们走引擎」那一步要用的映射；今天没有消费者。
+    //       `ncr`/`fact` 的 `engineFunction` 就是翻译要用的映射（`engineNameFor`）：这两个名字现在
+    //       由引擎作答，而 [canRead] 仍旧把它们挡在「不可信」那一列——两道判断互不放宽。
     // English: **the engine does not know these spellings** — it takes them apart into symbols, so its
-    //          answer is about something else. The `engineFunction` of `ncr`/`fact` is the mapping that
-    //          step will use; nothing consumes it today.
+    //          answer is about something else. The `engineFunction` of `ncr`/`fact` is the mapping the
+    //          translation uses (`engineNameFor`): those two names are answered by the engine now,
+    //          while [canRead] still keeps them in the untrusted column — neither judgement relaxes the
+    //          other.
     'ncr': AppFunction(engineKnowsThisName: false, engineFunction: 'binomial'),
     'npr': AppFunction(engineKnowsThisName: false),
     'fact': AppFunction(engineKnowsThisName: false, engineFunction: 'factorial'),
@@ -298,6 +357,15 @@ class AppEngineVocabulary {
   ///          result looks like, it asks whether the engine's symbol table has the call names in the
   ///          input. A call name **outside** the vocabulary (typed by the user) is unaffected here — the
   ///          native side covers that with the same rule, asking the engine directly (`getFunction`).
+  ///
+  ///          中文：**它是第二道判断，不是第一道**，而且**不省一次往返**：两条路径都是先问引擎
+  ///          （问的是翻译后的表达式）、拿到回包之后才走到这里，所以这里拦下的是**已经到手的答案**。
+  ///          它在修复轮 7 之后不再改变屏幕上任何一个值（理由与实测见文件头）。
+  /// English: **this is the second judgement, not the first**, and it **saves no round trip**: both
+  ///          paths ask the engine first (with the translated expression) and reach this only once the
+  ///          reply is in hand, so what it stops is an answer that has already arrived. After fix
+  ///          round 7 it no longer changes any value on screen (the reasons and the measurement are in
+  ///          the file header).
   static bool canRead(String expression) =>
       !callNamesIn(expression).any(unknownToEngine.contains);
 }

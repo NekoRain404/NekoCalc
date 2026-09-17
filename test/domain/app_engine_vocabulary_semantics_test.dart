@@ -51,11 +51,14 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///          `rand` (their arguments are variables and ranges, no comparable value), and `inf`/
 ///          `infinity` (neither side's value is a finite number, so this table cannot hold them).
 ///
-///          **What this table is for, after round 6**: the runtime criterion is no longer this
-///          vocabulary but the **value agreement** in `CalculatorController` (the app's value wins
-///          whenever the app can parse the expression). This vocabulary is the **redundant first
-///          line**: it answers before the engine is even asked. Only the value criterion can catch a
-///          spelling nobody enumerated (`φ(2)`), which is why it exists.
+///          **What this table is for, after round 7**: the runtime criterion is the **translation**
+///          (`engine_expression.dart`: the expression is written the engine's way before the engine is
+///          asked) plus this vocabulary's refusal at the name layer. That refusal no longer changes any
+///          value on screen — the translation handles every name it stops — so this file's job is what
+///          it always was: **keep the "may this answer be used" column honest**, name by name, value by
+///          value. Round 6's value-agreement criterion, which replaced it for one round, is gone (its
+///          premise — "this app's `double` is the truth" — is false in exactly the cases the engine
+///          exists for); see the vocabulary file header for the measurement.
 void main() {
   test('分歧先归因：我们自己读错了要修解析器，引擎读错了才让名字不可信', () {
     // 中文：**「任何分歧 ⇒ 该名字不可信」是好的探测器、错误的裁决者。** 反例是 `atan2(7,100)`：

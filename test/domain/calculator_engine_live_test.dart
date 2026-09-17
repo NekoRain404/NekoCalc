@@ -377,18 +377,27 @@ void main() {
       expect(engine.calls.last.expression, '((((((((((1)+(1)))+(1)))+(1)))+(1)))+(1))');
       expect(engine.pending, 1);
 
-      // 中文：**回包必须与表达式一致。** 新判据要求「引擎的值与应用一致」才采用，所以给
-      //       `1+1+1+1+1+1`（= 6）配一个 `sqrt(32)` 的回包会被**正确**丢弃。这里换成一致的
-      //       回包：被测的是「这一发落地了」，不是那个具体数字。
-      // English: **the reply has to agree with the expression.** The new criterion adopts an engine
-      //          answer only when its value matches the app's, so a `sqrt(32)` reply for
-      //          `1+1+1+1+1+1` (= 6) is **correctly** discarded. This one is coherent: what is under
-      //          test is that this reply lands, not the particular number.
+      // 中文：**这一发要落地，而且屏幕上必须是它。** 表达式是 `1+1+1+1+1+1`，引擎的答案是 6
+      //       ——与旧解析器的值一样，所以「屏幕上是 6」证明不了这一发落没落地（回包被丢掉、
+      //       旧解析器补位也会得到 6）。区分两者的标记与这个文件别处相同：**引擎的 LaTeX 形态**
+      //       （旧解析器只产出一个 double，LaTeX 永远是空的）。
+      //       把回包从 6 改成 7 这条测试会红——屏幕上会是 7（修复轮 7 拿掉值比较之前不会红：
+      //       值比较会把 7 当误读丢掉，旧解析器补上 6，断言照样绿）。
+      // English: **this reply has to land, and it has to be the one on screen.** The expression is
+      //          `1+1+1+1+1+1` and the engine's answer is 6 — the same value the legacy parser
+      //          produces, so "6 is on screen" cannot tell a landed reply from a fallback. The marker
+      //          that separates them is the one used elsewhere in this file: **the engine's LaTeX
+      //          form** (the legacy parser produces a bare double, so its LaTeX is always empty).
+      //          Replacing the canned 6 with 7 turns this red — the screen reads 7 (it would not have
+      //          gone red before fix round 7 removed the value comparison: that comparison discarded
+      //          the 7 as a misreading, the legacy parser supplied 6, and the assertion stayed green).
       engine.answerNext(EngineReply.success(
-        const MathResult(displayText: '6', displayTex: '', decimalText: '6'),
+        const MathResult(displayText: '6', displayTex: '6', decimalText: '6'),
       ));
       await pumpEventQueue();
       expect(controller.resultDecimal, '6');
+      expect(controller.resultTex, isNotEmpty,
+          reason: '这一发没落地（LaTeX 是空的 ⇒ 屏幕上还是旧解析器的结果，而它的值与引擎的相同）');
 
       controller.dispose();
     });

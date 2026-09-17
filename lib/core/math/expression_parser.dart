@@ -655,25 +655,71 @@ class ExpressionParser {
     if (index >= 0 && source[index] == ')') return true;
     // 中文：读回 `(` 前面那个**标识符**，问它接不接受两个以上实参（见 [_multiArgumentFunctions]）。
     //       `atan2(7,100)` → true（逗号是分隔符）；`log2(1,024)` 与 `2(1,234)` → false（逗号是千分位）。
+    //
+    //       读到的名字必须**先归一化再查表**，两个理由都在实测里：那张表写的是归一化**之后**的名字，
+    //       而这段文本还没过别名替换（`c(1,234)` 修复前 = 1234，`ncr(1,234)` = 0）；而且它还没过
+    //       `.toLowerCase()`（`C(1,234)`/`NCR(1,234)` 同样进不了表）。
     // English: read the **identifier** before the bracket and ask whether it accepts two or more
     //          arguments (see [_multiArgumentFunctions]). `atan2(7,100)` → true (the comma separates);
     //          `log2(1,024)` and `2(1,234)` → false (the comma is a thousands separator).
+    //
+    //          The name read here has to be **normalised before the lookup**, for two reasons that are
+    //          both measured: the table is written in post-normalisation names while this text has not
+    //          been through the alias replacement yet (`c(1,234)` was 1234 before the fix while
+    //          `ncr(1,234)` was 0), and it has not been through `.toLowerCase()` either
+    //          (`C(1,234)`/`NCR(1,234)` did not reach the table the same way).
     final nameEnd = index + 1;
     while (index >= 0 && RegExp(r'[A-Za-z0-9]').hasMatch(source[index])) {
       index--;
     }
-    return _multiArgumentFunctions.contains(source.substring(index + 1, nameEnd));
+    final name = _canonicalFunctionName(source.substring(index + 1, nameEnd));
+    return _multiArgumentFunctions.contains(name);
+  }
+
+  /// 中文：函数名的三种拼法 → 应用自己的规范名。**唯一的一张表**：归一化整段文本用它
+  ///       （[_normalizeFunctionAliases]），读「`(` 前面那个名字」也用它（[_startsFunctionArgument]）。
+  ///       两处共用一张表的理由与实参个数表相同：`log` 的三种拼法必须**都**按它接两个实参算，
+  ///       否则同一颗键的两种写法会给出两个值（实测：`log(1,024)` = 0，而 `lg(1,024)` = 3.0103）。
+  /// English: the three spellings of a function name → this app's canonical name. **One table**:
+  ///          normalising a whole text uses it ([_normalizeFunctionAliases]) and so does reading the
+  ///          name before a bracket ([_startsFunctionArgument]). They share it for the same reason the
+  ///          argument-count table is shared: all three spellings of `log` have to count as taking two
+  ///          arguments, or two spellings of one key give two values (measured: `log(1,024)` = 0 while
+  ///          `lg(1,024)` = 3.0103).
+  static const Map<String, String> _functionAliases = <String, String>{
+    'arcsin': 'asin',
+    'arccos': 'acos',
+    'arctan': 'atan',
+    'log10': 'log',
+    'lg': 'log',
+    'c': 'ncr',
+    'p': 'npr',
+  };
+
+  /// 中文：把一个名字折成规范名（大小写不敏感）；表里没有的名字原样返回（小写化后）。
+  /// English: fold one name to its canonical spelling (case-insensitively); a name absent from the
+  ///          table comes back as itself, lower-cased.
+  static String _canonicalFunctionName(String name) {
+    final lower = name.toLowerCase();
+    return _functionAliases[lower] ?? lower;
   }
 
   static String _normalizeFunctionAliases(String source) {
-    return source
-        .replaceAllMapped(RegExp(r'\barcsin\b'), (_) => 'asin')
-        .replaceAllMapped(RegExp(r'\barccos\b'), (_) => 'acos')
-        .replaceAllMapped(RegExp(r'\barctan\b'), (_) => 'atan')
-        .replaceAllMapped(RegExp(r'\blog10\b'), (_) => 'log')
-        .replaceAllMapped(RegExp(r'\blg\b'), (_) => 'log')
-        .replaceAllMapped(RegExp(r'\bc(?=\s*\()'), (_) => 'ncr')
-        .replaceAllMapped(RegExp(r'\bp(?=\s*\()'), (_) => 'npr');
+    var text = source;
+    for (final entry in _functionAliases.entries) {
+      // 中文：单字母别名（`c`/`p`）必须**紧跟着括号**才算别名——不加这条限制，它们会替换掉表达式里
+      //       每一个 `c` 与 `p`。其余别名按词边界替换（`lg 100` 这种裸写法也要能归一化，
+      //       后面 `_normalizeBareUnaryFunctionCalls` 才认得出 `log`）。
+      // English: the one-letter aliases (`c`/`p`) only count **immediately before a bracket** — without
+      //          that restriction they would replace every `c` and `p` in the expression. The other
+      //          aliases replace on word boundaries (`lg 100` has to normalise too, or
+      //          `_normalizeBareUnaryFunctionCalls` will not recognise the `log` it produces).
+      final pattern = entry.key.length == 1
+          ? RegExp('\\b${entry.key}(?=\\s*\\()')
+          : RegExp('\\b${entry.key}\\b');
+      text = text.replaceAllMapped(pattern, (_) => entry.value);
+    }
+    return text;
   }
 
   static String _normalizeBareUnaryFunctionCalls(String source) {

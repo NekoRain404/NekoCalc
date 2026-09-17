@@ -88,6 +88,51 @@ void main() {
     expect(parse('12(345,678)'), closeTo(4148136, 1e-9));
   });
 
+  test('a function alias reads its comma the same way its canonical name does', () {
+    // 中文：**别名与规范名必须读成同一个东西，逗号也一样。** 实参个数表写的是**归一化之后**的
+    //       名字（`ncr`/`npr`/`log`），而 [_startsFunctionArgument] 读的是**归一化之前**的文本
+    //       ——别名替换跑在逗号归一化之后。于是同一颗键的两种拼法给出两个不同的值：
+    //
+    //       | 表达式 | 逗号读成 | 值 |
+    //       |---|---|---|
+    //       | `ncr(1,234)` | 分隔符 → `ncr(1, 234)` | 0（挑不出 234 个） |
+    //       | `c(1,234)` / `C(1,234)` | 千分位 → `c(1234)` | **1234** ✗ |
+    //       | `log(1,024)` | 分隔符 → 底数为 1024 | 0（log₁₀₂₄1） |
+    //       | `lg(1,024)` / `log10(1,024)` | 千分位 → `lg(1024)` | **3.0103** ✗ |
+    //
+    //       大小写是同一个缺陷的另一半：这段文本此时**还没有经过 `.toLowerCase()`**
+    //       （`_normalizeGroupedNumberSeparators` 跑在它前面），所以 `C`/`NCR` 也进不了那张表。
+    // English: **an alias has to read the comma the way its canonical name does.** The argument table
+    //          is written in **post-normalisation** names (`ncr`/`npr`/`log`) while
+    //          [_startsFunctionArgument] reads the **pre-normalisation** text — the alias replacement
+    //          runs after the comma normalisation. Two spellings of the same key therefore gave two
+    //          different values:
+    //
+    //          | expression | comma read as | value |
+    //          |---|---|---|
+    //          | `ncr(1,234)` | a separator → `ncr(1, 234)` | 0 (cannot choose 234 of 1) |
+    //          | `c(1,234)` / `C(1,234)` | a thousands separator → `c(1234)` | **1234** ✗ |
+    //          | `log(1,024)` | a separator → base 1024 | 0 (log₁₀₂₄1) |
+    //          | `lg(1,024)` / `log10(1,024)` | a thousands separator → `lg(1024)` | **3.0103** ✗ |
+    //
+    //          Case is the other half of the same defect: the text has **not** been through
+    //          `.toLowerCase()` yet at this point (`_normalizeGroupedNumberSeparators` runs before it),
+    //          so `C`/`NCR` do not reach the table either.
+    expect(parse('ncr(1,234)'), closeTo(0, 1e-9));
+    expect(parse('c(1,234)'), closeTo(0, 1e-9));
+    expect(parse('C(1,234)'), closeTo(0, 1e-9));
+    expect(parse('NCR(1,234)'), closeTo(0, 1e-9));
+    expect(parse('log(1,024)'), closeTo(0, 1e-9));
+    expect(parse('lg(1,024)'), closeTo(0, 1e-9));
+    expect(parse('log10(1,024)'), closeTo(0, 1e-9));
+    // 中文：同一张表的**反例**照旧——`log2` 只吃一个实参，逗号仍是千分位；括号前面不是函数也一样。
+    // English: the **counter-examples** for the same table still hold — `log2` takes one argument, so
+    //          its comma is still a thousands separator, and so is one before a bracket with no
+    //          function in front of it.
+    expect(parse('log2(1,024)'), closeTo(10, 1e-9));
+    expect(parse('2(1,234)'), closeTo(2468, 1e-9));
+  });
+
   test('normalizes common pasted function aliases', () {
     expect(parse('lg(100)+arcsin(0.5)'), closeTo(2 + math.asin(0.5), 1e-9));
     expect(parse('arccos(0.5)+arctan(1)'),
