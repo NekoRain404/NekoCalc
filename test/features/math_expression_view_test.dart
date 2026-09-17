@@ -90,6 +90,74 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // 中文：精确形式（引擎给的 LaTeX）是**直入**这个组件的第二种输入：不解析原文，整段交给同一个
+  //       `Math.tex`。这里钉住三件事：判定「排不排得出来」用的就是渲染器自己的解析器；排得出来时
+  //       屏幕上没有原文的纯文本副本；排不出来时显示的正是原文（调用方放进 `expression` 的那份
+  //       十进制读数），不是空白、也不是 TeX 本身。
+  //
+  //       用的 LaTeX 全是 `qalc` 5.12.0（与 App 里同一个 libqalculate 版本、同一组 PrintOptions）
+  //       实测出来的引擎输出。
+  // English: The exact form (the engine's LaTeX) is the second, **direct** input to this widget: the
+  //          source is not parsed and the whole string goes to the same `Math.tex`. Three things are
+  //          pinned here: "can it typeset" is asked of the renderer's own parser; when it typesets
+  //          there is no plain-text copy of the source on screen; when it does not, what shows is
+  //          that source (the decimal reading the caller put in `expression`) — not a blank, and
+  //          not the TeX itself.
+  //
+  //          Every LaTeX string is measured engine output from `qalc` 5.12.0 (the same libqalculate
+  //          version and PrintOptions the app carries).
+  group('精确形式（直入 TeX）', () {
+    test('排得出来与排不出来，问的就是渲染器那一个解析器', () {
+      expect(MathExpressionView.typesetsTex(r'2\times \sqrt{2}'), isTrue);
+      expect(MathExpressionView.typesetsTex(r'\frac{1}{\sqrt{2}}'), isTrue);
+      expect(MathExpressionView.typesetsTex(r'0.5 \pi '), isTrue);
+      // 中文：这两个宏是引擎对「带千分位的长数字」和「带单位的量」的印法，flutter_math_fork 不认。
+      // English: these two macros are how the engine prints a long number carrying grouping
+      //          separators and a quantity carrying a unit; flutter_math_fork knows neither.
+      expect(MathExpressionView.typesetsTex(r'\num{0.3333333333333333}'), isFalse);
+      expect(MathExpressionView.typesetsTex(r'\sin(\qty{30}{\radian})'), isFalse);
+    });
+
+    testWidgets('给了排得出来的 TeX 就排版，不再显示原文的纯文本副本', (tester) async {
+      await tester.pumpWidget(host(const MathExpressionView(
+        expression: '2.828427',
+        tex: r'2\times \sqrt{2}',
+      )));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('2.828427'), findsNothing);
+      expect(
+        tester.getSize(find.byType(MathExpressionView)).width,
+        greaterThan(0),
+      );
+    });
+
+    testWidgets('TeX 排不出来时显示的正是原文，不是空白也不是 TeX 本身', (tester) async {
+      await tester.pumpWidget(host(const MathExpressionView(
+        expression: '0.333333',
+        tex: r'\num{0.3333333333333333}',
+      )));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('0.333333'), findsOneWidget);
+      expect(find.textContaining(r'\num'), findsNothing);
+    });
+
+    testWidgets('自然排版关掉时连 TeX 也不看，整行就是原文', (tester) async {
+      await tester.pumpWidget(host(const MathExpressionView(
+        expression: '2.828427',
+        tex: r'2\times \sqrt{2}',
+        naturalDisplay: false,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('2.828427'), findsOneWidget);
+    });
+  });
+
   // 中文：光标是组件内唯一的 Container，因此可以按类型定位；用位置而不是类型来断言，
   //       是因为真正要守住的行为是"光标落在下标对应的那个片段边界上"。
   // English: The cursor is the only Container inside the widget, so it can be located by type.

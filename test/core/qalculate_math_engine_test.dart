@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/platform/qalculate_math_engine.dart';
+import 'package:nekocalc/core/utils/number_formatter.dart';
 
 /// 中文：`QalculateMathEngine`（把平台通道包成 `MathEngine` 的那一层）的测试。全部用假的通道
 ///       回执跑，不需要设备、不需要引擎。
@@ -250,7 +251,17 @@ void main() {
     //          number (it merely exceeds a double), so `hasFiniteDecimal` is true — which is what
     //          lets the submit path take it and display it — while consumers that need a double get
     //          null, so they handle "cannot store this" explicitly and never receive `Infinity`.
-    expect(reply.result!.decimalText, '1e400');
+    //
+    // 中文：**这一条改了期望值**，因为适配层现在把指数写成应用自己的拼法（`1e400` → `1e+400`：
+    //       小写 `e`、带符号、无前导零），好让引擎这一路与旧求值器经 `formatNumber` 印出来的
+    //       `1.071509e+301` 在同一个显示区里长得一样。判的东西一个没动：仍然是「有限、但没有
+    //       double 值」。
+    // English: **This expectation changed.** The adapter now spells the exponent the way the app
+    //          does (`1e400` → `1e+400`: lowercase `e`, signed, no leading zeros) so that the engine
+    //          path and the `1.071509e+301` the legacy evaluator prints through `formatNumber` look
+    //          the same in one display region. What is being judged is untouched: still "finite, but
+    //          with no double value".
+    expect(reply.result!.decimalText, '1e+400');
     expect(reply.result!.hasFiniteDecimal, isTrue);
     expect(reply.result!.decimalValue, isNull);
   });
@@ -287,5 +298,64 @@ void main() {
     final grouped = await engine.evaluate('1.2345', angleMode: 'RAD');
     expect(grouped.result!.decimalText, '1234.5e-3');
     expect(grouped.result!.decimalValue, 1.2345);
+  });
+
+  test('把指数写成应用自己的那一种拼法', () async {
+    // 中文：引擎印的是 `1.148130695274255E602`（大写 `E`、没有 `+`；真机实测），而旧求值器经
+    //       `formatNumber` 印的是 `1.071509e+301`（小写 `e`、带 `+`）。同一个显示区里两种写法，
+    //       这里统一成 `formatNumber` 那一种——它印的是屏幕上绝大多数数字。
+    //
+    //       只改拼法：数值、有限性判定、`decimalValue` 全都一字不动。
+    // English: The engine prints `1.148130695274255E602` (uppercase `E`, no `+`; measured on a real
+    //          device) while the legacy evaluator prints `1.071509e+301` through `formatNumber`
+    //          (lowercase `e`, signed). One display region, two spellings; this unifies on
+    //          `formatNumber`'s, which prints the overwhelming majority of the numbers on screen.
+    //
+    //          Only the spelling moves: the value, the finiteness judgement and `decimalValue` are
+    //          untouched.
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '1.148130695274255E602',
+          'latex': r'\num{1.148130695274255e602}',
+        });
+
+    final huge = await engine.evaluate('2^2000', angleMode: 'RAD');
+    expect(huge.result!.displayText, '1.148130695274255e+602');
+    expect(huge.result!.decimalText, '1.148130695274255e+602');
+    expect(huge.result!.hasFiniteDecimal, isTrue);
+    expect(huge.result!.decimalValue, isNull);
+
+    // 中文：**两条路印出来的必须是同一个写法**，这条断言就是那句「统一」本身：一个来自 double
+    //       （旧求值器那条路），一个来自引擎文本（这一层）。
+    // English: **Both paths must print the same spelling**, and this assertion is that sentence: one
+    //          comes from a double (the legacy route), the other from the engine's text (this layer).
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '1.5E301',
+          'latex': r'\num{1.5e301}',
+        });
+    final sameMagnitude = await engine.evaluate('1.5e301', angleMode: 'RAD');
+    expect(sameMagnitude.result!.decimalText, formatNumber(1.5e301),
+        reason: '引擎文本与 formatNumber 必须印成同一个样子');
+
+    // 中文：负指数同样带符号；已经不是科学计数法的文本一个字都不许动。
+    // English: a negative exponent is signed too, and text that is not scientific notation is not
+    //          touched at all.
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '-8.709809816217217E-603',
+          'latex': '-8.709809816217217e-603',
+        });
+    final tiny = await engine.evaluate('2^-2000', angleMode: 'RAD');
+    expect(tiny.result!.decimalText, '-8.709809816217217e-603');
+
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '5.656854249492380',
+          'latex': r'4\times \sqrt{2}',
+        });
+    final plain = await engine.evaluate('sqrt(32)', angleMode: 'RAD');
+    expect(plain.result!.decimalText, '5.656854249492380');
+    expect(plain.result!.displayText, '5.656854249492380');
   });
 }

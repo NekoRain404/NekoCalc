@@ -292,18 +292,20 @@ class CalculatorController extends ChangeNotifier {
 
   ExpressionSelection get selection => _selection;
 
-  /// 中文：结果行的纯文本形态——**显示路径（`CalculatorDisplay`）只读它**，因此这次拆分对视图
-  ///       完全透明，屏幕上看到的东西与拆分前逐字符相同。
-  /// English: The plain-text form of the result line — the display path (`CalculatorDisplay`) reads
-  ///          only this, which is what makes the split invisible to the view: what reaches the
-  ///          screen is character-for-character what reached it before.
+  /// 中文：结果行的十进制读数——没有精确形式时它就是整行，有精确形式时它是 `≈` 后面那一半。
+  ///       取整仍由 `formatNumber` 按 [AppSettings.precision] 完成，所以精度设置管的正是这一半。
+  /// English: The result line's decimal reading — the whole line when there is no exact form, the
+  ///          half after `≈` when there is one. `formatNumber` still does the rounding at
+  ///          [AppSettings.precision], so the precision setting governs exactly this half.
   String get result => _result.displayText;
 
-  /// 中文：结果行的 LaTeX 形态（不含 `$` 定界符）。引擎未接入时始终为空串，结果行继续按纯文本
-  ///       渲染；自然排版的结果行会在下一步读它。
-  /// English: The LaTeX form of the result line (no `$` delimiters). While no engine is involved it
-  ///          is always empty and the result line keeps rendering as plain text; the typeset result
-  ///          line will read it in the next step.
+  /// 中文：结果行的 LaTeX 形态（不含 `$` 定界符），也就是引擎给出的**精确形式**。引擎未接入时
+  ///       始终为空串，结果行整行纯文本；非空时结果行是否排版由 `CalculatorDisplay` 判定——还要
+  ///       排得出来、且不是同一串十进制的另一种写法。
+  /// English: The result line's LaTeX form (no `$` delimiters) — the **exact form** the engine
+  ///          supplied. While no engine is involved it is always empty and the line stays plain
+  ///          text; when it is not, `CalculatorDisplay` decides whether to typeset it — it must also
+  ///          render, and be more than the same decimal written differently.
   String get resultTex => _result.displayTex;
 
   /// 中文：结果的十进制形态——Ans/last、记忆寄存器、继续使用、历史去重与报告里的机器可读值都从
@@ -937,14 +939,58 @@ class CalculatorController extends ChangeNotifier {
     }
   }
 
+  /// 中文：把当前表达式的结果保存成一条笔记。
+  ///
+  ///       **结果来源与「按下等号」完全一样**：[saveToNote] 曾经自己跑旧解析器重算一遍，于是引擎
+  ///       辛苦算出的东西——超出 double 量程的值、精确形式——会在按下去的那一刻被旧求值器覆盖，
+  ///       屏幕上的结果行当场翻脸，而笔记里写的是那个被覆盖后的值。现在两条路共用
+  ///       [_submittedResult]：先问引擎，引擎答不出来才回落旧解析器（回落是与提交路径同一处的
+  ///       判定，见 [_acceptedEngineResult]）。
+  ///
+  ///       代价是这一步变成了**真的异步**：以前重算是同步的，现在要等一次引擎往返，因此多出一条
+  ///       提交路径早就有的分支——**过期**。往返期间用户又改了输入（`_stateRevision` 变了）或者
+  ///       控制器已经销毁时，[CalculatorSaveNoteResult.superseded] 是唯一的正确答案：结果不许
+  ///       落地，笔记也不许写，因为那两样都属于一条已经不在屏幕上的时间线。
+  ///
+  ///       `_markStateEdited()` 与 `_cancelLiveEvaluation()` 在等待之前发生：按「保存笔记」本身就
+  ///       是一次状态编辑（撤销栈、代际），而还在排队的边打边算问的是一条即将被这一步接手的时间
+  ///       线。已在飞的那一发不在这里收——代际守卫会认出它过期。
+  ///
+  /// English: Save the current expression's result as a note.
+  ///
+  ///          **The result comes from the same place "pressed =" uses**: [saveToNote] used to run the
+  ///          legacy parser itself, so everything the engine had computed — values beyond a double's
+  ///          range, exact forms — was overwritten the moment the button was pressed. The result line
+  ///          then flipped in front of the user, and the note recorded the overwritten value. Both
+  ///          paths now share [_submittedResult]: the engine is asked first and the legacy parser is
+  ///          the fallback for when it cannot answer, judged in the one place the submit path uses
+  ///          ([_acceptedEngineResult]).
+  ///
+  ///          The price is that this step is **genuinely asynchronous** now: the recomputation used
+  ///          to be synchronous, and waiting on an engine round trip introduces the branch the submit
+  ///          path already has — **staleness**. When the user edits during the round trip
+  ///          (`_stateRevision` moves) or the controller is disposed,
+  ///          [CalculatorSaveNoteResult.superseded] is the only right answer: the result must not
+  ///          land and the note must not be written, because both belong to a timeline that is no
+  ///          longer on screen.
+  ///
+  ///          `_markStateEdited()` and `_cancelLiveEvaluation()` happen before the wait: pressing
+  ///          "save note" is itself a state edit (undo stack, generation), and any queued as-you-type
+  ///          evaluation is asking about a timeline this step is about to take over. The call already
+  ///          in flight is not collected here — the generation guard recognises it as stale.
   Future<CalculatorSaveNoteResult> saveToNote() async {
     if (expression.trim().isEmpty) {
       return const CalculatorSaveNoteResult.emptyExpression();
     }
     _markStateEdited();
     _cancelLiveEvaluation();
+    final generation = _stateRevision;
     try {
-      _result = _calculateResult(expression);
+      final calculated = await _submittedResult(expression, generation);
+      if (calculated == null) {
+        return const CalculatorSaveNoteResult.superseded();
+      }
+      _result = calculated;
       hasError = false;
       errorMessage = null;
       notifyListeners();
@@ -1593,68 +1639,84 @@ class CalculatorController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// 中文：记忆寄存器要加/减的数值。表达式能算就用表达式，否则用**结果的十进制形态**；
-  ///       **两者都给不出一个能放进 double 的值时返回 null**——调用方据此显式拒绝，而不是往
-  ///       寄存器里加一个 0 或一个 `Infinity`。绝不解析显示文本。
+  /// 中文：记忆寄存器要加/减的数值。**给不出一个能放进 double 的值时返回 null**——调用方据此
+  ///       显式拒绝，而不是往寄存器里加一个 0 或一个 `Infinity`。绝不解析显示文本。
   ///
-  ///       判定用的是 [MathResult.decimalValueOf] / [MathResult.usableDouble]——与提交路径、粘贴
-  ///       路径**同一处实现**，不另写一份。这条分支以前直接把旧解析器的 double 交给寄存器，于是：
+  ///       取值的顺序，三条都共用既有的判定（[MathResult.decimalTextIsFinite] /
+  ///       [MathResult.decimalValueOf] / [MathResult.decimalValue]，与提交路径、粘贴路径同一处
+  ///       实现，不另写一份）：
+  ///
+  ///       1. 表达式**本身就是一个数**（「继续使用」写回之后正是这种形状）→ 按**文本**判定。文本里
+  ///          还留着 double 已经丢掉的信息，这正是它能识破下溢的原因。
+  ///       2. 其余表达式 → **屏幕上那个结果**，只要它是引擎算出来的（[_result] 带 LaTeX 形态）。
+  ///          寄存器要加的就是用户看到的那个数，`Ans`/`last` 用的也是它；此处的判定是结果里那串
+  ///          **十进制文本**，`2^-2000` 的 `0.0` 因此不会再被当成一个真值收下。
+  ///       3. 引擎没有参与（没有原生侧、kill switch 关掉、超时、答不出有限的十进制）→ 旧解析器，
+  ///          与迁移之前逐字节相同。这是硬性回落的另一半：`_currentNumericValue()` 是同步的，
+  ///          没有引擎结果可用的那些情形只能由旧解析器兜着。
+  ///
+  ///       这条分支以前**无条件**走旧解析器，于是引擎算出的值在按下 `M+` 时被重算一遍：
   ///
   ///       - `2^-2000` → `=` →「继续使用」把 `8.7e-603` 写回表达式 → `M+`：解析器给 `0.0`，
   ///         寄存器里静默变成 0；
   ///       - `2^2000` → 同样的路 → 解析器给 `Infinity`，寄存器里是 `Infinity`，而且会持久化、
-  ///         重启后还在。
+  ///         重启后还在；
+  ///       - `2^-2000` → `=` → `M+`（**不经过**「继续使用」）：旧解析器自己就把 `9.3e-603` 算成了
+  ///         `0.0`，[MathResult.usableDouble] 只能判非有限、判不了下溢——于是执行的是「加一个
+  ///         0」。这一条现在也堵上了：引擎在屏幕上留下的是它的十进制文本，下溢在那里看得出来，
+  ///         于是寄存器**不被改动**（与上面那条一样是值中性的，但不再是「拿一个错值去加」）。
   ///
-  ///       表达式**本身就是一个数**时（「继续使用」写回之后正是这种形状）先按**文本**判定，
-  ///       因为文本里还留着 double 已经丢掉的信息——这正是它能识破下溢的原因。
+  /// English: The value the memory register adds or subtracts. It returns null when nothing fits a
+  ///          double, and the caller then refuses explicitly rather than adding a 0 or an
+  ///          `Infinity`. The display text is never parsed.
   ///
-  ///       **一般的表达式仍然有这个洞，别以为它被堵上了**：`2^-2000` → `=` → `M+`（不经过
-  ///       「继续使用」）时，旧解析器自己就已经把 `9.3e-603` 算成了 `0.0`，而
-  ///       [MathResult.usableDouble] 只能判非有限、判不了下溢——于是这一次执行的是「加一个 0」。
-  ///       当前后果是**值中性的**（加零不改寄存器，屏幕上的结果也照常显示），但那是**运气，不是
-  ///       保证**：这条路上没有任何东西保证下一次落到这里的错值仍然是中性的。要真的堵上，旧解析器
-  ///       必须把算出来的文本一起带上来（它现在只返回一个 double），那属于边打边算那条路径的事，
-  ///       不在本步范围内。
+  ///          The order, all three sharing the existing judgements
+  ///          ([MathResult.decimalTextIsFinite] / [MathResult.decimalValueOf] /
+  ///          [MathResult.decimalValue] — the *same* implementation the submit path and the paste
+  ///          path use, never a second copy):
   ///
-  /// English: The value the memory register adds or subtracts. The expression wins when it
-  ///          evaluates; otherwise the result's *decimal form* is used; when neither yields
-  ///          something that fits a double this returns null, and the caller explicitly refuses
-  ///          rather than adding a 0 or an `Infinity`. The display text is never parsed.
+  ///          1. The expression **is itself a number** (exactly the shape "continue with result"
+  ///             leaves behind) → judged as **text**. The text still carries what the double has
+  ///             already lost, which is what lets it see the underflow.
+  ///          2. Any other expression → **the result on screen**, as long as the engine produced it
+  ///             ([_result] carries a LaTeX form). What the register adds is the number the user is
+  ///             looking at, the same one `Ans`/`last` use; the judgement here is made on the
+  ///             result's **decimal text**, so the `0.0` of `2^-2000` is no longer taken as a real
+  ///             value.
+  ///          3. No engine involved (no native side, kill switch off, timeout, no finite decimal) →
+  ///             the legacy parser, byte-for-byte what it did before the migration. That is the other
+  ///             half of the hard fallback rule: `_currentNumericValue()` is synchronous, so the
+  ///             cases with no engine answer are exactly the ones only the legacy parser can cover.
   ///
-  ///          The judgement is [MathResult.decimalValueOf] / [MathResult.usableDouble] — the *same
-  ///          implementation* the submit path and the paste path use, never a second copy. This
-  ///          branch used to hand the legacy parser's double straight to the register, so:
+  ///          This branch used to go through the legacy parser **unconditionally**, so pressing `M+`
+  ///          recomputed what the engine had already computed:
   ///
   ///          - `2^-2000` → `=` → "continue with result" writes `8.7e-603` back into the expression
   ///            → `M+`: the parser yields `0.0` and the register silently becomes 0;
   ///          - `2^2000` → the same route → the parser yields `Infinity`, the register holds
-  ///            `Infinity`, and it persists across a restart.
-  ///
-  ///          When the expression *is itself a number* (exactly the shape "continue with result"
-  ///          leaves behind) it is judged as **text** first, because the text still carries what the
-  ///          double has already lost — which is what lets it see the underflow.
-  ///
-  ///          **The hole is still open for a general expression; do not read this as closed.**
-  ///          For `2^-2000` → `=` → `M+` (without "continue with result") the legacy parser has
-  ///          already turned `9.3e-603` into `0.0` on its own, and [MathResult.usableDouble] can only
-  ///          judge non-finiteness, not underflow — so this performs "add a zero". That is currently
-  ///          **value-neutral** (adding zero does not change the register, and the display still
-  ///          shows the result), but it is **luck, not a guarantee**: nothing on this path promises
-  ///          that the next wrong value to land here will also be neutral. Closing it properly needs
-  ///          the legacy parser to carry the computed text up with it (it returns a bare double
-  ///          today), which belongs to the as-you-type path and not to this step.
+  ///            `Infinity`, and it persists across a restart;
+  ///          - `2^-2000` → `=` → `M+` (**without** "continue with result"): the legacy parser turns
+  ///            `9.3e-603` into `0.0` by itself, and [MathResult.usableDouble] can only judge
+  ///            non-finiteness, not underflow — so it performed "add a zero". That one is closed
+  ///            now too: what the engine left on screen is its decimal text, the underflow is visible
+  ///            in it, and the register is therefore **left alone** (value-neutral like the case
+  ///            above, but no longer a wrong value being added).
   double? _currentNumericValue() {
     try {
-      if (expression.trim().isNotEmpty) {
-        final source = _resolveAnswerReferences(expression);
-        if (MathResult.decimalTextIsFinite(source)) {
-          return MathResult.decimalValueOf(source);
-        }
-        return MathResult.usableDouble(
-          ExpressionParser(source, degreeMode: angleMode == 'DEG').parse(),
-        );
+      if (expression.trim().isEmpty) return _result.decimalValue;
+      final source = _resolveAnswerReferences(expression);
+      if (MathResult.decimalTextIsFinite(source)) {
+        return MathResult.decimalValueOf(source);
       }
-      return _result.decimalValue;
+      // 中文：`hasTex` 就是「这个结果是引擎算出来的」——旧路径从不写 LaTeX 形态，而引擎路径总有
+      //       一段（见 [MathResult.displayTex] 的 doc）。
+      // English: `hasTex` is exactly "the engine computed this result": the legacy path never writes
+      //          a LaTeX form and the engine path always carries one (see the doc on
+      //          [MathResult.displayTex]).
+      if (_result.hasTex) return _result.decimalValue;
+      return MathResult.usableDouble(
+        ExpressionParser(source, degreeMode: angleMode == 'DEG').parse(),
+      );
     } catch (_) {
       return _result.decimalValue;
     }

@@ -31,7 +31,12 @@ Future<void> runQalculateSmokeTest({
     final result = await channel.evaluate(expression, angleMode: angleMode);
     debugPrint(
       '$qalculateLogTag smoke "$expression" -> ok=${result['ok']} '
-      'decimal=${result['decimal']} dual=${result['dual']} latex=${result['latex']} '
+      // 中文：`dual` 已被原生侧删除（每次都算，Dart 侧从不读）——这里的字段表跟着它一起收窄，
+      //       否则这一行会永远打印一个 `dual=null`。
+      // English: `dual` is gone from the native side (computed every call, never read on the Dart
+      //          side) — the field list narrows with it, or this line would print `dual=null`
+      //          forever.
+      'decimal=${result['decimal']} latex=${result['latex']} '
       'aborted=${result['aborted']} messages=${result['messages']} error=${result['error']}',
     );
   } catch (error) {

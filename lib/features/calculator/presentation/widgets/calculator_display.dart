@@ -54,15 +54,19 @@ const double _errorMessageFontSize = 12;
 /// 中文：1) 状态行：最左是抽屉按钮（`onOpenDrawer` 为空则不渲染），接着角度模式 chip、
 ///       记忆指示 `M`（`hasMemory` 为假时留空），`Spacer` 把 `More...` 推到最右
 ///       （`onMore` 为空则不渲染）；2) 表达式行：`MathExpressionView`，右对齐，外面套一圈横向
-///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果，都是纯文本；
-///       4) 错误行：仅 `hasError` 为真时渲染，`statusTitle` 在上、`statusMessage` 在下。
+///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果——引擎给出精确
+///       形式且它排得出来时，那一段走 `MathExpressionView` 自然排版并在后面跟上 `≈ 近似值`，
+///       否则整行仍是纯文本；4) 错误行：仅 `hasError` 为真时渲染，`statusTitle` 在上、
+///       `statusMessage` 在下。
 /// English: 1) status row: the drawer button leftmost (not rendered when `onOpenDrawer` is null),
 ///          then the angle-mode chip, the `M` memory indicator (nothing when `hasMemory` is
 ///          false), and a `Spacer` pushing `More...` to the right edge (not rendered when
 ///          `onMore` is null); 2) expression line: `MathExpressionView`, right-aligned, inside a
 ///          horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
-///          line: right-aligned, an `=` prefix followed by the result, both plain text; 4) error
-///          line: rendered only while `hasError` is true — `statusTitle` above `statusMessage`.
+///          line: right-aligned, an `=` prefix followed by the result — when the engine supplied an
+///          exact form and that form typesets, it goes through `MathExpressionView` and is followed
+///          by `≈ approximation`; otherwise the whole line stays plain text; 4) error line:
+///          rendered only while `hasError` is true — `statusTitle` above `statusMessage`.
 /// 中文：`statusTitle` 出现在错误行（仅 `hasError` 为真时）的上半，见该字段与 `_errorLine` 的
 ///       注释。
 /// English: `statusTitle` appears on the upper half of the error line, which is rendered only
@@ -100,12 +104,38 @@ const double _errorMessageFontSize = 12;
 ///          the Task 5 shell test both find it by that tooltip, so **no second ☰ may be built on
 ///          the screen**; when `onOpenDrawer` is null it is not rendered at all.
 ///
-/// 结果行为什么是纯文本 / Why the result line is plain text:
-/// 中文：求值器只产出 `double`，`iπ√14/6` 这类精确形式需要另一个引擎，不在本阶段；在结果行上
-///       做自然排版只会把十进制值排成一棵毫无意义的公式树，所以这里刻意不排版。
-/// English: The evaluator only produces a `double`; exact forms such as `iπ√14/6` need a
-///          different engine and are out of scope here. Typesetting the result would only dress a
-///          decimal value up as a formula tree that says nothing, so it is deliberately plain.
+/// 结果行的两种形态 / The result line's two shapes:
+/// 中文：结果行有两种形态，由**引擎有没有给出一个排得出来的精确形式**决定，两者都在同一个
+///       `FittedBox` 里右对齐：
+///
+///       1. **纯文本**（`= 2.828427`）：没有精确形式、精确形式排不出来、显示文本本身就是那个精确
+///          形式（引擎对普通数字印出来的 LaTeX 就是那串十进制），或者自然排版被关掉时走这一种。
+///          它与接入引擎之前逐字符相同，因此「引擎没答上来」对屏幕完全不可见。
+///       2. **自然排版 + 近似值**（`= 2√2 ≈ 2.828427`）：精确形式走 `MathExpressionView`（与表达式
+///          行同一个组件、同一个 `Math.tex`、同一套降级），`≈` 后面跟十进制读数。近似值就是
+///          [CalculatorDisplay.result]，取整仍由控制器的 `formatNumber` 按精度设置完成——精度
+///          设置管的正是这一半，精确形式那一半本来就与取整无关。
+///
+///       为什么精确形式那一段不自己调 `Math.tex`：排版只有一套机制，失败了也要退回纯文本读数，
+///       另起一套就会多出第二个降级分支与第二份「排不出来时显示什么」的判断。
+/// English: The result line has two shapes, decided by whether the engine supplied an exact form
+///          that typesets; both sit right-aligned inside the same `FittedBox`:
+///
+///          1. **Plain text** (`= 2.828427`) when there is no exact form, when the exact form does
+///             not typeset, when the display text *is* that exact form (for an ordinary number the
+///             engine's LaTeX is the decimal itself), or when natural typesetting is switched off.
+///             This is character-for-character what the line showed before the engine was wired in,
+///             so "the engine could not answer" is invisible on screen.
+///          2. **Natural typesetting plus an approximation** (`= 2√2 ≈ 2.828427`): the exact form
+///             goes through `MathExpressionView` — the same widget, the same `Math.tex`, the same
+///             fallback the expression line uses — followed by `≈` and the decimal reading. That
+///             reading is [CalculatorDisplay.result], still rounded by the controller's
+///             `formatNumber` at the user's precision: the precision setting governs that half, and
+///             the exact half has nothing to round.
+///
+///          The exact form does not call `Math.tex` on its own for the same reason: there is one
+///          typesetting mechanism, it falls back to the plain reading, and a second one would add a
+///          second fallback branch and a second "what to show when it fails" decision.
 class CalculatorDisplay extends StatelessWidget {
   const CalculatorDisplay({
     required this.expression,
@@ -118,6 +148,8 @@ class CalculatorDisplay extends StatelessWidget {
     required this.hasMemory,
     required this.colors,
     required this.naturalDisplay,
+    this.resultTex = '',
+    this.resultDecimal = '',
     this.onTapOffset,
     this.onMore,
     this.onOpenDrawer,
@@ -128,9 +160,27 @@ class CalculatorDisplay extends StatelessWidget {
   /// English: The expression source, handed to `MathExpressionView`.
   final String expression;
 
-  /// 中文：结果文本（纯文本，见类注释）。
-  /// English: The result text (plain, see the class comment).
+  /// 中文：结果文本（十进制读数，见类注释：它是近似值那一半，也是没有精确形式时的整行）。
+  /// English: The result text (the decimal reading — see the class comment: it is the
+  ///          approximation half, and the whole line when there is no exact form).
   final String result;
+
+  /// 中文：结果的 LaTeX 形态（引擎的精确形式，不含 `$` 定界符）；引擎未参与时为空串，那时结果行
+  ///       整行纯文本。它排不出来时同样退回 [result]，绝不显示空白。
+  /// English: The result's LaTeX form (the engine's exact form, no `$` delimiters); empty while no
+  ///          engine is involved, and the result line is then plain text throughout. When it cannot
+  ///          be typeset it degrades to [result] as well, never to a blank.
+  final String resultTex;
+
+  /// 中文：结果的十进制形态（引擎给的、未取整的那一串）。**只用于一处判断**：精确形式与它逐字符
+  ///       相同时说明那只是同一个数的另一种写法（引擎对普通数字印的 LaTeX 就是这串十进制），
+  ///       于是不排两遍、也不加 `≈`。数值消费者读控制器，不读这里。
+  /// English: The result's decimal form (the engine's, unrounded). It is used for exactly one
+  ///          decision: when the exact form is character-for-character this string, that exact form
+  ///          is the same number written differently (for an ordinary number the engine's LaTeX *is*
+  ///          this decimal), so nothing is typeset twice and no `≈` is added. Numeric consumers read
+  ///          the controller, not this.
+  final String resultDecimal;
 
   /// 中文：是否处于错误态——只决定错误行渲染与否，不改结果行的颜色。
   /// English: Whether the panel is in an error state — it decides only whether the error line is
@@ -414,11 +464,48 @@ class CalculatorDisplay extends StatelessWidget {
   }
 
   /// 中文：结果行——`=` 与结果各自是一个 `Text`（不是拼成一行的 `RichText`），`FittedBox`
-  ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。
+  ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。精确形式那一段是唯一不是 `Text`
+  ///       的东西：它是一个 `MathExpressionView`，与上面那行表达式同一套排版。
+  ///
+  ///       精确形式要同时满足三条才会出现（见类注释里的两种形态）：
+  ///       [naturalDisplay] 开着；引擎给了一段**排得出来**的 LaTeX；而且它不是 [resultDecimal]
+  ///       逐字符的重复——最后这条挡掉的是普通数字：引擎对 `2+2` 印的 LaTeX 就是 `4`，左边已经
+  ///       是这个数，再来一个 `≈ 4` 只是把同一个数写两遍。
+  ///
+  ///       两条分支共用同一份样式对象，所以「精确形式 + 近似值」与「纯文本」的 `=`、字号、颜色
+  ///       完全一致——差别只在中间那一段是不是排出来的。
   /// English: The result line — the `=` and the result are separate `Text` widgets (not one
   ///          `RichText`), and the `FittedBox` only scales down, so a very long numeric result
-  ///          shrinks into the available width instead of overflowing.
+  ///          shrinks into the available width instead of overflowing. The exact form is the one
+  ///          part that is not a `Text`: it is a `MathExpressionView`, the same typesetting the
+  ///          expression line above uses.
+  ///
+  ///          The exact form appears only when three things hold (see the two shapes in the class
+  ///          comment): [naturalDisplay] is on, the engine supplied LaTeX that **typesets**, and it
+  ///          is not a character-for-character repeat of [resultDecimal] — that last one rules out
+  ///          ordinary numbers: the engine's LaTeX for `2+2` is `4`, the left side is already that
+  ///          number, and a `≈ 4` beside it would just write the same number twice.
+  ///
+  ///          Both branches share one set of style objects, so the `=`, the sizes and the colours are
+  ///          identical in both — only the middle part differs in whether it is typeset.
   Widget _resultLine() {
+    final resultStyle = TextStyle(
+      color: colors.resultFg,
+      fontSize: _resultFontSize,
+      fontWeight: FontWeight.w900,
+    );
+    final equalsStyle = TextStyle(
+      color: colors.resultFg,
+      fontSize: _equalsFontSize,
+      fontWeight: FontWeight.w700,
+    );
+    final tex = resultTex.trim();
+    final exactTex = naturalDisplay &&
+            tex.isNotEmpty &&
+            tex != resultDecimal.trim() &&
+            MathExpressionView.typesetsTex(tex)
+        ? tex
+        : '';
     return Align(
       alignment: Alignment.centerRight,
       child: FittedBox(
@@ -427,23 +514,31 @@ class CalculatorDisplay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
-            Text(
-              '=',
-              style: TextStyle(
-                color: colors.resultFg,
-                fontSize: _equalsFontSize,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text('=', style: equalsStyle),
             const SizedBox(width: 8),
-            Text(
-              result,
-              style: TextStyle(
-                color: colors.resultFg,
-                fontSize: _resultFontSize,
-                fontWeight: FontWeight.w900,
+            if (exactTex.isEmpty)
+              Text(result, style: resultStyle)
+            else ...<Widget>[
+              MathExpressionView(
+                // 中文：走到这里说明解析已经通过（上面那道 `typesetsTex` 用的就是渲染器自己的
+                //       解析器）。剩下的失败面只有**渲染阶段**的异常，那时这一段退化成这个
+                //       `Text`，即最多把近似值写两遍——绝不空白、也绝不是乱码，这是这里唯一
+                //       能给出的保证。
+                // English: Reaching here means the parse already succeeded (that `typesetsTex` above
+                //          asks the renderer's own parser). The only failure surface left is an
+                //          exception in the **render** stage, and then this fragment degrades to the
+                //          `Text` below — the approximation written twice at worst, never blank and
+                //          never garbled. That is the only promise available at this point.
+                expression: result,
+                tex: exactTex,
+                naturalDisplay: naturalDisplay,
+                textStyle: resultStyle,
               ),
-            ),
+              const SizedBox(width: 8),
+              Text('≈', style: equalsStyle),
+              const SizedBox(width: 8),
+              Text(result, style: resultStyle),
+            ],
           ],
         ),
       ),

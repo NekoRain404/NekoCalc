@@ -152,7 +152,14 @@ class QalculateMathEngine implements MathEngine {
   ///          is never a decimal point in any locale. They are written as escapes rather than
   ///          literals because those characters are *invisible* in source and cannot be reviewed
   ///          inside a character class.
-  static String _normalizeDecimal(String raw) {
+  static String _normalizeDecimal(String raw) =>
+      _appScientificSpelling(_washDecimal(raw));
+
+  /// 中文：[_normalizeDecimal] 的清洗那一步：Unicode 减号、千分位、首尾空白。指数写法不在这里，
+  ///       见 [_appScientificSpelling]。
+  /// English: The washing step of [_normalizeDecimal]: Unicode minus, digit grouping, surrounding
+  ///          whitespace. The exponent spelling is not here; see [_appScientificSpelling].
+  static String _washDecimal(String raw) {
     var text = raw
         .replaceAll('\u2212', '-')
         .replaceAll(RegExp('[\\u2009\\u00a0\\u202f]'), '')
@@ -170,6 +177,55 @@ class QalculateMathEngine implements MathEngine {
     return '${match.group(1)}${integer.replaceAll(',', '')}'
         '${match.group(3) ?? ''}${match.group(4) ?? ''}';
   }
+
+  /// 中文：把科学计数法写成**应用自己的那一种拼法**——小写 `e`、指数带符号、无前导零。那是
+  ///       `formatNumber` 印出来的样子（`1.071509e+301`，见 `number_formatter.dart` 的
+  ///       `_trimScientific`），也是屏幕上一切别的数字的样子。引擎印的是
+  ///       `1.148130695274255E602`（大写 `E`、没有 `+`），于是同一个显示区里出现两种写法：旧解析器
+  ///       （经 `formatNumber`）一种，超出 double 量程、**原样显示引擎文本**的那一类结果另一种。
+  ///
+  ///       统一在这里、而不是改 `formatNumber`：`formatNumber` 是既有的那一种拼法，屏幕上绝大多数
+  ///       数字都是它印的，改它等于为了迁就引擎去改所有别的东西。而这里是引擎文本变成应用文本的
+  ///       那一个入口——边打边算与提交路径都从这里过，所以改一处两条路一起对上。
+  ///
+  ///       只改**拼法**，不动数值：`double.tryParse` 两种都认，[MathResult.decimalTextIsFinite]
+  ///       两种都判为有限，写回表达式之后引擎也两种都认（`qalc` 5.12.0 实测：`…e+602`、`…E602`、
+  ///       `…e602` 三种输入给出同一个结果）。整串不匹配科学计数法的形状时原样返回——这个函数
+  ///       **绝不猜**，也绝不动别的东西。
+  /// English: Spells a scientific number **the way this app spells it** — lowercase `e`, a signed
+  ///          exponent, no leading zeros. That is what `formatNumber` prints (`1.071509e+301`; see
+  ///          `_trimScientific` in `number_formatter.dart`) and what every other number on screen
+  ///          looks like. The engine prints `1.148130695274255E602` (uppercase `E`, no `+`), so one
+  ///          display region used to show two spellings: the legacy evaluator's through
+  ///          `formatNumber`, and the one kind of result shown **verbatim from the engine** — the
+  ///          values that do not fit a double.
+  ///
+  ///          Unifying here rather than in `formatNumber`: `formatNumber` owns the existing spelling
+  ///          and prints the overwhelming majority of the numbers on screen, so changing it would
+  ///          mean changing everything else to accommodate the engine. This, on the other hand, is
+  ///          the entry point where the engine's text becomes the app's text — both the as-you-type
+  ///          and submit paths go through it, so one change puts both in step.
+  ///
+  ///          Only the **spelling** changes, never the value: `double.tryParse` accepts either,
+  ///          [MathResult.decimalTextIsFinite] calls either finite, and the engine accepts either
+  ///          when it is written back into the expression (measured with `qalc` 5.12.0: `…e+602`,
+  ///          `…E602` and `…e602` all produce the same result). A string that does not match the
+  ///          scientific shape is returned untouched — this function **never guesses** and never
+  ///          touches anything else.
+  static String _appScientificSpelling(String text) {
+    final match = _scientificNumber.firstMatch(text);
+    if (match == null) return text;
+    return '${match.group(1)}${match.group(2)}'
+        'e${match.group(3) == '-' ? '-' : '+'}${match.group(5)}';
+  }
+
+  /// 中文：`[符号][有效数字][e/E][指数符号][指数前导零][指数数字]`。指数前导零单独成组，因为那正是
+  ///       要被**丢掉**的部分，而不是被保留的部分。
+  /// English: `[sign][significand][e/E][exponent sign][exponent leading zeros][exponent digits]`.
+  ///          The leading zeros are a group of their own because that is exactly the part being
+  ///          **dropped** rather than kept.
+  static final RegExp _scientificNumber =
+      RegExp(r'^([+-]?)(\d+(?:\.\d+)?)[eE]([+-]?)(0*)(\d+)$');
 
   /// 中文：`[符号][整数部分][小数部分][指数部分]`。整数部分允许逗号，因为要先看清它的形状。
   /// English: `[sign][integer part][fraction][exponent]`. The integer part may contain commas

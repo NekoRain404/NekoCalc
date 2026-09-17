@@ -227,6 +227,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return CalculatorDisplay(
       expression: _controller.expression,
       result: _controller.result,
+      // 中文：精确形式与十进制读数一起下去——结果行只在「精确形式排得出来、又不是同一个数的
+      //       另一种写法」时才排版它，见 `CalculatorDisplay` 的两种形态。
+      // English: The exact form travels down with the decimal reading — the result line typesets it
+      //          only when it renders and is not the same number written differently; see the two
+      //          shapes in `CalculatorDisplay`.
+      resultTex: _controller.resultTex,
+      resultDecimal: _controller.resultDecimal,
       hasError: _controller.hasError,
       statusTitle: _controller.resultStatusTitle,
       statusMessage: _controller.resultStatusMessage,

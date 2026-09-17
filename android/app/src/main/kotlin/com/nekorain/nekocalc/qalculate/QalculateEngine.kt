@@ -163,10 +163,13 @@ class QalculateEngine {
             val angleUnit = angleUnitFor(angleMode)
 
             // 中文：TRY_EXACT 用于一步式打印；要不要近似由打印阶段的 AutomaticApproximation 决定。
+            //       这一份只用来拿 `parse_options`（角度单位就在里面，见下面那一段），`decimal`
+            //       自己另建一份明确要求近似的求值选项。
             // English: TRY_EXACT feeds the one-shot printer; whether to approximate is then decided
-            //          at print time by AutomaticApproximation.
+            //          at print time by AutomaticApproximation. This instance is only used for its
+            //          `parse_options` (the angle unit lives there, see the block below), while
+            //          `decimal` builds its own options that explicitly ask for the approximation.
             val evaluation = evaluationOptions(ApproximationMode.APPROXIMATION_TRY_EXACT, angleUnit)
-            val terminal = printOptions(latex = false)
             // 中文：`decimal` 的契约是「机器可解析」——Dart 侧要把它 `double.tryParse` 成数字，
             //       再按用户设置取整显示。所以这一份必须关掉 Unicode 符号与千分位：
             //       `5,656.854` 与 `−5.6`（U+2212）都不是 `double.tryParse` 认的数字，而它失败
@@ -208,7 +211,30 @@ class QalculateEngine {
                 machineReadable,
                 AutomaticApproximation.AUTOMATIC_APPROXIMATION_SINGLE,
             )
-            val dual = render(engine, normalized, evaluation, terminal, AutomaticApproximation.AUTOMATIC_APPROXIMATION_DUAL)
+
+            // 中文：**曾经**还有第三份渲染：`dual`（`AUTOMATIC_APPROXIMATION_DUAL` +
+            //       `TAG_TYPE_TERMINAL`），形状是 `4 ⋅ √(2) ≈ 5.6568542`。它占这次调用约三分之一的
+            //       原生工作量，而 Dart 侧从不读它——精确形式那一半由 `latex` 承担（而且是**能排版
+            //       的那一种**写法），近似值那一半由 `decimal` 承担（而且是机器可解析的那一种）。
+            //       于是它被删掉了，而不是留着当装饰：一个每次都算、没人读的字段就是白烧的 CPU。
+            //
+            //       为什么它的信息没有被丢掉：`dual` 是**终端格式**，`4 * sqrt(2)` 这种字符串既不能
+            //       排版，又不是数字——它不能替代 `latex`（后者才排得出根号），也不能替代 `decimal`
+            //       （后者才 `double.tryParse` 得动）。精确形式在设备上显示成 `2√2 ≈ 2.828427`
+            //       用的正是 `latex` + `decimal` 这两份。
+            // English: There **used** to be a third rendering here: `dual`
+            //          (`AUTOMATIC_APPROXIMATION_DUAL` + `TAG_TYPE_TERMINAL`), shaped like
+            //          `4 ⋅ √(2) ≈ 5.6568542`. It cost roughly a third of this call's native work and
+            //          the Dart side never read it — the exact half is carried by `latex` (in the
+            //          spelling that can actually be typeset) and the approximate half by `decimal`
+            //          (in the spelling that is machine-parseable). It is gone rather than kept as
+            //          decoration: a field computed on every call that nobody reads is CPU burnt for
+            //          nothing.
+            //
+            //          Nothing is lost by that: `dual` is **terminal format** — `4 * sqrt(2)` is
+            //          neither typesettable nor a number, so it can replace neither `latex` (the one
+            //          that renders a radical) nor `decimal` (the one `double.tryParse` can read).
+            //          What the device shows as `2√2 ≈ 2.828427` is exactly these two.
 
             // 中文：aborted() 会一直锁存到下一次 startControl，所以必须紧跟求值就读，否则它描述的是上一次请求。
             // English: aborted() latches until the next startControl, so it must be read immediately
@@ -249,7 +275,6 @@ class QalculateEngine {
                 "normalized" to normalized,
                 "ok" to "true",
                 "decimal" to decimal,
-                "dual" to dual,
                 "latex" to latex,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),
@@ -271,11 +296,14 @@ class QalculateEngine {
     }
 
     /**
-     * 中文：一步式求值。calculateAndPrint 自己会处理结尾的 to/where 指令、双解（精确+近似）
-     *       和进制换算，所以主路径仍然是它。
-     * English: One-shot evaluation. calculateAndPrint handles trailing to/where commands, the
-     *          exact+approximate dual result and base conversion on its own, so it stays the
-     *          primary path.
+     * 中文：一步式求值，目前只有 `decimal` 这一份走它。calculateAndPrint 自己会处理结尾的
+     *       to/where 指令和进制换算，所以它仍然是那条主路径。自动分数格式与自动近似都以参数形式
+     *       传进来：同一条路径靠它们印出「只有一个十进制数」的近似值（见调用点）。
+     * English: One-shot evaluation, which today only `decimal` takes. calculateAndPrint handles
+     *          trailing to/where commands and base conversion itself, so it is still the primary
+     *          path. The automatic fraction format and the automatic approximation arrive as
+     *          parameters: they are how this one path prints a single-decimal approximation (see the
+     *          call site).
      */
     private fun render(
         engine: Calculator,
@@ -351,10 +379,10 @@ class QalculateEngine {
         //          `double.tryParse` rejects outright.
         setUse_unicode_signs(if (latex || machineReadable) UNICODE_SIGNS_OFF else UNICODE_SIGNS_ON)
         // 中文：千分位只对机器可解析的那一份显式关掉。默认值不写进代码是会漂的：`5,656.854` 这种
-        //       带分隔符的输出到了 Dart 侧同样是静默的 null。人类可读的那几份（dual）保持原样。
+        //       带分隔符的输出到了 Dart 侧同样是静默的 null。
         // English: Digit grouping is explicitly turned off for the machine-parseable form only.
         //          Leaving it to the default would drift: `5,656.854` is just as silently null on
-        //          the Dart side. The human-readable forms (`dual`) keep whatever the default is.
+        //          the Dart side.
         if (machineReadable) setDigit_grouping(DigitGrouping.DIGIT_GROUPING_NONE)
         // 中文：把区间印成中点，而不是 interval(下界, 上界)。这是「无理结果只有一个十进制数」的
         //       唯一开关，且只影响显示——Number 里的上下界原封不动，精确形态那一份照旧由

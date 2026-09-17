@@ -15,10 +15,20 @@ import 'package:nekocalc/core/math/ast/tex_emitter.dart';
 ///          carries its source span, so "which piece was tapped" is answered by Flutter's own hit
 ///          testing, with no dependency on any internal structure of flutter_math_fork and no
 ///          reverse lookup of character positions in the rendered output.
+///
+/// 中文：除表达式原文之外，本组件还接受**第二种输入**：一段已经排好的 TeX（见 [tex]）。它存在的
+///       理由是引擎给出的**精确形式**本来就是 TeX，而结果行必须与表达式行走同一套排版、同一套
+///       失败降级——不是因为它需要另一套能力。两种输入共用后面那一段渲染与降级。
+/// English: Besides an expression source this widget takes a **second input**: pre-composed TeX (see
+///          [tex]). It exists because the engine's **exact form** already *is* TeX, and the result
+///          line has to share the expression line's typesetting and its failure fallback — not
+///          because a second capability was needed. Both inputs share the rendering and fallback
+///          below.
 class MathExpressionView extends StatelessWidget {
   const MathExpressionView({
     required this.expression,
     this.naturalDisplay = true,
+    this.tex = '',
     this.cursorIndex,
     this.onTapOffset,
     this.textStyle,
@@ -28,6 +38,30 @@ class MathExpressionView extends StatelessWidget {
   /// 中文：要显示的表达式原文。
   /// English: The expression source to display.
   final String expression;
+
+  /// 中文：**已经排好的 TeX**——引擎给出的精确形式（`2\times \sqrt{2}`）就是这种输入。
+  ///       非空时不再解析 [expression]，而是把这段 TeX 当成**一个**片段交给同一个 `Math.tex`；
+  ///       它排不出来时降级为 [expression] 的纯文本，因此调用方把「排不出来时该显示什么」放在
+  ///       [expression] 里即可（结果行给的是那一份十进制读数）。
+  ///
+  ///       精确形式走这里、而不是在结果行里另起一套 `Math.tex`：排版机制只有这一套，
+  ///       [naturalDisplay] 的开关、失败降级、字号与颜色的来源三者对两行完全一致。
+  ///
+  ///       光标与点击定位不适用于这一段：整段是一棵子树，也没有对应的原文区间。
+  /// English: **Pre-composed TeX** — the engine's exact form (`2\times \sqrt{2}`) arrives in this
+  ///          shape. When non-empty, [expression] is not parsed at all: this TeX is handed to the
+  ///          same `Math.tex` as **one** fragment, and when it cannot be typeset the fragment
+  ///          degrades to [expression] as plain text — so a caller puts "what to show when it
+  ///          cannot be typeset" in [expression] (the result line hands it the decimal reading).
+  ///
+  ///          The exact form travels through here rather than through a second `Math.tex` written
+  ///          inside the result line: there is one typesetting mechanism, so the [naturalDisplay]
+  ///          switch, the failure fallback and the source of size and colour are identical for both
+  ///          lines.
+  ///
+  ///          The caret and tap-to-cursor do not apply to this fragment: it is one subtree and has
+  ///          no corresponding source span.
+  final String tex;
 
   /// 中文：关闭时退化为普通文本，不解析、不排版。
   /// English: When off, degrades to plain text — no parsing, no typesetting.
@@ -54,6 +88,34 @@ class MathExpressionView extends StatelessWidget {
   ///          not normally reached.
   static const double _fallbackFontSize = 14;
 
+  /// 中文：这段 TeX 排得出来吗——问的是**渲染时用的那一个解析器**：`Math.tex` 在构造时就把
+  ///       解析错误放在 `parseError` 上，渲染时第一个分支就是「有错误就换降级内容」，所以这个
+  ///       判断与真正渲染的结果是同一句话，不是另写的一份近似预判。
+  ///
+  ///       调用方（结果行）用它决定「精确形式 + 近似值」这种两段式排版成不成立：排不出来时左边
+  ///       那一段会退化成 [expression] 自身，再跟一个近似值就只是把同一串数字写了两遍。
+  ///
+  ///       引擎的 LaTeX 里确实有排不出来的写法——`\num{…}`、`\qty{…}{…}` 这两个宏
+  ///       flutter_math_fork 不认，而 libqalculate 对「带千分位的长数字」正是这么印的
+  ///       （`1234567` → `\num{1234567}`、`2^2000` → `\num{1.148130695274255e602}`）。
+  ///       那些结果按契约退回纯文本读数，而不是显示空白的公式树。
+  /// English: Whether this TeX can be typeset — asked of *the parser the renderer itself uses*:
+  ///          `Math.tex` records a parse error on `parseError` as it is constructed, and the very
+  ///          first branch of its build swaps in the fallback when there is one, so this is the
+  ///          same statement as the render, not a separate approximation of it.
+  ///
+  ///          The caller (the result line) uses it to decide whether the two-part "exact form plus
+  ///          approximation" layout holds at all: when it cannot be typeset the left part degrades
+  ///          to [expression] itself, and appending an approximation would print the same digits
+  ///          twice.
+  ///
+  ///          The engine's LaTeX really does contain unrenderable spellings — flutter_math_fork
+  ///          knows neither `\num{…}` nor `\qty{…}{…}`, and those are exactly how libqalculate
+  ///          prints a long number carrying grouping separators (`1234567` → `\num{1234567}`,
+  ///          `2^2000` → `\num{1.148130695274255e602}`). Those results take the documented route
+  ///          back to the plain reading rather than showing an empty formula tree.
+  static bool typesetsTex(String tex) => Math.tex(tex).parseError == null;
+
   @override
   Widget build(BuildContext context) {
     // 中文：关闭自然排版时整行就是**一个** Text——这是该分支的对外契约，
@@ -64,6 +126,20 @@ class MathExpressionView extends StatelessWidget {
 
     final baseStyle = DefaultTextStyle.of(context).style;
     final style = textStyle == null ? baseStyle : baseStyle.merge(textStyle);
+
+    // 中文：给了 TeX 就是整段一棵子树，不再解析原文——但仍走同一个 `_fragment` 的降级契约：
+    //       排不出来时显示的是**原文**，也就是调用方放进 [expression] 的那份纯文本读数。
+    // English: Given TeX the whole fragment is one subtree and the source is never parsed — but the
+    //          fallback contract is the same one `_fragment` uses: when it cannot be typeset what
+    //          shows is the **source**, i.e. the plain reading the caller put in [expression].
+    if (tex.trim().isNotEmpty) {
+      return Math.tex(
+        tex,
+        textStyle: style,
+        onErrorFallback: (error) => Text(expression, style: style),
+      );
+    }
+
     final units = toDisplayUnits(const ExpressionAstParser().parse(expression));
     final fragments = const TexEmitter().emitUnits(units);
 
