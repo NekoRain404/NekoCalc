@@ -18,9 +18,11 @@ import 'package:nekocalc/data/repositories/settings_repository.dart';
 ///       - 名字那一层还在（`AppEngineVocabulary`）：`log`/`mod`/`phi` 这些「引擎读不了这个拼法」
 ///         的名字，引擎的答案一律不采用。第一组钉住这个行为。
 ///
-///       每个引擎文本都是**实测的引擎原文**（宿主 `qalc`，libqalculate **5.12.0**——与 App 打包的是
-///       同一个版本；精度与角度单位按 App 的设置：`setPrecision(16)`、DEG/RAD），替身只是把它送回
-///       同一个表达式。真机与宿主的差别没有被抹掉：这里能钉的是**取舍**，不是引擎本身。
+///       每个引擎文本都是**实测的引擎原文**：在宿主上对 libqalculate **5.12.0** 按**桥自己的调用
+///       序列**量得（`unlocalizeExpression` → `calculate(EXACT)` → `calculate(APPROXIMATE)` →
+///       `print(TERMINAL)`，精度 16、`INTERVAL_DISPLAY_MIDPOINT`，见
+///       `tool/qalculate_semantics_probe/probe.cc` 的同一条序列），替身只是把它送回同一个表达式。
+///       真机与宿主的差别没有被抹掉：这里能钉的是**取舍**，不是引擎本身。
 /// English: **fix round 7's criterion: translate the expression into the engine's language, then take
 ///          the engine's answer.**
 ///
@@ -34,11 +36,13 @@ import 'package:nekocalc/data/repositories/settings_repository.dart';
 ///          - the name layer is still there (`AppEngineVocabulary`): for names the engine cannot be
 ///            trusted with (`log`/`mod`/`phi`/…) its answer is never used. The first group pins that.
 ///
-///          Every engine string is a **measured engine answer** (host `qalc`, libqalculate **5.12.0** —
-///          the same version the app bundles; precision and angle unit as the app sets them:
-///          `setPrecision(16)`, DEG/RAD), and the double only hands it back for the same expression.
-///          What this can pin is the **selection**, not the engine itself; the device-vs-host difference
-///          is not papered over.
+///          Every engine string is a **measured engine answer**: measured on the host against
+///          libqalculate **5.12.0** **through the bridge's own call sequence**
+///          (`unlocalizeExpression` → `calculate(EXACT)` → `calculate(APPROXIMATE)` →
+///          `print(TERMINAL)`, precision 16, `INTERVAL_DISPLAY_MIDPOINT`; the sequence in
+///          `tool/qalculate_semantics_probe/probe.cc`), and the double only hands it back for the same
+///          expression. What this can pin is the **selection**, not the engine itself; the
+///          device-vs-host difference is not papered over.
 void main() {
   group('名字层：引擎读不了这个拼法时，它的答案一律不采用', () {
     // 中文：这四个样本都是这五轮里出现过的**活错值**——引擎对它们**不报错**，只是把名字读成了
