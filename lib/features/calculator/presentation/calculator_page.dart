@@ -24,6 +24,7 @@ import 'widgets/variable_picker_sheet.dart';
 
 part 'calculator_key_dispatch.dart';
 part 'calculator_page_sheets.dart';
+part 'calculator_page_repeat_button.dart';
 
 /// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的
 ///       键盘（`CalculatorKeypad`），**不滚动**。UI 只负责布局和输入分发，计算逻辑留在
