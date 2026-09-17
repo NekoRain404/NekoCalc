@@ -281,6 +281,7 @@ class QalculateEngine {
             //       - `unit`：结果带单位（`containsType(STRUCT_UNIT, 递归, …)`）；
             //       - `structured`：矩阵 / 向量（解集也是向量）；
             //       - `number`：引擎的 Number（复数走这一支——实数在 Dart 侧就已经是十进制了）；
+            //       - `symbolic`：结果里有变量符号，而引擎一句话都没说（见 `KIND_SYMBOLIC`）；
             //       - `arithmetic`：其余一切（乘积、幂、函数调用、符号和）。
             //
             //       顺序有意义：**带单位压过形状**。`ncr(5,10)` 的结果是一个向量（`isVector()` 为真）
@@ -295,6 +296,8 @@ class QalculateEngine {
             //          - `structured`: a matrix or a vector (a solution set is a vector);
             //          - `number`: the engine's Number (complex numbers land here — a real number is
             //            already a decimal by the time Dart sees it);
+            //          - `symbolic`: the result holds a variable symbol and the engine said nothing
+            //            (see `KIND_SYMBOLIC`);
             //          - `arithmetic`: everything else (products, powers, calls, symbolic sums).
             //
             //          The order matters: **carrying a unit outranks the shape**. The result of
@@ -313,6 +316,30 @@ class QalculateEngine {
             //          main evaluation; this step adds one more `calculate`, so it moves to the place its
             //          own comment always claimed.
             val aborted = engine.aborted()
+            // 中文：**引擎这一次有没有话要说。** 在同一个位置、同一个理由下读（见上面那一段）：
+            //       `message()` 只是看一眼队首，**不弹出**，所以下面 `drainMessages` 照旧能把它收全；
+            //       而每一个 `print`/`calculate` 都可能往队列里排东西，所以这一眼必须紧挨着主求值。
+            //
+            //       它服务的是下面那个 `symbolic` 分支：引擎**做不了**一个运算时不会抛异常，它把
+            //       那个运算原样退回来，再往消息队列里排一句（实测：`1/0`、`x/0`、`0/0`、`2/0`、
+            //       `0^(-1)`、`1/(x-x)` 全部排 `Division by zero.`，而 `2x`、`x^2+1`、`x+y`、
+            //       `sqrt(x)`、`2/x`、`x^2*y^2` 一条都没有）。于是「队列空不空」就是引擎自己的
+            //       「我算出来了」与「我没算」的判据——与 `aborted`、`to_struct` 同一类：由引擎回答，
+            //       不从这里印出来的文本上猜。
+            // English: **did the engine have anything to say this time.** Read here for the same
+            //          reason as the line above: `message()` only looks at the head of the queue and
+            //          does **not** pop it, so `drainMessages` below still collects everything; and
+            //          every `print`/`calculate` can queue something, so this look has to sit right
+            //          beside the main evaluation.
+            //
+            //          It serves the `symbolic` branch below: when the engine **cannot** perform an
+            //          operation it does not throw — it hands the operation back and queues a line
+            //          (measured: `1/0`, `x/0`, `0/0`, `2/0`, `0^(-1)`, `1/(x-x)` all queue
+            //          `Division by zero.`, while `2x`, `x^2+1`, `x+y`, `sqrt(x)`, `2/x`, `x^2*y^2`
+            //          queue nothing). So "is the queue empty" is the engine's own statement of "I
+            //          computed it" versus "I did not" — the same kind of answer as `aborted` and
+            //          `to_struct`: the engine answers it, nothing here is guessed from printed text.
+            val silent = engine.message() == null
 
             // 中文：**这个结果是什么形状**——全部由引擎自己的判据回答，没有一个字是从印出来的
             //       文本猜的（Dart 侧据此决定「能不能显示」，见 `MathResult.isDisplayable`）：
@@ -323,6 +350,7 @@ class QalculateEngine {
             //       - `unit`：结果带单位（`containsType(STRUCT_UNIT, 递归, …)`）；
             //       - `structured`：矩阵 / 向量（解集也是向量）；
             //       - `number`：引擎的 Number（复数走这一支——实数在 Dart 侧就已经是十进制了）；
+            //       - `symbolic`：结果里有变量符号，而引擎一句话都没说（见 `KIND_SYMBOLIC`）；
             //       - `arithmetic`：其余一切（乘积、幂、函数调用、符号和）。
             //
             //       顺序有意义：**带单位压过形状**。`ncr(5,10)` 的结果是一个向量（`isVector()` 为真）
@@ -339,6 +367,8 @@ class QalculateEngine {
             //          - `structured`: a matrix or a vector (a solution set is a vector);
             //          - `number`: the engine's Number (complex numbers land here — a real number is
             //            already a decimal by the time Dart sees it);
+            //          - `symbolic`: the result holds a variable symbol and the engine said nothing
+            //            (see `KIND_SYMBOLIC`);
             //          - `arithmetic`: everything else (products, powers, calls, symbolic sums).
             //
             //          The order matters: **carrying a unit outranks the shape**. The result of
@@ -353,6 +383,8 @@ class QalculateEngine {
                     if (isPlainQuantity(evaluated)) KIND_QUANTITY else KIND_UNIT
                 evaluated.isMatrix() || evaluated.isVector() -> KIND_STRUCTURED
                 evaluated.isNumber() -> KIND_NUMBER
+                silent && evaluated.containsType(StructureType.STRUCT_VARIABLE, true, true, false) > 0 ->
+                    KIND_SYMBOLIC
                 else -> KIND_ARITHMETIC
             }
 
@@ -940,6 +972,47 @@ class QalculateEngine {
         const val KIND_UNIT = "unit"
         const val KIND_STRUCTURED = "structured"
         const val KIND_NUMBER = "number"
+
+        /**
+         * 中文：**一个符号式子**——结果里含引擎的变量符号（`STRUCT_VARIABLE`），而且引擎这一次
+         *       **一句话都没说**（消息队列是空的）。两条都是引擎自己的判据，一个字都没从印出来的
+         *       文本上猜。
+         *
+         *       **它与 [KIND_ARITHMETIC] 的差别就是「引擎算没算」。** 两者都是「其余一切」（乘积、
+         *       幂、函数调用、符号和），但 `arithmetic` 里还住着引擎**没做**那个运算、把它原样退回来
+         *       的情形（`1/0`、`x/0`、`0^0`）——那些会排消息，或者结果里没有变量。引擎把运算退回来
+         *       时不抛异常、不返回失败，所以「它做没做」只能由这两条引擎自己的事实回答。
+         *
+         *       **它不保证这个结果配得上屏幕**：那仍由 Dart 侧 `MathResult.isDisplayable` 一处回答，
+         *       而且那里还有一道应用侧的判据（应用自己的语言表达得了这个输入时，旧解析器依旧是权威，
+         *       见 `_selectEngineResult`）。实测的那个实例是 `pi!`：引擎把它读成
+         *       `factorial(pi)`（`pi` 在引擎里是一个变量，量过），于是这一支判 `symbolic`——而屏
+         *       幕上今天与放宽之后都是旧解析器那句「阶乘只支持 0 到 170 的整数」。
+         *       （`pi` 单独一个**不**在这里：它的十进制形态是有限的 `3.141592653589793`，
+         *       由上面那条 tier 2 直接采用。）
+         * English: **a symbolic form** — the result holds one of the engine's variable symbols
+         *          (`STRUCT_VARIABLE`) and the engine said **not one word** this time (its message
+         *          queue is empty). Both are the engine's own predicates; not a word is guessed from
+         *          the printed text.
+         *
+         *          **Its difference from [KIND_ARITHMETIC] is exactly "did the engine compute".** Both
+         *          are "everything else" (products, powers, calls, symbolic sums), but `arithmetic` also
+         *          holds the case where the engine **could not** do the operation and handed it back
+         *          (`1/0`, `x/0`, `0^0`) — those queue a message, or carry no variable. The engine
+         *          neither throws nor signals failure when it hands an operation back, so "did it do it"
+         *          can only be answered by these two facts of its own.
+         *
+         *          **It does not promise this result belongs on screen**: that is still answered in one
+         *          place, Dart's `MathResult.isDisplayable`, which also applies an app-side judgement
+         *          (when this app's own language can express the input, the legacy parser stays the
+         *          authority — see `_selectEngineResult`). The measured instance is `pi!`: the engine
+         *          reads it as `factorial(pi)` (`pi` is one of its variables, measured), so it lands
+         *          here — while the screen, today and after the relaxation, shows the legacy parser's
+         *          "阶乘只支持 0 到 170 的整数". (`pi` on its own is **not** here: its decimal form is
+         *          the finite `3.141592653589793`, which tier 2 above takes directly.)
+         */
+        const val KIND_SYMBOLIC = "symbolic"
+
         const val KIND_ARITHMETIC = "arithmetic"
 
         /**
