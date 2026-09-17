@@ -254,12 +254,16 @@ void main() {
     });
 
     test('代际守卫：读盘期间用户加的值不会被盘上那一份盖掉', () async {
-      final database = _FakeDatabase()
-        ..savedSettings['calculator_dataset'] = '["7"]'
-        // 中文：这一格卡住 `settings()`，模拟一次还没读完的恢复。
-        // English: this gate holds `settings()` open, standing in for a restore that has not finished
-        //          reading.
-        ..holdSettings = true;
+      // 中文：盘上那一份与内存里即将出现的那一份**不一样**（`["7"]` 对 `["5"]`），否则这条测试问不出
+      //       任何事：读回来的值与加进去的值相同的话，盖没盖掉看不出来。
+      //       `holdSettings` 把这一段时间**整个**撑开——读盘与落盘两边都卡住（真实的盘也是两边都
+      //       要时间的），所以恢复读到的那一份地图是用户加值**之前**的盘面。
+      // English: what is on disk differs from what is about to be in memory (`["7"]` against `["5"]`),
+      //          or this test would ask nothing: were the value read back equal to the one added, an
+      //          overwrite would be invisible. `holdSettings` holds the **whole** window open — both the
+      //          read and the write (a real disk takes time on both sides too), so the map the restore
+      //          reads is the disk as it was **before** the user added anything.
+      final database = _FakeDatabase();
       final engine = _FakeMathEngine(
         const _Reply('5', tex: '5', kind: EngineResultKind.number).reply,
       );
@@ -268,6 +272,12 @@ void main() {
 
       controller.setExpression('5');
       await controller.submit();
+
+      // 中文：从这一刻起盘上写着的是**另一份**数据集，然后 `holdSettings` 把读盘与落盘两边一起撑开。
+      // English: from here on the disk says something **else**, and `holdSettings` then holds both the
+      //          read and the write open.
+      database.savedSettings['calculator_dataset'] = '["7"]';
+      database.holdSettings = true;
 
       final restoring = controller.restoreIfEnabled();
       // 中文：恢复还在等盘上的那一刻，用户往数据集里加了一个值。
@@ -504,6 +514,7 @@ class _FakeDatabase implements AppDatabase {
 
   @override
   Future<void> setSettings(Map<String, String> values) async {
+    if (holdSettings) await _gate.future;
     savedSettings.addAll(values);
   }
 
