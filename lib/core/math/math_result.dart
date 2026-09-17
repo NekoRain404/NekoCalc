@@ -98,6 +98,82 @@ enum EngineResultKind {
   ///          the time Dart sees it).
   number,
 
+  /// 中文：**一个符号式子**——结果里有引擎的变量符号（`STRUCT_VARIABLE`），而且引擎这一次
+  ///       **一句话都没说**（消息队列是空的）。两条都由原生侧用引擎自己的判据回答
+  ///       （`QalculateEngine.KIND_SYMBOLIC`），一个字都没从印出来的文本上猜。
+  ///
+  ///       **它与 [arithmetic] 的差别就是「引擎算没算」。** 两支都是「其余一切」（乘积、幂、
+  ///       函数调用、符号和），但 [arithmetic] 里还住着引擎**做不了**那个运算、把它**原样退回来**
+  ///       的情形：`1/0`、`x/0`、`0/0`、`2/0`、`0^(-1)`、`1/(x-x)`（实测都排一句
+  ///       `Division by zero.`），以及 `0^0`（实测队列是空的，但结果里没有变量）。引擎把运算退回
+  ///       来时**不抛异常、不返回失败**，所以「它做没做」只能由这两条引擎自己的事实回答——这正是
+  ///       它与 [conversion]／[unitMismatch] 同一类的理由：不由 Dart 猜。
+  ///
+  ///       **放行的理由，与 [arithmetic] 拒绝的理由是同一条的两面。** [arithmetic] 拒绝是因为
+  ///       「应用自己的语言表达得了这些，所以旧解析器才是权威：它要么给出一个值（那就它说了算），
+  ///       要么明确拒绝」。而那句话说不动一个**含变量的答案**：应用自己的语法**根本没有变量**
+  ///       （量过：`ExpressionParser` 里没有变量绑定，`x` 报「Function x needs (」，`2x` 报
+  ///       「Unexpected token at 1」）——它对这类输入的「拒绝」说的是语法，不是数学。于是引擎
+  ///       这一份就是这一行唯一的答案。
+  ///
+  ///       **它不承诺这个结果配得上屏幕。** 两道应用侧的判据仍然拦在前面，都不在这支里：
+  ///       - `_selectEngineResult` 先问 [AppEngineVocabulary.canRead]（词表说引擎读不了这个输入时，
+  ///         答案一律不算）；
+  ///       - 再问**应用自己的语言表达不表达得了这个输入**：表达得了时，旧解析器依旧是权威，
+  ///         这一次的答案不算（见 `_selectEngineResult`）。实测的实例是 `pi!`：引擎把它读成
+  ///         `factorial(pi)`（`pi` 在引擎里是一个变量，量过——它的**精确**印法是
+  ///         `\operatorname{factorial}(\pi )`，十进制那一份是 `factorial(3.141592653589793)`，
+  ///         因为十进制走的是近似求值），于是这一支判 `symbolic`；而应用自己的语言答得了
+  ///         `pi!`（`pi` 是它的常量、`!` 是它的后缀），它给的是一句错误——屏幕上因此是那句话，
+  ///         放宽前后一字未变。（`pi` 单独一个**不**在这里：它的十进制形态是有限的
+  ///         `3.141592653589793`，由 tier 2 直接采用。）
+  ///
+  ///       （[quantity] 与 [unit] 那两支的划分是同一个思路的另一半：那边判的是「带单位的结果
+  ///       是不是一个量」，这里判的是「不带单位的结果是不是一个符号式子」。）
+  /// English: **a symbolic form** — the result holds one of the engine's variable symbols
+  ///          (`STRUCT_VARIABLE`) and the engine said **not one word** this time (its message queue
+  ///          is empty). Both are answered natively from the engine's own predicates
+  ///          (`QalculateEngine.KIND_SYMBOLIC`); not a word is guessed from the printed text.
+  ///
+  ///          **Its difference from [arithmetic] is exactly "did the engine compute".** Both are
+  ///          "everything else" (products, powers, calls, symbolic sums), but [arithmetic] also holds
+  ///          the case where the engine **could not** do the operation and **handed it back
+  ///          unchanged**: `1/0`, `x/0`, `0/0`, `2/0`, `0^(-1)`, `1/(x-x)` (all measured queueing
+  ///          `Division by zero.`) and `0^0` (measured silent, but its result holds no variable). The
+  ///          engine neither throws nor signals failure when it hands an operation back, so "did it do
+  ///          it" can only be answered by these two facts of its own — which is why this branch has
+  ///          the same kind of reason as [conversion] / [unitMismatch]: nothing is guessed in Dart.
+  ///
+  ///          **Why it passes is the other face of why [arithmetic] refuses.** [arithmetic] refuses
+  ///          because "this app's language can express these, so the legacy parser is the authority:
+  ///          it either produces a value (and that value wins) or refuses". That sentence has no hold
+  ///          on an answer **containing a variable**: this app's own syntax **has no variables at all**
+  ///          (measured: `ExpressionParser` binds none — `x` reports "Function x needs (" and `2x`
+  ///          "Unexpected token at 1"), so its "refusal" for such an input is a statement about the
+  ///          syntax, not about the mathematics. The engine's answer is then the only answer for that
+  ///          line.
+  ///
+  ///          **It promises nothing about the screen.** Two app-side judgements still stand in front
+  ///          of it, neither of them in this branch:
+  ///          - `_selectEngineResult` asks [AppEngineVocabulary.canRead] first (when the vocabulary
+  ///            says the engine cannot read this input, no answer of its counts);
+  ///          - then it asks whether **this app's own language can express the input**: when it can,
+  ///            the legacy parser is still the authority and this answer does not count (see
+  ///            `_selectEngineResult`). The measured instance is `pi!`: the engine reads it as
+  ///            `factorial(pi)` (`pi` is one of its variables, measured — its **exact** print is
+  ///            `\operatorname{factorial}(\pi )` and its decimal half is
+  ///            `factorial(3.141592653589793)`, since the decimal goes through the approximating
+  ///            evaluation), so it lands here; while this app's own language *can* answer `pi!`
+  ///            (`pi` is one of its constants and `!` one of its postfixes) and answers it with an
+  ///            error — which is what the screen shows, unchanged by the relaxation. (`pi` on its own
+  ///            is **not** here: its decimal form is the finite `3.141592653589793`, taken directly
+  ///            by tier 2.)
+  ///
+  ///          (The [quantity] / [unit] split is the other half of the same idea: that one judges
+  ///          "is a unit-carrying result a quantity", this one judges "is a unit-free result a
+  ///          symbolic form".)
+  symbolic,
+
   /// 中文：其余一切：乘积、幂、函数调用、符号和。这些**应用自己的语言表达得了**，所以旧解析器才是权威。
   /// English: everything else: products, powers, calls, symbolic sums. **This app's language can
   ///          express these**, so the legacy parser is the authority for them.
@@ -289,10 +365,18 @@ class MathResult {
   ///         [EngineResultKind.conversion]**：那一个是「用户要的换算发生了」，这一个是「没发生」，
   ///         而两者在引擎那边**都是 `to_struct` 非空**（换算失败时目标单位照样被写进 `to_struct`），
   ///         只有在原生侧问过「结果除以目标之后还剩不剩单位」才分得开。
+  ///       - [EngineResultKind.symbolic]：**一个符号式子**（结果里有变量，且引擎没话要说）。放行的
+  ///         理由与 [EngineResultKind.arithmetic] 拒绝的理由是同一条的两面，见那一支的注释：
+  ///         应用的语法里**没有变量**，所以旧解析器对一个含变量的输入没有发言权。它**不是**
+  ///         「引擎没算」那一类——引擎做不了的运算由消息队列与「结果里有没有变量」两条引擎自己的
+  ///         事实挡在 [EngineResultKind.arithmetic] 里（`1/0`、`x/0`、`0^0`）。
   ///       - [EngineResultKind.arithmetic]：乘积、幂、函数调用、符号和——**应用的语言表达得了**，
   ///         所以旧解析器才是权威：它要么给出一个值（那就它说了算），要么明确拒绝，而它的拒绝
-  ///         就是这个应用对这一行的答案。`1 / 0`、`mod(2; 0)`、`root(2; 0)`、`x / 0`、`2x`、
-  ///         `x^2 + 1`、`sin(x rad)` 全落在这一支。
+  ///         就是这个应用对这一行的答案。`1 / 0`、`mod(2; 0)`、`root(2; 0)`、`x / 0`、`0^0`
+  ///         全落在这一支。
+  ///         （`2x`、`x^2 + 1` 曾经也在这里，`sin(x rad)` 也在——前两者现在是
+  ///         [EngineResultKind.symbolic]；`sin(x rad)` 仍旧不显示，但**不在**这一支：引擎把
+  ///         `rad` 当一个单位，它的种类是 [EngineResultKind.unit]，见那一支。）
   ///       - [EngineResultKind.notFromEngine]：旧解析器与占位文本，形状这一层对它们不适用。
   ///
   ///       为什么「带单位」压过形状：`ncr(5,10)` 的结果**是**一个向量，只是每一项都带单位——
@@ -340,11 +424,21 @@ class MathResult {
   ///            side **both have a defined `to_struct`** (a failed conversion still writes the target
   ///            unit into it) — they separate only after the native side asks whether any units are
   ///            left once the result is divided by the target.
+  ///          - [EngineResultKind.symbolic]: **a symbolic form** (the result holds a variable and the
+  ///            engine had nothing to say). It passes for the other face of the reason
+  ///            [EngineResultKind.arithmetic] refuses — see that branch: this app's syntax has **no
+  ///            variables**, so the legacy parser has no standing on an input containing one. It is
+  ///            **not** the "the engine did not compute" class: operations the engine cannot do are
+  ///            held in [EngineResultKind.arithmetic] by two facts of its own (the message queue and
+  ///            whether the result holds a variable — `1/0`, `x/0`, `0^0`).
   ///          - [EngineResultKind.arithmetic]: products, powers, calls, symbolic sums — **this app's
   ///            language can express these**, so the legacy parser is the authority: it either
   ///            produces a value (and that value wins) or refuses, and its refusal is this app's
-  ///            answer for that line. `1 / 0`, `mod(2; 0)`, `root(2; 0)`, `x / 0`, `2x`, `x^2 + 1`
-  ///            and `sin(x rad)` all land here.
+  ///            answer for that line. `1 / 0`, `mod(2; 0)`, `root(2; 0)`, `x / 0` and `0^0` all land
+  ///            here. (`2x` and `x^2 + 1` used to be here and are now
+  ///            [EngineResultKind.symbolic]; `sin(x rad)` is still not displayed but is **not** in
+  ///            this branch — the engine treats `rad` as a unit, so its kind is
+  ///            [EngineResultKind.unit], see that branch.)
   ///          - [EngineResultKind.notFromEngine]: the legacy parser and placeholders; the shape layer
   ///            does not apply to them.
   ///
@@ -364,6 +458,7 @@ class MathResult {
       EngineResultKind.structured => true,
       EngineResultKind.number => true,
       EngineResultKind.quantity => true,
+      EngineResultKind.symbolic => true,
       EngineResultKind.unit => false,
       EngineResultKind.unitMismatch => false,
       EngineResultKind.arithmetic => false,

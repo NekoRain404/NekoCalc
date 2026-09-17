@@ -165,3 +165,56 @@ void _appendDisplayUnits(ExprNode node, List<ExprNode> units) {
 /// English: A whitelist rather than a blacklist: any future operator stays whole by default, and
 ///          only those that are definitely plain infix may be split.
 bool _isPlainInfixOperator(String op) => op == '+' || op == '-' || op == '*';
+
+/// 中文：**这棵树里有没有一个「应用自己的语言没有绑定的名字」。**
+///
+///       判据是**节点类型**，不是名字表：`ExpressionAstParser._parseName` 只产出三种东西——
+///       常量（`ConstantNode`，`pi`/`e`/`tau`/`phi`/`inf`/`infinity`）、调用（`FunctionNode`，
+///       标识符紧跟 `(`）、以及**其余一切**（`VariableNode`）。所以一个 [VariableNode] 就是
+///       「这个名字应用自己的语言没有绑定」这一句话本身，而不是它的近似——没有第二张名字表
+///       会漂移，也没有正则要维护。`km` 这类单位名同样落在这里：应用自己的解析器也不认它们。
+///
+///       递归覆盖全部节点类型——[ExprNode] 是 `sealed`，所以穷尽性由类型系统保证（漏一个节点
+///       `flutter analyze` 直接报 `non_exhaustive_switch_statement`）。
+///
+///       它的消费者只有一处：`_selectEngineResult` 用它决定一个
+///       [EngineResultKind.symbolic] 结果配不配显示（见 `AppEngineVocabulary.canExpress`）。
+/// English: **Whether this tree holds a name this app's own language has no binding for.**
+///
+///          The test is the **node type**, not a table of names: `ExpressionAstParser._parseName`
+///          produces exactly three things — a constant (`ConstantNode`: `pi`/`e`/`tau`/`phi`/`inf`/
+///          `infinity`), a call (`FunctionNode`: an identifier immediately followed by `(`) — and
+///          **everything else** (`VariableNode`). A [VariableNode] therefore *is* the sentence "this
+///          app's own language has no binding for this name" rather than an approximation of it: no
+///          second name table to drift, no regex to maintain. Unit names such as `km` land here too —
+///          this app's own parser does not bind those either.
+///
+///          The recursion covers every node type — [ExprNode] is `sealed`, so exhaustiveness is
+///          guaranteed by the type system (an omitted node is a `non_exhaustive_switch_statement`
+///          error in `flutter analyze`).
+///
+///          It has exactly one consumer: `_selectEngineResult`, which uses it to decide whether an
+///          [EngineResultKind.symbolic] result belongs on screen (see
+///          `AppEngineVocabulary.canExpress`).
+bool namesSomethingOutsideTheAppLanguage(ExprNode node) {
+  switch (node) {
+    case NumberNode():
+    case ConstantNode():
+    case OperatorNode():
+    case ParseErrorNode():
+      return false;
+    case VariableNode():
+      return true;
+    case UnaryNode(:final operand):
+    case PostfixNode(:final operand):
+      return namesSomethingOutsideTheAppLanguage(operand);
+    case GroupNode(:final child):
+      return namesSomethingOutsideTheAppLanguage(child);
+    case BinaryNode(:final left, :final right):
+    case ImplicitProductNode(:final left, :final right):
+      return namesSomethingOutsideTheAppLanguage(left) ||
+          namesSomethingOutsideTheAppLanguage(right);
+    case FunctionNode(:final args):
+      return args.any(namesSomethingOutsideTheAppLanguage);
+  }
+}

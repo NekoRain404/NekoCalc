@@ -139,6 +139,7 @@
 library;
 
 import 'app_unit_catalog.dart';
+import 'ast/expression_ast_parser.dart';
 import 'engine_expression.dart';
 import 'expression_parser.dart';
 
@@ -547,4 +548,66 @@ class AppEngineVocabulary {
   static bool canRead(String source) => !callNamesIn(
         ExpressionParser.normalizeExpressionInput(source),
       ).any(unknownToEngine.contains);
+
+  /// 中文：**应用自己的求值器答得了这个表达式吗**——表达式里有没有一个「应用自己的语言没有
+  ///       绑定的名字」（`x`、`y`、`i`，以及 `km` 这类单位名）。
+  ///
+  ///       判据在**应用自己的语法树**上，而且是**节点类型**：`VariableNode` 就是
+  ///       [namesSomethingOutsideTheAppLanguage] 那一条判据本身（见那里的注释），不是名字表、
+  ///       也不是正则。输入先过 [ExpressionParser.normalizeExpressionInput]——与翻译器
+  ///       （`engineExpressionFor`）、[canRead]、`ExpressionParser` 构造函数用的是**同一个静态
+  ///       方法**，所以这里与它们看的是同一个字符串。
+  ///
+  ///       **它只服务一处**：`_selectEngineResult` 用它决定一个 [EngineResultKind.symbolic] 结果
+  ///       配不配显示。**它不是 [canRead] 的放宽或收紧**，两者回答两个问题：
+  ///       - [canRead]：**引擎**读得懂这个表达式吗（读不懂时引擎这一次的答案一律不算）；
+  ///       - 本方法：**应用自己**答得了这个表达式吗（答得了时，旧解析器依旧是权威——这一条把
+  ///         引擎的符号结果判回 [EngineResultKind.arithmetic]，与放宽之前一字不差）。
+  ///
+  ///       实测的实例是 `pi!`：引擎把它读成 `factorial(pi)`（`pi` 在引擎里是一个**变量**，量过），
+  ///       这一次的回执种类因此是 [EngineResultKind.symbolic]；而这个表达式里只有一个常量与一个
+  ///       后缀，**没有** [VariableNode]，所以这一条为真、引擎那份文本不算，屏幕上是旧解析器
+  ///       那句「阶乘只支持 0 到 170 的整数」——放宽前后一字未变。
+  ///       （`pi` 单独一个**不**走这一路：它的十进制形态是有限的 `3.141592653589793`，tier 2
+  ///       直接采用，压根到不了这道判据。）
+  ///       含 `x` 的输入（`2x`、`x^2 + 1`、`sqrt(x)`）这里为假，于是引擎的符号结果留下来。
+  ///
+  ///       解析不了（`ParseErrorNode`）时为**假**：那样一个输入应用自己的求值器也答不了，
+  ///       引擎（或回落）给出的就是这一行的答案——与这条判据要问的问题一致。
+  /// English: **can this app's own evaluator answer this expression** — does it hold a name this
+  ///          app's own language has no binding for (`x`, `y`, `i`, and unit names such as `km`).
+  ///
+  ///          The test is on **this app's own syntax tree**, and it is the **node type**: a
+  ///          [VariableNode] is that judgement itself ([namesSomethingOutsideTheAppLanguage] — see
+  ///          the note there), not a table of names and not a regex. The input goes through
+  ///          [ExpressionParser.normalizeExpressionInput] first — the **same static method** the
+  ///          translator (`engineExpressionFor`), [canRead] and `ExpressionParser`'s constructor use,
+  ///          so all of them look at one string.
+  ///
+  ///          **It serves exactly one place**: `_selectEngineResult` uses it to decide whether an
+  ///          [EngineResultKind.symbolic] result belongs on screen. **It is neither a relaxation nor a
+  ///          tightening of [canRead]** — the two answer two questions:
+  ///          - [canRead]: can the **engine** read this expression (when it cannot, no answer of its
+  ///            counts this time);
+  ///          - this: can **this app itself** answer this expression (when it can, the legacy parser
+  ///            is still the authority — this judges the engine's symbolic result back to
+  ///            [EngineResultKind.arithmetic], byte-for-byte what it was before the relaxation).
+  ///
+  ///          The measured instance is `pi!`: the engine reads it as `factorial(pi)` (`pi` is one of
+  ///          its **variables**, measured), so that receipt carries [EngineResultKind.symbolic]; the
+  ///          expression holds one constant and one postfix and therefore **no** [VariableNode], so
+  ///          this is true, the engine's text does not count, and the screen shows the legacy parser's
+  ///          "阶乘只支持 0 到 170 的整数" — unchanged by the relaxation. (`pi` on its own never
+  ///          reaches this judgement: its decimal form is the finite `3.141592653589793`, which tier 2
+  ///          takes directly.) An input holding `x` (`2x`, `x^2 + 1`, `sqrt(x)`) is false here, so the
+  ///          engine's symbolic result stays.
+  ///
+  ///          An unparseable input (`ParseErrorNode`) is **false**: this app's own evaluator cannot
+  ///          answer such an input either, so what the engine (or the fallback) gives is this line's
+  ///          answer — which is what this judgement is asking about.
+  static bool canExpress(String source) => !namesSomethingOutsideTheAppLanguage(
+        const ExpressionAstParser().parse(
+          ExpressionParser.normalizeExpressionInput(source),
+        ),
+      );
 }

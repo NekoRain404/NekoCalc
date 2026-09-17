@@ -146,6 +146,16 @@ class QalculateMathEngine implements MathEngine {
         'unit' => EngineResultKind.unit,
         'structured' => EngineResultKind.structured,
         'number' => EngineResultKind.number,
+        // 中文：`symbolic` —— 结果里有变量符号，而引擎一句话都没说（原生侧 `KIND_SYMBOLIC`）。
+        //       它与 `arithmetic` 的差别就是「引擎算没算」；**配不配显示仍由
+        //       [MathResult.isDisplayable] 一处回答**，而且那里还有一道应用侧的判据（见
+        //       `_selectEngineResult`）。
+        // English: `symbolic` — the result holds a variable symbol and the engine said nothing
+        //          (the native `KIND_SYMBOLIC`). Its difference from `arithmetic` is exactly "did the
+        //          engine compute"; **whether it belongs on screen is still answered in one place**,
+        //          [MathResult.isDisplayable], which also applies an app-side judgement (see
+        //          `_selectEngineResult`).
+        'symbolic' => EngineResultKind.symbolic,
         _ => EngineResultKind.arithmetic,
       };
 
