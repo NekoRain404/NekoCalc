@@ -2,22 +2,27 @@ package com.nekorain.nekocalc.qalculate
 
 import com.jherkenhoff.libqalculate.AngleUnit
 import com.jherkenhoff.libqalculate.ApproximationMode
+import com.jherkenhoff.libqalculate.DigitGrouping
 import com.jherkenhoff.libqalculate.EvaluationOptions
+import com.jherkenhoff.libqalculate.IntervalDisplay
 import com.jherkenhoff.libqalculate.MixedUnitsConversion
+import com.jherkenhoff.libqalculate.NumberFractionFormat
+import com.jherkenhoff.libqalculate.PrintOptions
 
 /**
- * 中文：交给引擎的求值/解析选项，加上 `angleMode` 字符串到 [AngleUnit] 的换算。它们原来住在
+ * 中文：交给引擎的两组选项，加上 `angleMode` 字符串到 [AngleUnit] 的换算。它们原来住在
  *       `QalculateEngine` 里，2026-09 那次拆分只是把这一段逐行搬出来（那个文件要回到 800 行以内）。
  *       内容一个字没改：只有 `private fun` 变成同包可见的 `internal fun`，因为
  *       `QalculateResultKind.kt` 里的 `conversionLanded` 也要用 `evaluationOptions`。
  *
- * English: The evaluation/parse options this bridge hands the engine, plus the `angleMode` string's
+ * English: The two option sets this bridge hands the engine, plus the `angleMode` string's
  *          translation into an [AngleUnit]. They used to live inside `QalculateEngine`; the
  *          2026-09 split moved them out line for line (that file had to come back under 800
  *          lines). Nothing inside them changed: only `private fun` became package-visible
  *          `internal fun`, because `conversionLanded` in `QalculateResultKind.kt` needs
  *          `evaluationOptions` too.
  */
+
 /**
  * 中文：Dart 侧只发 `DEG` / `RAD`（来自 `AppSettings.angleMode`）。别的值按弧度处理——弧度
  *       是 `AppSettings.fallback` 的默认模式，也是 libqalculate 自己的默认角度单位。
@@ -116,3 +121,37 @@ internal fun evaluationOptions(
     //          commas survive and the parser uses them as the argument separator.
     parse_options.setComma_as_separator(false)
 }
+
+internal fun printOptions(latex: Boolean, machineReadable: Boolean = false): PrintOptions = PrintOptions().apply {
+    setNumber_fraction_format(NumberFractionFormat.FRACTION_DECIMAL)
+    // 中文：C++ 里这是 int 不是 boolean。LaTeX 必须关掉 Unicode 符号，否则拿到的是「√」而不是「\sqrt」。
+    //       机器可解析的那一份（`decimal`）同样要关：开着的时候负号是 `−`(U+2212)，Dart 侧
+    //       `double.tryParse` 直接返回 null。
+    // English: an int in C++, not a boolean. Unicode signs must be off for LaTeX, or the output
+    //          carries "√" instead of "\sqrt". The machine-parseable one (`decimal`) needs them
+    //          off too: with them on a negative number prints `−`(U+2212), which Dart's
+    //          `double.tryParse` rejects outright.
+    setUse_unicode_signs(if (latex || machineReadable) UNICODE_SIGNS_OFF else UNICODE_SIGNS_ON)
+    // 中文：千分位只对机器可解析的那一份显式关掉。默认值不写进代码是会漂的：`5,656.854` 这种
+    //       带分隔符的输出到了 Dart 侧同样是静默的 null。
+    // English: Digit grouping is explicitly turned off for the machine-parseable form only.
+    //          Leaving it to the default would drift: `5,656.854` is just as silently null on
+    //          the Dart side.
+    if (machineReadable) setDigit_grouping(DigitGrouping.DIGIT_GROUPING_NONE)
+    // 中文：把区间印成中点，而不是 interval(下界, 上界)。这是「无理结果只有一个十进制数」的
+    //       唯一开关，且只影响显示——Number 里的上下界原封不动，精确形态那一份照旧由
+    //       APPROXIMATION_EXACT 保留。
+    //       值取自已确认可由 SWIG 访问的 IntervalDisplay 枚举类。
+    // English: print an interval as its midpoint rather than interval(lower, upper). This is the
+    //          one switch that makes an irrational result a single decimal, and it is display
+    //          only — the low/high bounds inside the Number are untouched, and the exact form is
+    //          still preserved by APPROXIMATION_EXACT on its own path. The value comes from the
+    //          IntervalDisplay enum class, confirmed reachable through SWIG.
+    setInterval_display(IntervalDisplay.INTERVAL_DISPLAY_MIDPOINT)
+}
+
+// 中文：取值来自 libqalculate/includes.h 的 UNICODE_SIGNS_* 匿名枚举，SWIG 没有导出成 Java 常量。
+// English: values from the UNICODE_SIGNS_* anonymous enum in libqalculate/includes.h;
+//          SWIG does not export them as Java constants.
+private const val UNICODE_SIGNS_OFF = 0
+private const val UNICODE_SIGNS_ON = 1
