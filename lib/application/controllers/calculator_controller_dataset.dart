@@ -527,15 +527,16 @@ mixin _CalculatorDataset on _CalculatorState {
   ///          [regressionUnavailableMessage]'s**, too: both sentences sit on the sheet at once (one per
   ///          row) and sharing a run of characters would make "which row is that sentence about" a
   ///          guess.
+  ///
+  ///          前半句与回归图面板那一行**共用同一个构造处**（`_fitPairFloorsReading`）：两处印的是
+  ///          「几对值」这个用户唯一能据以补数据的数字，写两遍必然漂。差的是尾巴——那个面板**什么
+  ///          都不插**，所以它不接那条调用。
+  ///          The first half is **built in one place** (`_fitPairFloorsReading`) shared with the
+  ///          regression graph sheet's row: both print the pair counts, the one number the user can act
+  ///          on, and written twice they would drift. What differs is the tail — that sheet **inserts
+  ///          nothing**, so it does not append the call.
   String get fitStatusMessage {
-    final floors = kFitMinimumPairs.entries
-        .map((entry) => '${entry.key} 要 ${entry.value} 对')
-        .join('、');
-    final head = _dataset.isEmpty
-        ? '拟合把数据集读成两行（前一半 X、后一半 Y）：$floors；数据集是空的'
-        : _dataset.length.isOdd
-            ? '拟合把数据集读成两行（需要偶数个值）：$floors；当前有 ${_dataset.length} 个'
-            : '拟合把数据集读成两行：$floors；当前有 ${_dataset.length} 个值';
+    final head = _fitPairFloorsReading(_dataset);
     for (final function in kFitMinimumPairs.keys) {
       final call = fitCall(function);
       if (call != null) return '$head → $call';

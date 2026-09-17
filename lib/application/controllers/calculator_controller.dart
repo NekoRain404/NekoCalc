@@ -32,6 +32,7 @@ part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
 part 'calculator_controller_variables.dart';
 part 'calculator_controller_dataset.dart';
+part 'calculator_controller_fit_curve.dart';
 
 /// 中文：边打边算用哪个结果上屏——**裁决 1 的那个开关**，做成可切换的常量而不是写死在流程里。
 ///
@@ -186,7 +187,15 @@ class CalculatorController extends ChangeNotifier
         _CalculatorPersistence,
         _CalculatorBaseReadout,
         _CalculatorVariables,
-        _CalculatorDataset {
+        _CalculatorDataset,
+        // 中文：**顺序承重**。回归图那一层读 [CalculatorController.fitCall] 与那个数据集，所以它
+        //       必须落在 `_CalculatorDataset` **之后**（`_CalculatorFitCurve` 的 `on` 子句里写着
+        //       那两个混因）。换顺序是一个编译错误，不是一条静默的错行为。
+        // English: **the order is load-bearing.** The regression-graph layer reads
+        //          [CalculatorController.fitCall] and that dataset, so it has to come **after**
+        //          `_CalculatorDataset` (both are named in `_CalculatorFitCurve`'s `on` clause).
+        //          Reordering is a compile error rather than a silent wrong behaviour.
+        _CalculatorFitCurve {
   CalculatorController({
     required this.historyRepository,
     required this.notesRepository,
