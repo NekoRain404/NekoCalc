@@ -3,6 +3,7 @@ package com.nekorain.nekocalc.qalculate
 import android.util.Log
 import com.jherkenhoff.libqalculate.AngleUnit
 import com.jherkenhoff.libqalculate.ApproximationMode
+import com.jherkenhoff.libqalculate.AutoPostConversion
 import com.jherkenhoff.libqalculate.AutomaticApproximation
 import com.jherkenhoff.libqalculate.AutomaticFractionFormat
 import com.jherkenhoff.libqalculate.Calculator
