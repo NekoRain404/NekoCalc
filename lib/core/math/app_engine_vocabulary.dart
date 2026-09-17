@@ -135,7 +135,18 @@ class AppEngineVocabulary {
     'round': AppFunction(engineKnowsThisName: true, engineFunction: 'round'),
     'min': AppFunction(engineKnowsThisName: true, engineFunction: 'min'),
     'max': AppFunction(engineKnowsThisName: true, engineFunction: 'max'),
-    'mod': AppFunction(engineKnowsThisName: true, engineFunction: 'mod'),
+    // 中文：`mod` 是第二个 `log`：引擎的 `mod(7,-3)` 给 `-2`，应用自己的解析器给 `1`
+    //       （Dart 的 `%` 是欧几里得余数）。**键盘可达**（`7` → `mod` → `+/-` → `3`），
+    //       而且种类是 `number` + 有限十进制 → 走 tier 1 直接采用引擎的答案 ✗。
+    //       复审的 629 个表达式扫描里，它是除 `log` 外唯一剩下的同名数值分歧。
+    //       处理方式与 `log` 相同：引擎对这个名字的答案不可用，由旧解析器作答。
+    // English: `mod` is a second `log`: the engine's `mod(7,-3)` gives `-2` while this app's own
+    //          parser gives `1` (Dart's `%` is the Euclidean remainder). It is **keypad-reachable**
+    //          (`7` → `mod` → `+/-` → `3`) and its kind is `number` with a finite decimal, so tier 1
+    //          adopted the engine's answer outright. In the review's 629-expression sweep it was the
+    //          only remaining same-name numeric divergence besides `log`. Handled the same way: the
+    //          engine's answer for this name may not be used; the legacy parser answers.
+    'mod': AppFunction(engineKnowsThisName: false),
     'gcd': AppFunction(engineKnowsThisName: true, engineFunction: 'gcd'),
     'lcm': AppFunction(engineKnowsThisName: true, engineFunction: 'lcm'),
     'root': AppFunction(engineKnowsThisName: true, engineFunction: 'root'),

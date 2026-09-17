@@ -585,7 +585,7 @@ class QalculateEngine {
      *          alongside the result.
      */
     /**
-     * 中文：表达式里第一个引擎的符号表不认识**调用名**（没有就返回 null）。
+     * 中文：表达式里第一个引擎**读不懂**的调用名（没有就返回 null）。
      *
      *       只问「调用」（标识符紧跟左括号）：应用自己的语法里函数调用正是这个形状，而裸标识符
      *       （`x`、`i`、`to`、单位名）由引擎的变量/单位表管，不是同一回事。
@@ -596,12 +596,35 @@ class QalculateEngine {
      *          Only calls (an identifier immediately followed by a bracket) are asked about: that is
      *          exactly what a function call looks like in this app's syntax, while bare identifiers
      *          (`x`, `i`, `to`, unit names) belong to the engine's variable/unit tables and are a
-     *          different question.
+     *          different question. `i(2)` is the deliberate case on that side: it is the implicit
+     *          product `2i` (this app's own parser cannot read `i` at all, so the legacy fallback would
+     *          answer `Unknown function i`), and it is allowed on purpose rather than by oversight —
+     *          the check above accepts a name the engine has as a variable, not only as a function.
      */
     private fun firstCallNameUnknownToEngine(engine: Calculator, expression: String): String? {
         for (match in CALL_NAME.findAll(expression)) {
             val name = match.groupValues[1]
-            if (engine.getFunction(name) == null) return name
+            // 中文：**函数 / 变量 / 单位，三者认一个就算认识。** 这里问的是「引擎能不能读懂这个
+            //       名字」，不是「它是不是一个函数」——把后者当前者会误伤 `i(2)`（`i` 是引擎的
+            //       变量，`i(2)` 是隐式乘法 `2i`，在本提交之前是可显示的），而 `e(2)`/`pi(2)` 同样
+            //       是变量不是函数。
+            //       这样放宽**不会**放过应用自己的那几个名字：`ncr`/`npr`/`fact` 在引擎里
+            //       三者皆无（量过），`deg`/`rad` 是单位但不影响——应用侧那张词表更严，
+            //       它在引擎被问到之前就把这几个名字拦下了（`AppEngineVocabulary.canRead`）。
+            // English: **function, variable or unit — any one of the three counts as "recognised".**
+            //          The question here is whether the engine can read the name, not whether the name
+            //          is a function; treating the latter as the former wrongly rejects `i(2)` (`i` is
+            //          one of the engine's variables and `i(2)` is the implicit product `2i`, which was
+            //          displayable before this commit), and `e(2)`/`pi(2)` are variables too.
+            //          Loosening it this way does **not** let the app's own names through:
+            //          `ncr`/`npr`/`fact` are none of the three in the engine (measured), and
+            //          `deg`/`rad` being units changes nothing — the app-side vocabulary is stricter
+            //          and stops those names before the engine is asked
+            //          (`AppEngineVocabulary.canRead`).
+            if (engine.getFunction(name) != null) continue
+            if (engine.getVariable(name) != null) continue
+            if (engine.getUnit(name) != null) continue
+            return name
         }
         return null
     }

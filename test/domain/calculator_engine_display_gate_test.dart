@@ -305,20 +305,21 @@ void main() {
     //          language cannot express". The rule now looks at the **input**: if a call belongs to
     //          this app's vocabulary and the engine does not know it, the engine's answer this time is
     //          not authoritative (`AppEngineVocabulary.engineCanRead`).
-    const rows = <({String expression, String engineText, String expectedErrorPart})>[
-      (
-        expression: 'npr(2,1.5)',
-        engineText: "[2n'p''r'  1.5n'p''r']",
-        expectedErrorPart: 'r',
-      ),
-      (expression: 'npr(,)?', engineText: '[0  0]', expectedErrorPart: ''),
+    const rows = <({String expression, String engineText})>[
+      (expression: 'npr(2,1.5)', engineText: "[2n'p''r'  1.5n'p''r']"),
+      // 中文：`nPr` 按在空表达式上得到的正是这一条（`applyBinaryFunction('npr')` → `npr(,)`）。
+      //       它是复审发现泄漏时的原始触发路径。
+      // English: this is exactly what pressing `nPr` on an empty expression produces
+      //          (`applyBinaryFunction('npr')` → `npr(,)`) — the original trigger of the leak the
+      //          review found.
+      (expression: 'npr(,)', engineText: '[0  0]'),
     ];
 
-    test('npr 的两条输入都不再由引擎作答', () async {
-      // 中文：两条都拿真机实测的引擎原文当回包，形状给 `structured`（那正是漏洞所在：它确实是个矩阵）。
-      // English: both use the device-measured engine text as the reply, with the shape set to
-      //          `structured` — which is exactly the hole: it really is a matrix.
-      for (final row in rows) {
+    for (final row in rows) {
+      test('${row.expression} 不由引擎作答', () async {
+        // 中文：两条都拿真机实测的引擎原文当回包，形状给 `structured`（那正是漏洞所在：它确实是个矩阵）。
+        // English: both use the device-measured engine text as the reply, with the shape set to
+        //          `structured` — exactly the hole: it really is a matrix.
         final engine = _FakeMathEngine(EngineReplyFixture(
           displayText: row.engineText,
           displayTex: r'\begin{bmatrix}0 & 0\end{bmatrix}',
@@ -326,27 +327,81 @@ void main() {
         ).reply);
         final controller = _controller(_FakeDatabase(), engine: engine);
 
-        controller.setExpression('npr(2,1.5)');
+        controller.setExpression(row.expression);
         await controller.submit();
 
         expect(controller.result, isNot(row.engineText),
-            reason: '引擎对应用词汇的符号读法又一次上了屏');
+            reason: '引擎对 ${row.expression} 的符号读法上了屏');
         expect(controller.hasError, isTrue,
-            reason: 'npr 的非法实参应当由旧解析器给出应用自己的错误');
+            reason: '${row.expression} 应当由旧解析器给出应用自己的错误');
 
         controller.dispose();
-      }
+      });
+    }
+
+    test('空表达式上按一下 `nPr`：`npr(,)` 由旧解析器给出「需要输入数字」', () async {
+      // 中文：**这是 brief 点名的那个用例，也是复审发现泄漏时的原始触发路径**——键盘上按 `nPr`
+      //       走的是 `applyBinaryFunction('npr')`（见 `calculator_page.dart` 的 `nPr` case），
+      //       空表达式上它插出 `npr(,)`。这里走**控制器**（与键盘同一条路），断言屏幕上不是引擎
+      //       那个矩阵，而是应用自己的错误文案。
+      // English: **the case the brief named, and the original trigger of the leak the review found** —
+      //          pressing `nPr` on the keypad goes through `applyBinaryFunction('npr')` (see the `nPr`
+      //          case in `calculator_page.dart`), which on an empty expression inserts `npr(,)`. This
+      //          goes through the **controller** (the same path the keypad takes) and asserts the screen
+      //          shows the app's own error rather than the engine's matrix.
+      final engine = _FakeMathEngine(const EngineReplyFixture(
+        displayText: '[0  0]',
+        displayTex: r'\begin{bmatrix}0 & 0\end{bmatrix}',
+        kind: EngineResultKind.structured,
+      ).reply);
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.applyBinaryFunction('npr');
+      expect(controller.expression, 'npr(,)',
+          reason: '键盘上的 nPr 按在空表达式上插的就是这一条');
+      await controller.submit();
+
+      expect(controller.result, isNot('[0  0]'));
+      expect(controller.hasError, isTrue);
+      expect(controller.errorMessage, '需要输入数字');
+
+      controller.dispose();
+    });
+
+    test('mod(7,-3)：屏幕上必须是 1（应用自己的余数），不是引擎的 -2', () async {
+      // 中文：**键盘可达的真错值**：`7` → `mod` → `+/-` → `3` 曾显示 `-2`（引擎的余数），
+      //       而应用自己的解析器给 `1`（Dart 的 `%` 是欧几里得余数）。其种类是 `number`、
+      //       有有限十进制，于是 tier 1 **直接采用**了引擎的答案。复审的 629 个表达式扫描里，
+      //       它是除 `log` 外唯一剩下的同名数值分歧。
+      // English: **a keypad-reachable wrong value**: `7` → `mod` → `+/-` → `3` used to show `-2` (the
+      //          engine's remainder) where this app's own parser gives `1` (Dart's `%` is the
+      //          Euclidean remainder). Its kind is `number` with a finite decimal, so tier 1 adopted
+      //          the engine's answer outright. In the review's 629-expression sweep it was the only
+      //          remaining same-name numeric divergence besides `log`.
+      final engine = _FakeMathEngine(const EngineReplyFixture(
+        displayText: '-2',
+        displayTex: '-2',
+        kind: EngineResultKind.number,
+      ).reply);
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('mod(7,-3)');
+      await controller.submit();
+
+      expect(controller.result, '1', reason: '引擎的余数被当成了应用的余数');
+      expect(controller.resultDecimal, '1');
+
+      controller.dispose();
     });
 
     test('log(100)：语义不同，引擎的答案不许采用（应用给 2，引擎给 ln）', () async {
       // 中文：真机实测 `log(100)` 的引擎答案是 `4.605170185988091`（自然对数），而应用自己的
-      //       `log` 是常用对数 → `2`。这是一条**静默错值**（它在引擎接进提交路径的那一步就存在，
-      //       与这两轮无关），词表把它拦下之后由旧解析器给出正确值。
+      //       `log` 是常用对数 → `2`。这是一条**静默错值**（它在引擎接进提交路径的那一步就存在），
+      //       词表把它拦下之后由旧解析器给出正确值。
       // English: measured on a device, the engine's answer for `log(100)` is `4.605170185988091` (the
       //          natural logarithm) while this app's `log` is the common one → `2`. That is a
-      //          **silently wrong value** (it has been there since the engine reached the submit path,
-      //          nothing to do with these two rounds); the vocabulary stops it and the legacy parser
-      //          gives the right value.
+      //          **silently wrong value** (it has been there since the engine reached the submit path);
+      //          the vocabulary stops it and the legacy parser gives the right value.
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '4.605170185988091',
         displayTex: '4.605170185988091',
@@ -394,6 +449,20 @@ void main() {
       // English: `1.5° to arcmin` contains no **call**, so the vocabulary has nothing to say about it
       //          — the conversion branch catches it.
       expect(AppEngineVocabulary.canRead('1.5° to arcmin'), isTrue);
+      // 中文：`i(2)`/`e(2)`/`pi(2)` 里的名字**不是函数**（`i`/`e`/`pi` 是引擎的变量、应用里的常量），
+      //       所以它们不在词表里、这条规则不管它们。引擎侧放行它们是有意的：`i(2)` 是隐式乘法
+      //       `2i`（在本轮之前就可显示），把「不是函数名」当成「读不懂」会误伤它——那一条判据在
+      //       原生侧（`QalculateEngine` 里函数/变量/单位三者认一个），设备实测见报告第 4 条。
+      // English: the names in `i(2)`/`e(2)`/`pi(2)` are **not functions** (`i`/`e`/`pi` are the
+      //          engine's variables and this app's constants), so they are not in the vocabulary and
+      //          this rule has nothing to say about them. Letting them through on the engine side is
+      //          deliberate: `i(2)` is the implicit product `2i` (displayable before this round), and
+      //          treating "not a function name" as "cannot be read" would break it — that judgement
+      //          lives natively (`QalculateEngine`: function, variable or unit all count), and the
+      //          device measurement is in the report, item 4.
+      expect(AppEngineVocabulary.canRead('i(2)'), isTrue);
+      expect(AppEngineVocabulary.canRead('e(2)'), isTrue);
+      expect(AppEngineVocabulary.canRead('pi(2)'), isTrue);
     });
   });
 
@@ -493,26 +562,30 @@ void main() {
     });
 
     test('tier 2：旧解析器答得出来时，它优先于引擎（这才是 tier 2 内部那条规则）', () async {
-      // 中文：**这条测试必须真的走到 tier 2**，否则它测的不是它名字说的东西。上一版用 `ncr(5,10)`
-      //       当样本，结果被修复轮 3 新增的应用词汇规则**在前面**就拦下了（`ncr` 是引擎不认识的
-      //       拼法），于是把 tier 2 这条规则整条删掉它仍然绿——复审正是这么发现的。
+      // 中文：**这条测试必须真的走到 tier 2**，否则它测的不是它名字说的东西——这件事已经错过两次：
+      //       先是 `ncr(5,10)`（被应用词汇规则在前面拦下），再是 `log(100)`（`log` 同样被词表
+      //       标成不可信，同一个文件里就有 `canRead('log(100)') == false` 的断言）。两次的后果一样：
+      //       把 tier 2 这条规则整个删掉，测试仍然绿。
       //
-      //       现在样本换成 `log(100)`：`log` 是**引擎认识**的拼法（词表放行 ✓），而它的引擎回包
-      //       被替身做成一个矩阵（tier 2、可显示、不可当数字用）——**这才是这条规则的作用域**：
-      //       当引擎给的是"只能显示"的形态、而旧解析器又答得出来时，谁说了算。
-      //       删掉那条优先规则（`_tryLegacyResult` 那一行）这条测试会红（验证过）。
-      //       真实世界里的 `ncr` 仍然由应用词汇规则先拦（它有自己的一条测试）。
-      // English: **this test has to reach tier 2**, or it does not test what its name says. The
-      //          previous version used `ncr(5,10)`, which fix round 3's vocabulary rule now stops
-      //          **earlier** (`ncr` is a spelling the engine does not know) — so deleting the whole
-      //          tier-2 rule left it green, which is exactly how the review found it.
+      //       现在样本换成 **`sqrt(8)`**：`sqrt` 是词表放行、且 `canRead('sqrt(8)') == true` 的名字
+      //       （下面那条断言就在本文件里），替身给它的回包是一个矩阵（tier 2：可显示、不可当数字用），
+      //       而旧解析器答得出来（2.828427）→ **这一发真的落在 tier 2 里**。
+      //       删掉 tier 2 那两行优先规则（`_tryLegacyResult`）这条测试会红——**词表规则保持不动**，
+      //       命令与输出见本步报告第 1 条。
+      // English: **this test has to reach tier 2**, or it does not test what its name says — and that
+      //          has now gone wrong twice: first `ncr(5,10)` (stopped earlier by the app-vocabulary
+      //          rule), then `log(100)` (`log` is marked untrusted too — this very file asserts
+      //          `canRead('log(100)') == false`). Both times the consequence was the same: deleting the
+      //          whole tier-2 rule left the test green.
       //
-      //          The sample is now `log(100)`: `log` is a spelling the engine **knows** (the vocabulary
-      //          lets it through), and the double makes its engine reply a matrix (tier 2: displayable,
-      //          not usable as a number) — **that is this rule's scope**: when the engine offers a
-      //          display-only shape and the legacy parser can answer too, which one wins. Deleting the
-      //          preference (the `_tryLegacyResult` line) turns this red (verified). The real-world
-      //          `ncr` is still stopped by the vocabulary rule first, which has a test of its own.
+      //          The sample is now **`sqrt(8)`**: the vocabulary lets `sqrt` through, and
+      //          `canRead('sqrt(8)') == true` is asserted right here in this file. The double makes its
+      //          reply a matrix (tier 2: displayable, not usable as a number) and the legacy parser can
+      //          answer (2.828427) — so the reply **really does land in tier 2**. Deleting the two
+      //          tier-2 preference lines (the `_tryLegacyResult` ones) turns this red **with the
+      //          vocabulary rule untouched**; the command and its output are in the report, item 1.
+      expect(AppEngineVocabulary.canRead('sqrt(8)'), isTrue,
+          reason: '样本必须过得了词表，否则这条测试到不了 tier 2（前两次就是这么错的）');
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '[9  9; 9  9]',
         displayTex: r'\begin{bmatrix}9 & 9 \\ 9 & 9\end{bmatrix}',
@@ -520,16 +593,18 @@ void main() {
       ).reply);
       final controller = _controller(_FakeDatabase(), engine: engine);
 
-      controller.setExpression('log(100)');
+      controller.setExpression('sqrt(8)');
       await controller.submit();
 
-      // 中文：旧解析器的答案（2）说了算，引擎那个矩阵不上屏；而且它是**能当数字用**的，
+      // 中文：旧解析器的答案（2.828427）说了算，引擎那个矩阵不上屏；而且它是**能当数字用**的，
       //       所以 `Ans`/记忆照旧拿得到它。
-      // English: the legacy parser's answer (2) wins and the engine's matrix stays off the screen; it
-      //          is **usable as a number**, so `Ans`/memory still get it.
-      expect(controller.result, '2');
+      // English: the legacy parser's answer (2.828427) wins and the engine's matrix stays off the
+      //          screen; it is **usable as a number**, so `Ans`/memory still get it.
+      expect(controller.result, '2.828427');
       expect(controller.result, isNot(contains('9')));
-      expect(controller.resultDecimal, '2');
+      // 中文：旧解析器的十进制形态就是它自己的显示文本（它只产出一个 double）。
+      // English: the legacy parser's decimal form is its own display text (it produces a bare double).
+      expect(controller.resultDecimal, '2.828427');
 
       controller.dispose();
     });
