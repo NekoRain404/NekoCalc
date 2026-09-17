@@ -251,6 +251,64 @@ void main() {
 
       controller.dispose();
     });
+
+    test('拒绝时三个操作各回一句话，寄存器一动不动', () async {
+      // 中文：`2^2000` 的引擎十进制是 602 位，`decimalValueOf` 判它放不进 double（null）——于是
+      //       `M+`、`M−`、`x→M` 都不许动寄存器，而且**每一个都要把这次拒绝说出来**（返回值不是
+      //       null）。句子本身由主屏那条 `SnackBar` 断言；这里钉住的是「有没有话」与「值中不中性」。
+      //
+      //       寄存器先放进 42，是为了让「一动不动」可判别：真被改成 0 的实现在这条上会红。
+      // English: the engine's decimal for `2^2000` has 602 digits and `decimalValueOf` judges that it
+      //          does not fit a double (null) — so `M+`, `M−` and `x→M` may not touch the register,
+      //          and **each has to say that it was refused** (a non-null return). The sentence itself
+      //          is pinned by the screen's `SnackBar` test; what is pinned here is "did it have
+      //          something to say" and value-neutrality.
+      //
+      //          42 goes in first so that "untouched" is discriminable: an implementation that really
+      //          did zero the register would go red here.
+      final controller = _controller(_FakeDatabase(), engine: _FailingMathEngine());
+      controller.setExpression('6×7');
+      expect(controller.memoryAdd(), isNull, reason: '成功时没有任何话要说');
+      expect(controller.memoryValue, 42);
+
+      controller.setExpression('2^2000');
+      controller.applyMathResult(const MathResult(
+        displayText: '1.148130695274255E602',
+        displayTex: r'\num{1.148130695274255E602}',
+        decimalText: '1.148130695274255E602',
+      ));
+
+      expect(controller.memoryAdd(), isNotNull, reason: 'M+ 必须把这次拒绝说出来');
+      expect(controller.memoryValue, 42);
+      expect(controller.memorySubtract(), isNotNull, reason: 'M− 同理');
+      expect(controller.memoryValue, 42);
+      expect(controller.memoryStore(), isNotNull, reason: 'x→M 同理');
+      expect(
+        controller.memoryValue,
+        42,
+        reason: 'x→M 被拒时**不许先清空**——那会把用户原来的记忆值静默抹掉',
+      );
+
+      controller.dispose();
+    });
+
+    test('x→M 成功时仍然是替换，而且只有控制器那一处判定', () async {
+      // 中文：`x→M` 从主屏搬进了控制器（判定必须发生在清空之前，主屏拿不到判定），成功路径必须
+      //       一字不差：寄存器里是当前值，不是累加。
+      // English: `x→M` moved from the screen into the controller (the judgement has to run before the
+      //          clear, and the screen cannot make it), and the success path has to be unchanged: the
+      //          register ends up holding the current value, not the sum.
+      final controller = _controller(_FakeDatabase(), engine: _FailingMathEngine());
+      controller.setExpression('6×7');
+      controller.memoryAdd();
+      expect(controller.memoryValue, 42);
+
+      controller.setExpression('1+1');
+      expect(controller.memoryStore(), isNull, reason: '存得进去就没有话要说');
+      expect(controller.memoryValue, 2, reason: '替换语义：不是 44');
+
+      controller.dispose();
+    });
   });
 }
 

@@ -163,37 +163,120 @@ mixin _CalculatorPersistence on _CalculatorState {
     }
   }
 
-  void memoryAdd() {
-    // 中文：当前值放不进 double 时**不动寄存器**。以前这里会往寄存器里加一个 0——那是一个静默的
-    //       错值（`2^-2000` 就是这样变成 0 的）；不加，寄存器至少还是用户上一次放进去的那个数。
-    //       `memoryAdd()` 没有返回值，所以这一次拒绝对用户仍然不可见——要让它可见得先有一个
-    //       能给界面看的返回值，那是界面层面的事，不在这一步里。
-    // English: When the current value does not fit a double the register is left alone. This used
-    //          to add a 0 — a silently wrong value (`2^-2000` is exactly how that happens); by not
-    //          adding, the register at least still holds what the user last put there.
-    //          `memoryAdd()` returns nothing, so the refusal is still invisible to the user; making
-    //          it visible needs a return value the UI can show, which is a UI-layer matter and not
-    //          part of this step.
+  /// 中文：把当前值加进记忆寄存器。**返回值就是给界面看的那句话**：`null` = 加进去了，一段文字 =
+  ///       这一次没有加，调用方把它交给用户。
+  ///
+  ///       判定一字未改：当前值放不进一个 double 时**不动寄存器**，也绝不加一个 0（那是一个静默的
+  ///       错值，`2^-2000` 就是这样变成 0 的）或一个 `Infinity`——理由与判据见 [_currentNumericValue]。
+  ///       变的只是**拒绝被说出来了**：以前这里什么都不返回，于是用户按了 `M+`、寄存器没动、
+  ///       屏幕上也没有任何提示，看起来像按键失灵。
+  ///
+  ///       为什么是一句话而不是一个布尔：**判定在这里、界面在别处**。被拒的原因（放不进 double）
+  ///       只有这一处知道，界面拿到一个布尔就只能写死一句自己的话，而那句话迟早会与这里的判定漂开。
+  ///       形状与四个进制胶囊的 `showBaseReadout` 相同（`null` = 无话可说，一段文字 = 这次没成），
+  ///       调用方走的也是同一条通道（主屏的 `SnackBar`）。
+  ///
+  /// English: Add the current value to the memory register. **The return value is the sentence the
+  ///          screen shows**: `null` means it was added, a sentence means it was not and the caller
+  ///          hands it to the user.
+  ///
+  ///          The judgement is untouched: when the current value does not fit a double the register
+  ///          is left alone and neither a 0 (a silently wrong value — `2^-2000` is exactly how that
+  ///          happens) nor an `Infinity` is ever added; the test and the reasoning are on
+  ///          [_currentNumericValue]. What changed is that **the refusal is now spoken**: this used
+  ///          to return nothing, so pressing `M+` moved nothing and the screen said nothing, which
+  ///          reads as a dead key.
+  ///
+  ///          It returns a sentence rather than a bool because **the judgement is here and the screen
+  ///          is elsewhere**: only this place knows why the value was refused, so a bool would leave
+  ///          the screen hard-coding a sentence of its own that would sooner or later drift from the
+  ///          judgement. The shape matches the four base pills' `showBaseReadout` (`null` = nothing
+  ///          to say, a sentence = this one did not work) and callers use the same channel (the
+  ///          screen's `SnackBar`).
+  String? memoryAdd() {
     final value = _currentNumericValue();
-    if (value == null) return;
+    if (value == null) return _memoryRefusalMessage;
     _markStateEdited();
     _recordUndoSnapshot();
     memoryValue += value;
     unawaited(_persistState());
     notifyListeners();
+    return null;
   }
 
-  void memorySubtract() {
-    // 中文：与 [memoryAdd] 同理。
-    // English: Same rule as [memoryAdd].
+  /// 中文：与 [memoryAdd] 同理——同一条判定、同一种拒绝、同一句话（[`_memoryRefusalMessage`]）。
+  ///       减去一个放不进 double 的值同样不可能是对的，所以 `M−` 的拒绝与 `M+` 一样要说出来。
+  /// English: the same rule as [memoryAdd] — one judgement, one refusal, one sentence
+  ///          ([`_memoryRefusalMessage`]). Subtracting a value that does not fit a double cannot be
+  ///          right either, so `M−`'s refusal is spoken exactly like `M+`'s.
+  String? memorySubtract() {
     final value = _currentNumericValue();
-    if (value == null) return;
+    if (value == null) return _memoryRefusalMessage;
     _markStateEdited();
     _recordUndoSnapshot();
     memoryValue -= value;
     unawaited(_persistState());
     notifyListeners();
+    return null;
   }
+
+  /// 中文：`x→M`——把当前值**写进**寄存器（替换，不是累加）。
+  ///
+  ///       它以前住在主屏里，写成「先 [`memoryClear`] 再 [`memoryAdd`]」两次调用（控制器只有累加的
+  ///       `memoryAdd`，两次合起来才是替换）。那个写法有一个**破坏性**的缺陷：值放不进 double 时，
+  ///       清空照常发生、累加被拒——用户原来的记忆值被一次拒绝**静默抹掉**了，比按 `M+` 什么都不
+  ///       发生更坏。判定必须发生在清空**之前**，而主屏拿不到那个判定，所以这一对调用挪进控制器：
+  ///       先问一次「这个值存得进去吗」，存不进去就整体放弃、寄存器一动不动，并把同一句话交出去。
+  ///
+  ///       成功路径一字未改：仍然调用原来那两个方法（`memoryClear()` 然后 `memoryAdd()`），因此
+  ///       两次状态编辑、两次撤销快照、两次落盘、两次通知都与从前逐字节相同——**`x→M` 别的行为
+  ///       没有被动过**，变的只是被拒时不再先清空。第二次判定（`memoryAdd()` 内部那一次）不会翻案：
+  ///       两次调用之间没有 `await`，表达式、结果与角度模式都不可能改。
+  ///
+  /// English: `x→M` — **write** the current value into the register (a replace, not an accumulate).
+  ///
+  ///          It used to live on the screen as "clear, then add" (the controller only offers the
+  ///          accumulating `memoryAdd`; the pair makes a replace). That shape had a **destructive**
+  ///          defect: when the value does not fit a double the clear happened anyway and the add was
+  ///          refused, so one refusal **silently wiped** the user's previous memory value — worse
+  ///          than `M+` doing nothing. The judgement has to run **before** the clear, and the screen
+  ///          cannot make it, so the pair moves into the controller: ask once whether the value can
+  ///          be stored; on a refusal give up as a whole, leave the register untouched and hand out
+  ///          the same sentence.
+  ///
+  ///          The success path is unchanged: it still calls the same two methods (`memoryClear()`
+  ///          then `memoryAdd()`), so two state edits, two undo snapshots, two persists and two
+  ///          notifications all happen exactly as before — **nothing else about `x→M` moves**; what
+  ///          changes is that a refusal no longer clears first. The second judgement (the one inside
+  ///          `memoryAdd()`) cannot disagree: nothing is awaited in between, so the expression, the
+  ///          result and the angle mode cannot have changed.
+  String? memoryStore() {
+    if (_currentNumericValue() == null) return _memoryRefusalMessage;
+    memoryClear();
+    memoryAdd();
+    return null;
+  }
+
+  /// 中文：记忆寄存器拒绝一个值时的**那一句话**，三个可能被拒的操作（`M+`、`M−`、`x→M`）共用。
+  ///       它自带结论（没有存入）与后果（寄存器未改动）：用户既要知道刚才那一下没有生效，也要知道
+  ///       原来那个值还在。共用一句是因为被拒的原因只有一个——当前值放不进一个 double。
+  ///
+  ///       **它是说给用户听的，不是日志**，所以不提 double、不提量程：这个寄存器里放着的就是
+  ///       「一个数」，放不进就说放不进；而「寄存器未改动」正是用户下一步要据此决定的事
+  ///       （要不要用 `MR` 看看、要不要改用「继续使用」把那个值带回表达式）。
+  ///
+  /// English: **the sentence** the memory register gives when it refuses a value — shared by all
+  ///          three operations that can refuse (`M+`, `M−`, `x→M`). It carries both the verdict
+  ///          (nothing was stored) and the consequence (the register is unchanged): the user needs to
+  ///          know the press did not take effect and that the value which was there is still there.
+  ///          One sentence is enough because there is only one reason to refuse — the current value
+  ///          does not fit a double.
+  ///
+  ///          **It is written for the user, not for a log**, so it names neither `double` nor a
+  ///          range: what lives in this register is "a number", and it either fits or it does not.
+  ///          "The register is unchanged" is the part the user acts on (whether to press `MR` to look,
+  ///          or to bring that value back into the expression with "continue with result").
+  String get _memoryRefusalMessage => '当前值放不进记忆寄存器，寄存器未改动';
 
   void memoryRecall() {
     _markStateEdited();
@@ -396,7 +479,8 @@ mixin _CalculatorPersistence on _CalculatorState {
   }
 
   /// 中文：记忆寄存器要加/减的数值。**给不出一个能放进 double 的值时返回 null**——调用方据此
-  ///       显式拒绝，而不是往寄存器里加一个 0 或一个 `Infinity`。绝不解析显示文本。
+  ///       显式拒绝（也就是 [memoryAdd]/[memorySubtract]/[memoryStore] 返回 [`_memoryRefusalMessage`]
+  ///       的那一支），而不是往寄存器里加一个 0 或一个 `Infinity`。绝不解析显示文本。
   ///
   ///       取值的顺序，三条都共用既有的判定（[MathResult.decimalTextIsFinite] /
   ///       [MathResult.decimalValueOf] / [MathResult.decimalValue]，与提交路径、粘贴路径同一处
@@ -426,8 +510,9 @@ mixin _CalculatorPersistence on _CalculatorState {
   ///         于是寄存器**不被改动**（与上面那条一样是值中性的，但不再是「拿一个错值去加」）。
   ///
   /// English: The value the memory register adds or subtracts. It returns null when nothing fits a
-  ///          double, and the caller then refuses explicitly rather than adding a 0 or an
-  ///          `Infinity`. The display text is never parsed.
+  ///          double, and the caller then refuses explicitly — the branch where
+  ///          [memoryAdd]/[memorySubtract]/[memoryStore] hand back [`_memoryRefusalMessage`] —
+  ///          rather than adding a 0 or an `Infinity`. The display text is never parsed.
   ///
   ///          The order, all three sharing the existing judgements
   ///          ([MathResult.decimalTextIsFinite] / [MathResult.decimalValueOf] /
