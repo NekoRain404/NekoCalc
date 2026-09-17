@@ -256,6 +256,75 @@ class AppEngineVocabulary {
     'lcm': AppFunction(engineKnowsThisName: true, engineFunction: 'lcm'),
     'root': AppFunction(engineKnowsThisName: true, engineFunction: 'root'),
     'atan2': AppFunction(engineKnowsThisName: true, engineFunction: 'atan2'),
+    // 中文：**复数与统计这两批，与 `matrix`/`sum`/… 同属「只在引擎那边成立」的那一类。**
+    //       应用自己的解析器没有实现它们（`conj(1)` 抛 `Unknown function conj`，实测），所以
+    //       它们只能由引擎作答；键盘上也没有它们的键，入口是 `CPLX` 与 `STAT` 两颗键各自打开的
+    //       面板（`calculator_page_sheets.dart`），面板把**完整的调用**插进表达式——理由与
+    //       `Σ`/`Π`/`∫dx`/`logₓy` 那几颗一样：这些函数都要两个以上实参，而**键盘上没有逗号键**。
+    //
+    //       **这些名字是量出来的，不是想出来的。** 判据与这张表其它行相同：引擎既认这个拼法、
+    //       意思也是我们要的那个。宿主实测（`qalc` 5.12.0，与本 AAR 同版本，`-p 16`，
+    //       与桥同一条调用序列）：
+    //
+    //       | 输入 | 引擎印出来的 | 说明 |
+    //       |---|---|---|
+    //       | `conj(3+4i)` | `3 − 4i` | 共轭复数 |
+    //       | `re(3+4i)` | `3` | 实部 |
+    //       | `im(3+4i)` | `4` | 虚部 |
+    //       | `arg(3+4i)` | `53.13010235`（DEG）／`0.9272952180`（RAD） | 辐角，**随角度模式变**，与 `sin` 同一条约定 |
+    //       | `mean(1,2,3,4)` | `2.5` | 算术平均 |
+    //       | `median(1,2,3,4)` | `2.5` | 中位数 |
+    //       | `stdev(1,2,3,4)` | `1.290994449` | **样本**标准差（分母 n−1：√(5/3)） |
+    //       | `var(1,2,3,4)` | `1.666666667` | **样本**方差（分母 n−1：5/3） |
+    //
+    //       最后两行的分母是**量出来的**、也是要写下来的：引擎给的是 n−1 那一支，不是总体方差。
+    //       应用这一侧从来没有过这两个名字，所以两边不存在「同名不同义」——这正是这两列都填真的
+    //       理由。反过来，一个**被拆成符号**的名字长什么样也量过（`zorkmid(1,2)` → `1E−21 B`、
+    //       `gg(3)` → `3 g²`），上面八行没有一行是那个形状。
+    //
+    //       `arg` 随角度模式变，这不是缺陷而是它该有的样子：应用把角度模式交给引擎
+    //       （`MathEngine.evaluate` 的 `angleMode`），`arg` 与 `sin` 走同一条约定。
+    // English: **the complex and statistics batches belong to the same "holds only on the engine's
+    //          side" class as `matrix`/`sum`/…** This app's own parser does not implement them
+    //          (`conj(1)` throws `Unknown function conj`, measured), so only the engine can answer
+    //          them; and the keypad has no key for them, so the entrance is the sheet the `CPLX` and
+    //          `STAT` keys each open (`calculator_page_sheets.dart`), which inserts a **complete
+    //          call** — for the same reason as `Σ`/`Π`/`∫dx`/`logₓy`: every one of these takes two or
+    //          more arguments and **the keypad has no comma key**.
+    //
+    //          **These names are measured, not imagined.** The criterion is this table's usual one:
+    //          the engine knows the spelling *and* means what we mean. Measured on the host (`qalc`
+    //          5.12.0, the version this AAR bundles, `-p 16`, the bridge's own call sequence):
+    //
+    //          | input | what the engine prints | note |
+    //          |---|---|---|
+    //          | `conj(3+4i)` | `3 − 4i` | complex conjugate |
+    //          | `re(3+4i)` | `3` | real part |
+    //          | `im(3+4i)` | `4` | imaginary part |
+    //          | `arg(3+4i)` | `53.13010235` (DEG) / `0.9272952180` (RAD) | the argument, **following the angle mode**, the same convention `sin` uses |
+    //          | `mean(1,2,3,4)` | `2.5` | arithmetic mean |
+    //          | `median(1,2,3,4)` | `2.5` | median |
+    //          | `stdev(1,2,3,4)` | `1.290994449` | **sample** standard deviation (divisor n−1: √(5/3)) |
+    //          | `var(1,2,3,4)` | `1.666666667` | **sample** variance (divisor n−1: 5/3) |
+    //
+    //          The last two rows' divisor is **measured** and is worth writing down: the engine gives
+    //          the n−1 branch, not the population variance. This app has never had either name, so
+    //          no "same name, different meaning" can arise — which is exactly why both columns are
+    //          true here. What a name **taken apart into symbols** looks like was measured too
+    //          (`zorkmid(1,2)` → `1E−21 B`, `gg(3)` → `3 g²`); none of the eight rows above has that
+    //          shape.
+    //
+    //          `arg` following the angle mode is not a defect but what it should do: the app hands the
+    //          angle mode to the engine (`MathEngine.evaluate`'s `angleMode`), and `arg` travels the
+    //          same convention as `sin`.
+    'conj': AppFunction(engineKnowsThisName: true, engineFunction: 'conj'),
+    're': AppFunction(engineKnowsThisName: true, engineFunction: 're'),
+    'im': AppFunction(engineKnowsThisName: true, engineFunction: 'im'),
+    'arg': AppFunction(engineKnowsThisName: true, engineFunction: 'arg'),
+    'mean': AppFunction(engineKnowsThisName: true, engineFunction: 'mean'),
+    'median': AppFunction(engineKnowsThisName: true, engineFunction: 'median'),
+    'stdev': AppFunction(engineKnowsThisName: true, engineFunction: 'stdev'),
+    'var': AppFunction(engineKnowsThisName: true, engineFunction: 'var'),
     'matrix': AppFunction(engineKnowsThisName: true, engineFunction: 'matrix'),
     'sum': AppFunction(engineKnowsThisName: true, engineFunction: 'sum'),
     'product':

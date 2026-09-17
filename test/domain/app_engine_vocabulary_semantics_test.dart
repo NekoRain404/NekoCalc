@@ -225,6 +225,20 @@ void main() {
         'diff',
         'limit',
         'rand',
+        // 中文：复数与统计那八个（本轮 `CPLX`/`STAT` 两颗键的入口）。它们与上面七个同类：应用自己的
+        //       解析器没有实现（`conj(1)` 实测抛 `Unknown function conj`），只有引擎答得出来。
+        // English: the eight complex and statistics names (this round's `CPLX`/`STAT` entrances). They
+        //          are the same class as the seven above: this app's own parser does not implement
+        //          them (`conj(1)` measured throwing `Unknown function conj`), so only the engine can
+        //          answer.
+        'conj',
+        're',
+        'im',
+        'arg',
+        'mean',
+        'median',
+        'stdev',
+        'var',
       };
       expect(
         AppEngineVocabulary.identifiers.keys.toSet().difference(parserAccepted),

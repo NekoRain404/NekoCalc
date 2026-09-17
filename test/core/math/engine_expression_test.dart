@@ -274,4 +274,78 @@ void main() {
       expect(translated('sqrt(8)'), 'sqrt(8)');
     });
   });
+
+  group('复数与统计那八个名字（CPLX / STAT 两颗键的入口）', () {
+    // 中文：**这一组钉的是「引擎真的被问了，而且问的是那个字符串」。** 那八颗格子插进表达式的
+    //       记号必须能穿过翻译器——不在词表里的名字一律拒绝、直接回落旧解析器，而旧解析器没有实现
+    //       它们（下面第二条钉住它**抛错**）。两件事合起来才是「要么引擎答，要么报错」，
+    //       中间没有第三条「悄悄给一个数」的路。
+    // English: **this group pins "the engine really is asked, and asked that string".** The tokens
+    //          those eight cells insert have to get through the translator — a name outside the
+    //          vocabulary is refused outright and falls back to the legacy parser, which does not
+    //          implement them (the second test below pins that it **throws**). Together the two are
+    //          "either the engine answers or it is an error", with no third road that quietly yields a
+    //          number.
+    test('八个名字都翻译得了，问的就是引擎自己的拼法', () {
+      expect(translated('conj(3+4i)'), 'conj(((3)+(((4)*(i)))))');
+      expect(translated('arg(3+4i)'), 'arg(((3)+(((4)*(i)))))');
+      expect(translated('re(3+4i)'), 're(((3)+(((4)*(i)))))');
+      expect(translated('im(3+4i)'), 'im(((3)+(((4)*(i)))))');
+      expect(translated('mean(1,2,3,4)'), 'mean(1,2,3,4)');
+      expect(translated('median(1,2,3,4)'), 'median(1,2,3,4)');
+      expect(translated('stdev(1,2,3,4)'), 'stdev(1,2,3,4)');
+      expect(translated('var(1,2,3,4)'), 'var(1,2,3,4)');
+    });
+
+    test('统计那四个的逗号是实参分隔符，不是千分位', () {
+      // 中文：**这是这一组里唯一能产生静默错值的一格。** 归一化默认把调用里的逗号判成千分位
+      //       （`round(1,024)` 是一个实参 1024，见上面那一组）；统计那四个名字因此必须写进
+      //       `_variadicFunctions`，否则 `mean(1,234)` 会被问成 `mean(1234)`——引擎照样答得出一个
+      //       数，屏幕上就是一个错值。这里钉住两种读法各自的正确归属。
+      // English: **the one cell in this group that can produce a silent wrong value.** Normalisation
+      //          reads a comma inside a call as a thousands separator by default (`round(1,024)` is
+      //          one argument, 1024 — see the group above); the four statistics names therefore have to
+      //          be written into `_variadicFunctions`, or `mean(1,234)` is asked as `mean(1234)` — the
+      //          engine still answers with a number and the screen carries a wrong one. This pins the
+      //          right owner for each of the two readings.
+      expect(translated('mean(1,234)'), 'mean(1,234)');
+      expect(translated('stdev(1,234)'), 'stdev(1,234)');
+      expect(translated('median(1,234)'), 'median(1,234)');
+      expect(translated('var(1,234)'), 'var(1,234)');
+      // 中文：一元那几个没有这个问题（它们只吃一个实参），逗号照旧是千分位——写下来是为了说明
+      //       这张表的边界在哪，而不是说它们也该进去。
+      // English: the unary ones do not have this problem (one argument only) and their comma stays a
+      //          thousands separator — written down to show where this table's boundary lies, not to
+      //          claim they belong in it.
+      expect(translated('conj(1,024)'), 'conj(1024)');
+    });
+
+    test('引擎缺席时回落旧解析器，而旧解析器对这几个名字是报错而不是猜一个数', () {
+      // 中文：**硬性边界 4 的那条「失败要 fail closed」在这里是一条可以直接断言的事实**：
+      //       应用自己的解析器**没有**实现这八个名字，它抛 `Unknown function`。所以「引擎答不出来」
+      //       的后果是一句错误，绝不是一个看起来合理的数字。这一条与上面那条合起来，正好把
+      //       「静默错值」那第三条路堵死。
+      // English: **hard boundary 4's "failures fail closed" is a directly assertable fact here**: this
+      //          app's own parser does **not** implement those eight names and throws `Unknown
+      //          function`. So "the engine could not answer" results in an error sentence, never a
+      //          plausible-looking number. Together with the test above, this closes the third road —
+      //          the silent wrong value.
+      for (final source in <String>[
+        'conj(3+4i)',
+        'arg(3+4i)',
+        're(3+4i)',
+        'im(3+4i)',
+        'mean(1,2,3,4)',
+        'median(1,2,3,4)',
+        'stdev(1,2,3,4)',
+        'var(1,2,3,4)',
+      ]) {
+        expect(
+          () => ExpressionParser(source, degreeMode: false).parse(),
+          throwsA(isA<FormatException>()),
+          reason: '`$source` 本该在旧解析器上失败，而不是给出一个数',
+        );
+      }
+    });
+  });
 }

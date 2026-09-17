@@ -109,8 +109,33 @@ const Set<String> _twoArgumentFunctions = <String>{
 };
 
 /// 中文：可变形参的函数（一个以上都收）。
+///
+///       统计那四个（`mean`/`median`/`stdev`/`var`）在这一张表里是**必须的**，不是顺手加的：
+///       它们都吃一串数，而这段归一化会把函数实参里那个逗号判成千分位分隔符——
+///       `mean(1,234)` 于是成了**一个**实参 `1234`（而不是 `1` 与 `234`），引擎照样答得出来、
+///       照样是一个数字，屏幕上就是一个静默的错值。表里没有它，这个错值就成立。
+///       它们只在引擎那边成立（应用自己的解析器没有实现，见 `AppEngineVocabulary.identifiers`），
+///       但它们与本表其余几行回答的是同一个问题：**这个名字可能接两个以上实参吗**。
 /// English: variadic functions (any number of arguments from one up).
-const Set<String> _variadicFunctions = <String>{'min', 'max', 'gcd', 'lcm'};
+///
+///          The four statistics names (`mean`/`median`/`stdev`/`var`) are **load-bearing** in this
+///          table rather than added for tidiness: each takes a run of numbers, and this normalisation
+///          otherwise reads the comma inside a call as a thousands separator — `mean(1,234)` becomes
+///          **one** argument, `1234`, instead of `1` and `234`. The engine still answers, still with a
+///          number, and the screen carries a silent wrong value. Without the entry, that wrong value
+///          stands. They hold only on the engine's side (this app's own parser does not implement
+///          them — see `AppEngineVocabulary.identifiers`), but they answer this table's one question:
+///          **may this name take two or more arguments.**
+const Set<String> _variadicFunctions = <String>{
+  'min',
+  'max',
+  'gcd',
+  'lcm',
+  'mean',
+  'median',
+  'stdev',
+  'var',
+};
 
 /// 中文：上两张表的并集——「这个名字可能接两个以上实参」。
 /// English: the union of the two above — "this name may take two or more arguments".
