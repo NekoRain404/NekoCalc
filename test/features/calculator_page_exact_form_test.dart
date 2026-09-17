@@ -78,7 +78,15 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    for (final key in <String>['√x', '8', ')']) {
+    // 中文：只按 `√x` 与 `8`——**不要**再按 `)`：`√x` 自己就补出了整对括号（步骤 5 的前置条件），
+    //       再按一次右括号得到的是 `sqrt(8))`，那是一个解析不了的表达式，按本轮的判据引擎
+    //       根本不会被问到。这一条测的是「精确形式上屏」，那需要一个**成立**的表达式。
+    // English: only `√x` and `8` — do **not** press `)` as well: `√x` already writes the whole
+    //          bracket pair (step 5's precondition), so a second `)` yields `sqrt(8))`, an
+    //          expression that does not parse, and by this round's criterion the engine is never
+    //          asked about those. This test is about the exact form reaching the screen, which
+    //          needs an expression that holds up.
+    for (final key in <String>['√x', '8']) {
       await tester.tap(find.text(key, findRichText: true).first);
       await tester.pump();
     }

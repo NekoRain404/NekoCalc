@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/math/engine_expression.dart';
 import '../../core/math/expression_parser.dart';
 import '../../core/math/app_engine_vocabulary.dart';
 import '../../core/math/math_engine.dart';
@@ -784,7 +785,7 @@ class CalculatorController extends ChangeNotifier {
     //          here too, for the same reason as on the submit path: the engine does not know them and
     //          would read `ans` as an unknown variable.
     final generation = _stateRevision;
-    final reply = await _askEngine(_resolveAnswerReferences(source));
+    final reply = await _askEngineTranslated(_resolveAnswerReferences(source));
     _liveEngineInFlight = false;
     if (_disposed) return;
     // 中文：先取出「还欠一次」再落地。不管落地与否都要还这一次：欠它的那一刻，用户已经改过输入，
@@ -1289,6 +1290,21 @@ class CalculatorController extends ChangeNotifier {
   ///
   ///          A late native reply is dropped here (the completer has already completed), so it can
   ///          never overwrite a result that has already landed.
+  /// 中文：**问引擎之前先把表达式翻译成引擎的写法**（修复轮 7 的判据，见 `engine_expression.dart`）。
+  ///       翻译不了就**不问**：那一条按「没有引擎答案」回执，回落旧解析器（硬性边界 1 的同一条路）。
+  /// English: **translate the expression into the engine's language before asking it** (fix round 7's
+  ///          criterion; see `engine_expression.dart`). When it cannot be translated the engine is
+  ///          **not asked**: that counts as "no engine answer" and the legacy parser answers (the same
+  ///          route as hard boundary 1).
+  Future<EngineReply> _askEngineTranslated(String source) {
+    final translated = engineExpressionFor(source);
+    if (translated is UntranslatableExpression) {
+      debugPrint('$qalculateLogTag 表达式翻译不了，直接走旧解析器: $translated');
+      return Future.value(EngineReply.failure('untranslatable: $translated'));
+    }
+    return _askEngine((translated as TranslatedExpression).text);
+  }
+
   Future<EngineReply> _askEngine(String expression) {
     final completer = Completer<EngineReply>();
     final timer = Timer(engineTimeout, () {

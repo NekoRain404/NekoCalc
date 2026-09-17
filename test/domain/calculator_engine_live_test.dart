@@ -371,7 +371,10 @@ void main() {
       engine.answerNext(sqrt32Reply());
       await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(engine.calls, hasLength(2));
-      expect(engine.calls.last.expression, '1+1+1+1+1+1');
+      // 中文：问引擎的是**翻译后**的表达式（翻译表把并置与优先级写成了括号与显式乘号）。
+      // English: what reaches the engine is the **translated** expression (the translation spells
+      //          out precedence and juxtaposition).
+      expect(engine.calls.last.expression, '((((((((((1)+(1)))+(1)))+(1)))+(1)))+(1))');
       expect(engine.pending, 1);
 
       // 中文：**回包必须与表达式一致。** 新判据要求「引擎的值与应用一致」才采用，所以给
@@ -557,7 +560,9 @@ void main() {
       controller.evaluate();
       expect(controller.result, '42', reason: '旧解析器的结果始终在屏幕上');
       await Future<void>.delayed(const Duration(milliseconds: 60));
-      expect(engine.calls.last.expression, '6*7');
+      // 中文：问引擎的是**翻译后**的表达式。
+      // English: the engine is asked for the **translated** expression.
+      expect(engine.calls.last.expression, '((6)*(7))');
       // 中文：这里**不能**用替身的 `pending` 当作「在飞上限」——控制器超时之后就不再等那一发了，而
       //       替身并不知道，它的 `pending` 数的是「引擎没回话的调用」，不是「控制器还在等的调用」。
       //       在飞上限由「在飞上限恒为 1」那条测试用没有超时的方式钉住。

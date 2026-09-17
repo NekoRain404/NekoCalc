@@ -251,7 +251,10 @@ void main() {
       //          engine call is in flight.
       controller.setExpression('6*7');
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(engine.calls.map((c) => c.expression), contains('6*7'));
+      // 中文：问引擎的是**翻译后**的表达式（`ans` 替换后的十进制同样会被翻译）。
+      // English: the engine is asked for the **translated** expression (the substituted decimal
+      //          travels through the same translation).
+      expect(engine.calls.map((c) => c.expression), contains('((6)*(7))'));
 
       // 中文：第二段时间线：`1+1` → 2，于是 `_lastFiniteResult` = 2。
       // English: second timeline: `1+1` → 2, so `_lastFiniteResult` = 2.

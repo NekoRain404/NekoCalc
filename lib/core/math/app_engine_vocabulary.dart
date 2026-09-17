@@ -74,6 +74,8 @@
 ///          report.
 library;
 
+import 'engine_expression.dart';
+
 /// 中文：一个应用函数在引擎那边的两件事实。
 /// English: the two facts about one app function on the engine's side.
 class AppFunction {
@@ -229,6 +231,43 @@ class AppEngineVocabulary {
   static Set<String> callNamesIn(String expression) => <String>{
         for (final match in _callName.allMatches(expression)) match.group(1)!,
       };
+
+  /// 中文：函数名 → 引擎里该写什么。表里没有的名字按同名写出去；**表里说「引擎读不了这个名字」的
+  ///       那几行给出一条理由**（调用方据此回落旧解析器）。这张表在修复轮 7 之后是**翻译表**——
+  ///       从「防御性的枚举」变成「正向的映射」。
+  /// English: a function name → what to write for the engine. A name absent from the table is written
+  ///          as itself; **the rows saying "the engine cannot be trusted with this name" return a
+  ///          reason** (the caller falls back to the legacy parser). After fix round 7 this table is the
+  ///          **translation table** — turned from a defensive enumeration into a positive mapping.
+  static EngineExpression engineNameFor(String name) {
+    if (name == 'ncr') return const TranslatedExpression('binomial');
+    if (name == 'fact') return const TranslatedExpression('factorial');
+    // 中文：应用的 `log` 是常用对数，引擎的 `log` 是自然对数——引擎里常用对数的名字是 `log10`
+    //       （量过：`getFunction("log10")` 非空）。
+    // English: this app's `log` is the common logarithm while the engine's `log` is the natural one —
+    //          the engine's name for the common logarithm is `log10` (measured: `getFunction("log10")`
+    //          is non-null).
+    if (name == 'log') return const TranslatedExpression('log10');
+    final entry = identifiers[name];
+    if (entry != null && !entry.engineKnowsThisName) {
+      return UntranslatableExpression(
+        '词表说引擎读不了这个名字：`$name`',
+      );
+    }
+    return TranslatedExpression(name);
+  }
+
+  /// 中文：变量名 → 能不能原样交给引擎。应用自己的常量名（`phi` 除外，它在翻译里被写成数值）
+  ///       与 `x`/`y`/`i` 都能；其余（引擎不认识的自由变量）不能。
+  /// English: a variable name → whether it may be handed to the engine as-is. This app's constant
+  ///          names (except `phi`, which the translation writes as a value) and `x`/`y`/`i` may;
+  ///          anything else (a free variable the engine does not know) may not.
+  static String? variableUnknownToEngine(String name) {
+    final lower = name.toLowerCase();
+    const known = <String>{'pi', 'e', 'tau', 'infinity', 'x', 'y', 'i'};
+    if (known.contains(lower)) return null;
+    return '引擎不认识这个自由变量：`$name`';
+  }
 
   /// 中文：**引擎读得懂这个表达式吗**——表达式里只要有一个「属于应用词汇、引擎不认识这个拼法」的
   ///       调用，答案就是「读不懂」，于是引擎这一次的答案（不论形状）都不许用。
