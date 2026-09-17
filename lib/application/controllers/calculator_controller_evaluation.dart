@@ -718,6 +718,13 @@ mixin _CalculatorEvaluation on _CalculatorState {
         groupThousands: _settings.groupThousands,
       ),
       displayTex: engineResult.displayTex,
+      // 中文：分数写法跟着走，理由与下面的 `resultKind` 逐字相同：它是**同一次求值**的另一半，
+      //       丢了它 `d/c` 那一颗键就在引擎已经答出来的结果上变成空操作——一个没有任何理由的退化。
+      // English: the fraction spelling travels too, for the same reason as `resultKind` below, word
+      //          for word: it is the other half of **this same evaluation**, and dropping it would
+      //          turn the `d/c` key into a no-op on a result the engine did answer — a degradation
+      //          with no reason behind it.
+      fractionTex: engineResult.fractionTex,
       decimalText: engineResult.decimalText,
       // 中文：`resultKind` 必须跟着走。丢了它，重建出来的结果会带上 `notFromEngine`——
       //       而那个值在 [MathResult.isDisplayable] 里是**放行**的一支，于是这句 doc 说的

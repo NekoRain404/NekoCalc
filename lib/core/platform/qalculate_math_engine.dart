@@ -96,6 +96,17 @@ class QalculateMathEngine implements MathEngine {
       MathResult(
         displayText: decimal,
         displayTex: (payload['latex'] ?? '').trim(),
+        // 中文：分数写法（HiPER 的 `d/c` 那一颗键要的东西）。它与 `latex` 是**同一个结构**的两次
+        //       打印，只是 `number_fraction_format` 不同，值严格相等（见 `printOptions`）。
+        //       原生侧不认识这个字段（版本不匹配）时这里是空串 = 「这一次没有分数写法」，
+        //       于是那一颗键是空操作——与引擎缺席、旧解析器上屏走的是同一条路，不会去猜一个分数。
+        // English: the fraction spelling (what HiPER's `d/c` key is for). It and `latex` are two
+        //          prints of **one structure** differing only in `number_fraction_format`, so the
+        //          values are strictly equal (see `printOptions`). A native side that does not know
+        //          the field (a version mismatch) leaves this empty = "no fraction spelling this
+        //          time", which makes that key a no-op — the same route as an absent engine or the
+        //          legacy parser on screen, and it never invents a fraction.
+        fractionTex: (payload['fraction'] ?? '').trim(),
         // 中文：形状由原生侧用引擎自己的判据填（见 `QalculateMathEngine` 那一侧的 `kind`）。
         //       **认不出来的一律按 `arithmetic` 处理**：那是「不显示」的那一支，也就是放宽之前的
         //       行为——原生侧要是没发这个字段（版本不匹配），整个 tier 2 就自动退回旧行为，

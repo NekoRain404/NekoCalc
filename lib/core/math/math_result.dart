@@ -203,6 +203,7 @@ class MathResult {
   const MathResult({
     required this.displayText,
     this.displayTex = '',
+    this.fractionTex = '',
     this.decimalText = '',
     this.resultKind = EngineResultKind.notFromEngine,
   });
@@ -239,6 +240,33 @@ class MathResult {
   /// English: The LaTeX form without `$` delimiters; empty while no engine is involved. Never feed
   ///          it to a numeric consumer.
   final String displayTex;
+
+  /// 中文：**同一个值的分数写法**（HiPER 的 `d/c` 那一颗键要的东西），不含 `$` 定界符。
+  ///
+  ///       它与 [displayTex] 是**同一个已求值结构的两次打印**，唯一的差别是
+  ///       `number_fraction_format`（`FRACTION_FRACTIONAL` 对 `FRACTION_DECIMAL`），所以两者的值
+  ///       严格相等——理由与实测在 `printOptions` 上。实测的差别：`1/3` 是 `\frac{1}{3}` 对
+  ///       `\num{0.3333333333333333}`，`10/4` 是 `\frac{5}{2}` 对 `2.5`；无理数两者相同
+  ///       （`\sqrt{8}` 都是 `2\times \sqrt{2}`）。
+  ///
+  ///       空串表示「这一次没有分数写法」——引擎缺席、旧解析器上屏、或原生侧版本不匹配都会是空串。
+  ///       **它不是错误**，调用方照常工作：那一颗键于是是空操作，而不是去猜一个分数。
+  ///       与 [displayTex] 一样，**它绝不能被喂给任何数值消费者**。
+  /// English: **the fraction spelling of the same value** (what HiPER's `d/c` key is for), without
+  ///          `$` delimiters.
+  ///
+  ///          It and [displayTex] are **two prints of one evaluated structure**, differing only in
+  ///          `number_fraction_format` (`FRACTION_FRACTIONAL` against `FRACTION_DECIMAL`), so the two
+  ///          carry strictly equal values — the reason and the measurements are on `printOptions`.
+  ///          Measured difference: `1/3` is `\frac{1}{3}` against `\num{0.3333333333333333}`, `10/4`
+  ///          is `\frac{5}{2}` against `2.5`; for an irrational the two agree (`\sqrt{8}` is
+  ///          `2\times \sqrt{2}` either way).
+  ///
+  ///          An empty string means "no fraction spelling this time" — an absent engine, the legacy
+  ///          parser on screen, or a native side that does not send the field. **It is not an
+  ///          error**, and callers keep working: that key is then a no-op rather than inventing a
+  ///          fraction. Like [displayTex] it must **never** be fed to a numeric consumer.
+  final String fractionTex;
 
   /// 中文：引擎这次答案的形状，以及它做没做过换算——原生侧用引擎自己的判据填。旧解析器与
   ///       占位文本是 [EngineResultKind.notFromEngine]。**只有 [isDisplayable] 读它**：它是
@@ -589,22 +617,31 @@ class MathResult {
   ///          degrading to plain text with this.
   bool get hasTex => displayTex.trim().isNotEmpty;
 
+  /// 中文：是否带分数写法。与 [hasTex] 同一条判据、同一个位置——**不另写一份**（写第二份就会漂）。
+  ///       它只回答「有没有」，排不排得出来仍由渲染器自己的 `typesetsTex` 回答。
+  /// English: Whether a fraction spelling is present. The same judgement in the same place as
+  ///          [hasTex] — **not a second copy** (a second copy would drift). It only answers "is
+  ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
+  bool get hasFractionTex => fractionTex.trim().isNotEmpty;
+
   @override
   bool operator ==(Object other) {
     return other is MathResult &&
         other.displayText == displayText &&
         other.displayTex == displayTex &&
+        other.fractionTex == fractionTex &&
         other.decimalText == decimalText &&
         other.resultKind == resultKind;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(displayText, displayTex, decimalText, resultKind);
+  int get hashCode => Object.hash(
+      displayText, displayTex, fractionTex, decimalText, resultKind);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
+        'fractionTex: $fractionTex, '
         'decimalText: $decimalText, resultKind: ${resultKind.name})';
   }
 }

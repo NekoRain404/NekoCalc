@@ -154,6 +154,18 @@ mixin _CalculatorState on ChangeNotifier {
   ///          render, and be more than the same decimal written differently.
   String get resultTex => _result.displayTex;
 
+  /// 中文：**结果的分数写法**（HiPER 的 `d/c` 那一颗键要的那一份），与 [resultTex] 是同一个已求值
+  ///       结构的两次打印，值严格相等（见 `MathResult.fractionTex`）。空串表示这一次没有分数写法
+  ///       ——引擎缺席、旧解析器上屏、或原生侧不认识这个字段；调用方照常工作，那一颗键于是是空操作。
+  ///       与 [resultTex] 一样，**它绝不能被喂给任何数值消费者**。
+  /// English: **the result's fraction spelling** (what HiPER's `d/c` key needs). It and [resultTex]
+  ///          are two prints of one evaluated structure and carry strictly equal values (see
+  ///          `MathResult.fractionTex`). An empty string means there is no fraction spelling this
+  ///          time — no engine, the legacy parser on screen, or a native side that does not know the
+  ///          field; callers keep working and that key is then a no-op. Like [resultTex] it must
+  ///          **never** be fed to a numeric consumer.
+  String get resultFractionTex => _result.fractionTex;
+
   /// 中文：结果的十进制形态——Ans/last、记忆寄存器、继续使用、历史去重与报告里的机器可读值都从
   ///       这里取。空串表示「这一次没有十进制形态」，调用方必须照常工作而不是去解析 [result]。
   /// English: The result's decimal form — Ans/last, the memory register, continue-with-result,
