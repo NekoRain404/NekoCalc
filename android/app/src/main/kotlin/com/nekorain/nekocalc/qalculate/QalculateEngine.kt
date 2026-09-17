@@ -6,6 +6,7 @@ import com.jherkenhoff.libqalculate.AutomaticApproximation
 import com.jherkenhoff.libqalculate.AutomaticFractionFormat
 import com.jherkenhoff.libqalculate.Calculator
 import com.jherkenhoff.libqalculate.EvaluationOptions
+import com.jherkenhoff.libqalculate.IntervalDisplay
 import com.jherkenhoff.libqalculate.NumberFractionFormat
 import com.jherkenhoff.libqalculate.PrintOptions
 import com.jherkenhoff.libqalculate.libqalculateConstants
@@ -120,21 +121,22 @@ class QalculateEngine {
             val normalized = engine.unlocalizeExpression(expression, evaluation.parse_options)
 
             // 中文：十进制那一份明确要求近似（SINGLE = 只显示近似值）。
-            //       注意：无理结果不会被印成一个单纯的十进制——libqalculate 把近似值表示成
-            //       不确定区间，sqrt(32) 得到的是 interval(5.6568542, 5.6568543)。
-            //       这是引擎真实的行为，不是没配对参数：把 EvaluationOptions 换成
-            //       APPROXIMATION_APPROXIMATE、或给 PrintOptions 加 max_decimals 上限，
-            //       都只是把区间收窄（interval(5.656854, 5.656855)），不会塌缩成一个数。
-            //       怎么消费这个区间留给下一步决定。
+            //       近似值在引擎内部就是一个区间（Number 用 MPFR 的上下界对表示），
+            //       但「怎么印区间」由 PrintOptions.interval_display 决定，与求值无关。
+            //       这正是上一轮找错了抽屉的地方：APPROXIMATION_APPROXIMATE 和
+            //       AUTOMATIC_APPROXIMATION_SINGLE 属于求值/近似，max_decimals 只把区间收窄；
+            //       真正管这件事的是 INTERVAL_DISPLAY_MIDPOINT —— 打印区间中点那一个普通十进制数。
+            //       见 Number.cc:11970（打印路径）与 includes.h:398-407（枚举）。
             // English: the decimal rendering explicitly asks for the approximation (SINGLE = show
-            //          only the approximate value). Note that an irrational result does not come
-            //          back as a bare decimal — libqalculate represents the approximation as an
-            //          uncertainty interval, so sqrt(32) yields interval(5.6568542, 5.6568543).
-            //          That is the engine's real behaviour rather than a mis-set option: switching
-            //          EvaluationOptions to APPROXIMATION_APPROXIMATE, or capping PrintOptions with
-            //          max_decimals, only narrows the interval (interval(5.656854, 5.656855)) —
-            //          neither collapses it into a single number. How to consume the interval is
-            //          left to the next step.
+            //          only the approximate value). Inside the engine an inexact value *is* an
+            //          interval — a Number of type FLOAT stores an MPFR low/high bound pair — but
+            //          how that interval is *printed* is PrintOptions.interval_display, which has
+            //          nothing to do with evaluation. That is the drawer the previous attempt
+            //          looked in the wrong place for: APPROXIMATION_APPROXIMATE and
+            //          AUTOMATIC_APPROXIMATION_SINGLE belong to evaluation/approximation, and
+            //          max_decimals only narrows the interval. INTERVAL_DISPLAY_MIDPOINT is what
+            //          prints the interval's midpoint as a plain decimal. See Number.cc:11970 for
+            //          the print path and includes.h:398-407 for the enum.
             val decimal = render(
                 engine,
                 normalized,
@@ -162,13 +164,17 @@ class QalculateEngine {
             //          (Calculator.h:460), so it does not rely on SWIG pointer write-back
             //          semantics — at the cost of having no timeout on this step.
             //
-            // 中文：LaTeX 这一步必须用 EXACT。TRY_EXACT 下结构里留下的是近似值，而 libqalculate
-            //       把近似值表示成不确定区间，直接 print 出来是 \num{interval(5.6568542,5.6568543)}
-            //       ——一个精确形态的反面。EXACT 才让结构里留下 4√2。
+            // 中文：LaTeX 这一步必须用 EXACT。TRY_EXACT 下结构里留下的是近似值，印出来就是一个
+            //       十进制数——精确形态的反面。EXACT 才让结构里留下 4√2。
+            //       （interval_display = MIDPOINT 之后这里不再出现 \num{interval(…)}；那个宏
+            //       flutter_math_fork 也不认。但「印出 5.6568542」同样不是我们想要的精确形态，
+            //       EXACT 依然是必需的。）
             // English: this step must use EXACT. Under TRY_EXACT the structure holds the
-            //          approximation, which libqalculate represents as an uncertainty interval, and
-            //          printing it yields \num{interval(5.6568542,5.6568543)} — the opposite of an
-            //          exact form. EXACT is what leaves 4√2 in the structure.
+            //          approximation, and printing it yields a decimal — the opposite of an exact
+            //          form. EXACT is what leaves 4√2 in the structure. (With
+            //          interval_display = MIDPOINT, \num{interval(…)} no longer appears here — that
+            //          macro is one flutter_math_fork rejects anyway — but "5.6568542" is just as
+            //          far from the exact form we want, so EXACT is still required.)
             val exactEvaluation = evaluationOptions(ApproximationMode.APPROXIMATION_EXACT)
             val parsed = engine.parse(normalized, exactEvaluation.parse_options)
             val evaluated = engine.calculate(parsed, exactEvaluation)
@@ -246,6 +252,16 @@ class QalculateEngine {
         // English: an int in C++, not a boolean. Unicode signs must be off for LaTeX, or the output
         //          carries "√" instead of "\sqrt".
         setUse_unicode_signs(if (latex) UNICODE_SIGNS_OFF else UNICODE_SIGNS_ON)
+        // 中文：把区间印成中点，而不是 interval(下界, 上界)。这是「无理结果只有一个十进制数」的
+        //       唯一开关，且只影响显示——Number 里的上下界原封不动，精确形态那一份照旧由
+        //       APPROXIMATION_EXACT 保留。
+        //       值取自已确认可由 SWIG 访问的 IntervalDisplay 枚举类。
+        // English: print an interval as its midpoint rather than interval(lower, upper). This is the
+        //          one switch that makes an irrational result a single decimal, and it is display
+        //          only — the low/high bounds inside the Number are untouched, and the exact form is
+        //          still preserved by APPROXIMATION_EXACT on its own path. The value comes from the
+        //          IntervalDisplay enum class, confirmed reachable through SWIG.
+        setInterval_display(IntervalDisplay.INTERVAL_DISPLAY_MIDPOINT)
     }
 
     /**
