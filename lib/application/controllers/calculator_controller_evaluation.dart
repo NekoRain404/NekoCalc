@@ -673,23 +673,15 @@ mixin _CalculatorEvaluation on _CalculatorState {
     if (!AppEngineVocabulary.canRead(source)) return null;
     final engineResult = reply.result;
     if (engineResult == null) return null;
-    // 中文：**引擎给出的符号结果，只在应用自己的语言表达不了这个输入时才收。** 与上面那条
-    //       [AppEngineVocabulary.canRead] 同一处、同一手法：一条应用侧的判据，为真时返回 null，
-    //       调用方按「这一次没有引擎答案」处理，旧解析器作答。判据与实测都在
-    //       [AppEngineVocabulary.canExpress]（`pi!` 那一条）与 [EngineResultKind.symbolic] 上。
-    //
-    //       它**不改写回执的种类**：不显示就是「这一次没有引擎答案」，由调用方走既有的回落那条路，
-    //       `isDisplayable` 仍是唯一回答「配不配显示」的地方。
-    // English: **a symbolic result the engine gives is taken only when this app's own language cannot
-    //          express this input.** The same place and the same device as the
-    //          [AppEngineVocabulary.canRead] check above: an app-side judgement that returns null, so
-    //          the caller reads it as "no engine answer this time" and the legacy parser answers. The
-    //          judgement and its measurement live on [AppEngineVocabulary.canExpress] (`pi!`) and on
-    //          [EngineResultKind.symbolic].
-    //
-    //          It does **not** rewrite the receipt's kind: "not displayed" means "no engine answer this
-    //          time", so the caller takes the existing fallback route, and `isDisplayable` remains the
-    //          only place that answers "may this be shown".
+    // 中文：**符号结果只在应用自己的语言表达不了这个输入时才收。** 与上面那条
+    //       [AppEngineVocabulary.canRead] 同一手法：应用侧判据为真 ⇒ 返回 null ⇒ 调用方按「这一次
+    //       没有引擎答案」处理，旧解析器作答。判据与它的实测都在
+    //       [AppEngineVocabulary.canExpress]（`pi!` 那一条）。
+    // English: **a symbolic result is taken only when this app's own language cannot express this
+    //          input.** The same device as the [AppEngineVocabulary.canRead] check above: the
+    //          app-side judgement is true ⇒ null ⇒ the caller reads it as "no engine answer this
+    //          time" and the legacy parser answers. The judgement and its measurement are on
+    //          [AppEngineVocabulary.canExpress] (`pi!`).
     if (engineResult.resultKind == EngineResultKind.symbolic &&
         AppEngineVocabulary.canExpress(source)) {
       return null;
