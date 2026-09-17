@@ -282,7 +282,7 @@ mixin _CalculatorBaseReadout on _CalculatorState {
     if (base == CalculatorBase.dec) {
       // 中文：`DEC` 的语义是「回到十进制」——结果行本来就是十进制，所以它做的是**撤掉读数**，
       //       而不是再画一个 `DEC 100`（那与结果行说的是同一件事，只是多占一格）。
-      //       `radix` 这一支不发引擎调用：屏幕已经回答了它。
+      //       这一支不发引擎调用：屏幕已经回答了它。
       // English: `DEC` means "back to decimal" — the result line is already decimal, so it **removes
       //          the read-out** rather than drawing a `DEC 100` that says the same thing twice. This
       //          branch issues no engine call: the screen already answers it.
@@ -291,7 +291,7 @@ mixin _CalculatorBaseReadout on _CalculatorState {
     }
     final source = _result;
     // 中文：**先撤掉上一个读数**，再问。否则引擎卡住的那 5 秒里屏幕上会留着一个别的进制的读数，
-      //       而用户刚按的是这个进制。
+    //       而用户刚按的是这个进制。
     // English: **remove the previous read-out first**, then ask. Otherwise a wedged engine leaves
     //          another base's read-out on screen for its whole timeout, right after the user asked
     //          for this base.
