@@ -95,6 +95,14 @@ class CalculatorPage extends StatefulWidget {
     'resultForm', 'fractionForm', 'dmsForm',
     // 编辑与结果
     'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
+    // 中文：`◀` `▶` 两颗光标键（**不是翻页键**——来源见 `hiper_keypad.dart` 第 1 行那一段）。它们与
+    //       `backspace` 同属「改光标/改表达式」那一类，走的是控制器已有的 `moveCursorLeft`/
+    //       `moveCursorRight`，与 `More...` 面板里那两颗光标键同一个入口。
+    // English: the two cursor keys `◀` `▶` (**not page keys** — the sources are in `hiper_keypad.dart`'s
+    //          row-1 note). They sit with `backspace` in the "edit the caret / the expression" class and
+    //          take the controller's existing `moveCursorLeft`/`moveCursorRight` — the same entrance the
+    //          `More...` sheet's two cursor keys use.
+    'cursorLeft', 'cursorRight',
     // 记忆寄存器
     'memoryRecall', 'memoryStore', 'memoryAdd', 'memorySubtract',
     // 插入文本（`ins:` 前缀）

@@ -26,11 +26,11 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
     //          SHIFT state.
     if (key != 'shift' && key != 'hyp') _clearOneShotShift();
     // 中文：按键 id 在这里统一映射为控制器动作与解析器表达式，避免 parser 混入展示层符号。id 逐字来自
-    //       `hiper_keypad.dart`（含 camelCase 的 `dis:pagePrev`、`dis:xchgE` 这类），修饰态解析出的
+    //       `hiper_keypad.dart`（含 camelCase 的 `openVariables`、`cursorLeft` 这类），修饰态解析出的
     //       变体 id（`asin`、`ins:^3`、`cbrt`…）也走同一条通路。
     // English: Key ids are mapped to controller actions and parser expressions here, keeping display
     //          symbols out of the parser. Ids come verbatim from `hiper_keypad.dart` (camelCase ones
-    //          such as `dis:pagePrev` and `dis:xchgE` included), and the variant id a modifier
+    //          such as `openVariables` and `cursorLeft` included), and the variant id a modifier
     //          resolves to (`asin`, `ins:^3`, `cbrt`, …) travels the same path.
     switch (key) {
       // 中文：修饰键。`CalculatorKeypad` 不认识任何 id，`SHIFT`/`hyp` 两个键的 id 就像别的键一样交到
@@ -169,6 +169,25 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.backspace();
       case 'clear':
         _controller.clear();
+      // 中文：`◀` `▶`——**光标键，不是翻页键**（来源见 `hiper_keypad.dart` 第 1 行那一段：HiPER 的
+      //       命令表里只有 `CHAR_LEFT`/`CHAR_RIGHT`「移动一个字符」，没有翻页这一个动作）。它们走
+      //       控制器已有的两个方法，与 `More...` 面板里那两颗光标键**同一个入口**——所以「键盘上按一下
+      //       移一格」与「面板里长按连发」动的是同一份光标状态，不存在第二套移动逻辑。
+      //       光标已经在两端时那两个方法是空操作（`cursorIndex == 0` / `>= expression.length` 直接
+      //       返回），这正是要的：那里没有可去的位置，屏幕上的光标本来就停在那儿。
+      // English: `◀` `▶` — **cursor keys, not page keys** (the sources are in `hiper_keypad.dart`'s
+      //          row-1 note: HiPER's command catalogue has only `CHAR_LEFT`/`CHAR_RIGHT`, "move one
+      //          character", and no paging action at all). They take the controller's two existing
+      //          methods — **the same entrance** the two cursor keys inside the `More...` sheet use — so
+      //          "one tap on the keypad" and "hold-to-repeat in the sheet" move one and the same caret
+      //          state, with no second movement logic anywhere.
+      //          At either end those methods are no-ops (`cursorIndex == 0` / `>= expression.length`
+      //          returns early), which is exactly right: there is nowhere to go, and the caret is
+      //          visibly already there.
+      case 'cursorLeft':
+        _controller.moveCursorLeft();
+      case 'cursorRight':
+        _controller.moveCursorRight();
       case 'equals':
         final submitResult = await _controller.submit();
         if (mounted && submitResult.needsAttention) {

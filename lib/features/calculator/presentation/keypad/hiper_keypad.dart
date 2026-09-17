@@ -34,10 +34,10 @@ import 'keypad_definition.dart';
 /// 禁用键 / Disabled keys:
 /// 中文：计划书里的 `☐` 只是「禁用」记号，不属于 label。禁用键的 label 是 HiPER 原文，
 ///       分类为 `KeyCategory.disabled`，id 用 `dis:` 前缀加名字（矩阵键为 `dis:matrix`，
-///       翻页键为 `dis:pagePrev`）。
+///       相机键为 `dis:camera`）。
 /// English: `☐` in the plan marks "disabled" and is never part of a label. A disabled key
 ///          keeps HiPER's original text as its label, uses `KeyCategory.disabled`, and gets a
-///          `dis:` prefixed id (`dis:matrix`, `dis:pagePrev`, …).
+///          `dis:` prefixed id (`dis:matrix`, `dis:camera`, …).
 ///
 /// 动作 id / Action ids:
 /// 中文：`CalculatorController` 已有方法直接表达的动作不带前缀（`sin`、`backspace`、
@@ -48,9 +48,66 @@ import 'keypad_definition.dart';
 ///          disabled keys use `dis:`; page-level actions (drawer, tools, history) also carry
 ///          no prefix (`drawer`, `openTools`, …).
 const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
-  // 中文：行 1——SHIFT / MENU / 翻页（禁用）/ 退格 / 清空。HiPER 的最上一行没有标签横带。
-  // English: Row 1 — SHIFT / MENU / page back and forward (disabled) / backspace / clear.
-  //          HiPER's topmost row carries no label band.
+  // 中文：行 1——SHIFT / MENU / 光标左右 / 退格 / 清空。HiPER 的最上一行没有标签横带。
+  //
+  //       **`◀` `▶` 不是翻页键——它们是光标键。** 计划书写着「键盘翻页」，量了来源之后那句话是错的，
+  //       这里按量到的做。四条证据（都在本机取回，见 `keypad_definition_test.dart` 的同名快照）：
+  //
+  //       1. **HiPER 的命令表里没有翻页这个动作。** 项目公开翻译 API 的 `command.name.*` 共 213 条，
+  //          逐条读完**没有** `PAGE_LEFT`/`PAGE_RIGHT`/`NEXT_KEYBOARD`；与左右箭头有关的只有两条：
+  //          `CHAR_LEFT` = "Move cursor one char left"、`CHAR_RIGHT` = "Move cursor one char right"。
+  //       2. **HiPER 的帮助把它们说成光标键**（`help.expressions.contents`，Expression Mode）：
+  //          "Use arrow keys `<key:CHAR_LEFT>` and `<key:CHAR_RIGHT>` or tap on the expression to
+  //          navigate through parameters or through the whole expression." 同一份文本还写着
+  //          "Keep `<key:CHAR_LEFT>`, `<key:CHAR_RIGHT>` and `<key:BACKSPACE>` keys pressed to repeat
+  //          their operation."——**按住连发也是这两颗键的行为**。
+  //       3. **真机截图**（`~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`）
+  //          上 `◀` `▶` 用的是 `MENU` 那种可用灰，不是禁用态；同一张图上 `8 000 ÷ 5` 的末尾立着一根
+  //          光标条——正是这两颗键要移动的东西。
+  //       4. 帮助里唯一像「翻页」的两处都不是键盘翻页：`#key-table:MAIN#`/`#key-table:POW_LOG#` 等是
+  //          **帮助页自己的表格分段**；`releaseNotes` 那句 "New key in custom keyboards: switch to
+  //          another keyboard" 说的是**自定义键盘**可以带一颗切换键，内置键盘上没有这东西。
+  //
+  //       所以本表把它们接到控制器**已有**的两个方法上（`moveCursorLeft`/`moveCursorRight`，它们就是
+  //       「移动一个字符」），键面文字与位置一格未动。
+  //
+  //       **没上这一轮的东西**：证据 2 里的「按住连发」键盘上没有。本应用有现成的连发实现
+  //       （`calculator_page_repeat_button.dart`），但它挂在 `More...` 面板里；把连发做进键盘要动
+  //       `CalculatorKeypad` 的手势层，而那一层由**全部 60 多颗键共用**——「不改已经能用的键」比这一点
+  //       体面更重要。本轮的 `◀` `▶` 是**一下一格**，这是取舍的公开记录，不是「已经做完」。
+  //
+  // English: Row 1 — SHIFT / MENU / cursor left and right / backspace / clear. HiPER's topmost row
+  //          carries no label band.
+  //
+  //          **`◀` `▶` are not page keys — they are cursor keys.** The plan says "keypad paging" and
+  //          that sentence is wrong once the sources are measured; the measured thing is what got built.
+  //
+  //          1. **HiPER's command catalogue has no paging action.** Its 213 distinct `command.name.*`
+  //             entries contain **no** `PAGE_LEFT`/`PAGE_RIGHT`/`NEXT_KEYBOARD`; the only left/right
+  //             ones are `CHAR_LEFT` = "Move cursor one char left" and `CHAR_RIGHT` = "Move cursor one
+  //             char right".
+  //          2. **HiPER's help calls them cursor keys** (`help.expressions.contents`, Expression Mode):
+  //             "Use arrow keys `<key:CHAR_LEFT>` and `<key:CHAR_RIGHT>` or tap on the expression to
+  //             navigate through parameters or through the whole expression", and "Keep
+  //             `<key:CHAR_LEFT>`, `<key:CHAR_RIGHT>` and `<key:BACKSPACE>` keys pressed to repeat their
+  //             operation" — **hold-to-repeat is part of these keys' behaviour**.
+  //          3. On the **real screenshot** cited above, `◀` and `▶` wear `MENU`'s enabled grey rather
+  //             than a disabled treatment, and a caret stands at the end of `8 000 ÷ 5` — the very thing
+  //             they move.
+  //          4. The only paging-shaped help strings are not keypad paging: `#key-table:MAIN#` and
+  //             friends are the **help page's own sections**, and "New key in custom keyboards: switch
+  //             to another keyboard" is about **custom** keyboards, which the built-in one lacks.
+  //
+  //          So the table wires them to the two controller methods that already exist
+  //          (`moveCursorLeft`/`moveCursorRight`, one character each); face text and grid position are
+  //          untouched.
+  //
+  //          **What is not on this round**: the hold-to-repeat of evidence 2 is not on the keypad. This
+  //          app owns a repeat implementation (`calculator_page_repeat_button.dart`) but it hangs inside
+  //          the `More...` sheet; putting repeat on the keypad means touching `CalculatorKeypad`'s
+  //          gesture layer, which **all 60-odd keys share** — "change no key that already works"
+  //          outweighs the polish, so this round's `◀` `▶` are **one character per tap**. This is the
+  //          trade-off on the record, not a claim the work is done.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -61,13 +118,25 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
         base: KeyVariant(label: 'MENU', id: 'drawer'),
         category: KeyCategory.function,
       ),
+      // 中文：**`◀` 从这一步起点亮**——向左移动光标一个字符（HiPER 的 `CHAR_LEFT`，
+      //       见本行上面那一段来源）。它走控制器已有的 `moveCursorLeft()`，不新造动作。
+      //       光标已经在最开头时它是一个空操作：那里没有可去的位置，屏幕上的光标本来就停在 0。
+      // English: **`◀` lights up from this step on** — move the cursor one character left (HiPER's
+      //          `CHAR_LEFT`; the sources are in the note above this row). It travels the controller's
+      //          existing `moveCursorLeft()` rather than inventing an action. With the caret already at
+      //          position 0 it is a no-op: there is nowhere to go, and the caret is visibly already
+      //          there.
       KeypadKey(
-        base: KeyVariant(label: '◀', id: 'dis:pagePrev', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: '◀', id: 'cursorLeft'),
+        category: KeyCategory.function,
       ),
+      // 中文：**`▶` 同理**——向右移动光标一个字符（`CHAR_RIGHT`），走 `moveCursorRight()`。
+      //       光标已经在末尾时同样是空操作。
+      // English: **`▶` likewise** — move the cursor one character right (`CHAR_RIGHT`) through
+      //          `moveCursorRight()`; with the caret already at the end it is a no-op too.
       KeypadKey(
-        base: KeyVariant(label: '▶', id: 'dis:pageNext', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: '▶', id: 'cursorRight'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: '⌫', id: 'backspace'),

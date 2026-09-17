@@ -52,8 +52,8 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
   <String>[
     "shift|SHIFT|on modifier",
     "drawer|MENU|on function",
-    "dis:pagePrev|◀|off disabled",
-    "dis:pageNext|▶|off disabled",
+    "cursorLeft|◀|on function",
+    "cursorRight|▶|on function",
     "backspace|⌫|on destructive",
     "clear|AC|on destructive",
   ],
