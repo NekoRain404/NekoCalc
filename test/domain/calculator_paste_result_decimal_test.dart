@@ -129,6 +129,40 @@ void main() {
     );
   });
 
+  test('a memory value that does not survive a double is not restored', () {
+    // 中文：`记忆值:` 行以前走的是「`double.tryParse` 成功且 `isFinite`」，于是
+    //       `记忆值: 9.303768583076e-603` 被收下——寄存器从 7.0 静默变成 0.0。
+    //       现在它与其余消费者走同一处判定，一律拒绝（没有可用的记忆值）。
+    // English: The `记忆值:` line used to run on "`double.tryParse` succeeds and `isFinite`", so
+    //          `记忆值: 9.303768583076e-603` was taken — the register went from 7.0 to 0.0 without
+    //          a word. It now shares one judgement implementation with every other consumer and is
+    //          refused (no usable memory value).
+    expect(
+      CalculatorPasteResult.fromText('记忆值: 9.303768583076e-603').memoryValue,
+      isNull,
+    );
+    expect(
+      CalculatorPasteResult.fromText('记忆值: 1.148130695274255E602').memoryValue,
+      isNull,
+    );
+    // 中文：能放进 double 的照旧——这条不是「一律拒绝」。
+    // English: What fits a double still gets through — this is not "refuse everything".
+    expect(CalculatorPasteResult.fromText('记忆值: 12.5').memoryValue, 12.5);
+    expect(CalculatorPasteResult.fromText('记忆值: 0').memoryValue, 0);
+
+    // 中文：可见后果——被拒之后摘要不再说「已恢复记忆值 · 记忆值 0」，而是与「什么都没恢复」一致。
+    // English: The visible consequence — with the line refused the summary no longer says
+    //          "已恢复记忆值 · 记忆值 0"; it reads like "nothing was restored".
+    expect(
+      CalculatorPasteResult.fromText('记忆值: 12.5').summary,
+      contains('已恢复记忆值'),
+    );
+    expect(
+      CalculatorPasteResult.fromText('记忆值: 9.303768583076e-603').summary,
+      '剪贴板里没有识别到表达式',
+    );
+  });
+
   test('a non-finite current value is not a value', () {
     // 中文：`Infinity`/`NaN` 能被 `double.tryParse` 认出来，却不是可以写回表达式的数值。
     // English: `double.tryParse` accepts `Infinity`/`NaN`, but neither is a value that can be

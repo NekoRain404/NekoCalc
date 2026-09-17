@@ -121,7 +121,8 @@ class QalculateMathEngine implements MathEngine {
   ///       **逗号只在分组位置上才剥**，这是与「无条件剥逗号」的关键区别：逗号小数分隔符的语言环境
   ///       下，`5,656854` 里的逗号是**小数点**，无条件剥掉会把它变成 `5656854`——那不是 fail-closed，
   ///       是一个静默的错值。分组与小数点用形状就能分开：分组一定是「1–3 位开头，之后每组恰好 3 位」
-  ///       （`1,234.5`），`5,656854` 不是这个形状，于是原样留着，`MathResult.decimalValueOf` 判它不可用，
+  ///       （`1,234.5`），`5,656854` 不是这个形状，于是原样留着，调用点的
+  ///       `MathResult.decimalTextIsFinite` 判它不是有限数，
   ///       这一次就没有十进制形态——**拿不准时宁可没有值，也不给一个错值**。
   ///
   ///       原生侧另有第一道保险：`Calculator.useDecimalPoint(true)` 把小数点钉成 `.`，于是逗号只可能
@@ -139,7 +140,8 @@ class QalculateMathEngine implements MathEngine {
   ///          fail-closed refusal but a silently wrong value. Grouping and decimal point are told
   ///          apart by shape: grouping is always "1-3 digits, then groups of exactly 3"
   ///          (`1,234.5`), while `5,656854` is not that shape, so it is left alone,
-  ///          `MathResult.decimalValueOf` finds it unusable, and this evaluation has no decimal form —
+  ///          `MathResult.decimalTextIsFinite` finds it not a finite number, and this evaluation has
+  ///          no decimal form —
   ///          **when in doubt, no value rather than a wrong one**.
   ///
   ///          The native side is the first line of defence: `Calculator.useDecimalPoint(true)` pins
@@ -159,9 +161,10 @@ class QalculateMathEngine implements MathEngine {
     if (match == null) return text;
     final integer = match.group(2)!;
     if (!integer.contains(',') || !_groupedIntegerPart.hasMatch(integer)) {
-      // 中文：逗号不在分组位置上（或者根本没有）——不猜，原样交给 `MathResult.decimalValueOf` 判。
+      // 中文：逗号不在分组位置上（或者根本没有）——不猜，原样交给调用点的
+      //       `MathResult.decimalTextIsFinite` 判。
       // English: The comma is not in a grouping position (or there is none) — no guessing; hand it
-      //          to `MathResult.decimalValueOf` as it stands.
+      //          to `MathResult.decimalTextIsFinite` as it stands.
       return text;
     }
     return '${match.group(1)}${integer.replaceAll(',', '')}'

@@ -60,6 +60,42 @@ void main() {
     controller.dispose();
   });
 
+  test('a persisted memory value that is not usable is not restored', () async {
+    // 中文：历史数据里可能存着一个 `Infinity`（本轮之前是可以造出来的，而且会一直活到重启），
+    //       恢复时它必须被挡在入口——「不再制造它」不等于「不再信任它」。
+    //       `decimalValueOf` 同时挡掉 `NaN` 与下溢；挡下来的按「没有可用的记忆值」处理（0），
+    //       与键缺失、值不可解析时的行为一致。
+    // English: Old data may hold an `Infinity` (producible before this round, and it survived
+    //          restarts); the restore has to stop it at the entrance — "we no longer create it" is
+    //          not "we no longer trust it". `decimalValueOf` also rejects `NaN` and underflow, and
+    //          what it rejects is treated as "no usable memory value" (0), the same as a missing or
+    //          unparseable one.
+    for (final (stored, expected) in [
+      ('Infinity', 0.0),
+      ('-Infinity', 0.0),
+      ('NaN', 0.0),
+      ('9.303768583076e-603', 0.0),
+      ('7.5', 7.5),
+      ('-2.25', -2.25),
+    ]) {
+      final db = _FakeDatabase()
+        ..savedSettings.addAll({
+          'restore_state': 'true',
+          'angle_mode': '弧度',
+          'digits': '6 位',
+          'calculator_expression': '',
+          'calculator_result': '0',
+          'calculator_memory': stored,
+        });
+      final controller = _controller(db);
+
+      await controller.reloadSettingsAndRestore();
+
+      expect(controller.memoryValue, expected, reason: 'stored: $stored');
+      controller.dispose();
+    }
+  });
+
   test('a row written before the split still derives its decimal', () async {
     // 中文：没有十进制键的旧行，行为与拆分前逐字节一致。
     // English: An old row with no decimal key behaves byte-for-byte as it did before the split.

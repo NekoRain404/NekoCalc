@@ -195,7 +195,15 @@ class CalculatorController extends ChangeNotifier {
     _selection = _restoredSelection(settings, expression.length);
     _result = _restoredResult(settings);
     angleMode = settings['calculator_angle'] ?? _settings.angleMode;
-    memoryValue = double.tryParse(settings['calculator_memory'] ?? '') ?? 0;
+    // 中文：恢复时也过那道判定——历史数据里可能存着一个 `Infinity`（本轮之前是可以造出来的），
+    //       它不该被信任着进寄存器；`decimalValueOf` 同时挡掉 `NaN` 与下溢。挡下来的按「没有可用的
+    //       记忆值」处理（0），与键缺失、值不可解析时的行为一致。
+    // English: The restore goes through the same judgement too — old data may hold an `Infinity`
+    //          (which this code could produce before this round) and it must not be trusted into the
+    //          register; `decimalValueOf` also rejects `NaN` and underflow. What it rejects is treated
+    //          as "no usable memory value" (0), the same as a missing or unparseable one.
+    memoryValue =
+        MathResult.decimalValueOf(settings['calculator_memory'] ?? '') ?? 0;
     _lastFiniteResult =
         _result.decimalText.isEmpty ? null : _result.decimalText;
     if (expression.isNotEmpty) evaluate();
@@ -1160,8 +1168,15 @@ class CalculatorController extends ChangeNotifier {
   ///         重启后还在。
   ///
   ///       表达式**本身就是一个数**时（「继续使用」写回之后正是这种形状）先按**文本**判定，
-  ///       因为文本里还留着 double 已经丢掉的信息——这正是它能识破下溢的原因；一般的表达式才交给
-  ///       旧解析器算，算出来的 double 同样要过 [MathResult.usableDouble]。
+  ///       因为文本里还留着 double 已经丢掉的信息——这正是它能识破下溢的原因。
+  ///
+  ///       **一般的表达式仍然有这个洞，别以为它被堵上了**：`2^-2000` → `=` → `M+`（不经过
+  ///       「继续使用」）时，旧解析器自己就已经把 `9.3e-603` 算成了 `0.0`，而
+  ///       [MathResult.usableDouble] 只能判非有限、判不了下溢——于是这一次执行的是「加一个 0」。
+  ///       当前后果是**值中性的**（加零不改寄存器，屏幕上的结果也照常显示），但那是**运气，不是
+  ///       保证**：这条路上没有任何东西保证下一次落到这里的错值仍然是中性的。要真的堵上，旧解析器
+  ///       必须把算出来的文本一起带上来（它现在只返回一个 double），那属于边打边算那条路径的事，
+  ///       不在本步范围内。
   ///
   /// English: The value the memory register adds or subtracts. The expression wins when it
   ///          evaluates; otherwise the result's *decimal form* is used; when neither yields
@@ -1179,9 +1194,17 @@ class CalculatorController extends ChangeNotifier {
   ///
   ///          When the expression *is itself a number* (exactly the shape "continue with result"
   ///          leaves behind) it is judged as **text** first, because the text still carries what the
-  ///          double has already lost — which is what lets it see the underflow; only a general
-  ///          expression goes to the legacy parser, and the double it computes goes through
-  ///          [MathResult.usableDouble] as well.
+  ///          double has already lost — which is what lets it see the underflow.
+  ///
+  ///          **The hole is still open for a general expression; do not read this as closed.**
+  ///          For `2^-2000` → `=` → `M+` (without "continue with result") the legacy parser has
+  ///          already turned `9.3e-603` into `0.0` on its own, and [MathResult.usableDouble] can only
+  ///          judge non-finiteness, not underflow — so this performs "add a zero". That is currently
+  ///          **value-neutral** (adding zero does not change the register, and the display still
+  ///          shows the result), but it is **luck, not a guarantee**: nothing on this path promises
+  ///          that the next wrong value to land here will also be neutral. Closing it properly needs
+  ///          the legacy parser to carry the computed text up with it (it returns a bare double
+  ///          today), which belongs to the as-you-type path and not to this step.
   double? _currentNumericValue() {
     try {
       if (expression.trim().isNotEmpty) {

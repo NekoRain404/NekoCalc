@@ -237,11 +237,26 @@ class CalculatorPasteResult {
     return null;
   }
 
+  /// 中文：报告里 `记忆值:` 那一行 → 寄存器的数值。判定用 [MathResult.decimalValueOf]——与
+  ///       提交路径、当前值那一行**同一处实现**。
+  ///
+  ///       旧的判据是「`double.tryParse` 成功且 `isFinite`」：`记忆值: 9.303768583076e-603`
+  ///       解析出来是一个**有限的** `0.0`，于是被收下，寄存器从 7.0 静默变成 0.0——正是本轮在
+  ///       别处修掉的那个错误。只有外来报告能构造出这一行（App 自己的报告写的是
+  ///       `formatNumber(memoryValue)`），但这不改变它是错的。
+  /// English: The report's `记忆值:` line into the register's value. The judgement is
+  ///          [MathResult.decimalValueOf] — the *same implementation* the submit path and the
+  ///          current-value line use.
+  ///
+  ///          The old test was "`double.tryParse` succeeds and `isFinite`": `记忆值:
+  ///          9.303768583076e-603` parses into a *finite* `0.0`, so it was taken and the register
+  ///          went from 7.0 to 0.0 without a word — the very error this round fixed elsewhere. Only
+  ///          a foreign report can build that line (this app's own reports write
+  ///          `formatNumber(memoryValue)`), but that does not make it right.
   static double? _memoryValueFromText(String text) {
     final raw = _labeledValue(text, const ['记忆值', 'memory', 'memory value']);
     if (raw == null) return null;
-    final value = double.tryParse(raw.replaceAll(',', '').trim());
-    return value != null && value.isFinite ? value : null;
+    return MathResult.decimalValueOf(raw.replaceAll(',', '').trim());
   }
 
   static bool _looksLikeCalculatorReport(String text) {
