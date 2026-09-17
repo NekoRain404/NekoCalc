@@ -159,7 +159,11 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `d/dx` 同一种情形）、
   //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
   //       仍未接上：引擎算得出符号导数，但符号结果过不了提交路径的「必须是有限十进制」那道门，
-  //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。
+  //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。**📷 本身仍未点亮，理由来自 HiPER
+  //       自己的字符串**：`command.name.CAMERA` = "Expression recognition"；`cameraWindow.policy.info`
+  //       写明选区图像**会被发往服务器**、由第三方模型 Pix2Text 识别（`recognitionWindow.pix2text`），
+  //       `cameraWindow.proVersion` 说这是 Pro 专属。本机没有可分发的识别器，本机 OCR 只会产出
+  //       **看似正确、实则错误**的表达式，故保持禁用（见相机键报告 camera-key-report.md）。
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
   //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
   //          only real band buttons are the four base pills plus hyp, so this one is a
@@ -173,7 +177,12 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, still unwired: the engine can produce a
   //          symbolic derivative, but a symbolic result does not pass the submit path's "must be a
   //          finite decimal" gate, so lighting the key up would only produce errors — see the
-  //          step 5 report); the camera key has no hint.
+  //          step 5 report); the camera key has no hint. **📷 itself stays unlit, on HiPER's own
+  //          strings**: `command.name.CAMERA` is "Expression recognition"; `cameraWindow.policy.info`
+  //          says the cropped image **is sent to a server** for the third-party Pix2Text model to
+  //          recognize (`recognitionWindow.pix2text`), and `cameraWindow.proVersion` marks it
+  //          Pro-only. No such recognizer exists here, and a local OCR would only yield a
+  //          **plausible but wrong** expression — so it stays disabled (see camera-key-report.md).
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
