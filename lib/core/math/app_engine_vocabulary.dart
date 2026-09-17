@@ -696,13 +696,15 @@ class AppEngineVocabulary {
       ).any(unknownToEngine.contains);
 
   /// 中文：**应用自己的求值器答得了这个表达式吗**——表达式里有没有一个「应用自己的语言没有
-  ///       绑定的名字」（`x`、`y`、`i`，以及 `km` 这类单位名）。
+  ///       绑定的名字」（`x`、`y`、`i`，`km` 这类单位名，以及**求值器没有实现的调用名**）。
   ///
-  ///       判据在**应用自己的语法树**上，而且是**节点类型**：`VariableNode` 就是
-  ///       [namesSomethingOutsideTheAppLanguage] 那一条判据本身（见那里的注释），不是名字表、
-  ///       也不是正则。输入先过 [ExpressionParser.normalizeExpressionInput]——与翻译器
-  ///       （`engineExpressionFor`）、[canRead]、`ExpressionParser` 构造函数用的是**同一个静态
-  ///       方法**，所以这里与它们看的是同一个字符串。
+  ///       判据在**应用自己的语法树**上，**两半**都在 [namesSomethingOutsideTheAppLanguage]
+  ///       那一处（见那里的注释）：[VariableNode] 就是「这个名字应用自己的语言没有绑定」这一句话
+  ///       本身，而**调用名**要过应用自己求值器的 `ExpressionParser.functionNames`（别名先折到
+  ///       规范名，用的是归一化那张表——没有第二份）。输入先过
+  ///       [ExpressionParser.normalizeExpressionInput]——与翻译器（`engineExpressionFor`）、
+  ///       [canRead]、`ExpressionParser` 构造函数用的是**同一个静态方法**，所以这里与它们看的是
+  ///       同一个字符串。
   ///
   ///       **它只服务一处**：`_selectEngineResult` 用它决定一个 [EngineResultKind.symbolic] 结果
   ///       配不配显示。**它不是 [canRead] 的放宽或收紧**，两者回答两个问题：
@@ -710,22 +712,38 @@ class AppEngineVocabulary {
   ///       - 本方法：**应用自己**答得了这个表达式吗（答得了时，旧解析器依旧是权威——这一条把
   ///         引擎的符号结果判回 [EngineResultKind.arithmetic]，与放宽之前一字不差）。
   ///
-  ///       实测的实例是 `pi!`：引擎把它读成 `factorial(pi)`（`pi` 在引擎里是一个**变量**，量过），
-  ///       这一次的回执种类因此是 [EngineResultKind.symbolic]；而这个表达式里只有一个常量与一个
-  ///       后缀，**没有** [VariableNode]，所以这一条为真、引擎那份文本不算，屏幕上是旧解析器
-  ///       那句「阶乘只支持 0 到 170 的整数」——放宽前后一字未变。
-  ///       （`pi` 单独一个**不**走这一路：它的十进制形态是有限的 `3.141592653589793`，tier 2
-  ///       直接采用，压根到不了这道判据。）
-  ///       含 `x` 的输入（`2x`、`x^2 + 1`、`sqrt(x)`）这里为假，于是引擎的符号结果留下来。
+  ///       实测的实例分三类（宿主 libqalculate 5.12.0，按桥的调用序列与选项；回执种类按原生
+  ///       那一串判据分类）：
+  ///       - **`pi!`：仍然为真**，屏幕上仍是旧解析器那句「阶乘只支持 0 到 170 的整数」。
+  ///         引擎把它读成 `factorial(pi)`（`pi` 在引擎里是一个**变量**），精确结构印成
+  ///         `\operatorname{factorial}(\pi )`、队列空、结构里有变量 ⇒ 种类
+  ///         [EngineResultKind.symbolic]；而这个表达式里只有一个常量与一个后缀，**没有**任何调用名
+  ///         也没有 [VariableNode]，所以这一条为真、引擎那份不算——判据那一轮前后一字未变。
+  ///         （`pi` 单独一个**不**走这一路：它的十进制形态是有限的 `3.141592653589793`，tier 2
+  ///         直接采用，压根到不了这道判据。）
+  ///       - **`mean(pi,1)` / `stdev(pi,1)` / `conj(pi)` 这一批：收紧之后新放行的一类。** 调用名
+  ///         （`mean`/`stdev`/`conj`）在词表里、翻译得过去，而应用自己的求值器**没有实现**它们
+  ///         （实测抛 `Unknown function …`）；实参里没有 [VariableNode]（`pi` 是应用的常量），
+  ///         而引擎的答复含变量符号、队列是空的 ⇒ 种类 `symbolic`。收紧之前这一条为**真** ⇒
+  ///         引擎那份被丢掉 ⇒ 屏幕上是一句「Unknown function …」；收紧之后为**假** ⇒ 引擎的答复
+  ///         留下（`mean(pi,1)` 的十进制那一份是 `2.070796326794897`，有限 ⇒ 走 tier 2；
+  ///         TeX 那一份 `0.5 \pi  + 0.5` 排得出来）。
+  ///       - **`matrix(2,2,1,2,3,4)` 这一批：为真变假，而屏幕上没有变化。** 应用自己的求值器同样
+  ///         没有实现 `matrix`；但矩阵回执的种类是 `structured`，`_selectEngineResult` 只在
+  ///         `symbolic` 那一支读这条判据，所以它与判据无关（有一条测试钉着这一支）。
+  ///       含 `x` 的输入（`2x`、`x^2 + 1`、`sqrt(x)`）两半都为假，于是引擎的符号结果留下来。
   ///
   ///       解析不了（`ParseErrorNode`）时为**假**：那样一个输入应用自己的求值器也答不了，
   ///       引擎（或回落）给出的就是这一行的答案——与这条判据要问的问题一致。
   /// English: **can this app's own evaluator answer this expression** — does it hold a name this
-  ///          app's own language has no binding for (`x`, `y`, `i`, and unit names such as `km`).
+  ///          app's own language has no binding for (`x`, `y`, `i`, unit names such as `km`, and
+  ///          **call names this app's evaluator does not implement**).
   ///
-  ///          The test is on **this app's own syntax tree**, and it is the **node type**: a
-  ///          [VariableNode] is that judgement itself ([namesSomethingOutsideTheAppLanguage] — see
-  ///          the note there), not a table of names and not a regex. The input goes through
+  ///          The test is on **this app's own syntax tree** and **both halves** live in
+  ///          [namesSomethingOutsideTheAppLanguage] (see the note there): a [VariableNode] *is* that
+  ///          sentence, while a **call name** goes through this app's own evaluator's
+  ///          `ExpressionParser.functionNames` (aliases folded first, through normalisation's own
+  ///          table — there is no second copy). The input goes through
   ///          [ExpressionParser.normalizeExpressionInput] first — the **same static method** the
   ///          translator (`engineExpressionFor`), [canRead] and `ExpressionParser`'s constructor use,
   ///          so all of them look at one string.
@@ -739,14 +757,31 @@ class AppEngineVocabulary {
   ///            is still the authority — this judges the engine's symbolic result back to
   ///            [EngineResultKind.arithmetic], byte-for-byte what it was before the relaxation).
   ///
-  ///          The measured instance is `pi!`: the engine reads it as `factorial(pi)` (`pi` is one of
-  ///          its **variables**, measured), so that receipt carries [EngineResultKind.symbolic]; the
-  ///          expression holds one constant and one postfix and therefore **no** [VariableNode], so
-  ///          this is true, the engine's text does not count, and the screen shows the legacy parser's
-  ///          "阶乘只支持 0 到 170 的整数" — unchanged by the relaxation. (`pi` on its own never
-  ///          reaches this judgement: its decimal form is the finite `3.141592653589793`, which tier 2
-  ///          takes directly.) An input holding `x` (`2x`, `x^2 + 1`, `sqrt(x)`) is false here, so the
-  ///          engine's symbolic result stays.
+  ///          The measured instances fall into three classes (host libqalculate 5.12.0, through the
+  ///          bridge's call sequence and options; receipt kinds classified by the native predicates):
+  ///          - **`pi!`: still true**, and the screen still holds the legacy parser's "阶乘只支持 0 到
+  ///            170 的整数". The engine reads it as `factorial(pi)` (`pi` is one of its **variables**),
+  ///            the exact structure prints `\operatorname{factorial}(\pi )` with an empty queue and a
+  ///            variable ⇒ kind [EngineResultKind.symbolic]; the expression holds one constant and one
+  ///            postfix — **no** call name and no [VariableNode] — so this is true and the engine's
+  ///            text does not count, byte-for-byte what it was before the judgement round. (`pi` on
+  ///            its own never reaches this judgement: its decimal form is the finite
+  ///            `3.141592653589793`, which tier 2 takes directly.)
+  ///          - **`mean(pi,1)` / `stdev(pi,1)` / `conj(pi)`: the class the tightening admits.** The
+  ///            call names (`mean`/`stdev`/`conj`) are in the vocabulary and translate, while this
+  ///            app's own evaluator does **not** implement them (measured: they throw
+  ///            `Unknown function …`); no [VariableNode] among the arguments (`pi` is one of the app's
+  ///            constants), and the engine's answer holds a variable with an empty queue ⇒ kind
+  ///            `symbolic`. Before the tightening this was **true** ⇒ the engine's answer was discarded
+  ///            ⇒ the screen held "Unknown function …"; after it, false ⇒ the engine's answer stays
+  ///            (`mean(pi,1)`'s decimal half is `2.070796326794897`, finite ⇒ tier 2; its TeX half
+  ///            `0.5 \pi  + 0.5` typesets).
+  ///          - **`matrix(2,2,1,2,3,4)`: true becomes false with nothing moving on screen.** This app's
+  ///            evaluator does not implement `matrix` either, but a matrix receipt's kind is
+  ///            `structured` and `_selectEngineResult` reads this judgement only in the `symbolic`
+  ///            branch — so it is not consulted for it (a test pins that branch). An input holding `x`
+  ///            (`2x`, `x^2 + 1`, `sqrt(x)`) is false in both halves, so the engine's symbolic result
+  ///            stays.
   ///
   ///          An unparseable input (`ParseErrorNode`) is **false**: this app's own evaluator cannot
   ///          answer such an input either, so what the engine (or the fallback) gives is this line's

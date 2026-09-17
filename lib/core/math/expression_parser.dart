@@ -503,23 +503,33 @@ class ExpressionParser {
     return text;
   }
 
-  /// 中文：**这个解析器接受的函数名——唯一的一份，而且是一份数据。** 它有两个读者：
-  ///       [_functionPattern]（由它拼出来，归一化靠它认出 `名字(...)`），以及词汇表的覆盖测试
+  /// 中文：**这个解析器接受的函数名——唯一的一份，而且是一份数据。** 它有三个读者：
+  ///       [_functionPattern]（由它拼出来，归一化靠它认出 `名字(...)`）；词汇表的覆盖测试
   ///       （`test/domain/app_engine_vocabulary_semantics_test.dart`：`AppEngineVocabulary.identifiers`
-  ///       必须收下这里的每一个名字、每一个别名与每一个常量）。
+  ///       必须收下这里的每一个名字、每一个别名与每一个常量）；以及**判据**那一处
+  ///       （`namesSomethingOutsideTheAppLanguage`：这张表**之外**的调用名与 `VariableNode`
+  ///       同判「应用自己的语言没有绑定」）。第三个读者是**收紧**方向的，所以下面那段「不是全部
+  ///       来源」的警告对它格外要紧：名字在 `switch` 里却漏在这张表里，判据会把它当成没绑定，
+  ///       于是应用答得出的输入被让给引擎的符号答复。那一条由同一份测试里「词表里多出来的名字
+  ///       逐个实测抛 `Unknown function …`」钉住。
   ///
   ///       **顺序有意义**：长的在前（`atan2` 先于 `atan`、`log2` 先于 `log`），否则正则先咬短的那个
   ///       ——`log2(8)` 会被读成 `log` 后面跟着 `2(8)`。所以这是一张**列表**而不是集合。
   ///
   ///       **它不是闭集的全部来源，要说清楚**：求值那一个 `switch`（[_parsePrimary] 里）是第二处
   ///       手写的清单。往那个 `switch` 里加一个名字而忘了加到这里，解析器仍然算得出它，
-  ///       而覆盖测试看不见它——那时词汇表会漏掉这个名字，后果**不是错值**（[engineNameFor] 拒绝
-  ///       未知标识符，引擎不会被问），而是这个名字不再由引擎作答、回落到旧解析器。
-  /// English: **the function names this parser accepts — one copy, and it is data.** It has two readers:
-  ///          [_functionPattern] (built from it; normalisation needs it to recognise `name(...)`) and
-  ///          the vocabulary's coverage test (`test/domain/app_engine_vocabulary_semantics_test.dart`:
+  ///       而覆盖测试看不见它。后果有两条，**方向相反**：词汇表漏掉这个名字，是不会错的那一条
+  ///       （[engineNameFor] 拒绝未知标识符，引擎不会被问）——这个名字不再由引擎作答、回落到旧
+  ///       解析器；而上面那个判据读者会把它当成「应用自己没有绑定」，那是**错值**方向的另一头，
+  ///       由 `app_engine_vocabulary_semantics_test.dart` 里那条逐名实测钉住。
+  /// English: **the function names this parser accepts — one copy, and it is data.** It has three
+  ///          readers: [_functionPattern] (built from it; normalisation needs it to recognise
+  ///          `name(...)`); the vocabulary's coverage test
+  ///          (`test/domain/app_engine_vocabulary_semantics_test.dart`:
   ///          `AppEngineVocabulary.identifiers` must hold every name here, every alias and every
-  ///          constant).
+  ///          constant); and the **judgement** (`namesSomethingOutsideTheAppLanguage`: a call name
+  ///          outside this list is judged "this app's language has no binding", exactly like a
+  ///          `VariableNode`). The third reader tightens, so the warning below matters most for it.
   ///
   ///          **Order matters**: longer names first (`atan2` before `atan`, `log2` before `log`), or the
   ///          regex would bite the short one — `log2(8)` would be read as `log` followed by `2(8)`.
@@ -527,10 +537,12 @@ class ExpressionParser {
   ///
   ///          **It is not the whole story, and that has to be said**: the evaluation `switch` (in
   ///          [_parsePrimary]) is a second hand-written list. Adding a name there and forgetting this
-  ///          one still evaluates, and the coverage test cannot see it — the vocabulary then misses
-  ///          that name, whose consequence is **not a wrong value** ([engineNameFor] refuses unknown
-  ///          identifiers, so the engine is never asked) but that the name stops being answered by the
-  ///          engine and falls back to the legacy parser.
+  ///          one still evaluates, and the coverage test cannot see it. The consequences run in **two
+  ///          opposite directions**: the vocabulary misses the name, which is the harmless one
+  ///          ([engineNameFor] refuses unknown identifiers, so the engine is never asked) — it stops
+  ///          being answered by the engine and falls back to the legacy parser; and the judgement
+  ///          reader above calls it "this app has no binding", the wrong-value end, which is pinned by
+  ///          the name-by-name measurement in `app_engine_vocabulary_semantics_test.dart`.
   static const List<String> functionNames = <String>[
     'atan2',
     'asin',
