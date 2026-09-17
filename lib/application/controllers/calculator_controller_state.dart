@@ -166,6 +166,18 @@ mixin _CalculatorState on ChangeNotifier {
   ///          **never** be fed to a numeric consumer.
   String get resultFractionTex => _result.fractionTex;
 
+  /// 中文：**结果的度分秒写法**（HiPER 的 `DMS` 那一格要的东西）。它与 [resultDecimal] 描述的是
+  ///       同一个数——引擎对**同一个近似结构**的两次打印（见 `MathResult.dmsText`）。空串表示这一次
+  ///       没有这一种写法（没有引擎、旧解析器上屏、换算那一支）；调用方照常工作，那一颗键于是是
+  ///       空操作。它是一串**写法**，与 [resultFractionTex] 一样**绝不能被喂给任何数值消费者**。
+  /// English: **the result's DMS spelling** (what HiPER's `DMS` cell needs). It describes the same
+  ///          number as [resultDecimal] — two renders of **one approximated structure** by the engine
+  ///          (see `MathResult.dmsText`). An empty string means this spelling does not exist this time
+  ///          (no engine, the legacy parser on screen, the conversion branch); callers keep working
+  ///          and that key is then a no-op. It is a **spelling**, and like [resultFractionTex] it must
+  ///          **never** be fed to a numeric consumer.
+  String get resultDmsText => _result.dmsText;
+
   /// 中文：结果的十进制形态——Ans/last、记忆寄存器、继续使用、历史去重与报告里的机器可读值都从
   ///       这里取。空串表示「这一次没有十进制形态」，调用方必须照常工作而不是去解析 [result]。
   /// English: The result's decimal form — Ans/last, the memory register, continue-with-result,

@@ -107,6 +107,22 @@ class QalculateMathEngine implements MathEngine {
         //          time", which makes that key a no-op — the same route as an absent engine or the
         //          legacy parser on screen, and it never invents a fraction.
         fractionTex: (payload['fraction'] ?? '').trim(),
+        // 中文：度分秒写法（HiPER 的 `DMS` 那一格）。它与 `decimal` 是**同一个 `approximated`
+        //       结构**的两次打印，所以那一串里的值逐位等于十进制那一份（见 `QalculateEngine`）。
+        //       原生侧不认识这个字段（版本不匹配）、引擎缺席、旧解析器上屏、或走的是换算那一支时，
+        //       这里都是空串 = 「这一次没有度分秒写法」，于是那一颗键是空操作，不去猜一个。
+        //       这里只做 `trim`：**形状（`°`/`′`/`″` 三段）由 `ResultPresentation` 一处判**，
+        //       判不过就整格不要——拿不准时宁可没有这一格，也不印一串读不出来的东西。
+        // English: the DMS spelling (HiPER's `DMS` cell). It and `decimal` are two renders of **one
+        //          `approximated` structure**, so the value in that string equals the decimal half
+        //          digit for digit (see `QalculateEngine`). A native side that does not know the field
+        //          (a version mismatch), an absent engine, the legacy parser on screen, or the
+        //          conversion branch all leave it empty = "no DMS spelling this time", which makes
+        //          that key a no-op rather than a guess. Only `trim` happens here: **the shape**
+        //          (three `°`/`′`/`″` sections) **is judged in one place, `ResultPresentation`**, and
+        //          anything that fails that check loses the whole cell — when in doubt, no cell rather
+        //          than a string nobody can read.
+        dmsText: (payload['dms'] ?? '').trim(),
         // 中文：形状由原生侧用引擎自己的判据填（见 `QalculateMathEngine` 那一侧的 `kind`）。
         //       **认不出来的一律按 `arithmetic` 处理**：那是「不显示」的那一支，也就是放宽之前的
         //       行为——原生侧要是没发这个字段（版本不匹配），整个 tier 2 就自动退回旧行为，

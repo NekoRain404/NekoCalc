@@ -725,6 +725,15 @@ mixin _CalculatorEvaluation on _CalculatorState {
       //          turn the `d/c` key into a no-op on a result the engine did answer — a degradation
       //          with no reason behind it.
       fractionTex: engineResult.fractionTex,
+      // 中文：度分秒写法同样跟着走，理由与 `fractionTex` 逐字相同——**这是同一次求值的另一半**，
+      //       而且它描述的就是下面这行 `decimalText` 同一个数（同一个近似结构的两次打印）。
+      //       丢了它，`D°M'S` 那一颗键在引擎已经答出来的结果上会变成空操作，一个没有理由的退化。
+      // English: the DMS spelling travels for exactly what `fractionTex` travels for — it is **the
+      //          other half of this same evaluation**, and it describes the same number as
+      //          `decimalText` on the line below (two renders of one approximated structure). Dropping
+      //          it would turn the `D°M'S` key into a no-op on a result the engine did answer — a
+      //          degradation with no reason behind it.
+      dmsText: engineResult.dmsText,
       decimalText: engineResult.decimalText,
       // 中文：`resultKind` 必须跟着走。丢了它，重建出来的结果会带上 `notFromEngine`——
       //       而那个值在 [MathResult.isDisplayable] 里是**放行**的一支，于是这句 doc 说的

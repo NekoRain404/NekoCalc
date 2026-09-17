@@ -204,6 +204,7 @@ class MathResult {
     required this.displayText,
     this.displayTex = '',
     this.fractionTex = '',
+    this.dmsText = '',
     this.decimalText = '',
     this.resultKind = EngineResultKind.notFromEngine,
   });
@@ -267,6 +268,45 @@ class MathResult {
   ///          error**, and callers keep working: that key is then a no-op rather than inventing a
   ///          fraction. Like [displayTex] it must **never** be fed to a numeric consumer.
   final String fractionTex;
+
+  /// 中文：**同一个值的度分秒写法**（HiPER 的 `DMS` 那一格：`12°34′55.92″`），**不是 TeX**——
+  ///       它是引擎终端印法的原文，`°`/`′`/`″` 是真字符，不含 `$` 定界符，也不含任何排版记号。
+  ///
+  ///       它与 [decimalText] 描述的是**同一个数**：两份打印来自**同一个 `approximated` 结构**
+  ///       （见 `QalculateEngine`），所以度分秒那一串的位数虽多，值却逐位等于十进制那一份。
+  ///       它**必须**来自近似结构，这是实测的：精确结构上度数分秒会把**每个数**都印成度分秒
+  ///       （`sqrt(8)` → `2°0′0″ × √(2°0′0″)`），只有近似结构上才是「一个实数的度分秒写法」。
+  ///
+  ///       它与 [fractionTex] 一样是**写法**、不是值，所以：空串表示「这一次没有度分秒写法」
+  ///       （引擎缺席、旧解析器上屏、换算那一支、原生侧版本不匹配），**不是错误**——调用方照常
+  ///       工作，那一颗键于是是空操作。**它绝不能被喂给任何数值消费者**：这一串里没有一个是
+  ///       十进制数，`double.tryParse` 读它返回 null 而不抛异常，正是这个类型要消灭的那类静默失败。
+  ///
+  ///       认形状（`°`/`′`/`″` 三段、段内是十进制数）这一步不在这里做：它属于「这一份结果画不画得
+  ///       出度分秒那一格」，只有一处判断，在 `ResultPresentation`。这里只负责把引擎的原文带上来。
+  /// English: **the same value's degrees-minutes-seconds spelling** (HiPER's `DMS` cell:
+  ///          `12°34′55.92″`), and **not TeX** — it is the engine's terminal render verbatim, with
+  ///          real `°`/`′`/`″` characters, no `$` delimiters and no typesetting markup.
+  ///
+  ///          It describes **the same number** as [decimalText]: the two renders come from the **same
+  ///          `approximated` structure** (see `QalculateEngine`), so however many digits the DMS
+  ///          string carries, its value equals the decimal one digit for digit. It **has to** come
+  ///          from the approximated structure, and that is measured: on the exact structure a DMS
+  ///          render turns **every** number into degrees-minutes-seconds
+  ///          (`sqrt(8)` → `2°0′0″ × √(2°0′0″)`), and only on the approximated one is it "the DMS
+  ///          spelling of one real number".
+  ///
+  ///          Like [fractionTex] it is a **spelling**, not a value, so: an empty string means "no DMS
+  ///          spelling this time" (an absent engine, the legacy parser on screen, the conversion
+  ///          branch, a native side that does not send the field) and **is not an error** — callers
+  ///          keep working and that key is a no-op. **It must never be fed to a numeric consumer**:
+  ///          there is no decimal number in this string, `double.tryParse` returns null without
+  ///          throwing, and that silent failure is the class this type exists to delete.
+  ///
+  ///          The shape check (`°`/`′`/`″` in three sections, decimal numbers inside them) is not
+  ///          done here: it belongs to "can this result draw the DMS cell at all", which is judged in
+  ///          exactly one place, `ResultPresentation`. This field only carries the engine's text up.
+  final String dmsText;
 
   /// 中文：引擎这次答案的形状，以及它做没做过换算——原生侧用引擎自己的判据填。旧解析器与
   ///       占位文本是 [EngineResultKind.notFromEngine]。**只有 [isDisplayable] 读它**：它是
@@ -624,24 +664,35 @@ class MathResult {
   ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
   bool get hasFractionTex => fractionTex.trim().isNotEmpty;
 
+  /// 中文：是否带度分秒写法。与 [hasTex]、[hasFractionTex] 同一条判据、同一个位置——同样**不另写
+  ///       一份**。它只回答「有没有」；这一串**画不画得出**（形状对不对、这一份结果配不配印它）仍由
+  ///       `ResultPresentation` 一处回答——判据在那里，不在这里。
+  /// English: Whether a DMS spelling is present. The same judgement in the same place as [hasTex] and
+  ///          [hasFractionTex], and likewise **not a second copy**. It answers only "is there one";
+  ///          whether the string can be **drawn** (does it have the right shape, and should this
+  ///          result print it at all) is still answered in one place, `ResultPresentation` — the
+  ///          judgement lives there, not here.
+  bool get hasDmsText => dmsText.trim().isNotEmpty;
+
   @override
   bool operator ==(Object other) {
     return other is MathResult &&
         other.displayText == displayText &&
         other.displayTex == displayTex &&
         other.fractionTex == fractionTex &&
+        other.dmsText == dmsText &&
         other.decimalText == decimalText &&
         other.resultKind == resultKind;
   }
 
   @override
   int get hashCode => Object.hash(
-      displayText, displayTex, fractionTex, decimalText, resultKind);
+      displayText, displayTex, fractionTex, dmsText, decimalText, resultKind);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
-        'fractionTex: $fractionTex, '
+        'fractionTex: $fractionTex, dmsText: $dmsText, '
         'decimalText: $decimalText, resultKind: ${resultKind.name})';
   }
 }
