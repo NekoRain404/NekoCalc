@@ -112,8 +112,9 @@ class EngineReply {
 ///       引擎是新增能力，不是新的故障点——一旦它能抛出，提交路径就多了一条只在设备上出现的
 ///       崩溃路径。
 ///
-///       实现也**不必自己管超时**：提交路径会给每次调用设一个上限，实现即使永远不回答，界面也
-///       不会卡住（那次调用按「没有可用结果」处理）。
+///       实现也**不必自己管超时**：调用方（提交路径与边打边算）会给每次调用设一个上限，实现即使
+///       永远不回答，界面也不会卡住（那次调用按「没有可用结果」处理），而边打边算的在飞上限恒为
+///       一发。
 ///
 /// English: Something that can evaluate. It exists so a test double can stand in for the real
 ///          engine: the real one only exists on a device, while the submit path's fallback
@@ -124,9 +125,10 @@ class EngineReply {
 ///          not a new failure point — if it could throw, the submit path would gain a crash path
 ///          that only shows up on a device.
 ///
-///          Implementations do *not* have to bound their own wait: the submit path puts a cap on
-///          every call, so an implementation that never answers cannot freeze the interface (that
-///          call simply counts as "no usable result").
+///          Implementations do *not* have to bound their own wait: the caller (the submit path and
+///          as-you-type evaluation) puts a cap on every call, so an implementation that never answers
+///          cannot freeze the interface (that call simply counts as "no usable result"), and
+///          as-you-type keeps at most one call in flight.
 abstract class MathEngine {
   /// 中文：求值一次。[angleMode] 是 `DEG` / `RAD`，必须传给引擎：同一个 `sin(30)` 在两种模式下
   ///       是两个不同的数，不传就会让提交路径与边打边算在 DEG 模式下互相矛盾。

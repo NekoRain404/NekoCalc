@@ -18,6 +18,137 @@ import '../../domain/usecases/expression_editing.dart';
 import '../app_settings.dart';
 import 'expression_selection.dart';
 
+/// 中文：边打边算用哪个结果上屏——**裁决 1 的那个开关**，做成可切换的常量而不是写死在流程里。
+///
+///       - [legacyFirstThenEngine]（B）：旧解析器的结果先上屏，引擎的结果到达后替换它。
+///       - [engineOnly]（A）：只显示引擎的结果；引擎回话之前屏幕上留着上一个值（或不显示）。
+///
+///       选 (B) 的四条理由：
+///       1. **即时反馈是边打边算的第一属性**——HiPER 的体验就是「边打边出结果」，砸掉它等于砸掉这
+///          一步的意义；
+///       2. 引擎往返在毫秒量级，**多数情况下替换发生在同一视觉帧内**，根本看不见；
+///       3. 最常见的情形是两者**结果一致**（普通四则运算），此时没有任何可见变化；
+///       4. **(B) 的回落路径本来就是必须存在的**——引擎失败要回落旧解析器。选 (A) 等于要维护两套
+///          「什么时候显示什么」的逻辑（引擎成功时一套、引擎失败时另一套），(B) 只有一套。
+///
+///       代价（选 (B) 时可见）：精确形式（`4√2`）上会看到一次从旧值到引擎值的替换；`2^2000` 这类
+///       会先闪一下旧求值器的「结果不是有限数值」再被纠正。
+///
+/// English: Which result goes on screen during as-you-type evaluation — *the switch ruling 1 asks
+///          for*, a constant rather than a hardcoded flow.
+///
+///          - [legacyFirstThenEngine] (B): the legacy parser's result goes up first and is replaced
+///            when the engine's answer arrives.
+///          - [engineOnly] (A): only the engine's result is shown; the previous value stays on
+///            screen until the engine answers.
+///
+///          (B) is chosen for four reasons: (1) instant feedback is as-you-type's first property —
+///          the HiPER experience *is* "a result as you type", and losing it would lose the point of
+///          this step; (2) the engine round trip is milliseconds, so the replacement usually lands
+///          inside one visual frame and is invisible; (3) the common case is that both agree
+///          (ordinary arithmetic), where nothing changes on screen at all; (4) (B)'s fallback path
+///          has to exist regardless — a failed engine falls back to the legacy parser — whereas (A)
+///          would need two sets of rules for "what is shown when" (one for engine success, one for
+///          engine failure) where (B) has one.
+///
+///          The cost of (B), visible on screen: an exact form (`4√2`) shows one replacement from the
+///          old value to the engine's, and `2^2000` briefly flashes the old evaluator's
+///          "结果不是有限数值" before being corrected.
+enum LiveResultPolicy {
+  legacyFirstThenEngine,
+  engineOnly;
+
+  /// 中文：这个策略是不是「旧结果先上屏」——也就是 [_evaluateLegacy] 要不要跑。
+  /// English: Whether this policy puts the legacy result on screen first — i.e. whether
+  ///          [_evaluateLegacy] runs at all.
+  bool get showsLegacyResult => this == LiveResultPolicy.legacyFirstThenEngine;
+}
+
+/// 中文：默认策略——裁决 1 选的是 (B)。改成 [LiveResultPolicy.engineOnly] 即切到 (A)；
+///       它同时可以在构造时注入，好让两条分支都有测试盯着。
+/// English: The default policy — ruling 1 chose (B). Switching the constant to
+///          [LiveResultPolicy.engineOnly] selects (A); it can also be injected through the
+///          constructor so both branches are covered by tests.
+const LiveResultPolicy kLiveResultPolicy = LiveResultPolicy.legacyFirstThenEngine;
+
+/// 中文：**显示侧的合并窗口**——「打完字之后多久看到第一个结果」就是这个值。它是给同步解析调的
+///       （那时一次解析是微秒），职责没有变，所以这一步**不动它**：裁决 1 要的即时反馈正是由它保证
+///       的。它与 [kLiveEngineFollowUpDelay] 不是同一件事：那一个挡在跨语言调用前面，决定的是「精确
+///       形态什么时候到」；这一个决定的是「第一个结果什么时候出现」。
+///
+///       32ms ≈ 60Hz 下的两帧：最小到能把连续按键合并成一次解析，又短到看不出延迟。它在生产路径上
+///       的取值一字未改——把它提成有名字的常量，是为了能注入一个别的值（测试里用来把「显示侧那一次
+///       定时器」从竞态里拿掉），而不是为了改它。
+///
+/// English: The **display-side coalescing window** — "how long after typing the first result appears"
+///          is this value. It was tuned for a synchronous parse (microseconds), its job has not
+///          changed, and this step **does not touch it**: ruling 1's instant feedback is exactly what
+///          it guarantees. It is not the same thing as [kLiveEngineFollowUpDelay], which stands in
+///          front of a cross-language call and decides when the *exact form* arrives; this one decides
+///          when the *first result* appears.
+///
+///          32 ms is about two frames at 60 Hz: the smallest window that still merges a burst of
+///          keystrokes into one parse, and short enough to be imperceptible. Its production value is
+///          unchanged — giving it a name is so that another value can be injected (tests use it to
+///          take the display-side timer out of a race), not so that it can be changed.
+const Duration kLiveEvaluationDelay = Duration(milliseconds: 32);
+
+/// 中文：边打边算的**引擎跟进延迟**（防抖）。32ms 不能沿用——它是给同步解析调的，那时一次解析是
+///       微秒；现在它挡在「快速输入」和「一队跨语言调用」之间，性质完全不同。取值理由：
+///
+///       1. **它必须长于最快的人类连续击键间隔**，否则一次连续输入会变成一串引擎调用。这一条是
+///          针对按键重复（长按不放，Android 的默认重复间隔约 50ms）与快速连打（约 80–120ms）定的：
+///          120ms 高于这条带，连续输入期间一次引擎调用都不会发出。
+///       2. **它不是「第一个结果」的延迟，只是「精确形式」的延迟**。裁决 1 的策略 (B) 下，旧解析器
+///          的结果仍然在 32ms 那一次上屏——与今天完全一样——这个延迟只推迟引擎那份精确形态的到来
+///          （而精确形态本来就是新增的信息，不是用户今天已有的东西）。所以取大一点的代价很小。
+///       3. 上限由感知定：跟进定时器每收到一次求值就重排，而求值发生在最后一次击键之后 ≤32ms，
+///          于是**从最后一次击键算起**的实际上限是 120+32≈152ms，低于「像卡顿」的那条线（约
+///          200ms）。
+///       4. 就算这个值取错了，**也积压不了**：在飞上限是 1（见 [_evaluateWithEngine]），再密的输入
+///          也只是记一个「还欠一次」，不会排成队。
+///
+/// English: The **engine follow-up delay** (debounce) for as-you-type evaluation. The old 32 ms
+///          cannot be carried over: it was tuned for a synchronous parse that cost microseconds,
+///          while it now stands between fast typing and a queue of cross-language calls. Why 120 ms:
+///
+///          1. **It must exceed the fastest human key interval**, or one continuous burst becomes a
+///             stream of engine calls. That band is set by key repeat (holding a key down; Android's
+///             default repeat interval is about 50 ms) and by fast two-thumb tapping (about
+///             80-120 ms); 120 ms sits above it, so a burst issues no engine call at all.
+///          2. **It is not the delay of the first result, only of the exact form.** Under ruling 1's
+///             policy (B) the legacy parser's result still goes up at the 32 ms tick — exactly as
+///             today — and this delay only defers the engine's exact form, which is new information
+///             rather than something the user already had. Paying a little here is therefore cheap.
+///          3. The ceiling comes from perception: the follow-up timer is restarted by every
+///             evaluation, and an evaluation happens at most 32 ms after the last keystroke, so the
+///             worst case measured **from the last keystroke** is 120+32 ≈ 152 ms — below the ~200 ms
+///             at which a delayed update starts to read as lag.
+///          4. Even if the value were wrong, it **cannot build a queue**: at most one call is in
+///             flight (see [_evaluateWithEngine]), and denser typing merely records "one more is
+///             owed" instead of enqueueing.
+const Duration kLiveEngineFollowUpDelay = Duration(milliseconds: 120);
+
+/// 中文：`AppSettings.expressionDisplayMode` 里代表「边打边算走引擎」的那个值——**裁决 2 的 kill
+///       switch 就是它**。在设备上把「设置 → 表达式显示」从 `数学符号` 切到 `数学表达式`，边打边算
+///       立刻回到旧路径，不需要重新构建、不需要重启。
+///
+///       为什么用这个已存在的设置而不是新造一个：设计文档指定的缓解手段就是它，而新造一个开关等于
+///       多一个用户看不见、也不会被拨动的旋钮。代价是它同时决定表达式行的自然排版（`数学符号`
+///       才排版）——拨这个开关会顺带改变表达式行的样子，这是「用现成开关」的已知代价。
+///
+/// English: The value of `AppSettings.expressionDisplayMode` that means "as-you-type evaluation uses
+///          the engine" — **this is ruling 2's kill switch**. Flipping 设置 → 表达式显示 from
+///          `数学符号` to `数学表达式` on a device returns as-you-type evaluation to the legacy path
+///          with no rebuild and no restart.
+///
+///          Why this existing setting rather than a new one: it is the mitigation the design document
+///          names, and a new switch would be one more knob the user never sees and never turns. The
+///          cost is that it also decides the expression line's natural typesetting (`数学符号` is
+///          what turns that on), so flipping the switch changes that line's appearance too — a known
+///          price of reusing the existing setting.
+const String kEngineBackedLiveExpressionDisplay = '数学符号';
+
 /// 中文：计算器页面的应用层状态控制器，负责表达式编辑、实时计算、历史保存和状态恢复。
 /// English: Application-layer controller for the calculator page; owns expression editing, live evaluation, history saving, and state restore.
 class CalculatorController extends ChangeNotifier {
@@ -28,6 +159,9 @@ class CalculatorController extends ChangeNotifier {
     required AppSettings settings,
     MathEngine engine = const QalculateMathEngine(),
     this.engineTimeout = const Duration(seconds: 5),
+    this.liveResultPolicy = kLiveResultPolicy,
+    this.liveEvaluationDelay = kLiveEvaluationDelay,
+    this.liveEngineFollowUpDelay = kLiveEngineFollowUpDelay,
   })  : _settings = settings,
         _engine = engine,
         angleMode = settings.angleMode;
@@ -44,14 +178,46 @@ class CalculatorController extends ChangeNotifier {
   ///          `flutter test`.
   final MathEngine _engine;
 
-  /// 中文：提交路径等引擎的上限，超时按「引擎没有可用结果」处理（回落旧解析器，不是报错）。
-  ///       5 秒是给启动后第一次调用留的余量——那一次包含懒加载全局定义。测试注入毫秒级的超时
-  ///       来走这条路径。
-  /// English: How long the submit path waits for the engine, after which the call counts as "the
-  ///          engine has no usable result" (a fallback to the legacy parser, not an error). Five
-  ///          seconds leaves room for the first call after launch, which loads the global
-  ///          definitions lazily. Tests inject a millisecond-scale timeout to exercise it.
+  /// 中文：等引擎的上限，**两条路径共用**（提交与边打边算），超时按「引擎没有可用结果」处理
+  ///       （回落旧解析器，不是报错）。5 秒是给启动后第一次调用留的余量——那一次包含懒加载全局
+  ///       定义。测试注入毫秒级的超时来走这条路径。
+  ///
+  ///       边打边算不另设一个更短的上限：一发卡住的调用最多占住「在飞」那一个名额 [engineTimeout]
+  ///       这么久，期间旧解析器的结果照常随输入更新（裁决 1 的即时反馈不依赖引擎），超时之后自然
+  ///       补发。再设一个预算只会多一个要维护的数。
+  /// English: How long either path waits for the engine — **both the submit path and as-you-type use
+  ///          it** — after which the call counts as "the engine has no usable result" (a fallback to
+  ///          the legacy parser, not an error). Five seconds leaves room for the first call after
+  ///          launch, which loads the global definitions lazily. Tests inject a millisecond-scale
+  ///          timeout to exercise it.
+  ///
+  ///          As-you-type gets no shorter budget of its own: one stuck call occupies the single
+  ///          in-flight slot [_engineTimeout] for that long, while the legacy parser's result keeps
+  ///          updating with every keystroke (ruling 1's instant feedback does not depend on the
+  ///          engine) and a follow-up goes out once it times out. A second budget would only be one
+  ///          more number to maintain.
   final Duration engineTimeout;
+
+  /// 中文：边打边算的上屏策略（裁决 1）。默认是 [kLiveResultPolicy]（旧结果先上屏），可注入，
+  ///       好让另一条分支也有测试盯着——「做成可切换的常量」的意思就是它不许被写死在流程里。
+  /// English: The as-you-type rendering policy (ruling 1). Defaults to [kLiveResultPolicy] (the
+  ///          legacy result first) and is injectable so the other branch has tests watching it too —
+  ///          "a switchable constant" means precisely that it is not hardcoded into the flow.
+  final LiveResultPolicy liveResultPolicy;
+
+  /// 中文：显示侧的合并窗口。取值与理由写在 [kLiveEvaluationDelay] 上；它与
+  ///       [liveEngineFollowUpDelay] 一起决定「输入之后屏幕上什么时候出现什么」。
+  /// English: The display-side coalescing window. Its value and reasoning live on
+  ///          [kLiveEvaluationDelay]; together with [liveEngineFollowUpDelay] it decides what appears
+  ///          on screen, and when, after an input.
+  final Duration liveEvaluationDelay;
+
+  /// 中文：边打边算的引擎跟进延迟（防抖）。取值理由写在 [kLiveEngineFollowUpDelay] 上；测试注入
+  ///       `Duration.zero` 或一个很长的值来精确控制这一次跟进发不发生。
+  /// English: The engine follow-up delay (debounce) for as-you-type evaluation. The reasoning lives
+  ///          on [kLiveEngineFollowUpDelay]; tests inject `Duration.zero` or a very long value to
+  ///          control exactly whether a follow-up happens.
+  final Duration liveEngineFollowUpDelay;
 
   /// 中文：在飞的引擎请求，值与它的超时定时器成对。存在的唯一理由是 [dispose] 能把它们一起收掉
   ///       ——见 [_askEngine]。
@@ -79,6 +245,31 @@ class CalculatorController extends ChangeNotifier {
   String? _ansSourceForExpression;
   String? _ansValueForExpression;
   Timer? _liveEvaluationTimer;
+
+  /// 中文：边打边算那一发的引擎跟进定时器。与 [_liveEvaluationTimer]（32ms，旧解析器上屏）分开，
+  ///       因为两者的性质不同：那一个是同步解析的合并窗口，这一个挡在「快速输入」和一队跨语言调用
+  ///       之间。见 [kLiveEngineFollowUpDelay]。
+  /// English: The engine follow-up timer for as-you-type evaluation. It is separate from
+  ///          [_liveEvaluationTimer] (32 ms, the legacy result going on screen) because the two are
+  ///          different in kind: that one coalesces a synchronous parse, this one stands between fast
+  ///          typing and a queue of cross-language calls. See [kLiveEngineFollowUpDelay].
+  Timer? _liveEngineTimer;
+
+  /// 中文：边打边算的那一发引擎调用是否在飞。**这是「队不积压」的实现**：在飞上限恒为 1，再密的
+  ///       输入只会把 [_liveEngineDirty] 立起来（「还欠一次」），不会排成第二发。
+  /// English: Whether an as-you-type engine call is in flight. **This is what "no queue builds up"
+  ///          is made of**: at most one call is ever outstanding, and denser typing merely raises
+  ///          [_liveEngineDirty] ("one more is owed") instead of queueing a second one.
+  bool _liveEngineInFlight = false;
+
+  /// 中文：在飞期间表达式又变了（或者求值又发生过一次），于是回包落地之后还欠一次跟进。它是**一个
+  ///       布尔，不是队列**——欠多少次都只记得「还欠一次」，且那一发问的永远是最新的表达式。
+  /// English: The expression changed (or another evaluation happened) while a call was in flight, so
+  ///          one more follow-up is owed once the reply lands. It is **a boolean, not a queue** — no
+  ///          matter how many were owed, "one more is owed" is all that is remembered, and that one
+  ///          always asks about the newest expression.
+  bool _liveEngineDirty = false;
+
   bool _disposed = false;
   int _stateRevision = 0;
   int _restoreToken = 0;
@@ -120,6 +311,7 @@ class CalculatorController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _liveEvaluationTimer?.cancel();
+    _liveEngineTimer?.cancel();
     // 中文：还没回话的引擎请求连同它的超时定时器一起收掉，并补一条失败回执——`submit()` 的
     //       `await` 因此一定会返回，落到它自己的 `_disposed` 分支上，而不是永远悬着。
     // English: Requests still in flight are collected together with their timeout timers and handed
@@ -242,7 +434,7 @@ class CalculatorController extends ChangeNotifier {
       return;
     }
     if (token == '=') {
-      _liveEvaluationTimer?.cancel();
+      _cancelLiveEvaluation();
       unawaited(submit());
       return;
     }
@@ -396,7 +588,53 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 中文：求值一次——**边打边算的入口**，也是这一步搬到引擎上的那一个。它做两件事：
+  ///
+  ///       1. **旧结果先上屏**（裁决 1 的策略 (B)，[liveResultPolicy]）：同步跑旧解析器，屏幕上
+  ///          立刻有结果；策略 (A) 时这一步不做，屏幕留着上一个值。
+  ///       2. **排一次引擎跟进**：延迟 [liveEngineFollowUpDelay] 之后问引擎，回包到达时替换。
+  ///
+  ///       这个方法**仍然是同步的**：它的所有调用方（`updateSettings`、`setAngleMode`、粘贴、
+  ///       继续使用、记忆回填、恢复状态、以及 [_scheduleLiveEvaluation] 的定时器）都当它是同步的，
+  ///       而界面在任何 await 上都不许被挡住。引擎那一发是它排出去的异步尾巴，用**提交路径同一个
+  ///       代际守卫**（`_stateRevision`）保证过期回包不落地——这里不另写一份守卫。
+  ///
+  ///       引擎不可用（没有原生侧、超时、答不出有限的十进制）时**什么都不做**：屏幕上已经是旧解析器
+  ///       的结果，回落对用户完全不可见。唯一的例外是策略 (A)——那里屏幕上没有旧结果，必须补上，
+  ///       见 [_evaluateWithEngine]。
+  ///
+  /// English: Evaluate once — *the as-you-type entry point*, and the one this step moves onto the
+  ///          engine. It does two things:
+  ///
+  ///          1. **The legacy result goes up first** (ruling 1's policy (B), [liveResultPolicy]): the
+  ///             legacy parser runs synchronously so a result is on screen immediately; under policy
+  ///             (A) this step is skipped and the previous value stays.
+  ///          2. **An engine follow-up is scheduled**: the engine is asked after
+  ///             [liveEngineFollowUpDelay], and its answer replaces the result when it lands.
+  ///
+  ///          The method itself **stays synchronous**: every caller (`updateSettings`,
+  ///          `setAngleMode`, paste, continue-with-result, memory recall, state restore, and
+  ///          [_scheduleLiveEvaluation]'s timer) treats it as synchronous, and the interface must
+  ///          never be blocked on an await. The engine call is an asynchronous tail it schedules,
+  ///          guarded against stale replies by **the submit path's own generation guard**
+  ///          (`_stateRevision`) — no second guard is written here.
+  ///
+  ///          When the engine is unavailable (no native side, timeout, no finite decimal) this does
+  ///          **nothing**: the legacy parser's result is already on screen, so the fallback is
+  ///          invisible to the user. The one exception is policy (A), where no legacy result is on
+  ///          screen and one has to be supplied — see [_evaluateWithEngine].
   void evaluate() {
+    if (liveResultPolicy.showsLegacyResult) _evaluateLegacy();
+    if (_liveEvaluationEngineBacked) _scheduleLiveEngineFollowUp();
+  }
+
+  /// 中文：旧求值器的那一次求值：同步、微秒级，写 [_result] / [hasError] / [errorMessage]。
+  ///       它的行为**一字未改**——kill switch 关掉引擎跟进之后，边打边算就是它，与 3d 结束时逐字节
+  ///       一致。
+  /// English: One legacy evaluation: synchronous, microseconds, writing [_result], [hasError] and
+  ///          [errorMessage]. Its behaviour is **unchanged** — with the engine follow-up switched off,
+  ///          as-you-type evaluation is exactly this, byte-for-byte what it was at the end of 3d.
+  void _evaluateLegacy() {
     if (expression.trim().isEmpty) {
       _result = MathResult.zero;
       hasError = false;
@@ -414,6 +652,157 @@ class CalculatorController extends ChangeNotifier {
     }
   }
 
+  /// 中文：边打边算是否走引擎——**裁决 2 的 kill switch** 就是它，见
+  ///       [kEngineBackedLiveExpressionDisplay]。切到另一个值，[_scheduleLiveEngineFollowUp] 再也
+  ///       不会被调用，剩下的行为与 3d 结束时的边打边算逐字节一致。
+  /// English: Whether as-you-type evaluation uses the engine — **ruling 2's kill switch**, see
+  ///          [kEngineBackedLiveExpressionDisplay]. Flipping it means [_scheduleLiveEngineFollowUp]
+  ///          is never called again and what remains is byte-for-byte the as-you-type behaviour of
+  ///          the end of 3d.
+  bool get _liveEvaluationEngineBacked =>
+      _settings.expressionDisplayMode == kEngineBackedLiveExpressionDisplay;
+
+  /// 中文：排一次引擎跟进，并**把上一次没发的取消掉**——这就是防抖：连续输入期间定时器一直被重排，
+  ///       于是一次调用都不会发出，直到用户停下来。
+  /// English: Schedule one engine follow-up and **cancel the one that has not fired yet** — that is
+  ///          the debounce: while typing continues the timer keeps being reset, so no call is issued
+  ///          at all until the user stops.
+  void _scheduleLiveEngineFollowUp() {
+    _liveEngineTimer?.cancel();
+    _liveEngineTimer = Timer(liveEngineFollowUpDelay, () {
+      if (_disposed) return;
+      unawaited(_evaluateWithEngine());
+    });
+  }
+
+  /// 中文：取消还没发的边打边算（两个定时器 + 「还欠一次」）。提交、撤销、重做都会走到这里：那一发
+  ///       引擎跟进如果继续发出去，问的就是一条已经被提交路径接手的时间线。已在飞的那一发不在这里
+  ///       收——它由代际守卫认出过期并丢弃。
+  /// English: Cancel the as-you-type work that has not fired yet (both timers plus "one more is
+  ///          owed"). Submit, undo and redo all reach here: letting that follow-up go would ask about
+  ///          a timeline the submit path has already taken over. The call already in flight is not
+  ///          collected here — the generation guard recognises it as stale and drops it.
+  void _cancelLiveEvaluation() {
+    _liveEvaluationTimer?.cancel();
+    _liveEngineTimer?.cancel();
+    _liveEngineDirty = false;
+  }
+
+  /// 中文：问引擎要边打边算的结果，并在回包到达时落地。四件事都在这里：
+  ///
+  ///       - **在飞上限为 1**。已经有一发在飞时不再发第二发，只把 [_liveEngineDirty] 立起来；
+  ///         那一发回包落地之后再补一次（问的是最新的表达式）。于是无论用户打得多快，同时存在的
+  ///         引擎调用最多一发，原生线程池的队列也就永远只有那一发——**队不积压**。
+  ///       - **过期的一律丢弃**。用的是提交路径同一个代际守卫：请求前记下 `_stateRevision`，落地前
+  ///         再比一次；期间用户改过任何状态，这次回答描述的就是屏幕上已经不存在的那条时间线。
+  ///         再比一次表达式，是为了堵住「表达式被换掉但没有走 [_markStateEdited]」的那条路
+  ///         （状态恢复直接写 `expression`）。
+  ///       - **回落是全覆盖的**。引擎答不出来（超时、没有原生侧、没有有限的十进制）时，策略 (B)
+  ///         下屏幕上早就有旧解析器的结果，这里什么都不做；策略 (A) 下屏幕上没有旧结果，于是现在
+  ///         补一次旧解析器——否则引擎一坏，结果行就永远停在旧值上。
+  ///       - **采用引擎答案的判定与提交路径共用一处**（[_acceptedEngineResult]），不另写一份。
+  ///
+  /// English: Ask the engine for the as-you-type result and land it when the reply arrives. Four
+  ///          things happen here:
+  ///
+  ///          - **At most one call in flight.** When one is already out, no second one is issued;
+  ///            [_liveEngineDirty] is raised instead, and a further follow-up is made once that reply
+  ///            lands (asking about the newest expression). However fast the user types, then, at
+  ///            most one engine call exists at a time, so the native thread pool's queue never holds
+  ///            more than that one — **no queue builds up**.
+  ///          - **Stale replies are dropped.** It uses the submit path's own generation guard: the
+  ///            generation is captured before the call and compared again before landing; if the user
+  ///            changed any state in between, that answer describes a timeline that is no longer on
+  ///            screen. The expression is compared as well, which closes the route where the
+  ///            expression is replaced without going through [_markStateEdited] (state restore writes
+  ///            `expression` directly).
+  ///          - **The fallback is complete.** When the engine cannot answer (timeout, no native side,
+  ///            no finite decimal) policy (B) does nothing, because the legacy parser's result is
+  ///            already on screen; policy (A) has no legacy result on screen, so one is supplied now —
+  ///            otherwise a broken engine would leave the result line stuck forever.
+  ///          - **Accepting the engine's answer is shared with the submit path**
+  ///            ([_acceptedEngineResult]); no second copy is written.
+  Future<void> _evaluateWithEngine() async {
+    if (_disposed) return;
+    if (!_liveEvaluationEngineBacked) {
+      // 中文：kill switch 是在**发这一发之前**被拨回去的（这一发的定时器早就排好了）。它必须在这里
+      //       也拦一道，否则「切到旧路径」之后还会多问一次引擎——虽然那一发答什么都不会落地（代际
+      //       已经变了），但开关要的是**一次都不问**。
+      // English: The kill switch was flipped back *before this call went out* (its timer was scheduled
+      //          earlier). It has to be checked here too, or "switched back to the legacy path" would
+      //          still ask the engine one more time — that answer could not land (the generation has
+      //          changed), but the switch promises not to ask at all.
+      _liveEngineDirty = false;
+      return;
+    }
+    final source = expression;
+    if (source.trim().isEmpty) {
+      // 中文：空表达式没有可问的东西，顺手把「还欠一次」清掉，免得它留到下一次输入。
+      // English: There is nothing to ask about an empty expression; clear "one more is owed" while
+      //          here so it cannot leak into the next input.
+      _liveEngineDirty = false;
+      return;
+    }
+    if (_liveEngineInFlight) {
+      _liveEngineDirty = true;
+      return;
+    }
+    _liveEngineInFlight = true;
+    _liveEngineDirty = false;
+    // 中文：与提交路径同一处守卫、同一个计数器。`Ans`/`last` 也要在这里先换成十进制数值，理由与
+    //       提交路径一样：引擎不认识它们，直接问会把 `ans` 当成未知变量。
+    // English: The same guard and the same counter the submit path uses. `Ans`/`last` are substituted
+    //          here too, for the same reason as on the submit path: the engine does not know them and
+    //          would read `ans` as an unknown variable.
+    final generation = _stateRevision;
+    final reply = await _askEngine(_resolveAnswerReferences(source));
+    _liveEngineInFlight = false;
+    if (_disposed) return;
+    // 中文：先取出「还欠一次」再落地。不管落地与否都要还这一次：欠它的那一刻，用户已经改过输入，
+    //       而那一发的答案永远只对**当前**表达式有效。它是一发，不是一队。
+    // English: Take "one more is owed" out before landing anything. That one is owed regardless of how
+    //          this landing goes: at the moment it was raised the user had already changed the input,
+    //          and a follow-up answer is only ever good for the *current* expression. It is one call,
+    //          not a queue.
+    final owed = _liveEngineDirty;
+    _liveEngineDirty = false;
+    final accepted = _acceptedEngineResult(reply);
+    if (generation != _stateRevision || expression != source) {
+      // 中文：过期。这一发的回答属于一条已经不在屏幕上的时间线，什么都不许落地。
+      // English: Stale. This answer belongs to a timeline that is no longer on screen, so nothing may
+      //          land from it.
+      if (owed) _scheduleLiveEngineFollowUp();
+      return;
+    }
+    if (accepted == null) {
+      if (!liveResultPolicy.showsLegacyResult) {
+        _evaluateLegacy();
+        unawaited(_persistState());
+        notifyListeners();
+      }
+    } else {
+      _adoptEngineResult(accepted);
+      unawaited(_persistState());
+      notifyListeners();
+    }
+    if (owed) _scheduleLiveEngineFollowUp();
+  }
+
+  /// 中文：把引擎的结果落到屏幕上——与提交路径写的是同一组状态（结果、`_lastFiniteResult`、错误
+  ///       状态），因此边打边算落地之后 `Ans`/`last` 引用的是引擎的十进制形态，而不是显示取整后
+  ///       的那一份。
+  /// English: Land the engine's result on screen — the same set of state the submit path writes
+  ///          (the result, `_lastFiniteResult`, the error state), so that once an as-you-type result
+  ///          lands, `Ans`/`last` resolve to the engine's decimal form rather than the display-rounded
+  ///          one.
+  void _adoptEngineResult(MathResult accepted) {
+    _result = accepted;
+    _lastFiniteResult =
+        accepted.decimalText.isEmpty ? null : accepted.decimalText;
+    hasError = false;
+    errorMessage = null;
+  }
+
   /// 中文：装上一次求值的三形态结果。**这是引擎接入时唯一的写入点**；在引擎接到求值路径之前，
   ///       只有测试用它来构造「精确形态与十进制形态并存」的结果。
   /// English: Install one evaluation's three-form result. This is the single write point the engine
@@ -427,10 +816,7 @@ class CalculatorController extends ChangeNotifier {
   ///          `Ans` splice `4√2` into the expression as if it were a number.
   @visibleForTesting
   void applyMathResult(MathResult value) {
-    _result = value;
-    _lastFiniteResult = value.decimalText.isEmpty ? null : value.decimalText;
-    hasError = false;
-    errorMessage = null;
+    _adoptEngineResult(value);
     notifyListeners();
   }
 
@@ -439,7 +825,7 @@ class CalculatorController extends ChangeNotifier {
       return const CalculatorSubmitResult.emptyExpression();
     }
     _markStateEdited();
-    _liveEvaluationTimer?.cancel();
+    _cancelLiveEvaluation();
     // 中文：本次提交的代际。`_stateRevision` 在每一次「状态被改过」时自增，也包括这次 submit 自己
     //       的 `_markStateEdited()`，所以在这之后取到的值就是「本次提交开始时的那一代」；回包落地
     //       之前再比一次，就能认出「用户在这次往返期间又动了什么」。
@@ -530,7 +916,7 @@ class CalculatorController extends ChangeNotifier {
       return const CalculatorSaveNoteResult.emptyExpression();
     }
     _markStateEdited();
-    _liveEvaluationTimer?.cancel();
+    _cancelLiveEvaluation();
     try {
       _result = _calculateResult(expression);
       hasError = false;
@@ -662,7 +1048,7 @@ class CalculatorController extends ChangeNotifier {
   void undo() {
     if (_undoStack.isEmpty) return;
     _markStateEdited();
-    _liveEvaluationTimer?.cancel();
+    _cancelLiveEvaluation();
     _redoStack.add(_snapshot());
     _restoreSnapshot(_undoStack.removeLast());
     unawaited(_persistState());
@@ -672,7 +1058,7 @@ class CalculatorController extends ChangeNotifier {
   void redo() {
     if (_redoStack.isEmpty) return;
     _markStateEdited();
-    _liveEvaluationTimer?.cancel();
+    _cancelLiveEvaluation();
     _undoStack.add(_snapshot());
     _restoreSnapshot(_redoStack.removeLast());
     unawaited(_persistState());
@@ -747,8 +1133,8 @@ class CalculatorController extends ChangeNotifier {
     // English: The *first* thing to do with a reply is ask "is this still the current generation",
     //          before touching any state — including the `_lastFiniteResult` the fallback writes.
     if (_disposed || generation != _stateRevision) return null;
-    final engineResult = reply.result;
-    if (reply.ok && engineResult != null && engineResult.hasFiniteDecimal) {
+    final accepted = _acceptedEngineResult(reply);
+    if (accepted != null) {
       // 中文：`_lastFiniteResult` 与十进制形态保持一致，规则与 [applyMathResult] 相同——十进制
       //       形态非空（[MathResult.hasFiniteDecimal] 为真已经保证了这一点），于是 `Ans`/`last`
       //       用的是引擎的精确值，而不是显示取整后的那一份。放不进 double 的值也一样：它保存的
@@ -759,8 +1145,8 @@ class CalculatorController extends ChangeNotifier {
       //          resolve to the engine's accurate value rather than the display-rounded one. A value
       //          that does not fit a double is no different: what is kept is *text*, and that text
       //          is what `Ans`/`last` write back into the expression.
-      _lastFiniteResult = engineResult.decimalText;
-      return _engineMathResult(engineResult);
+      _lastFiniteResult = accepted.decimalText;
+      return accepted;
     }
     // 中文：回落对用户不可见（这是要求），所以必须留下一条日志——否则「引擎其实一次都没答上来」
     //       在设备上和「引擎工作正常」长得一模一样。
@@ -774,39 +1160,41 @@ class CalculatorController extends ChangeNotifier {
     return _calculateResult(source);
   }
 
-  /// 中文：问一次引擎，并给它一个上限。两件事都在这里做：
+  /// 中文：问一次引擎，并给它一个上限。**提交路径与边打边算共用这一个入口。** 两件事都在这里做：
   ///
-  ///       - **异常在这里停住**。[MathEngine] 的契约要求实现不抛异常，但提交路径不能把「实现有
-  ///         没有守约」当成本钱：守约失败时回落到旧解析器，而不是让一个只在设备上出现的异常变成
-  ///         用户可见的错误。
-  ///       - **等待在这里封顶**。[engineTimeout] 到点还没等到回执，就按「引擎没有可用结果」处理
-  ///         ——回落旧解析器，不是报错。没有它，原生一次卡死会让 `=` 从此静默失效到重启。
+  ///       - **异常在这里停住**。[MathEngine] 的契约要求实现不抛异常，但调用方不能把「实现有
+  ///         没有守约」当成本钱：守约失败时按「引擎没有可用结果」处理，而不是让一个只在设备上
+  ///         出现的异常变成用户可见的错误。
+  ///       - **等待在这里封顶**。[engineTimeout] 到点还没等到回执，就按「引擎没有可用结果」处理，
+  ///         不是报错。没有它，原生一次卡死会让 `=` 从此静默失效到重启。
   ///
   ///       定时器是手写的而不是 `Future.timeout`：只有这样它才**属于控制器**，[dispose] 时能连
   ///       同还没回话的请求一起收掉。`Future.timeout` 的定时器拿不到句柄，控制器销毁后它还挂在
   ///       事件循环上（`flutter_test` 的「widget 树销毁后仍有定时器」正是查这个）。收掉时给在飞的
-  ///       请求补一条失败回执，于是 `submit()` 的 `await` 一定会返回、走的是既有的过期分支，
-  ///       而不是永远悬着。
+  ///       请求补一条失败回执，于是两边的 `await` 一定会返回——提交走既有的过期分支，边打边算走
+  ///       [_evaluateWithEngine] 的 `_disposed` 分支——而不是永远悬着。
   ///
   ///       迟到的原生回包在这里被丢掉（completer 已经完成），所以它不会去覆盖任何已经落地的结果。
   ///
-  /// English: Ask the engine once, with a bound. Two things happen here:
+  /// English: Ask the engine once, with a bound. The submit path and as-you-type evaluation **share
+  ///          this one entry point**. Two things happen here:
   ///
   ///          - **Exceptions stop here.** The [MathEngine] contract says implementations must not
-  ///            throw, but the submit path cannot stake its behaviour on the implementation keeping
-  ///            that promise: a broken promise falls back to the legacy parser instead of turning
-  ///            into a user-visible error that only ever appears on a device.
+  ///            throw, but a caller cannot stake its behaviour on the implementation keeping that
+  ///            promise: a broken promise counts as "no usable result" instead of turning into a
+  ///            user-visible error that only ever appears on a device.
   ///          - **The wait is capped here.** When [engineTimeout] elapses with no receipt the call
-  ///            counts as "the engine has no usable result" — a fallback to the legacy parser, not
-  ///            an error. Without it one stuck native call makes `=` silently dead until restart.
+  ///            counts as "the engine has no usable result" — not an error. Without it one stuck
+  ///            native call makes `=` silently dead until restart.
   ///
   ///          The timer is hand-rolled rather than `Future.timeout` precisely so that it *belongs to
   ///          the controller* and [dispose] can collect it together with the request still in
   ///          flight. A `Future.timeout` timer cannot be reached, so it stays on the event loop
   ///          after the controller is gone (which is exactly what flutter_test's "a timer is still
   ///          pending after the widget tree was disposed" catches). Collecting a pending request
-  ///          hands it a failure receipt, so `submit()`'s `await` always returns and takes the
-  ///          existing stale branch instead of hanging forever.
+  ///          hands it a failure receipt, so both `await`s always return — submit takes its existing
+  ///          stale branch, as-you-type takes [_evaluateWithEngine]'s `_disposed` branch — instead of
+  ///          hanging forever.
   ///
   ///          A late native reply is dropped here (the completer has already completed), so it can
   ///          never overwrite a result that has already landed.
@@ -875,6 +1263,30 @@ class CalculatorController extends ChangeNotifier {
   ///          null), and forcing it through `formatNumber` would mean feeding it `Infinity` or `0` —
   ///          both false. Rounding has not moved into the engine; the code just does not pretend to
   ///          round what it cannot represent.
+  /// 中文：**引擎这一次的回答能不能采用**——提交路径与边打边算共用这一处，不写第二份。
+  ///       采用的条件只有一条：引擎给出了一个**有限十进制**（[MathResult.hasFiniteDecimal]，
+  ///       判定在字符串层面，不借 double）。不满足就返回 null，调用方按「这一次没有引擎结果」处理。
+  ///
+  ///       为什么这必须是同一处：边打边算产生的结果**远多于**提交，是更大的风险面；判定写两份，
+  ///       「显示文本 → 提交路径 → `_currentNumericValue`」那次漂移就会重演一遍。
+  ///
+  /// English: **Whether this engine answer may be adopted** — the submit path and as-you-type
+  ///          evaluation share this one place, never a second copy. There is exactly one condition:
+  ///          the engine produced a *finite decimal* ([MathResult.hasFiniteDecimal], judged at the
+  ///          string level rather than through a double). When that fails it returns null and the
+  ///          caller treats it as "no engine result this time".
+  ///
+  ///          Why it has to be one place: as-you-type evaluation produces far *more* results than
+  ///          submission and is therefore the larger risk surface; with the judgement written twice,
+  ///          the drift of "display text → submit path → `_currentNumericValue`" happens all over
+  ///          again.
+  MathResult? _acceptedEngineResult(EngineReply reply) {
+    if (!reply.ok) return null;
+    final engineResult = reply.result;
+    if (engineResult == null || !engineResult.hasFiniteDecimal) return null;
+    return _engineMathResult(engineResult);
+  }
+
   MathResult _engineMathResult(MathResult engineResult) {
     final value = engineResult.decimalValue;
     if (value == null) return engineResult;
@@ -1350,11 +1762,22 @@ class CalculatorController extends ChangeNotifier {
     _ansValueForExpression = snapshot.ansValueForExpression;
   }
 
+  /// 中文：**显示侧的防抖**：连续输入期间合并实时求值，输入立刻上屏、结果稍后统一刷新。窗口长度
+  ///       [liveEvaluationDelay] 就是「第一个结果什么时候出现」，见 [kLiveEvaluationDelay]——它与
+  ///       引擎跟进那一个延迟（[kLiveEngineFollowUpDelay]，针对跨语言调用）**不是同一件事**，所以
+  ///       这一步不动它：裁决 1 要的即时反馈正是由它保证的。引擎调用也不在这个定时器里发——
+  ///       [evaluate] 自己会排。
+  ///
+  /// English: The **display-side** debounce: live evaluation is coalesced during fast typing, the input
+  ///          goes up at once and results refresh together. Its window [liveEvaluationDelay] *is*
+  ///          "when the first result appears", see [kLiveEvaluationDelay] — it is **not the same
+  ///          thing** as the engine follow-up delay ([kLiveEngineFollowUpDelay], which is about a
+  ///          cross-language call), so this step leaves it alone: ruling 1's instant feedback is
+  ///          exactly what it guarantees. The engine call is not issued from this timer either;
+  ///          [evaluate] schedules it itself.
   void _scheduleLiveEvaluation() {
     _liveEvaluationTimer?.cancel();
-    // 中文：快速输入时合并实时解析，输入显示立即更新，结果稍后统一刷新。
-    // English: Debounce live parsing during fast typing; input updates immediately and results refresh together.
-    _liveEvaluationTimer = Timer(const Duration(milliseconds: 32), () {
+    _liveEvaluationTimer = Timer(liveEvaluationDelay, () {
       if (_disposed) return;
       evaluate();
       unawaited(_persistState());

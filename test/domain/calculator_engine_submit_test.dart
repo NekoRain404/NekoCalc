@@ -388,30 +388,56 @@ void main() {
     controller.dispose();
   });
 
-  test('as-you-type evaluation never asks the engine', () async {
-    // 中文：这一步的硬边界——`evaluate()` 一行未动，仍然完全走旧的同步解析器。引擎只在
-    //       「按下等号」时被问到，所以边打边算的时序风险（异步结果与输入的竞态）根本不存在。
-    // English: This step's hard boundary — `evaluate()` is untouched and still runs entirely on the
-    //          legacy synchronous parser. The engine is only consulted on "pressed =", so the timing
-    //          risk of live evaluation (an async result racing the next keystroke) cannot arise.
+  test('as-you-type evaluation answers synchronously while the submit path owns its own engine call',
+      () async {
+    // 中文：这条测试以前叫「as-you-type evaluation never asks the engine」，断言的是 3d 的硬边界
+    //       ——`evaluate()` 一次都不问引擎。**那条边界正是 3e 拆掉的东西**，所以这里不再断言它：
+    //       引擎在边打边算上什么时候被问到、回包怎么落地、过期怎么丢，归
+    //       `calculator_engine_live_test.dart`（那个文件注入毫秒级延迟来精确控制那一发）。
+    //
+    //       留在这里、并且必须继续成立的是另外两件事：
+    //       1. 输入路径上**同步**就有结果（裁决 1 的即时反馈不依赖引擎）；
+    //       2. 提交路径**一个引擎调用都没多**——边打边算的跟进被夹具推到 1 小时后（见 `_controller`），
+    //          于是这一次 `submit()` 的调用计数仍然恰好是 1，与 3d 时一模一样。
+    //
+    // English: This test used to be called "as-you-type evaluation never asks the engine" and asserted
+    //          3d's hard boundary — that `evaluate()` never consults the engine. **That boundary is
+    //          exactly what 3e removes**, so it is no longer asserted here: when the engine is asked
+    //          during as-you-type evaluation, how its reply lands and how stale ones are dropped all
+    //          belong to `calculator_engine_live_test.dart` (which injects a millisecond-scale delay
+    //          to control that call precisely).
+    //
+    //          What stays here, and must keep holding, is two other things:
+    //          1. the input path has a result **synchronously** (ruling 1's instant feedback does not
+    //             depend on the engine);
+    //          2. the submit path gains **not one extra engine call** — the as-you-type follow-up is
+    //             pushed an hour out by the fixture (see `_controller`), so this `submit()` still
+    //             makes exactly one call, precisely as it did at 3d.
     final engine = _FakeMathEngine(sqrt32Reply());
     final controller = _controller(_FakeDatabase(), engine: engine);
 
     controller.setExpression('sqrt(32)');
     controller.evaluate();
 
-    expect(engine.calls, isEmpty);
     expect(controller.result, engineDisplay);
-    expect(controller.resultTex, isEmpty);
     expect(controller.resultDecimal, engineDisplay);
+    expect(controller.resultTex, isEmpty, reason: '引擎还没被问到，精确形态自然还没有');
+    expect(engine.calls, isEmpty);
 
-    // 中文：按键路径（`input`）同样只触发实时解析，不问引擎。
-    // English: The keypad path (`input`) drives live evaluation too, and never asks the engine.
+    // 中文：按键路径（`input`）同样如此：表达式立刻是新的，结果由显示侧的合并定时器刷新。
+    // English: The keypad path (`input`) behaves the same way: the expression is immediately the new
+    //          one, and the result is refreshed by the display-side coalescing timer.
     controller.setExpression('');
     controller.input('6');
     controller.input('*');
     controller.input('7');
+    expect(controller.expression, '6*7');
     expect(engine.calls, isEmpty);
+
+    final submitted = await controller.submit();
+    expect(engine.calls, hasLength(1));
+    expect(submitted.submitted, isTrue);
+    expect(controller.resultTex, engineTex);
 
     controller.dispose();
   });
@@ -739,6 +765,18 @@ AppSettings _settings({
   );
 }
 
+/// 中文：**边打边算的引擎跟进被推到一个小时之后**。这个文件考的是提交路径，它那些
+///       `expect(engine.calls, hasLength(1))` 只有在「边打边算那一发不会自己冒出来」时才确定；
+///       3e 之后边打边算也会问引擎（默认延迟 120ms），于是这里注入一个比任何一次测试运行都长的值，
+///       把它挪出这条路径。提交路径自己的超时仍然由 [engineTimeout] 控制。
+///       ——边打边算那一侧的行为由 `calculator_engine_live_test.dart` 负责，那里注入的是毫秒级。
+///
+/// English: **The as-you-type engine follow-up is pushed an hour out.** This file is about the submit
+///          path, and its `expect(engine.calls, hasLength(1))` assertions are only deterministic while
+///          that follow-up cannot appear on its own; after 3e as-you-type asks the engine too (120 ms
+///          by default), so a value longer than any test run is injected here to move it out of the
+///          way. The submit path's own timeout is still [engineTimeout]. The as-you-type half is
+///          covered by `calculator_engine_live_test.dart`, which injects a millisecond-scale delay.
 CalculatorController _controller(
   _FakeDatabase db, {
   required MathEngine engine,
@@ -752,6 +790,7 @@ CalculatorController _controller(
     settings: settings ?? _settings(),
     engine: engine,
     engineTimeout: engineTimeout,
+    liveEngineFollowUpDelay: const Duration(hours: 1),
   );
 }
 
