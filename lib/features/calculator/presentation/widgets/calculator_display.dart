@@ -161,6 +161,9 @@ const double _errorMessageFontSize = 12;
 ///          行同一个组件、同一个 `Math.tex`、同一套降级），`≈` 后面跟十进制读数。近似值就是
 ///          [CalculatorDisplay.result]，取整仍由控制器的 `formatNumber` 按精度设置完成——精度
 ///          设置管的正是这一半，精确形式那一半本来就与取整无关。
+///          **`≈` 那一半只在引擎给了十进制形态（[CalculatorDisplay.resultDecimal] 非空）时才
+///          出现。** 符号结果没有十进制形态，于是整行就是排出来的精确形式（`= 8 × √2 × √x`）：
+///          那里 [CalculatorDisplay.result] 不是近似值，而是同一个式子的另一种印法。
 ///
 ///       为什么精确形式那一段不自己调 `Math.tex`：排版只有一套机制，失败了也要退回纯文本读数，
 ///       另起一套就会多出第二个降级分支与第二份「排不出来时显示什么」的判断。
@@ -178,6 +181,11 @@ const double _errorMessageFontSize = 12;
 ///             reading is [CalculatorDisplay.result], still rounded by the controller's
 ///             `formatNumber` at the user's precision: the precision setting governs that half, and
 ///             the exact half has nothing to round.
+///             **That `≈` half appears only when the engine supplied a decimal form
+///             ([CalculatorDisplay.resultDecimal] non-empty).** A symbolic result has none, so the
+///             line *is* the typeset exact form (`= 8 × √2 × √x`), where
+///             [CalculatorDisplay.result] is not an approximation but the same expression spelled
+///             differently.
 ///
 ///          The exact form does not call `Math.tex` on its own for the same reason: there is one
 ///          typesetting mechanism, it falls back to the plain reading, and a second one would add a
@@ -207,9 +215,11 @@ class CalculatorDisplay extends StatelessWidget {
   /// English: The expression source, handed to `MathExpressionView`.
   final String expression;
 
-  /// 中文：结果文本（十进制读数，见类注释：它是近似值那一半，也是没有精确形式时的整行）。
-  /// English: The result text (the decimal reading — see the class comment: it is the
-  ///          approximation half, and the whole line when there is no exact form).
+  /// 中文：结果文本（十进制读数，见类注释：它是近似值那一半、没有精确形式时的整行，以及精确形式
+  ///       排版失败时的降级文本）。
+  /// English: The result text (the decimal reading — see the class comment: the approximation half,
+  ///          the whole line when there is no exact form, and the fallback text when the exact form
+  ///          fails to typeset).
   final String result;
 
   /// 中文：结果的 LaTeX 形态（引擎的精确形式，不含 `$` 定界符）；引擎未参与时为空串，那时结果行
@@ -219,14 +229,20 @@ class CalculatorDisplay extends StatelessWidget {
   ///          be typeset it degrades to [result] as well, never to a blank.
   final String resultTex;
 
-  /// 中文：结果的十进制形态（引擎给的、未取整的那一串）。**只用于一处判断**：精确形式与它逐字符
-  ///       相同时说明那只是同一个数的另一种写法（引擎对普通数字印的 LaTeX 就是这串十进制），
-  ///       于是不排两遍、也不加 `≈`。数值消费者读控制器，不读这里。
-  /// English: The result's decimal form (the engine's, unrounded). It is used for exactly one
-  ///          decision: when the exact form is character-for-character this string, that exact form
-  ///          is the same number written differently (for an ordinary number the engine's LaTeX *is*
-  ///          this decimal), so nothing is typeset twice and no `≈` is added. Numeric consumers read
-  ///          the controller, not this.
+  /// 中文：结果的十进制形态（引擎给的、未取整的那一串）。**只用于结果行里的两处判断**：
+  ///       1. 精确形式与它逐字符相同时说明那只是同一个数的另一种写法（引擎对普通数字印的 LaTeX
+  ///          就是这串十进制），于是不排两遍、也不加 `≈`；
+  ///       2. 它为空时这一次**没有十进制读数**，`≈` 那一半整个不出现——符号结果就是这一种
+  ///          （`11.31370849898476 * sqrt(x)` 不是近似值，是同一个式子的另一种印法）。
+  ///       数值消费者读控制器，不读这里。
+  /// English: The result's decimal form (the engine's, unrounded). It is used for exactly two
+  ///          decisions, both in the result line: (1) when the exact form is character-for-character
+  ///          this string it is the same number written differently (for an ordinary number the
+  ///          engine's LaTeX *is* this decimal), so nothing is typeset twice and no `≈` is added;
+  ///          (2) when it is empty there is **no decimal reading** this time, so the `≈` half is
+  ///          dropped entirely — the symbolic case (`11.31370849898476 * sqrt(x)` is not an
+  ///          approximation but the same expression spelled differently). Numeric consumers read the
+  ///          controller, not this.
   final String resultDecimal;
 
   /// 中文：是否处于错误态——只决定错误行渲染与否，不改结果行的颜色。
@@ -621,6 +637,9 @@ class CalculatorDisplay extends StatelessWidget {
   ///       逐字符的重复——最后这条挡掉的是普通数字：引擎对 `2+2` 印的 LaTeX 就是 `4`，左边已经
   ///       是这个数，再来一个 `≈ 4` 只是把同一个数写两遍。
   ///
+  ///       `≈` 那一半要再多一条：`resultDecimal` 非空，也就是**这一次真的有十进制读数**（见那里）。
+  ///       符号结果没有，于是排出来的精确形式就是整行；[result] 仍作为渲染失败的降级文本传给它。
+  ///
   ///       两条分支共用同一份样式对象，所以「精确形式 + 近似值」与「纯文本」的 `=`、字号、颜色
   ///       完全一致——差别只在中间那一段是不是排出来的。
   /// English: The result line — the `=` and the result are separate `Text` widgets (not one
@@ -634,6 +653,10 @@ class CalculatorDisplay extends StatelessWidget {
   ///          is not a character-for-character repeat of [resultDecimal] — that last one rules out
   ///          ordinary numbers: the engine's LaTeX for `2+2` is `4`, the left side is already that
   ///          number, and a `≈ 4` beside it would just write the same number twice.
+  ///
+  ///          The `≈` half asks one thing more: `resultDecimal` non-empty, i.e. there really **is a
+  ///          decimal reading** this time (see that field); a symbolic result has none, so the
+  ///          typeset exact form *is* the whole line.
   ///
   ///          Both branches share one set of style objects, so the `=`, the sizes and the colours are
   ///          identical in both — only the middle part differs in whether it is typeset.
@@ -649,12 +672,23 @@ class CalculatorDisplay extends StatelessWidget {
       fontWeight: FontWeight.w700,
     );
     final tex = resultTex.trim();
+    final decimal = resultDecimal.trim();
     final exactTex = naturalDisplay &&
             tex.isNotEmpty &&
-            tex != resultDecimal.trim() &&
+            tex != decimal &&
             MathExpressionView.typesetsTex(tex)
         ? tex
         : '';
+    // 中文：`≈` 那一半**只在有十进制读数时存在**：没有它时 [result] 不是近似值，而是引擎对同一个
+    //       式子的另一种印法（符号结果是 `11.31370849898476 * sqrt(x)` 这样的 ASCII 串），拿它去
+    //       「近似」左边排出来的同一个式子是一句假话。此时整行就是排出来的精确形式，[result] 仍作为
+    //       渲染失败的降级文本传下去（见上面的 `MathExpressionView`）。
+    // English: the `≈` half **exists only when there is a decimal reading**: without one, [result] is
+    //          not an approximation but the engine's other rendering of the same expression (for a
+    //          symbolic result an ASCII string such as `11.31370849898476 * sqrt(x)`), and using it to
+    //          "approximate" that same expression is a false claim. The line is then the typeset exact
+    //          form, with [result] still travelling as the render-failure fallback.
+    final showApproximation = decimal.isNotEmpty;
     return Align(
       alignment: Alignment.centerRight,
       // 中文：`heightFactor: 1` 让这一行**按内容取高**，也就是把上面那个宽松上限只当上限用：
@@ -692,10 +726,12 @@ class CalculatorDisplay extends StatelessWidget {
                 naturalDisplay: naturalDisplay,
                 textStyle: resultStyle,
               ),
-              const SizedBox(width: 8),
-              Text('≈', style: equalsStyle),
-              const SizedBox(width: 8),
-              Text(result, style: resultStyle),
+              if (showApproximation) ...<Widget>[
+                const SizedBox(width: 8),
+                Text('≈', style: equalsStyle),
+                const SizedBox(width: 8),
+                Text(result, style: resultStyle),
+              ],
             ],
           ],
         ),

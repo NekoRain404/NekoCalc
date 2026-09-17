@@ -114,10 +114,14 @@ mixin _CalculatorState on ChangeNotifier {
 
   ExpressionSelection get selection => _selection;
 
-  /// 中文：结果行的十进制读数——没有精确形式时它就是整行，有精确形式时它是 `≈` 后面那一半。
-  ///       取整仍由 `formatNumber` 按 [AppSettings.precision] 完成，所以精度设置管的正是这一半。
-  /// English: The result line's decimal reading — the whole line when there is no exact form, the
-  ///          half after `≈` when there is one. `formatNumber` still does the rounding at
+  /// 中文：结果行的读数——没有精确形式时它就是整行，有精确形式时它是 `≈` 后面那一半。而那一半只在
+  ///       这一次**也有十进制形态**时才存在（见 `resultDecimal`）：符号结果没有，于是它只是排版
+  ///       失败时的降级文本。取整仍由 `formatNumber` 按 [AppSettings.precision] 完成，所以精度设置
+  ///       管的正是这一半。
+  /// English: The result line's reading — the whole line when there is no exact form, the half after
+  ///          `≈` when there is one. That half exists only when this evaluation **also has a decimal
+  ///          form** (see `resultDecimal`): a symbolic result has none, so there it is only the text a
+  ///          failed typeset degrades to. `formatNumber` still does the rounding at
   ///          [AppSettings.precision], so the precision setting governs exactly this half.
   String get result => _result.displayText;
 
