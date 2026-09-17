@@ -82,7 +82,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "ln|ln|on function shift:ins:e^|eˣ|on",
   ],
   <String>[
-    "dis:dms|D°M'S|off disabled",
+    "dmsForm|D°M'S|on function",
     "fractionForm|d/c|on function",
     "openVariables|X|on variable",
     "dis:xym|XY,M|off disabled",

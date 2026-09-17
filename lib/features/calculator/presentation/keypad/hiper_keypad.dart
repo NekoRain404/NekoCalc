@@ -265,7 +265,7 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
     ],
   ),
 
-  // 中文：行 5——度分秒 / 分数 / X / XY,M（三条禁用）/ 记忆读取 / 记忆写入。
+  // 中文：行 5——度分秒 / 分数 / X / XY,M（**只剩 `XY,M` 一条禁用**）/ 记忆读取 / 记忆写入。
   //       上方标签：**`STAT` 从这一步起点亮**（原来是一颗灰键 `dis:stat`），`a b/c` 仍是禁用键，
   //       `Y` 把 `y` 插进表达式，HISTORY（打开抽屉的历史入口），
   //       M+、M−（记忆累加与累减——它们与 `memoryAdd`/`memorySubtract` 语义一致）。
@@ -276,7 +276,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   //       `a b/c`——带分数，正是同一格里的另一个取值），所以它做的就是把当前结果换成**分数写法**、
   //       再按一次换回十进制。分数写法由引擎对**同一个已求值结构**换一种 `number_fraction_format`
   //       印出来（见 `printOptions`），两份的值严格相等；引擎没答上来时它是空操作，不去猜一个分数。
-  // English: Row 5 — D°M'S / d/c / X / XY,M (three disabled) / memory recall / memory store.
+  // English: Row 5 — D°M'S / d/c / X / XY,M (**only `XY,M` is still disabled**) / memory recall and
+  //          memory store.
   //          Band above: **`STAT` lights up from this step on** (it used to be a grey `dis:stat`),
   //          `a b/c` is still disabled, `Y` inserts `y`, HISTORY (the drawer's history entry), and
   //          M+ / M− (memory accumulate and decrement — these two do match
@@ -293,9 +294,87 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   //          with no engine answer it is a no-op rather than a guessed fraction.
   KeypadRow(
     keys: <KeypadKey>[
+      // 中文：**`D°M'S` 从这一步起点亮：它把当前结果换成度分秒写法**（`12°34′55.92″`），再按一次
+      //       回到原来那一行。它与右边的 `d/c` 同一条路（结果格式那一维的又一格），只改**显示**。
+      //
+      //       **HiPER 那一颗键做的是「输入」，这里做的为什么是「显示」——依据与取舍都写在这里：**
+      //
+      //       HiPER 自己的帮助原文（HiPER Scientific Calculator 的翻译源串，本机可查：
+      //       `weblate.a4tune.com` 的公开 API，`help.numbers.contents` 与 `quickTour.page.DMS.*`）
+      //       把它分成了三件**互不相同**的事：
+      //       - `DMS` 键："If you want to enter a number as degrees, minutes and seconds (a
+      //         sexagesimal number), use <key:DMS> key." —— **输入**（命令名
+      //         `command.name.DMS` = "Insert Degrees, Mins, Secs"）。
+      //       - `REDMS` 键："<key:REDMS> key converts the result into degrees, minutes and seconds.
+      //         The key is not present on built-in keyboards…" —— **结果转度分秒**，而它
+      //         **不在内置键盘上**（命令名 `command.name.REDMS` = "Display as Degrees, Mins, Secs"）。
+      //       - `CHANGE_EXPR`（就是 `x⇔E`）：切换结果格式，其中一档是 sexagesimal，指示器 `DMS`。
+      //
+      //       所以内置键盘上那一颗 `D°M'S` 在 HiPER 上是**输入键**，而不是结果格式键。本项目**没有**
+      //       照搬输入那一半，理由是实测的三条，全部在应用这一侧：
+      //       1. **表达式行排不出 `°`**：`ExpressionAstParser` 遇到 `°` 会整段降级成 `ParseErrorNode`，
+      //          TeX 变成 `\text{30°}`（一段字面文本）。按一下键就让整行表达式不再排版，是可见的退化。
+      //       2. **旧解析器算不对中间态**：`12°34` 今天是 `7.12`（`rad(12)*34` 的隐式乘法），
+      //          `12°34′56″` 直接 FormatException——按出来的每一串都会先经过这些中间态。
+      //       3. **`°` 在 DEG 下是活的错值**：`sin 30°` 在 RAD 下 = 0.5，在 DEG 下 = 0.009138
+      //          （解析器把它改写成 `rad(30)`，而 DEG 的三角函数再把实参乘一次 π/180）。
+      //          这颗键一旦上线，那条错值就从「粘贴才够得着」变成「按两下就够得着」。
+      //       要照搬输入那一半，得同时给三个地方（求值器、语法树、TeX 生成）加一套度分秒字面量语法，
+      //       并先判定 `°` 在 DEG 下到底该是什么意思——那是另一个工程，且每一步都可能悄悄印出一个错值。
+      //       而结果这一半**今天就能做对**：引擎真的印得出度分秒（`BASE_SEXAGESIMAL`，见
+      //       `printOptions` 那一段；上一轮记的「引擎没有度分秒换算」是**实测错误**——它叫
+      //       sexagesimal，`grep -rni dms` 当然搜不到），而且印的是**同一个已求值结构**，
+      //       所以值逐位相同，与 `d/c` 是同一个形状。**谁按这一颗键，谁按的就是 HiPER 的 `DMS`
+      //       那一格结果格式**（HiPER 屏幕上唯一写着 DMS 的东西），而 HiPER 把它放在自定义键盘上的
+      //       那一颗 `REDMS` 做的事。
+      // English: **`D°M'S` lights up from this step on: it switches the current result to its
+      //          degrees-minutes-seconds spelling** (`12°34′55.92″`), and a second press returns to
+      //          the line it had. It travels the same road as `d/c` beside it (another cell of the
+      //          result-format dimension) and changes **display only**.
+      //
+      //          **HiPER's key inserts; why this one displays — the evidence and the trade-off:**
+      //
+      //          HiPER's own help text (the app's translation source strings, reachable from this
+      //          machine: the public API at `weblate.a4tune.com`, `help.numbers.contents` and
+      //          `quickTour.page.DMS.*`) splits it into three **different** things:
+      //          - the `DMS` key: "If you want to enter a number as degrees, minutes and seconds (a
+      //            sexagesimal number), use <key:DMS> key." — **entry** (command name
+      //            `command.name.DMS` = "Insert Degrees, Mins, Secs").
+      //          - the `REDMS` key: "<key:REDMS> key converts the result into degrees, minutes and
+      //            seconds. The key is not present on built-in keyboards…" — **converting a result**,
+      //            and it is **not on the built-in keypad** (its command name is
+      //            `command.name.REDMS` = "Display as Degrees, Mins, Secs").
+      //          - `CHANGE_EXPR` (that is `x⇔E`): cycles the result format, one stop of which is
+      //            sexagesimal, with the `DMS` indicator.
+      //
+      //          So the `D°M'S` cell on HiPER's built-in keypad is an **entry** key, not a result
+      //          format key. This project did **not** copy the entry half, for three reasons that were
+      //          all measured on the app side:
+      //          1. **the expression line cannot typeset `°`**: `ExpressionAstParser` degrades the whole
+      //             string to a `ParseErrorNode` and the TeX becomes `\text{30°}`, a literal text blob.
+      //             One press would stop the entire expression line from being typeset — a visible
+      //             degradation.
+      //          2. **the legacy parser misreads the intermediate states**: `12°34` is `7.12` today
+      //             (an implicit multiplication with `rad(12)`), and `12°34′56″` throws outright —
+      //             every string the key can build passes through states like those.
+      //          3. **`°` is a live wrong value under DEG**: `sin 30°` is 0.5 under RAD and 0.009138
+      //             under DEG (the parser rewrites it to `rad(30)`, and DEG's trig multiplies the
+      //             argument by π/180 again). Shipping that key would move that wrong value from
+      //             "only reachable by pasting" to "two taps away".
+      //          Copying the entry half would mean adding a degrees-minutes-seconds literal to three
+      //          places at once (the evaluator, the syntax tree, the TeX emitter) and first deciding
+      //          what `°` is supposed to mean under DEG — a project of its own, and every step of it
+      //          can quietly print a wrong value. The result half **can be done correctly today**: the
+      //          engine really does print degrees-minutes-seconds (`BASE_SEXAGESIMAL`, see the note on
+      //          `printOptions`; the previous round's "the engine has no DMS conversion" is **measurably
+      //          wrong** — it is called *sexagesimal*, so `grep -rni dms` was never going to find it),
+      //          and it prints **one already evaluated structure**, so the value is digit for digit the
+      //          same, in the same shape as `d/c`. **Whoever presses this key presses HiPER's `DMS`
+      //          result-format cell** — the only thing HiPER writes DMS on, on screen — which on HiPER
+      //          lives on the `REDMS` key a custom keyboard can carry.
       KeypadKey(
-        base: KeyVariant(label: "D°M'S", id: 'dis:dms', enabled: false),
-        category: KeyCategory.disabled,
+        base: KeyVariant(label: "D°M'S", id: 'dmsForm'),
+        category: KeyCategory.function,
       ),
       KeypadKey(
         base: KeyVariant(label: 'd/c', id: 'fractionForm'),
