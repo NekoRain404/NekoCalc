@@ -30,6 +30,29 @@ enum EngineResultKind {
   ///          [MathResult.isDisplayable].
   unit,
 
+  /// 中文：**用户要了一次换算，而引擎没做。** 原生侧判出来的（`QalculateEngine.conversionLanded`）：
+  ///       把结果除以目标单位再求值，商里还剩着单位就说明两者量纲不相容。
+  ///
+  ///       这一支存在的理由是实测：`5 km to kg` 在引擎里**不报错、不警告、消息队列是空的**，
+  ///       它把输入原样退回来（`5 km`），于是屏幕上出现一个看起来像答案的错值。
+  ///       `Calculator::convert` 的每条失败路径都是 `return mstruct;`，没有任何失败信号。
+  ///       所以「引擎做没做这次换算」只能由原生侧自己问，而「这一支配不配显示」由
+  ///       [MathResult.isDisplayable] 一处回答（与 [unit] 同一条理由的两个入口：一个是
+  ///       「结果带了应用没有的单位」，一个是「用户要的换算没发生」）。
+  /// English: **a conversion was asked for and the engine did not perform it.** Judged on the native
+  ///          side (`QalculateEngine.conversionLanded`): divide the result by the target unit and
+  ///          evaluate it — if units survive the quotient, the two are not commensurable.
+  ///
+  ///          Measured reason for this branch: in the engine `5 km to kg` **does not error, does not
+  ///          warn and leaves the message queue empty**; it hands the input back unchanged (`5 km`),
+  ///          which puts a wrong value that looks like an answer on the screen. Every failure path in
+  ///          `Calculator::convert` is `return mstruct;` and carries no failure signal at all. So "did
+  ///          the engine do this conversion" can only be asked natively, while "may this branch be
+  ///          displayed" is answered in one place ([MathResult.isDisplayable]) — two entrances to the
+  ///          same reason as [unit]: "the result carries a unit this app does not have" and "the
+  ///          conversion the user asked for did not happen".
+  unitMismatch,
+
   /// 中文：矩阵 / 向量（解集也是向量）。
   /// English: a matrix or a vector (a solution set is a vector).
   structured,
@@ -204,7 +227,7 @@ class MathResult {
   ///         非有限字面量除外），要么是**应用自己的语言表达不了的那种值**。
   ///
   ///       判据分两层，第一层看**文本**（[textIsDisplayable]：非有限字面量不算数），第二层看**形状**
-  ///       （[resultKind]，由引擎自己的判据回答）。第二层的四个分支各有理由，合起来是**穷尽**的
+  ///       （[resultKind]，由引擎自己的判据回答）。第二层的每一支各有理由，合起来是**穷尽**的
   ///       ——它是引擎结果空间的一个划分，不是一张举例清单：
   ///
   ///       - [EngineResultKind.structured]（矩阵 / 向量 / 解集）与 [EngineResultKind.number]
@@ -219,6 +242,12 @@ class MathResult {
   ///         `to`/`->` 明确要求了换算，而那一条由上面的 [EngineResultKind.conversion] 接住。
   ///         剩下的只可能是「引擎把我们的某个标识符读成了单位」（`fact(-1)` → `-10 aa*t`，
   ///         `ncr(5,10)` → 一串 `n'r' km/us`），那正是「把垃圾读成合理的形状」。
+  ///       - [EngineResultKind.unitMismatch]：用户要了一次换算，而引擎**没做**——它把输入原样退回
+  ///         来（`5 km to kg` 给 `5 km`，实测无消息、无异常）。拒绝它的理由与 [EngineResultKind.unit]
+  ///         是同一条：屏幕上的那个文本不是这次求值的答案。**它不能并进
+  ///         [EngineResultKind.conversion]**：那一个是「用户要的换算发生了」，这一个是「没发生」，
+  ///         而两者在引擎那边**都是 `to_struct` 非空**（换算失败时目标单位照样被写进 `to_struct`），
+  ///         只有在原生侧问过「结果除以目标之后还剩不剩单位」才分得开。
   ///       - [EngineResultKind.arithmetic]：乘积、幂、函数调用、符号和——**应用的语言表达得了**，
   ///         所以旧解析器才是权威：它要么给出一个值（那就它说了算），要么明确拒绝，而它的拒绝
   ///         就是这个应用对这一行的答案。`1 / 0`、`mod(2; 0)`、`root(2; 0)`、`x / 0`、`2x`、
@@ -261,6 +290,15 @@ class MathResult {
   ///            [EngineResultKind.conversion] branch above catches. What is left is the engine reading
   ///            one of our identifiers as a unit (`fact(-1)` → `-10 aa*t`, `ncr(5,10)` → a list of
   ///            `n'r' km/us`), which is precisely "garbage read into a plausible shape".
+  ///          - [EngineResultKind.unitMismatch]: a conversion was asked for and the engine did **not**
+  ///            do it — it hands the input back unchanged (`5 km to kg` gives `5 km`; measured: no
+  ///            message, no exception). It is refused for the same reason as
+  ///            [EngineResultKind.unit]: what is on screen is not this evaluation's answer. **It
+  ///            cannot be folded into [EngineResultKind.conversion]**: that one means "the conversion
+  ///            the user asked for happened" and this one means "it did not", while on the engine's
+  ///            side **both have a defined `to_struct`** (a failed conversion still writes the target
+  ///            unit into it) — they separate only after the native side asks whether any units are
+  ///            left once the result is divided by the target.
   ///          - [EngineResultKind.arithmetic]: products, powers, calls, symbolic sums — **this app's
   ///            language can express these**, so the legacy parser is the authority: it either
   ///            produces a value (and that value wins) or refuses, and its refusal is this app's
@@ -285,6 +323,7 @@ class MathResult {
       EngineResultKind.structured => true,
       EngineResultKind.number => true,
       EngineResultKind.unit => false,
+      EngineResultKind.unitMismatch => false,
       EngineResultKind.arithmetic => false,
     };
   }

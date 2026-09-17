@@ -10,6 +10,7 @@ import com.jherkenhoff.libqalculate.DigitGrouping
 import com.jherkenhoff.libqalculate.EvaluationOptions
 import com.jherkenhoff.libqalculate.IntervalDisplay
 import com.jherkenhoff.libqalculate.MathStructure
+import com.jherkenhoff.libqalculate.MixedUnitsConversion
 import com.jherkenhoff.libqalculate.NumberFractionFormat
 import com.jherkenhoff.libqalculate.PrintOptions
 import com.jherkenhoff.libqalculate.StructureType
@@ -299,7 +300,53 @@ class QalculateEngine {
             //          `ncr(5,10)` is a vector, yet every element of it carries a unit — the engine
             //          read `n`, `c` and `r` as units and constants. The unit test runs first, so it
             //          never reaches `structured`.
+            // 中文：**aborted 必须紧跟求值就读**——它锁存到下一次 `startControl`，而下面每一次
+            //       `print`/`calculate`（含 `conversionLanded` 里那一次）都会 `startControl`，
+            //       把这个锁存重置成**那一次**调用的状态。以前这一行在两次 print 之后，读到的其实
+            //       已经不是主求值的那一次了；这一步新增了一次 `calculate`，所以把它挪到它注释一直
+            //       声称的位置上。
+            // English: **aborted must be read immediately after the evaluation** — it latches until the
+            //          next `startControl`, and every `print`/`calculate` below (including the one in
+            //          `conversionLanded`) calls `startControl` and resets that latch to *that* call's
+            //          state. This line used to sit after two prints, so what it read was no longer the
+            //          main evaluation; this step adds one more `calculate`, so it moves to the place its
+            //          own comment always claimed.
+            val aborted = engine.aborted()
+
+            // 中文：**这个结果是什么形状**——全部由引擎自己的判据回答，没有一个字是从印出来的
+            //       文本猜的（Dart 侧据此决定「能不能显示」，见 `MathResult.isDisplayable`）：
+            //
+            //       - `conversion`：引擎做了一次换算（上面那个 `to_struct`）；
+            //       - `unit_mismatch`：用户要了一次换算，而**那一次换算没有发生**（见
+            //         `conversionLanded` 的注释）；
+            //       - `unit`：结果带单位（`containsType(STRUCT_UNIT, 递归, …)`）；
+            //       - `structured`：矩阵 / 向量（解集也是向量）；
+            //       - `number`：引擎的 Number（复数走这一支——实数在 Dart 侧就已经是十进制了）；
+            //       - `arithmetic`：其余一切（乘积、幂、函数调用、符号和）。
+            //
+            //       顺序有意义：**带单位压过形状**。`ncr(5,10)` 的结果是一个向量（`isVector()` 为真）
+            //       但它每一项都带着单位——引擎把 `n`/`c`/`r` 读成了单位与常量。带单位的判据先跑，
+            //       它就落不进 `structured`。
+            // English: **what shape this result is** — answered entirely by the engine's own
+            //          predicates, not one word of it guessed from the printed text (Dart uses it to
+            //          decide "may this be displayed"; see `MathResult.isDisplayable`):
+            //
+            //          - `conversion`: the engine performed a conversion (the `to_struct` above);
+            //          - `unit_mismatch`: a conversion was asked for and **did not happen** (see
+            //            `conversionLanded`);
+            //          - `unit`: the result carries a unit (`containsType(STRUCT_UNIT, recursive, …)`);
+            //          - `structured`: a matrix or a vector (a solution set is a vector);
+            //          - `number`: the engine's Number (complex numbers land here — a real number is
+            //            already a decimal by the time Dart sees it);
+            //          - `arithmetic`: everything else (products, powers, calls, symbolic sums).
+            //
+            //          The order matters: **carrying a unit outranks the shape**. The result of
+            //          `ncr(5,10)` is a vector, yet every element of it carries a unit — the engine
+            //          read `n`, `c` and `r` as units and constants. The unit test runs first, so it
+            //          never reaches `structured`.
             val kind = when {
+                !toStruct.isUndefined() && !conversionLanded(engine, evaluated, toStruct, angleUnit) ->
+                    KIND_UNIT_MISMATCH
                 !toStruct.isUndefined() -> KIND_CONVERSION
                 evaluated.containsType(StructureType.STRUCT_UNIT, true, true, false) > 0 -> KIND_UNIT
                 evaluated.isMatrix() || evaluated.isVector() -> KIND_STRUCTURED
@@ -415,11 +462,6 @@ class QalculateEngine {
             //          that renders a radical) nor `decimal` (the one `double.tryParse` can read).
             //          What the device shows as `2√2 ≈ 2.828427` is exactly these two.
 
-            // 中文：aborted() 会一直锁存到下一次 startControl，所以必须紧跟求值就读，否则它描述的是上一次请求。
-            // English: aborted() latches until the next startControl, so it must be read immediately
-            //          after the evaluation or it describes a previous request.
-            val aborted = engine.aborted()
-
             mapOf(
                 "expression" to expression,
                 "normalized" to normalized,
@@ -500,6 +542,36 @@ class QalculateEngine {
     ): EvaluationOptions = EvaluationOptions().apply {
         setApproximation(approximation)
         setAllow_complex(true)
+        // 中文：**混合单位关掉。** 不设的话继承 C++ 默认值 `MIXED_UNITS_CONVERSION_DEFAULT`
+        //       （`Calculator.cc:72` 的构造函数），于是一次换算会被拆成好几个单位相加：
+        //       `5 km to mi` 印成 `3 mi + 188 yd + 2.393700787 in`（宿主 qalc 5.12.0 实测，
+        //       与本 AAR 同版本）。用户要的是**一个数一个单位**。关掉之后同一串是
+        //       `3.106855961186670 mi`。
+        //
+        //       **这一条对没有单位的结果可证是空操作**：`calculate()` 里三处
+        //       `if(eo.mixed_units_conversion != MIXED_UNITS_CONVERSION_NONE)` 全在单位分支内
+        //       （`Calculator-calculate.cc:3988` 的 `bool b_units = mstruct.containsType(STRUCT_UNIT, true);`
+        //       之后：`:3992` 的 `if(b_units)`、`:4030` 的 `else if(b_units)`、以及
+        //       `autoConvert` 开头 `:47` 的 `if(!morig.containsType(STRUCT_UNIT, true)) return;`），
+        //       没有一个无单位的结果进得去。宿主实测同一批无单位输入（`2+2`、`1/0`、`sqrt(2)` …）
+        //       在两种取值下逐字节相同。
+        // English: **Mixed units off.** Left unset it inherits the C++ default
+        //          `MIXED_UNITS_CONVERSION_DEFAULT` (the constructor at `Calculator.cc:72`), and one
+        //          conversion is then split into several units added together: `5 km to mi` prints as
+        //          `3 mi + 188 yd + 2.393700787 in` (host qalc 5.12.0, the same version as this AAR).
+        //          What the user asked for is **one number with one unit**; with it off the same input
+        //          prints `3.106855961186670 mi`.
+        //
+        //          **This is provably a no-op for unit-less results**: all three
+        //          `if(eo.mixed_units_conversion != MIXED_UNITS_CONVERSION_NONE)` sites in
+        //          `calculate()` sit inside unit branches (after
+        //          `bool b_units = mstruct.containsType(STRUCT_UNIT, true);` at
+        //          `Calculator-calculate.cc:3988`: the `if(b_units)` at `:3992`, the `else if(b_units)`
+        //          at `:4030`, and `autoConvert`'s `if(!morig.containsType(STRUCT_UNIT, true)) return;`
+        //          at `:47`), and no unit-less result can enter any of them. Measured on the host: the
+        //          same battery of unit-less inputs (`2+2`, `1/0`, `sqrt(2)`, …) is byte-for-byte
+        //          identical under both values.
+        setMixed_units_conversion(MixedUnitsConversion.MIXED_UNITS_CONVERSION_NONE)
         // 中文：角度单位不在 EvaluationOptions 自己身上，而是在它的 `parse_options` 成员里——角度
         //       单位本来就属于解析选项，所以 `sin` 的自变量按哪种单位解释由这里决定。
         //       `getParse_options()` 返回的是**同一个 C++ 对象**的非拥有代理（SWIG 生成的是
@@ -601,6 +673,84 @@ class QalculateEngine {
      *          answer `Unknown function i`), and it is allowed on purpose rather than by oversight —
      *          the check above accepts a name the engine has as a variable, not only as a function.
      */
+    /**
+     * 中文：**用户要了一次换算，那一次换算发生了吗。**
+     *
+     *       这个判据存在的理由是实测出来的一个**静默错值**：`5 km to kg` 在引擎里
+     *       **不报错、不警告、消息队列是空的**（宿主 5.12.0 按桥的调用序列实测），它把输入
+     *       **原样退回来**——屏幕上于是出现 `5 km`，看起来像一个答案。`Calculator::convert` 的
+     *       每一条失败路径都是 `return mstruct;`（`Calculator-convert.cc`，函数末尾那个 `return
+     *   mstruct;`），它**没有给调用方任何失败信号**：没有异常、没有消息、`to_struct` 照样是
+     *       我们要的那个目标单位。所以这一层必须自己问一句「换算到底发生了没有」。
+     *
+     *       问法就是引擎自己在 `test_convert` 附近用的那一个写法（`Calculator-convert.cc`：
+     *       `mtest.divide_nocopy(new MathStructure(to_unit, NULL)); mtest.eval(eo2);
+     *       if(!mtest.containsType(STRUCT_UNIT))`）：**把结果除以目标再求值**。
+     *       - 两个量纲相容 ⇒ 商是一个纯数，单位全部约掉；
+     *       - 量纲不相容 ⇒ 商里还剩着单位（`5 km / kg` → `5 m/g`），于是这一次换算没有发生。
+     *
+     *       求这一次商时**两个自动换算都关掉**（`mixed_units_conversion` 与 `auto_post_conversion`）：
+     *       这一问题问的是「量纲相不相容」，而那两个开关会**自己引入单位**（把商重新最优化成别的
+     *       单位），让答案取决于显示策略而不是量纲。
+     *
+     *       **只在结果带单位时才问。** 结果里没有单位，就不存在「换算没发生」这种情形能被误判的
+     *       余地（`5 to kg` 的结果是 `5 kg`，带单位，照问；`100 to hex` 的目标不是单位，商里也不会
+     *       有单位）。宿主实测的 30 个换算样本：22 个应当成功的全部判「发生了」（`5 km to mi`、
+     *       `0.1 m to cm`、`5 m/s to km/h`、`1 J to N*m`、`5 N to kg*m/s^2`、`1 m^2 to cm^2` …），
+     *       8 个量纲不相容的全部判「没发生」（`5 km to kg`、`5 km to s`、`5 s to m`、`5 m to m^2`、
+     *       `5 J to N`、`0 C to F` …）。
+     *
+     * English: **A conversion was asked for — did it happen.**
+     *
+     *          This test exists because of a measured **silent wrong value**: in the engine
+     *          `5 km to kg` **does not error, does not warn, and leaves the message queue empty**
+     *          (host 5.12.0, through the bridge's call sequence); it hands the input **back
+     *          unchanged**, so `5 km` appears on screen looking like an answer. Every failure path in
+     *          `Calculator::convert` is `return mstruct;` (`Calculator-convert.cc`, the `return mstruct;`
+     *          at the end of the function) — it gives the caller **no failure signal at all**: no
+     *          exception, no message, and `to_struct` still holds the target unit we asked for. So this
+     *          layer has to ask "did the conversion actually happen".
+     *
+     *          The question is asked exactly the way the engine asks it itself around `test_convert`
+     *          (`Calculator-convert.cc`: `mtest.divide_nocopy(new MathStructure(to_unit, NULL));
+     *          mtest.eval(eo2); if(!mtest.containsType(STRUCT_UNIT))`): **divide the result by the
+     *          target and evaluate**.
+     *          - commensurable ⇒ the quotient is a plain number, every unit cancels;
+     *          - not commensurable ⇒ units survive (`5 km / kg` → `5 m/g`), so the conversion did not
+     *            happen.
+     *
+     *          Both automatic conversions are turned **off** for that quotient
+     *          (`mixed_units_conversion` and `auto_post_conversion`): the question is about
+     *          commensurability, and those two switches **introduce units of their own** (re-optimising
+     *          the quotient into some other unit), which would make the answer depend on display policy
+     *          instead of dimensions.
+     *
+     *          **It is only asked when the result carries a unit.** With no unit in the result there is
+     *          no room for a misjudged "the conversion did not happen" (`5 to kg` yields `5 kg`, which
+     *          carries a unit, so it is asked; `100 to hex`'s target is not a unit, and no unit shows up
+     *          in the quotient either). Measured on the host over 30 conversion samples: all 22 that
+     *          ought to succeed are judged "happened" (`5 km to mi`, `0.1 m to cm`, `5 m/s to km/h`,
+     *          `1 J to N*m`, `5 N to kg*m/s^2`, `1 m^2 to cm^2`, …) and all 8 incommensurable ones are
+     *          judged "did not happen" (`5 km to kg`, `5 km to s`, `5 s to m`, `5 m to m^2`, `5 J to N`,
+     *          `0 C to F`, …).
+     */
+    private fun conversionLanded(
+        engine: Calculator,
+        result: MathStructure,
+        target: MathStructure,
+        angleUnit: AngleUnit,
+    ): Boolean {
+        if (result.containsType(StructureType.STRUCT_UNIT, true, true, false) <= 0) return true
+        val quotient = MathStructure(result)
+        quotient.divide(target)
+        val options = evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit).apply {
+            setAuto_post_conversion(AutoPostConversion.POST_CONVERSION_NONE)
+            setMixed_units_conversion(MixedUnitsConversion.MIXED_UNITS_CONVERSION_NONE)
+        }
+        val evaluatedQuotient = engine.calculate(quotient, options)
+        return evaluatedQuotient.containsType(StructureType.STRUCT_UNIT, true, true, false) <= 0
+    }
+
     private fun firstCallNameUnknownToEngine(engine: Calculator, expression: String): String? {
         for (match in CALL_NAME.findAll(expression)) {
             val name = match.groupValues[1]
@@ -658,6 +808,9 @@ class QalculateEngine {
         // 中文：结果形状的取值——Dart 侧 `EngineResultKind` 与它们逐字对应（`"conversion"` 等）。
         // English: the result-shape values — Dart's `EngineResultKind` matches them verbatim.
         const val KIND_CONVERSION = "conversion"
+
+        /** 中文：要了换算而换算没发生（见 [conversionLanded]）。Dart 侧一律不显示。 */
+        const val KIND_UNIT_MISMATCH = "unit_mismatch"
         const val KIND_UNIT = "unit"
         const val KIND_STRUCTURED = "structured"
         const val KIND_NUMBER = "number"

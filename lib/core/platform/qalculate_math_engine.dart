@@ -132,6 +132,12 @@ class QalculateMathEngine implements MathEngine {
   ///          [EngineResultKind.arithmetic] — see the call site for why.
   static EngineResultKind _resultKindFrom(String? raw) => switch (raw) {
         'conversion' => EngineResultKind.conversion,
+        // 中文：`unit_mismatch` —— 用户要了一次换算而引擎没做（原生侧 `conversionLanded` 判出来的）。
+        //       与 `unit` 一样落在「不显示」那一支，理由见 [EngineResultKind.unitMismatch]。
+        // English: `unit_mismatch` — a conversion was asked for and the engine did not perform it
+        //          (judged natively by `conversionLanded`). Like `unit` it lands in the "do not
+        //          display" branch; see [EngineResultKind.unitMismatch].
+        'unit_mismatch' => EngineResultKind.unitMismatch,
         'unit' => EngineResultKind.unit,
         'structured' => EngineResultKind.structured,
         'number' => EngineResultKind.number,

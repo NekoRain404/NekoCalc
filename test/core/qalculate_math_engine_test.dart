@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekocalc/core/math/math_result.dart';
 import 'package:nekocalc/core/platform/qalculate_math_engine.dart';
 import 'package:nekocalc/core/utils/number_formatter.dart';
 
@@ -357,5 +358,36 @@ void main() {
     final plain = await engine.evaluate('sqrt(32)', angleMode: 'RAD');
     expect(plain.result!.decimalText, '5.656854249492380');
     expect(plain.result!.displayText, '5.656854249492380');
+  });
+
+  test('maps the native kind strings onto EngineResultKind, unit_mismatch included', () async {
+    // 中文：`kind` 的取值是**原生侧写、这里读**的一份契约（`QalculateEngine.KIND_*`），所以五个
+    //       取值逐个走一遍。`unit_mismatch` 是这一步新增的那一个：原生侧判出「用户要的换算没发生」
+    //       （`conversionLanded`），Dart 侧把它归到「不显示」那一支。认不出的取值仍然落回
+    //       `arithmetic`（不显示）——版本不匹配时整个 tier 2 退回放宽之前的行为。
+    // English: the `kind` values are a contract written on the native side and read here
+    //          (`QalculateEngine.KIND_*`), so all five go through one by one. `unit_mismatch` is the one
+    //          this step adds: the native side judges "the conversion the user asked for did not
+    //          happen" (`conversionLanded`) and Dart files it under "do not display". An unrecognised
+    //          value still falls back to `arithmetic` (do not display), so a version mismatch returns
+    //          tier 2 to the behaviour from before the relaxation.
+    Future<EngineResultKind> kindOf(String nativeKind) async {
+      respondWith((_) => <String, String>{
+            'ok': 'true',
+            'decimal': '3.106855961186670 mi',
+            'latex': r'\qty{3.106855961186670}{mi}',
+            'kind': nativeKind,
+          });
+      final reply = await engine.evaluate('5 km to mi', angleMode: 'RAD');
+      return reply.result!.resultKind;
+    }
+
+    expect(await kindOf('conversion'), EngineResultKind.conversion);
+    expect(await kindOf('unit_mismatch'), EngineResultKind.unitMismatch);
+    expect(await kindOf('unit'), EngineResultKind.unit);
+    expect(await kindOf('structured'), EngineResultKind.structured);
+    expect(await kindOf('number'), EngineResultKind.number);
+    expect(await kindOf('arithmetic'), EngineResultKind.arithmetic);
+    expect(await kindOf('something_new'), EngineResultKind.arithmetic);
   });
 }

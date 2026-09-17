@@ -1221,6 +1221,33 @@ class CalculatorController extends ChangeNotifier {
     // English: The *first* thing to do with a reply is ask "is this still the current generation",
     //          before touching any state — including the `_lastFiniteResult` the fallback writes.
     if (_disposed || generation != _stateRevision) return null;
+    // 中文：**引擎说「这次换算没发生」时，那个答案不够用，回落也不够用。** 这不是引擎失败（硬性
+    //       边界 1 说的是失败/超时/不可用），而是引擎给出的一条**确定回答**：`5 km to kg` 的两个
+    //       量纲不相容，换算做不了。回落旧解析器也能得到一条错误（应用自己的语法没有单位），但那
+    //       句话说的是「存在无法识别的内容」——在用户眼里它指的是 `km` 打错了，而真正的原因是
+    //       这两个单位换不了。所以这一支在这里抛出**这一条**理由，由 `submit()` 既有的 catch 变成
+    //       屏幕上的错误（`_friendlyCalculationError`）。**判定本身没有第二份**：「配不配显示」仍旧
+    //       只由 [MathResult.isDisplayable] 回答（它把这一支判为不可显示，见
+    //       [EngineResultKind.unitMismatch]），这里读的是同一条结论，只是把它翻成一句人能读的话。
+    //       边打边算那条路不进这里：它的取舍拿到的仍然是 null，走它既有的「旧解析器作答」分支，
+    //       所以这个异常永远不会从一条没有 try 的异步路径上抛出去。
+    // English: **When the engine says "this conversion did not happen", that answer is not enough and
+    //          neither is the fallback.** This is not an engine failure (hard boundary 1 is about
+    //          failure/timeout/unavailability) but a **definite answer**: the dimensions of
+    //          `5 km to kg` do not match, so the conversion cannot be done. Falling back would also
+    //          produce an error (this app's grammar has no units), but that error says "unrecognised
+    //          content" — which reads as "you mistyped `km`", while the real reason is that these two
+    //          units do not convert. So this branch raises **that** reason here and `submit()`'s
+    //          existing catch turns it into the message on screen (`_friendlyCalculationError`). **The
+    //          judgement itself is not duplicated**: "may this be displayed" is still answered only by
+    //          [MathResult.isDisplayable] (it calls this branch undisplayable; see
+    //          [EngineResultKind.unitMismatch]) and this reads that same conclusion, only spelling it
+    //          out for a human. The as-you-type path does not enter here: its selection still gets a
+    //          null and takes its existing "the legacy parser answers" branch, so this exception can
+    //          never be thrown from an async path with no try.
+    if (reply.result?.resultKind == EngineResultKind.unitMismatch) {
+      throw const FormatException('Unit mismatch: the conversion did not happen');
+    }
     final selected = _selectEngineResult(reply, source);
     if (selected != null) {
       final accepted = selected.result;
@@ -1561,6 +1588,14 @@ class CalculatorController extends ChangeNotifier {
     if (message.contains('Root degree cannot be 0')) return '根指数不能为 0';
     if (message.contains('Even root of negative')) return '负数不能开偶次根';
     if (message.contains('Result is not finite')) return '结果不是有限数值';
+    // 中文：引擎明确回答「这次换算没发生」（见 [_submittedResult] 里那一支的注释）。文案说的是
+    //       真正的原因——两个单位量纲不相容——而不是「存在无法识别的内容」那句会让人以为
+    //       `km` 打错了的话。
+    // English: the engine's definite answer that the conversion did not happen (see the note on that
+    //          branch in [_submittedResult]). The wording names the real cause — the two units are
+    //          not commensurable — instead of "unrecognised content", which reads as "you mistyped
+    //          `km`".
+    if (message.contains('Unit mismatch')) return '单位不匹配：这两个单位不能互相换算';
     return '表达式错误';
   }
 
