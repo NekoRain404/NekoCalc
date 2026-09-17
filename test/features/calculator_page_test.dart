@@ -843,6 +843,137 @@ void main() {
       }
     });
 
+    // 中文：**`CPLX` / `STAT`（本轮点亮的两颗键）的证据，比上一条多一层：面板。**
+    //       这两颗键的动作是「打开一个面板，从面板里取一个记号」，所以只有三层是不够的——
+    //       「按了面板里那一格之后表达式是什么」必须真的走一遍组件树，而不是靠读代码推断。
+    //       四层：**开面板**（面板真的出现在树里）→ **派发**（按完之后表达式是那个形状）→
+    //       **排版**（没有降级成 `\text{…}`，且渲染器的解析器认它）→ **渲染**（屏幕上画的是公式
+    //       而不是字母）。
+    //
+    //       预期值里的 `()` 与 `(1,2,3,4)` 都是**实测**的：复数那四颗是**一元函数**，走
+    //       `applyUnaryFunction`，表达式为空时它给出的是 `name()`（空槽留给用户填，与 `sin`/`abs`
+    //       逐字同一条路）；统计那四颗插的是**完整**调用，理由写在主屏那份派发注释里。
+    // English: **the evidence for `CPLX` / `STAT` (the two keys lit this round) has one layer more than
+    //          the test above: the sheet.** These two keys act by "open a sheet, take a token from
+    //          it", so three layers are not enough — "what the expression is after the press" has to
+    //          really travel the widget tree rather than be inferred from reading the code. Four
+    //          layers: **open the sheet** (it really appears in the tree) → **dispatch** (the
+    //          expression afterwards is that shape) → **typesetting** (not degraded to `\text{…}`, and
+    //          the renderer's own parser accepts it) → **rendering** (what is drawn is a formula, not
+    //          letters).
+    //
+    //          The `()` and `(1,2,3,4)` in the expectations are **measured**: the four complex ones are
+    //          **unary functions** going through `applyUnaryFunction`, which yields `name()` on an empty
+    //          expression (the empty slot is left for the user, byte for byte the path `sin`/`abs`
+    //          take), while the four statistics ones insert a **complete** call, for the reason written
+    //          in the screen's dispatch note.
+    testWidgets('CPLX / STAT：面板、派发、排版、渲染四层证据', (tester) async {
+      // 中文：**键面文字在这里，不是 id。** id 从**键位表里查**（`_cellByFace`），所以这一条钉住的
+      //       是「面板上那颗键**此刻**是点亮的，它当下那个 id 打开的是那个面板」——把 `STAT` 改回
+      //       `dis:stat` 或把启用态翻成 false，这一条就红，而不是「测试里写死的那个 id 仍然好用」。
+      //       （先写死 id 的版本确实漏掉过这一点：那颗键退回禁用态时它照样绿。）
+      // English: **the key faces are here, not the ids.** The id is looked up **in the key table**
+      //          (`_cellByFace`), so what this pins is "that key on the keypad is lit *right now*, and
+      //          the id it currently carries opens that sheet" — setting `STAT` back to `dis:stat` or
+      //          flipping its enabled flag turns this red, rather than "the id hardcoded in the test
+      //          still works". (The version with hardcoded ids did miss exactly that: it stayed green
+      //          when the key went back to disabled.)
+      const cases = <(String, String, String)>[
+        ('CPLX', 'i', 'i'),
+        ('CPLX', 'abs', 'abs()'),
+        ('CPLX', 'conj', 'conj()'),
+        ('CPLX', 'arg', 'arg()'),
+        ('CPLX', 're', 're()'),
+        ('CPLX', 'im', 'im()'),
+        ('STAT', 'mean', 'mean(1,2,3,4)'),
+        ('STAT', 'median', 'median(1,2,3,4)'),
+        ('STAT', 'stdev', 'stdev(1,2,3,4)'),
+        ('STAT', 'var', 'var(1,2,3,4)'),
+      ];
+
+      for (final (face, cell, expected) in cases) {
+        final target = _cellByFace(face);
+        expect(target.enabled, isTrue, reason: '「$face」这一刻还是禁用态');
+        expect(target.category, isNot(KeyCategory.disabled),
+            reason: '「$face」这一刻还在 disabled 分类里');
+
+        await tester.pumpWidget(_testApp(key: ValueKey<String>('$face-$cell')));
+        await tester.pump();
+
+        // 第一层：面板真的打开，且里面有那一格。
+        tester
+            .widget<CalculatorKeypad>(find.byType(CalculatorKeypad))
+            .onKey(target.id);
+        await tester.pumpAndSettle();
+        final cellFinder = find.widgetWithText(TextButton, cell);
+        expect(cellFinder, findsOneWidget,
+            reason: '「$face」的面板里找不到「$cell」那一格');
+
+        // 第二层：按下去，表达式是那个形状。
+        await tester.tap(cellFinder);
+        await tester.pumpAndSettle();
+        final expression = _displayedExpression(tester);
+        expect(expression, expected,
+            reason: '面板「$face」里的「$cell」插进去的文本不是预期的形状');
+
+        // 第三层：没有降级成字面文本，而且渲染器的解析器认它。
+        expect(_literalTextFragment(expression), isFalse,
+            reason: '`$expression` 降级成了字面文本：'
+                '${const TexEmitter().emit(const ExpressionAstParser().parse(expression))}');
+        final tex =
+            const TexEmitter().emit(const ExpressionAstParser().parse(expression));
+        expect(MathExpressionView.typesetsTex(tex), isTrue,
+            reason: '`$expression` 排不出来：$tex');
+
+        // 第四层：屏幕上画的是公式，不是承载降级文本的那个 `Text`。
+        expect(
+          find.descendant(
+            of: find.byType(MathExpressionView),
+            matching: find.text(expression),
+          ),
+          findsNothing,
+          reason: '`$expression` 画成了字面文本而不是公式',
+        );
+      }
+    });
+
+    // 中文：**填满实参之后的形状**——上面那条钉的是「按下去得到一个空槽」，这一条钉的是那几颗键
+    //       各自的典型用法，也就是面板那句「实参是一份起手数据，改成你自己的」所指向的东西。
+    //       期望的 TeX 是**实测**的（`TexEmitter` 对未知函数名一律回退到 `\operatorname`，
+    //       名字保持正体、绝不与实参粘连，见 `tex_emitter.dart` 的 `_call`），在这里写死是为了
+    //       让「形状变了」这件事有人接着——只断言 `typesetsTex` 的话，`\operatorname{mean}` 换成
+    //       别的写法也照样绿。
+    // English: **the shape once the arguments are filled in** — the test above pins "a press yields an
+    //          empty slot", this one pins each key's typical use, which is what the sheet's "the
+    //          arguments are a starting sample, edit them" sentence points at. The expected TeX is
+    //          **measured** (`TexEmitter` falls back to `\operatorname` for every unknown function
+    //          name, upright and never glued to the arguments — see `_call` in `tex_emitter.dart`);
+    //          spelling it out here means somebody is told when the shape changes — asserting
+    //          `typesetsTex` alone would stay green if `\operatorname{mean}` became something else.
+    testWidgets('复数与统计的典型调用排成 \\operatorname 形状', (tester) async {
+      const calls = <String, String>{
+        'conj(3+4i)': r'\operatorname{conj}{\left(3+4i\right)}',
+        'arg(3+4i)': r'\operatorname{arg}{\left(3+4i\right)}',
+        're(3+4i)': r'\operatorname{re}{\left(3+4i\right)}',
+        'im(3+4i)': r'\operatorname{im}{\left(3+4i\right)}',
+        'mean(1,2,3,4)': r'\operatorname{mean}{\left(1, 2, 3, 4\right)}',
+        'median(1,2,3,4)': r'\operatorname{median}{\left(1, 2, 3, 4\right)}',
+        'stdev(1,2,3,4)': r'\operatorname{stdev}{\left(1, 2, 3, 4\right)}',
+        'var(1,2,3,4)': r'\operatorname{var}{\left(1, 2, 3, 4\right)}',
+      };
+
+      for (final call in calls.entries) {
+        expect(
+          const TexEmitter().emit(const ExpressionAstParser().parse(call.key)),
+          call.value,
+          reason: '${call.key} 的排版形状不对',
+        );
+        expect(_literalTextFragment(call.key), isFalse);
+        expect(MathExpressionView.typesetsTex(call.value), isTrue,
+            reason: '${call.key} 的排版渲染器不认：${call.value}');
+      }
+    });
+
     // 中文：上面那条证明的是"按下去之后的东西排得出来"，这一条证明**填满实参之后**同样排得出来，
     //       而且形状是那个符号专属的形状（积分号、求和号、上下限）而不是前置函数名。这些表达式
     //       正是五个键各自的典型用法，`qalc` 5.12.0 上逐条实测过求值结果（见步骤 5 报告）。
@@ -913,6 +1044,35 @@ Future<void> _startEditing(WidgetTester tester) async {
   await _openMore(tester);
   await tester.tap(find.text('编辑表达式'));
   await tester.pumpAndSettle();
+}
+
+/// 中文：在**键位表**里按键面文字查那一格这一刻的 id、启用态与分类。主键条与标签横带都走。
+///       查询失败直接抛错——「表里没有这个键面」本身就是要被听见的事。
+/// English: Look a cell up **in the key table** by its face text and return the id, enabled state and
+///          category it carries right now. Both the main strips and the label bands are walked. A
+///          failed lookup throws — "the table has no such face" is itself something to hear about.
+({String id, bool enabled, KeyCategory category}) _cellByFace(String face) {
+  for (final row in hiperKeypad.rows) {
+    for (final key in row.keys) {
+      if (key.base.label == face) {
+        return (
+          id: key.base.id,
+          enabled: key.base.enabled,
+          category: key.category,
+        );
+      }
+    }
+    for (final label in row.labels) {
+      if (label is InlineKey && label.key.base.label == face) {
+        return (
+          id: label.key.base.id,
+          enabled: label.key.base.enabled,
+          category: label.key.category,
+        );
+      }
+    }
+  }
+  throw StateError('键位表里没有「$face」这一格');
 }
 
 String _displayedExpression(WidgetTester tester) =>
