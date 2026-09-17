@@ -260,6 +260,63 @@ void main() {
       );
     });
 
+    test('求值器不绑定的那些名字，逐个当场调用：`Unknown function …`', () {
+      // 中文：**这一条钉的是判据「函数名」那一半不做梦。** `canExpress` 现在把「应用自己的求值器
+      //       没有绑定的调用名」与 `VariableNode` 同判（判据那一轮，见
+      //       `namesSomethingOutsideTheAppLanguage`），而它读的是 `ExpressionParser.functionNames`
+      //       那份**数据**——求值那个 `switch` 是另一处手写的清单，那份数据的 doc 自己就写着这一点。
+      //       两个方向里**危险的那一个是「名字在 `switch` 里、却不在 `functionNames` 里」**：那样
+      //       一个名字会被判成「没绑定」，于是应用明明答得出的输入被让给引擎的符号答复——错值方向。
+      //
+      //       所以这条不引注释、不引记忆：对词表里每一个不在 `functionNames` 里的名字，**当场调用
+      //       应用自己的求值器**，要求它抛 `Unknown function <名字>`。词表是闭集（上面那条集合相等
+      //       钉着），所以这个循环是穷尽的——加一个新名字进词表而求值器其实实现得了它，这里会红。
+      // English: **this pins that the judgement's function-name half is not wishful.** `canExpress`
+      //          now judges "a call name this app's own evaluator does not bind" the same as a
+      //          `VariableNode` (the judgement round; see `namesSomethingOutsideTheAppLanguage`), and
+      //          it reads the **data** list `ExpressionParser.functionNames` — the evaluation `switch`
+      //          is a second hand-written list, and that data's own doc says so. Of the two
+      //          directions, **the dangerous one is "a name in the `switch` but not in
+      //          `functionNames`"**: such a name would be judged unbound, and an input this app can
+      //          answer would be handed to the engine's symbolic reply — the wrong-value direction.
+      //
+      //          So this cites no comment and no memory: for every name in the vocabulary that is not
+      //          in `functionNames`, this app's own evaluator is **called right here** and must throw
+      //          `Unknown function <name>`. The vocabulary is a closed set (the set equality above
+      //          pins that), so the loop is exhaustive — adding a name to the vocabulary that the
+      //          evaluator does implement turns this red.
+      final parserAccepted = <String>{
+        ...ExpressionParser.functionNames,
+        'pi',
+        'e',
+        'tau',
+        'phi',
+        'inf',
+        'infinity',
+      };
+      final unbound = AppEngineVocabulary.identifiers.keys
+          .where((name) => !parserAccepted.contains(name))
+          .toList();
+      expect(unbound, isNotEmpty, reason: '这一条不许空转——空转就什么也没钉');
+      // 中文：词表之外的两类也在这一条里量过，因为判据同样把它们判成「没绑定」：
+      //       **词表里没有的名字**（`linearfit`——回归拟合那三个的名字，翻译层会拒绝它；
+      //       `zorkmid`——随手一个不存在的名字）与**被当成调用名的变量**（`x(2)` 在应用自己的
+      //       语法树里是一个名为 `x` 的调用，而应用自己的求值器不认这个名字）。
+      // English: the two classes outside the vocabulary are measured here as well, because the
+      //          judgement calls them unbound too: **names the vocabulary lacks** (`linearfit` — the
+      //          regression fits' real name, which the translation layer refuses; `zorkmid` — any
+      //          nonexistent name) and **a variable used as a call name** (`x(2)` is a call named `x`
+      //          in this app's tree, and this app's own evaluator does not know that name).
+      for (final name in <String>[...unbound, 'linearfit', 'zorkmid', 'x']) {
+        expect(
+          () => ExpressionParser('$name(1)', degreeMode: false).parse(),
+          throwsA(isA<FormatException>().having(
+              (error) => error.message, 'message', 'Unknown function $name')),
+          reason: '`canExpress` 把 `$name` 判成「应用自己没有绑定」，那它就必须真的没有绑定',
+        );
+      }
+    });
+
     test('引擎认识的名字都写了引擎写法（engineNameFor 不会拒绝它们）', () {
       // 中文：`engineNameFor` 判的是 `engineFunction` 那一列，所以「引擎认识这个名字」的行
       //       **必须**都填了它——漏一个就等于让一个本来能由引擎作答的名字静默回落。
