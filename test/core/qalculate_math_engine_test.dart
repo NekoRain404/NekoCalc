@@ -361,16 +361,21 @@ void main() {
   });
 
   test('maps the native kind strings onto EngineResultKind, unit_mismatch included', () async {
-    // 中文：`kind` 的取值是**原生侧写、这里读**的一份契约（`QalculateEngine.KIND_*`），所以五个
-    //       取值逐个走一遍。`unit_mismatch` 是这一步新增的那一个：原生侧判出「用户要的换算没发生」
-    //       （`conversionLanded`），Dart 侧把它归到「不显示」那一支。认不出的取值仍然落回
-    //       `arithmetic`（不显示）——版本不匹配时整个 tier 2 退回放宽之前的行为。
+    // 中文：`kind` 的取值是**原生侧写、这里读**的一份契约（`QalculateEngine.KIND_*`），所以每一个
+    //       取值都走一遍。`unit_mismatch` 是「用户要的换算没发生」（`conversionLanded`），Dart 侧
+    //       把它归到「不显示」那一支；`symbolic` 是符号结果那一支（结果里有变量且引擎没话要说），
+    //       归到「可显示」，而它的**两道应用侧判据**在 `_selectEngineResult` 里，不在这里。
+    //       认不出的取值仍然落回 `arithmetic`（不显示）——版本不匹配时整个 tier 2 退回放宽之前的
+    //       行为，而不是默默什么都放行。
     // English: the `kind` values are a contract written on the native side and read here
-    //          (`QalculateEngine.KIND_*`), so all five go through one by one. `unit_mismatch` is the one
-    //          this step adds: the native side judges "the conversion the user asked for did not
-    //          happen" (`conversionLanded`) and Dart files it under "do not display". An unrecognised
+    //          (`QalculateEngine.KIND_*`), so every one of them goes through. `unit_mismatch` is "the
+    //          conversion the user asked for did not happen" (`conversionLanded`) and Dart files it
+    //          under "do not display"; `symbolic` is the symbolic-results branch (the result holds a
+    //          variable and the engine had nothing to say) and is filed under "displayable", while its
+    //          **two app-side judgements** live in `_selectEngineResult`, not here. An unrecognised
     //          value still falls back to `arithmetic` (do not display), so a version mismatch returns
-    //          tier 2 to the behaviour from before the relaxation.
+    //          tier 2 to the behaviour from before the relaxation instead of silently letting
+    //          everything through.
     Future<EngineResultKind> kindOf(String nativeKind) async {
       respondWith((_) => <String, String>{
             'ok': 'true',
@@ -388,6 +393,7 @@ void main() {
     expect(await kindOf('unit'), EngineResultKind.unit);
     expect(await kindOf('structured'), EngineResultKind.structured);
     expect(await kindOf('number'), EngineResultKind.number);
+    expect(await kindOf('symbolic'), EngineResultKind.symbolic);
     expect(await kindOf('arithmetic'), EngineResultKind.arithmetic);
     expect(await kindOf('something_new'), EngineResultKind.arithmetic);
   });
