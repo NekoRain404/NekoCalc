@@ -13,33 +13,38 @@
 ///       所以规则要问的是**输入**：表达式里只要有一个「属于应用词汇、引擎不认识这个拼法」的名字，
 ///       引擎这一次的答案就**不权威**，不论它返回什么种类。
 ///
-///       **修复轮 7 之后：这张表是翻译表，[canRead] 那一层是防御性的第二道判断。**
+///       **修复轮 7 之后：这张表是翻译表，[canRead] 那一层是第二道判断。**
 ///
 ///       - **真正消歧义的是翻译**（`engine_expression.dart`）：问引擎之前先把表达式写成引擎的
 ///         写法，于是 `log` 写成 `log10`、`phi` 写成它的数值、`ncr`/`fact` 写成
 ///         `binomial`/`factorial`，`mod`/`npr`/`deg`/`rad` **根本不问**。上面那张表就是那份映射
 ///         （`engineNameFor`）：从「防御性的枚举」变成**正向的翻译表**，`engineFunction` 那一列
-///         因此有了消费者。
-///       - [canRead] 这一层的拒绝（本列里 engineKnowsThisName 为假的每一行）**在修复轮 7 之后不再
-///         改变屏幕上任何一个值**：它挡下的每一个名字，翻译那一层都已经处理过了。修复轮 6 用来
-///         证明它「不是冗余副本」的那条证据是 `log(1.0000000001)`：当时值判据的绝对下限让引擎的
-///         `1e-10` 上屏，而那个 `1e-10` 是**原串**的读法（引擎的 `log` 是自然对数，
-///         `ln(1.0000000001)` = `1e-10`）。翻译之后引擎被问的是 `log10(1.0000000001)`，
-///         它的答案是 `4.342944818815371e-11`，应用自己给 `4.342945178152236e-11`，
-///         两者**显示成同一个数**
-///         （`formatNumber(…, precision: 6)` → `4.342945e-11`）——那条证据已经不成立。
-///         两串值都按**桥的调用序列**在宿主上对 libqalculate 5.12.0 量得
-///         （`unlocalizeExpression` → `calculate(EXACT)` → `calculate(APPROXIMATE)` →
-///         `print(TERMINAL)`，精度 16、`INTERVAL_DISPLAY_MIDPOINT`，见
-///         `tool/qalculate_semantics_probe/probe.cc` 的同一条序列；原串 `log(1.0000000001)`
-///         量出来正是 `9.9999999995e-11`，也就是那个 `1e-10` 的来源）。
-///         把它架空之后整套测试里变红的只有两类：断言这张表**自身返回值**的那一条，以及
-///         **替身仍按未翻译的表达式回话**的那几条（`log(100)` 的替身回 `ln` 的
-///         `4.605170185988091`、`phi(2)` 的替身回欧拉函数的 `1`；真引擎被问的是 `log10(100)`
-///         与 `(1.618033988749895)*(2)`，它的答案就是应用的意思）。
-///       - **它因此不是必需品**，留下的理由只有一条：**两道独立的判断**，谁也不放宽对方的拒绝，
-///         而第二道很便宜。注意它并**不省一次往返**——两条路径都是先问引擎、拿到回包之后才做
-///         这次判断，所以删掉它只是少一次丢弃。
+///         因此有了消费者。修复轮 8 把它收严了两处：**表外的标识符一律拒绝**（不再原样透传），
+///         **别名先折到规范名再查表**（`lg`/`c`/`p`/`arcsin` 那一批）。
+///       - [canRead] 这一层的拒绝**改变屏幕上的值——这是量出来的，不是论出来的**。
+///         把 [canRead] 变异成恒为 `true`（只改这一个文件），两个输入上的屏幕值就变了：
+///         `log(8,2)`（`logₓy` 键插进去的正是这个式子，`hiper_keypad.dart`）从应用的 `3`
+///         变成引擎对 `log10(8,2)` 的答复 `[0.9030899869919436  0.3010299956639812]`；
+///         `fact(171)` 从应用自己的「阶乘只支持 0 到 170 的整数」变成引擎对 `factorial(171)` 的
+///         `1.241018070217668E309`。两串引擎值都是**量出来的**（宿主上 libqalculate 5.12.0，
+///         按桥的调用序列：`unlocalizeExpression` → `calculate` → `print`，精度 16、
+///         `INTERVAL_DISPLAY_MIDPOINT`、`comma_as_separator=false`，同
+///         `tool/qalculate_semantics_probe/probe.cc`），两条屏幕值有测试钉住
+///         （`test/domain/calculator_engine_translation_test.dart`）。
+///         **修复轮 7 在这里写过「这一层不再改变屏幕上任何一个值」——那句话是假的**，上面两条就是
+///         反例；本节只写这两条实测，不再写任何「它一定如何」的全称句。
+///       - 修复轮 6 用来证明它「不是冗余副本」的那条证据确实已经不成立：`log(1.0000000001)`。
+///         当时值判据的绝对下限让引擎的 `1e-10` 上屏，而那个 `1e-10` 是**原串**的读法（引擎的
+///         `log` 是自然对数，`ln(1.0000000001)` = `1e-10`）。翻译之后引擎被问的是
+///         `log10(1.0000000001)`，它的答案是 `4.342944818815371e-11`，应用自己给
+///         `4.342945178152236e-11`，两者**显示成同一个数**
+///         （`formatNumber(…, precision: 6)` → `4.342945e-11`）。两串值同样按桥的调用序列量得；
+///         原串 `log(1.0000000001)` 量出来正是 `9.9999999995e-11`，也就是那个 `1e-10` 的来源。
+///         （上面那两条**不是**这条证据的替代品：`log(8,2)` 与 `fact(171)` 之所以漏过去，
+///         是因为翻译写出的 `log10(8,2)` 引擎读成向量、`factorial(171)` 引擎的定义域比应用宽
+///         ——两边的**含义/定义域**不同，翻译把它们写成了引擎的写法也改不掉这一点。）
+///       - 它并**不省一次往返**：两条路径都是先问引擎、拿到回包之后才做这次判断，所以它拦下的
+///         是**已经到手的答案**。
 ///
 ///       两列事实分开记，因为它们回答两个不同的问题：
 ///
@@ -82,29 +87,34 @@
 ///            `mod`/`npr`/`deg`/`rad` are **not asked at all**. The table above is that mapping
 ///            (`engineNameFor`): a defensive enumeration turned into a **positive translation table**,
 ///            which is what gives `engineFunction` a consumer.
-///          - The refusal at [canRead]'s layer (every row whose `engineKnowsThisName` is false) **no
-///            longer changes any value on screen after fix round 7**: the translation layer already
-///            handles every name it stops. The evidence fix round 6 used to show it was "not a
-///            redundant copy" was `log(1.0000000001)`: the value comparison's absolute floor let the
-///            engine's `1e-10` onto the screen, and that `1e-10` was the **raw string's** reading (the
-///            engine's `log` is the natural logarithm, `ln(1.0000000001)` = `1e-10`). After the
-///            translation the engine is asked `log10(1.0000000001)` and answers
-///            `4.342944818815371e-11` while this app gives `4.342945178152236e-11` — and the two
-///            **display as the same number** (`formatNumber(…, precision: 6)` → `4.342945e-11`). That
-///            evidence no longer holds. Both strings were measured on the host against libqalculate
-///            5.12.0 **through the bridge's own call sequence** (`unlocalizeExpression` →
-///            `calculate(EXACT)` → `calculate(APPROXIMATE)` → `print(TERMINAL)`, precision 16,
-///            `INTERVAL_DISPLAY_MIDPOINT`, the sequence in `tool/qalculate_semantics_probe/probe.cc`);
-///            the raw `log(1.0000000001)` measures `9.9999999995e-11`, which is where that `1e-10`
-///            came from. Forcing it open turns exactly two kinds of test red: the one asserting this
-///            table's **own return values**, and the ones whose **double still answers for the
-///            untranslated expression** (`log(100)`'s double returns `ln`'s `4.605170185988091`,
-///            `phi(2)`'s returns the totient's `1`; the real engine is asked `log10(100)` and
-///            `(1.618033988749895)*(2)`, whose answers mean what this app means).
-///          - **It is therefore not a necessity**, and what keeps it is one thing: **two independent
-///            judgements**, neither relaxing the other's refusal, the second of them cheap. Note it
-///            does **not** save a round trip — both paths ask the engine first and run this judgement
-///            on the reply, so deleting it only removes a discard.
+///          - The refusal at [canRead]'s layer **changes values on screen — that is measured, not
+///            argued.** Mutate [canRead] to a constant `true` (one file) and two inputs change what is
+///            displayed: `log(8,2)` (the `logₓy` key inserts exactly that, `hiper_keypad.dart`) goes
+///            from this app's `3` to the engine's answer for `log10(8,2)`,
+///            `[0.9030899869919436  0.3010299956639812]`; `fact(171)` goes from this app's own
+///            "阶乘只支持 0 到 170 的整数" to the engine's `1.241018070217668E309` for
+///            `factorial(171)`. Both engine strings are **measured** (host, libqalculate 5.12.0, through
+///            the bridge's call sequence: `unlocalizeExpression` → `calculate` → `print`, precision 16,
+///            `INTERVAL_DISPLAY_MIDPOINT`, `comma_as_separator=false`, the sequence in
+///            `tool/qalculate_semantics_probe/probe.cc`), and both screen values are pinned by tests
+///            (`test/domain/calculator_engine_translation_test.dart`).
+///            **Fix round 7 wrote "no longer changes any value on screen" here — that sentence is
+///            false**, and the two inputs above are the counterexamples; this section now states only
+///            those measurements and makes no "it always does X" claim.
+///          - The evidence fix round 6 used to show it was "not a redundant copy" really is superseded:
+///            `log(1.0000000001)`. The value comparison's absolute floor let the engine's `1e-10` onto
+///            the screen, and that `1e-10` was the **raw string's** reading (the engine's `log` is the
+///            natural logarithm, `ln(1.0000000001)` = `1e-10`). After the translation the engine is
+///            asked `log10(1.0000000001)` and answers `4.342944818815371e-11` while this app gives
+///            `4.342945178152236e-11` — and the two **display as the same number**
+///            (`formatNumber(…, precision: 6)` → `4.342945e-11`). Both strings were measured the same
+///            way; the raw `log(1.0000000001)` measures `9.9999999995e-11`, which is where that
+///            `1e-10` came from. (The two inputs above are **not** a replacement for that evidence:
+///            `log(8,2)` and `fact(171)` slip past the translation because the engine reads
+///            `log10(8,2)` as a vector and its factorial is defined beyond this app's 0..170 — the two
+///            sides' **meanings/domains** differ, and writing them the engine's way cannot change that.)
+///          - It does **not** save a round trip: both paths ask the engine first and run this judgement
+///            on the reply, so what it stops is an answer that has already arrived.
 ///
 ///          The two facts are recorded separately because they answer two different questions:
 ///
@@ -129,6 +139,7 @@
 library;
 
 import 'engine_expression.dart';
+import 'expression_parser.dart';
 
 /// 中文：一个应用函数在引擎那边的两件事实。
 /// English: the two facts about one app function on the engine's side.
@@ -164,9 +175,18 @@ class AppEngineVocabulary {
 
   /// 中文：应用自己的**标识符**词汇：函数名**与常量名**。两者都能被写成调用
   ///       （`sin(1)`、`phi(2)`），所以判据必须覆盖两者——这就是「定义域」这一层。
-  /// English: this app's own **identifier** vocabulary: function names **and** constant names. Both
-  ///          can be written as calls (`sin(1)`, `phi(2)`), so the judgement has to cover both — that
-  ///          is what this domain is.
+  ///
+  ///       键是**规范名**，不是拼法：`lg`/`log10` 是 `log` 的别名、`c`/`p` 是 `ncr`/`npr` 的、
+  ///       `arcsin`/`arccos`/`arctan` 是 `asin`/`acos`/`atan` 的，它们的折叠在
+  ///       [ExpressionParser.functionAliases] 那一张表里（**只有那一处**），本表用
+  ///       [canonicalIdentifier] 折。所以这张表 + 那张别名表覆盖的是 `ExpressionParser` 接受的
+  ///       **全部拼法**；覆盖测试在 `test/domain/app_engine_vocabulary_semantics_test.dart`。
+  /// English: the keys are **canonical names** rather than spellings: `lg`/`log10` are `log`'s
+  ///          aliases, `c`/`p` are `ncr`/`npr`'s and `arcsin`/`arccos`/`arctan` are
+  ///          `asin`/`acos`/`atan`'s; the fold lives in [ExpressionParser.functionAliases]
+  ///          (**only there**) and this table applies it through [canonicalIdentifier]. So this table
+  ///          plus that alias table covers **every spelling** `ExpressionParser` accepts; the coverage
+  ///          test is in `test/domain/app_engine_vocabulary_semantics_test.dart`.
   static const Map<String, AppFunction> identifiers = <String, AppFunction>{
     // 两边同名，引擎认得这个拼法，语义相同。
     'sin': AppFunction(engineKnowsThisName: true, engineFunction: 'sin'),
@@ -194,7 +214,19 @@ class AppEngineVocabulary {
     //          `2`. So the engine knows the name but not the meaning — its answer is not
     //          authoritative. (This is the **semantic** case of the column below: the column asks "may
     //          the engine's answer for this spelling be used", not "does the engine have this name".)
-    'log': AppFunction(engineKnowsThisName: false),
+    // 中文：`engineFunction` 与 `engineKnowsThisName` 这两列在这里**分开**，而且必须分开：
+    //       翻译要写的是 `log10`（常用对数在引擎里的名字，量过），而 `canRead` 判的是**应用这个拼法**
+    //       送到引擎去会不会被读成别的意思——会（自然对数），所以那一列是假。给它补上 `log10`
+    //       是修复轮 8 的事：翻译表不再为这几个名字留特例分支，走的是**每一行同一套**
+    //       「看 engineFunction」。
+    // English: the `engineFunction` and `engineKnowsThisName` columns are **separate** here and have to
+    //          be: the translation must write `log10` (the engine's name for the common logarithm,
+    //          measured), while `canRead` judges whether **this app's spelling** reaches the engine as
+    //          something else — it does (the natural logarithm), so that column is false. Filling in
+    //          `log10` is fix round 8's change: the translation table no longer keeps a special-case
+    //          branch for these names; every row answers through the **same** rule, "read
+    //          `engineFunction`".
+    'log': AppFunction(engineKnowsThisName: false, engineFunction: 'log10'),
     'log2': AppFunction(engineKnowsThisName: true, engineFunction: 'log2'),
     'ln': AppFunction(engineKnowsThisName: true, engineFunction: 'ln'),
     'exp': AppFunction(engineKnowsThisName: true, engineFunction: 'exp'),
@@ -285,35 +317,108 @@ class AppEngineVocabulary {
   ///          syntax a call is exactly that.
   static final RegExp _callName = RegExp(r'([A-Za-z][A-Za-z0-9]*)\s*\(');
 
-  /// 中文：这个表达式里的全部函数调用名。
-  /// English: every function-call name in this expression.
+  /// 中文：这个表达式里的全部函数调用名，**折成表里的规范名**（别名与大小写都折，用的是
+  ///       `ExpressionParser` 那一张 [ExpressionParser.functionAliases]，没有第二份）。
+  ///       折这一下是必须的：词表的键是规范名，而 `lg`/`log10` 与 `lg`/`LG` 指的是同一行——
+  ///       不折它们会**穿过**这张表。实测：不折时 `canRead('lg(8,2)')` 是真，引擎对 `log10(8,2)`
+  ///       的二元素向量因此上屏，而 `log(8,2)`（同一个式子）被拦下。
+  ///
+  ///       **这条判据读的是 ASCII 拼法**（正则就是 `[A-Za-z][A-Za-z0-9]*`）。非 ASCII 的拼法它看不见，
+  ///       今天只有 `φ`/`ϕ`（归一化之后是 `phi`，而 `phi` 在「不可用」那一列）——**它不是错值**：
+  ///       翻译把 `phi` 写成它的数值，引擎对 `(1.618033988749895)*(2)` 的答复是 `3.23606797749979`，
+  ///       与应用自己的 `phi(2)` 相同（两侧都量过）。这是**今天的**边界，不是一条保证。
+  /// English: every function-call name in this expression, **folded to the table's canonical spelling**
+  ///          (aliases and case, through `ExpressionParser`'s own [ExpressionParser.functionAliases] —
+  ///          there is no second copy). The fold is required: the table's keys are canonical names, and
+  ///          `lg`/`log10`, or `lg`/`LG`, name the same row — unfolded they **pass through** this table.
+  ///          Measured: unfolded, `canRead('lg(8,2)')` is true and the engine's two-element vector for
+  ///          `log10(8,2)` goes on screen, while `log(8,2)` (the same expression) is stopped.
+  ///
+  ///          **This judgement reads ASCII spellings** (the regex is `[A-Za-z][A-Za-z0-9]*`). A non-ASCII
+  ///          spelling is invisible to it — today only `φ`/`ϕ` (which normalise to `phi`, a name in the
+  ///          unusable column) — and **it is not a wrong value**: the translation writes `phi` as its
+  ///          value, and the engine's answer for `(1.618033988749895)*(2)` is `3.23606797749979`, the same
+  ///          as this app's own `phi(2)` (both measured). That is **today's** boundary, not a guarantee.
   static Set<String> callNamesIn(String expression) => <String>{
-        for (final match in _callName.allMatches(expression)) match.group(1)!,
+        for (final match in _callName.allMatches(expression))
+          ExpressionParser.canonicalFunctionName(match.group(1)!),
       };
 
-  /// 中文：函数名 → 引擎里该写什么。表里没有的名字按同名写出去；**表里说「引擎读不了这个名字」的
-  ///       那几行给出一条理由**（调用方据此回落旧解析器）。这张表在修复轮 7 之后是**翻译表**——
-  ///       从「防御性的枚举」变成「正向的映射」。
-  /// English: a function name → what to write for the engine. A name absent from the table is written
-  ///          as itself; **the rows saying "the engine cannot be trusted with this name" return a
-  ///          reason** (the caller falls back to the legacy parser). After fix round 7 this table is the
-  ///          **translation table** — turned from a defensive enumeration into a positive mapping.
+  /// 中文：**一个标识符（可以是别名拼法）→ 引擎里该写什么；表里没有的一律拒绝。**
+  ///
+  ///       三步，每一步都是修复轮 8 明确下来的：
+  ///
+  ///       1. **先折别名**（[ExpressionParser.canonicalFunctionName]，与 `ExpressionParser` 归一化用的是
+  ///          同一张 [ExpressionParser.functionAliases] 表）：`lg`/`log10` → `log`、`c` → `ncr`、
+  ///          `p` → `npr`、`arcsin`/`arccos`/`arctan` → `asin`/`acos`/`atan`。表里写的是**规范名**，
+  ///          别名拼法是同一个标识符的另一种写法，必须落到同一行上。
+  ///       2. **表里没有 ⇒ 拒绝**，不再原样透传（修复轮 7 的 low）：未知标识符是 `npr` 那一类
+  ///          ——引擎不报错，它把那个词拆成符号，于是答案描述的是另一件事。**这是这一层的封闭性所在：
+  ///          表外的拼法到不了引擎，而不是「到了引擎再说」。**
+  ///       3. 表里有 `engineFunction` ⇒ 写它（这就是翻译）；**没有** ⇒ 拒绝。
+  ///
+  ///       **第 3 步判的是 `engineFunction`，不是 `engineKnowsThisName`**——两列回答两个问题
+  ///       （「该写什么」/「引擎对这个拼法的答案能不能用」），`log`/`ncr`/`fact` 正是两列给出不同
+  ///       答案的三行：翻译能把它们写成引擎的写法（`log10`/`binomial`/`factorial`），而 `canRead`
+  ///       仍旧判「应用这个拼法的答案不可用」。修复轮 7 用三个 `if (name == …)` 特例表达同一件事，
+  ///       修复轮 8 收成一条规则：**每一行都从它自己的那一列取值**。
+  ///
+  ///       剩下的 `npr`/`mod`/`deg`/`rad`/`phi`/`inf` 两列都是「不可用」，所以一律拒绝。
+  ///       这个集合由 `test/domain/app_engine_vocabulary_semantics_test.dart` 钉住。
+  /// English: **one identifier (alias spellings included) → what to write for the engine; anything not
+  ///          in the table is refused.**
+  ///
+  ///          Three steps, each of them fix round 8's:
+  ///
+  ///          1. **fold aliases first** ([ExpressionParser.canonicalFunctionName], the same
+  ///             [ExpressionParser.functionAliases] table `ExpressionParser`'s normalisation uses):
+  ///             `lg`/`log10` → `log`, `c` → `ncr`, `p` → `npr`, `arcsin`/`arccos`/`arctan` →
+  ///             `asin`/`acos`/`atan`. The table holds **canonical names**, and an alias is another
+  ///             spelling of the same identifier, so it has to land on the same row.
+  ///          2. **absent from the table ⇒ refuse**, no more pass-through (fix round 7's low): an
+  ///             unknown identifier is the `npr` class — the engine does not error, it takes the word
+  ///             apart into symbols, so its answer is about something else. **This is where this layer's
+  ///             closure lives: a spelling outside the table cannot reach the engine at all**, rather
+  ///             than "reaching it and then being judged".
+  ///          3. the row has an `engineFunction` ⇒ write it (that is the translation); it has none ⇒
+  ///             refuse.
+  ///
+  ///          **Step 3 reads `engineFunction`, not `engineKnowsThisName`** — the two columns answer two
+  ///          questions ("what should be written" / "may the engine's answer for this spelling be
+  ///          used"), and `log`/`ncr`/`fact` are exactly the rows where they differ: the translation can
+  ///          write them the engine's way (`log10`/`binomial`/`factorial`) while `canRead` still judges
+  ///          the app's spelling unusable. Fix round 7 expressed the same thing with three
+  ///          `if (name == …)` special cases; fix round 8 collapses it to one rule: **every row is read
+  ///          from its own column**.
+  ///
+  ///          The remaining `npr`/`mod`/`deg`/`rad`/`phi`/`inf` are unusable in both columns, so they are
+  ///          refused. This set is pinned by `test/domain/app_engine_vocabulary_semantics_test.dart`.
   static EngineExpression engineNameFor(String name) {
-    if (name == 'ncr') return const TranslatedExpression('binomial');
-    if (name == 'fact') return const TranslatedExpression('factorial');
-    // 中文：应用的 `log` 是常用对数，引擎的 `log` 是自然对数——引擎里常用对数的名字是 `log10`
-    //       （量过：`getFunction("log10")` 非空）。
-    // English: this app's `log` is the common logarithm while the engine's `log` is the natural one —
-    //          the engine's name for the common logarithm is `log10` (measured: `getFunction("log10")`
-    //          is non-null).
-    if (name == 'log') return const TranslatedExpression('log10');
-    final entry = identifiers[name];
-    if (entry != null && !entry.engineKnowsThisName) {
+    final canonical = canonicalIdentifier(name);
+    if (canonical == null) {
       return UntranslatableExpression(
-        '词表说引擎读不了这个名字：`$name`',
+        '标识符不在应用词汇表里，不送去让引擎猜：`$name`',
       );
     }
-    return TranslatedExpression(name);
+    final engineFunction = identifiers[canonical]!.engineFunction;
+    if (engineFunction == null) {
+      return UntranslatableExpression(
+        '词表里这个名字没有引擎写法，引擎的答案也不可用：`$canonical`',
+      );
+    }
+    return TranslatedExpression(engineFunction);
+  }
+
+  /// 中文：**一个拼法（别名、大小写都算）→ 表里的规范名；不在表里返回 null。**
+  ///       别名折叠用的就是 `ExpressionParser` 那一张表（[ExpressionParser.canonicalFunctionName]），
+  ///       所以「`lg` 是什么」在整个应用里只有一处答案。
+  /// English: **one spelling (aliases and case included) → its canonical name in the table, or null when
+  ///          it is not there.** The fold is `ExpressionParser`'s own table
+  ///          ([ExpressionParser.canonicalFunctionName]), so "what `lg` is" has exactly one answer in
+  ///          this app.
+  static String? canonicalIdentifier(String name) {
+    final folded = ExpressionParser.canonicalFunctionName(name);
+    return identifiers.containsKey(folded) ? folded : null;
   }
 
   /// 中文：变量名 → 能不能原样交给引擎。应用自己的常量名（`phi` 除外，它在翻译里被写成数值）
@@ -360,12 +465,23 @@ class AppEngineVocabulary {
   ///
   ///          中文：**它是第二道判断，不是第一道**，而且**不省一次往返**：两条路径都是先问引擎
   ///          （问的是翻译后的表达式）、拿到回包之后才走到这里，所以这里拦下的是**已经到手的答案**。
-  ///          它在修复轮 7 之后不再改变屏幕上任何一个值（理由与实测见文件头）。
+  ///          它**改变屏幕上的值**，而这是量出来的：把它变异成恒为 `true`（一个文件），
+  ///          `log(8,2)` 与 `fact(171)` 上屏的就是引擎的答案而不是应用的（两条实测见文件头）。
+  ///          所以它是必要的一道，不是翻译那一层的副本。
+  ///
   /// English: **this is the second judgement, not the first**, and it **saves no round trip**: both
   ///          paths ask the engine first (with the translated expression) and reach this only once the
-  ///          reply is in hand, so what it stops is an answer that has already arrived. After fix
-  ///          round 7 it no longer changes any value on screen (the reasons and the measurement are in
-  ///          the file header).
+  ///          reply is in hand, so what it stops is an answer that has already arrived. It **does change
+  ///          values on screen**, and that is measured: mutate it to a constant `true` (one file) and
+  ///          `log(8,2)` and `fact(171)` display the engine's answers instead of this app's (both
+  ///          measurements are in the file header). So it is a necessary judgement, not a copy of the
+  ///          translation layer.
+  ///
+  ///          读的调用名先折成规范名（[callNamesIn]）——否则别名拼法穿过这张表：`lg(8,2)` 与
+  ///          `log(8,2)` 会得到两个不同的答案，而它们是同一个调用（实测见 [callNamesIn]）。
+  /// English: the call names it reads are folded to their canonical spelling first ([callNamesIn]) — or
+  ///          alias spellings would pass through this table and `lg(8,2)` and `log(8,2)` would get two
+  ///          different answers for one and the same call (the measurement is on [callNamesIn]).
   static bool canRead(String expression) =>
       !callNamesIn(expression).any(unknownToEngine.contains);
 }

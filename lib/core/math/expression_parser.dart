@@ -620,8 +620,76 @@ class ExpressionParser {
     ..._variadicFunctions,
   };
 
-  static const String _functionPattern =
-      'atan2|asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|sqrt|cbrt|log2|log|ln|abs|exp|floor|ceil|round|deg|rad|min|max|mod|ncr|npr|gcd|lcm|root|fact';
+  /// 中文：**这个解析器接受的函数名——唯一的一份，而且是一份数据。** 它有两个读者：
+  ///       [_functionPattern]（由它拼出来，归一化靠它认出 `名字(...)`），以及词汇表的覆盖测试
+  ///       （`test/domain/app_engine_vocabulary_semantics_test.dart`：`AppEngineVocabulary.identifiers`
+  ///       必须收下这里的每一个名字、每一个别名与每一个常量）。
+  ///
+  ///       **顺序有意义**：长的在前（`atan2` 先于 `atan`、`log2` 先于 `log`），否则正则先咬短的那个
+  ///       ——`log2(8)` 会被读成 `log` 后面跟着 `2(8)`。所以这是一张**列表**而不是集合。
+  ///
+  ///       **它不是闭集的全部来源，要说清楚**：求值那一个 `switch`（[_parsePrimary] 里）是第二处
+  ///       手写的清单。往那个 `switch` 里加一个名字而忘了加到这里，解析器仍然算得出它，
+  ///       而覆盖测试看不见它——那时词汇表会漏掉这个名字，后果**不是错值**（[engineNameFor] 拒绝
+  ///       未知标识符，引擎不会被问），而是这个名字不再由引擎作答、回落到旧解析器。
+  /// English: **the function names this parser accepts — one copy, and it is data.** It has two readers:
+  ///          [_functionPattern] (built from it; normalisation needs it to recognise `name(...)`) and
+  ///          the vocabulary's coverage test (`test/domain/app_engine_vocabulary_semantics_test.dart`:
+  ///          `AppEngineVocabulary.identifiers` must hold every name here, every alias and every
+  ///          constant).
+  ///
+  ///          **Order matters**: longer names first (`atan2` before `atan`, `log2` before `log`), or the
+  ///          regex would bite the short one — `log2(8)` would be read as `log` followed by `2(8)`.
+  ///          That is why this is a **list** rather than a set.
+  ///
+  ///          **It is not the whole story, and that has to be said**: the evaluation `switch` (in
+  ///          [_parsePrimary]) is a second hand-written list. Adding a name there and forgetting this
+  ///          one still evaluates, and the coverage test cannot see it — the vocabulary then misses
+  ///          that name, whose consequence is **not a wrong value** ([engineNameFor] refuses unknown
+  ///          identifiers, so the engine is never asked) but that the name stops being answered by the
+  ///          engine and falls back to the legacy parser.
+  static const List<String> functionNames = <String>[
+    'atan2',
+    'asin',
+    'acos',
+    'atan',
+    'sinh',
+    'cosh',
+    'tanh',
+    'sin',
+    'cos',
+    'tan',
+    'cot',
+    'sec',
+    'csc',
+    'sqrt',
+    'cbrt',
+    'log2',
+    'log',
+    'ln',
+    'abs',
+    'exp',
+    'floor',
+    'ceil',
+    'round',
+    'deg',
+    'rad',
+    'min',
+    'max',
+    'mod',
+    'ncr',
+    'npr',
+    'gcd',
+    'lcm',
+    'root',
+    'fact',
+  ];
+
+  /// 中文：上面那张表拼成的正则片段。`static final` 而不是 `const`：它由 [functionNames] 拼出来，
+  ///       于是「加一个函数名」只需要改一处。
+  /// English: the regex fragment built from the table above. `static final` rather than `const`: it is
+  ///          joined from [functionNames], so adding a function name touches one place.
+  static final String _functionPattern = functionNames.join('|');
   static const String _bareUnaryFunctionPattern =
       'asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|sqrt|cbrt|log2|log|ln|abs|exp|floor|ceil|round|fact|deg|rad';
   static const String _decimalNumberPattern =
@@ -672,7 +740,7 @@ class ExpressionParser {
     while (index >= 0 && RegExp(r'[A-Za-z0-9]').hasMatch(source[index])) {
       index--;
     }
-    final name = _canonicalFunctionName(source.substring(index + 1, nameEnd));
+    final name = canonicalFunctionName(source.substring(index + 1, nameEnd));
     return _multiArgumentFunctions.contains(name);
   }
 
@@ -686,7 +754,16 @@ class ExpressionParser {
   ///          argument-count table is shared: all three spellings of `log` have to count as taking two
   ///          arguments, or two spellings of one key give two values (measured: `log(1,024)` = 0 while
   ///          `lg(1,024)` = 3.0103).
-  static const Map<String, String> _functionAliases = <String, String>{
+  /// 中文：**它是公开的**，因为词汇表要用**同一张**表：`AppEngineVocabulary` 的键是这张表**右边**
+  ///       那些规范名，而 `lg(1,024)`/`c(1,234)` 这样的写法要能折到键上（`engineNameFor`），
+  ///       引擎名字层要判的也是折过之后的规范名（`canRead`）。抄一份到词汇表里去就等于把
+  ///       「`lg` 是什么」写两遍——那正是这张表的注释反对的事。
+  /// English: **it is public because the vocabulary needs the same table**: `AppEngineVocabulary`'s
+  ///          keys are the canonical names on the **right**, and spellings such as `lg(1,024)` /
+  ///          `c(1,234)` have to fold onto those keys (`engineNameFor`), as does the engine name layer's
+  ///          judgement (`canRead`). Copying it into the vocabulary would write "what `lg` is" twice —
+  ///          exactly what this table's own comment argues against.
+  static const Map<String, String> functionAliases = <String, String>{
     'arcsin': 'asin',
     'arccos': 'acos',
     'arctan': 'atan',
@@ -697,16 +774,18 @@ class ExpressionParser {
   };
 
   /// 中文：把一个名字折成规范名（大小写不敏感）；表里没有的名字原样返回（小写化后）。
+  ///       公开的理由与 [functionAliases] 相同：词汇表要用**同一个**折叠。
   /// English: fold one name to its canonical spelling (case-insensitively); a name absent from the
-  ///          table comes back as itself, lower-cased.
-  static String _canonicalFunctionName(String name) {
+  ///          table comes back as itself, lower-cased. Public for the same reason as [functionAliases]:
+  ///          the vocabulary needs the **same** fold.
+  static String canonicalFunctionName(String name) {
     final lower = name.toLowerCase();
-    return _functionAliases[lower] ?? lower;
+    return functionAliases[lower] ?? lower;
   }
 
   static String _normalizeFunctionAliases(String source) {
     var text = source;
-    for (final entry in _functionAliases.entries) {
+    for (final entry in functionAliases.entries) {
       // 中文：单字母别名（`c`/`p`）必须**紧跟着括号**才算别名——不加这条限制，它们会替换掉表达式里
       //       每一个 `c` 与 `p`。其余别名按词边界替换（`lg 100` 这种裸写法也要能归一化，
       //       后面 `_normalizeBareUnaryFunctionCalls` 才认得出 `log`）。

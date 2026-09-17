@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
 import 'package:nekocalc/core/math/ast/expression_ast_parser.dart';
+import 'package:nekocalc/core/math/engine_expression.dart';
 import 'package:nekocalc/core/math/expression_parser.dart';
 
 /// 中文：**名字逐个核对的第二半：取值。** 词表里「引擎对这个拼法的答案能不能用」那一列，
@@ -53,12 +54,13 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///
 ///          **What this table is for, after round 7**: the runtime criterion is the **translation**
 ///          (`engine_expression.dart`: the expression is written the engine's way before the engine is
-///          asked) plus this vocabulary's refusal at the name layer. That refusal no longer changes any
-///          value on screen — the translation handles every name it stops — so this file's job is what
-///          it always was: **keep the "may this answer be used" column honest**, name by name, value by
-///          value. Round 6's value-agreement criterion, which replaced it for one round, is gone (its
-///          premise — "this app's `double` is the truth" — is false in exactly the cases the engine
-///          exists for); see the vocabulary file header for the measurement.
+///          asked) plus this vocabulary's refusal at the name layer. That refusal **does change values
+///          on screen** — round 7's header claimed it did not, and fix round 8 replaced that sentence
+///          with two measurements (`log(8,2)`, `fact(171)`; see the vocabulary file header) — so this
+///          file's job is what it always was: **keep the "may this answer be used" column honest**,
+///          name by name, value by value. Round 6's value-agreement criterion, which replaced it for one
+///          round, is gone (its premise — "this app's `double` is the truth" — is false in exactly the
+///          cases the engine exists for); see the vocabulary file header for the measurement.
 void main() {
   test('分歧先归因：我们自己读错了要修解析器，引擎读错了才让名字不可信', () {
     // 中文：**「任何分歧 ⇒ 该名字不可信」是好的探测器、错误的裁决者。** 反例是 `atan2(7,100)`：
@@ -154,6 +156,152 @@ void main() {
     //          how a constant-as-call is read is visible.
     expect(_callShapes('phi(2)'), <String>['phi(call)']);
     expect(_callShapes('phi(2)'), isNot(_callShapes('3.236(2)')));
+  });
+
+  group('标识符层是封闭的（修复轮 8）', () {
+    // 中文：修复轮 7 的复审在这里找到一条 low：`ExpressionParser` 接受 `lg`/`log10`/`c`/`p`/
+    //       `arcsin`/`arccos`/`arctan`，**这些都不在词表里**，而 `engineNameFor` 把它们**原样透传**，
+    //       实测 `lg(1,024)` 就这么送到了引擎（引擎把它读成二元素向量）。
+    //       本组把那一层收成两句话：**表外的名字一律拒绝**；**别名先折到表里的键上再查**。
+    test('ExpressionParser 接受的每一个函数名都在词表里', () {
+      // 中文：名字清单不是手抄的，是解析器自己那份数据（`ExpressionParser.functionNames`，
+      //       归一化的正则也由它拼出来）。往解析器里加一个函数名而忘了词表，这一条会红。
+      // English: the name list is not transcribed by hand — it is the parser's own data
+      //          (`ExpressionParser.functionNames`, which the normalisation regex is built from).
+      //          Adding a function to the parser and forgetting the vocabulary turns this red.
+      expect(ExpressionParser.functionNames, isNotEmpty);
+      for (final name in ExpressionParser.functionNames) {
+        expect(AppEngineVocabulary.identifiers, contains(name),
+            reason: '解析器接受 `$name`，词表里却没有它——`engineNameFor` 会拒绝它，'
+                '于是这个名字不再由引擎作答');
+      }
+    });
+
+    test('每一个别名都折到词表里的键上，每一个常量也都在表里', () {
+      for (final alias in ExpressionParser.functionAliases.keys) {
+        expect(AppEngineVocabulary.canonicalIdentifier(alias), isNotNull,
+            reason: '别名 `$alias` 折不进词表');
+      }
+      // 中文：常量同样能被写成调用（`phi(2)`、`pi(2)`），所以它们也必须在表里（`_parsePrimary`
+      //       的常量那一支）。
+      // English: constants can be written as calls too (`phi(2)`, `pi(2)`), so they have to be in the
+      //          table as well (the constant branch of `_parsePrimary`).
+      for (final constant in <String>[
+        'pi',
+        'e',
+        'tau',
+        'phi',
+        'inf',
+        'infinity',
+      ]) {
+        expect(AppEngineVocabulary.identifiers, contains(constant));
+      }
+    });
+
+    test('词表里多出来的名字恰好是应用自己没有、只在引擎那边成立的那一批', () {
+      // 中文：**这是「封闭」的另一半。** 词表比解析器接受的多出七个名字：应用自己的解析器
+      //       没有实现它们（`matrix(1)` 会抛「未知函数」），它们本来就只能由引擎作答。
+      //       用集合相等而不是「包含」写出来，所以**多一个少一个都会红**——多出来一个，
+      //       就必须先想清楚它属于哪一类。
+      // English: **the other half of "closed".** The vocabulary has seven names the parser does not
+      //          accept: this app's own parser does not implement them (`matrix(1)` throws "unknown
+      //          function") and they can only be answered by the engine. Written as a set equality
+      //          rather than a containment, so **one more or one fewer turns it red** — a new name has
+      //          to be classified before it can be added.
+      final parserAccepted = <String>{
+        ...ExpressionParser.functionNames,
+        'pi',
+        'e',
+        'tau',
+        'phi',
+        'inf',
+        'infinity',
+      };
+      const engineOnly = <String>{
+        'matrix',
+        'sum',
+        'product',
+        'integrate',
+        'diff',
+        'limit',
+        'rand',
+      };
+      expect(
+        AppEngineVocabulary.identifiers.keys.toSet().difference(parserAccepted),
+        engineOnly,
+      );
+      // 中文：反过来也要成立——解析器接受的名字一个都不能少。
+      // English: and the other direction — no name the parser accepts may be missing.
+      expect(
+        parserAccepted.difference(AppEngineVocabulary.identifiers.keys.toSet()),
+        isEmpty,
+      );
+    });
+
+    test('引擎认识的名字都写了引擎写法（engineNameFor 不会拒绝它们）', () {
+      // 中文：`engineNameFor` 判的是 `engineFunction` 那一列，所以「引擎认识这个名字」的行
+      //       **必须**都填了它——漏一个就等于让一个本来能由引擎作答的名字静默回落。
+      // English: `engineNameFor` reads the `engineFunction` column, so every row whose
+      //          `engineKnowsThisName` is true **must** fill it in — one omission silently sends a name
+      //          the engine could have answered back to the legacy parser.
+      for (final entry in AppEngineVocabulary.identifiers.entries) {
+        if (!entry.value.engineKnowsThisName) continue;
+        expect(entry.value.engineFunction, isNotNull,
+            reason: '`${entry.key}`：引擎认识它，却没有写引擎写法');
+      }
+    });
+
+    test('engineNameFor：未知标识符拒绝，别名折到规范名，没有引擎写法的拒绝', () {
+      String textOf(String name) {
+        final result = AppEngineVocabulary.engineNameFor(name);
+        expect(result, isA<TranslatedExpression>(), reason: name);
+        return (result as TranslatedExpression).text;
+      }
+
+      String reasonOf(String name) {
+        final result = AppEngineVocabulary.engineNameFor(name);
+        expect(result, isA<UntranslatableExpression>(), reason: name);
+        return (result as UntranslatableExpression).reason;
+      }
+
+      // 中文：别名折到规范名那一行，再取那一行的引擎写法——`lg`/`log10` 都是 `log` 的别名，
+      //       而 `log` 那一行写的是 `log10`（两列分开的例子）。`c` 折成 `ncr`，写法是 `binomial`。
+      // English: the alias folds onto the canonical row and that row's engine spelling is used —
+      //          `lg`/`log10` are both aliases of `log`, whose row says `log10` (the two-column case).
+      //          `c` folds to `ncr`, spelled `binomial`.
+      expect(textOf('lg'), 'log10');
+      expect(textOf('log10'), 'log10');
+      expect(textOf('log'), 'log10');
+      expect(textOf('c'), 'binomial');
+      expect(textOf('ncr'), 'binomial');
+      expect(textOf('ARCsin'), 'asin');
+
+      expect(reasonOf('nosuch'), contains('不在应用词汇表里'));
+      for (final name in <String>['npr', 'p', 'mod', 'deg', 'rad', 'phi', 'inf']) {
+        expect(reasonOf(name), contains('没有引擎写法'), reason: name);
+      }
+    });
+
+    test('canRead：别名与大小写都折到规范名再判', () {
+      // 中文：词表的键是规范名，而 `canRead` 读的是表达式里的调用名——不折的话别名拼法**穿过**这张
+      //       表。实测过的后果：`lg(8,2)` 是 `log(8,2)` 的另一种写法，引擎对 `log10(8,2)` 的答复是
+      //       一个二元素向量，只因为拼法不同就能上屏。（`c`/`p` 是同一种情形。）
+      // English: the table's keys are canonical names while `canRead` reads call names out of the
+      //          expression — without the fold, alias spellings **pass through** the table. The measured
+      //          consequence: `lg(8,2)` is another spelling of `log(8,2)`, the engine's answer for
+      //          `log10(8,2)` is a two-element vector, and the different spelling alone let it onto the
+      //          screen. (`c`/`p` are the same case.)
+      expect(AppEngineVocabulary.canRead('log(8,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('lg(8,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('log10(8,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('LOG(8,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('NCR(5,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('c(5,2)'), isFalse);
+      // 中文：反例也要在——折别名不等于「一律拒绝」。
+      // English: the counterexample matters too — folding aliases is not "refuse everything".
+      expect(AppEngineVocabulary.canRead('arcsin(0.5)'), isTrue);
+      expect(AppEngineVocabulary.canRead('asin(0.5)'), isTrue);
+    });
   });
 
   test('引擎根本没有这个函数的名字一律不可信', () {
