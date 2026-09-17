@@ -88,9 +88,10 @@ class CalculatorPage extends StatefulWidget {
     //          arguments and the keypad has no comma key.
     'ins:mean', 'ins:median', 'ins:stdev', 'ins:var',
     'baseDec', 'baseHex', 'baseBin', 'baseOct',
-    // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。两者都只改**显示**，
-    // 结果行、`Ans`/`last`、记忆寄存器、继续使用与历史一个字都不动。
-    'resultForm', 'fractionForm',
+    // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回、`D°M'S` 在度分秒写法与
+    // 原来那一行之间来回。三者都只改**显示**，结果行、`Ans`/`last`、记忆寄存器、继续使用与历史
+    // 一个字都不动。
+    'resultForm', 'fractionForm', 'dmsForm',
     // 编辑与结果
     'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
     // 记忆寄存器
@@ -300,6 +301,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          shapes in `CalculatorDisplay`.
       resultTex: _controller.resultTex,
       resultFractionTex: _controller.resultFractionTex,
+      // 中文：度分秒写法（引擎那一串原文，`D°M'S` 那一颗键要的东西）。空串表示这一次没有，
+      //       那一颗键于是是空操作——与 `d/c` 同一条路。
+      // English: the DMS spelling (the engine's own string — what the `D°M'S` key needs). An empty
+      //          string means there is none this time and that key is a no-op, exactly as with `d/c`.
+      resultDmsText: _controller.resultDmsText,
       // 中文：请求的形态（`x⇔E` / `d/c` 按出来的那一个）。`CalculatorDisplay` 拿它对照这一份结果
       //       真正有的形态，没有的回落 `auto`——判断那一处只有一份，在 `ResultPresentation`。
       // English: the requested form (what `x⇔E` / `d/c` pressed). `CalculatorDisplay` resolves it

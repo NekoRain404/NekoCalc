@@ -244,6 +244,17 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _setResultForm(_resultPresentation.next(_resultForm));
       case 'fractionForm':
         _setResultForm(_resultPresentation.toggleStandard(_resultForm));
+      // 中文：`D°M'S`——**度分秒写法 ⇄ 原来那一行**，与 `d/c` 同一个形状（也是只改显示、值一个
+      //       都不碰）。它与上面两颗的分别只有一处：那一格**不在 `x⇔E` 的循环里**，因为它不是
+      //       `x⇔E` 按出来的（见 `ResultForm.dms`），所以它走 `toggleDms` 而不是 `next`。
+      //       没有度分秒写法时（没引擎、RAD 模式、形状认不出）是同样的空操作。
+      // English: `D°M'S` — **the DMS spelling ⇄ the line it had**, the same shape as `d/c` (display
+      //          only, not one value touched). Its one difference from the two above: that cell is
+      //          **not in `x⇔E`'s cycle**, because it is not something `x⇔E` steps to (see
+      //          `ResultForm.dms`), so it goes through `toggleDms` rather than `next`. With no DMS
+      //          spelling (no engine, RAD mode, an unrecognised shape) it is the same honest no-op.
+      case 'dmsForm':
+        _setResultForm(_resultPresentation.toggleDms(_resultForm));
       // 中文：`ins:` 前缀 = 插入这段文本。三处落点比裸插入更贴切：`%` 走控制器的百分号运算（`50+10%`
       //       会被折算），`exp` 走一元函数（它插入 `exp(`，裸插的 `exp` 会被解析器拒绝），`inf` 是
       //       解析器承认的常数。
@@ -549,5 +560,16 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         fractionTex: _controller.resultFractionTex,
         resultDecimal: _controller.resultDecimal,
         naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
+        // 中文：度分秒那一格的另外两个入参：引擎给的那串写法（形状由 `ResultPresentation` 判），
+        //       以及**这一份结果是在哪种角度模式下算出来的**——用的是控制器里那个活着的
+        //       `angleMode`（不是设置里那一份）：粘贴可以带来另一种模式，而「这个数是若干度」
+        //       这句断言只对**算出它的那一次**成立。
+        // English: the DMS cell's other two inputs: the string the engine handed over (its shape is
+        //          judged by `ResultPresentation`), and **which angle mode this result was produced
+        //          under** — the live `angleMode` on the controller rather than the one in settings,
+        //          because a paste can bring another mode along and the claim "this number is so many
+        //          degrees" only holds for **the evaluation that produced it**.
+        dmsText: _controller.resultDmsText,
+        degreesMode: _controller.angleMode == 'DEG',
       );
 }

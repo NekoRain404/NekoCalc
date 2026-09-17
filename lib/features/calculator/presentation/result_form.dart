@@ -25,6 +25,23 @@ enum ResultForm {
   /// English: the **fraction spelling** alone (HiPER's `d/c` / `a b/c` cell).
   fraction,
 
+  /// 中文：只要**度分秒写法**（HiPER 结果格式系统里 `DMS` 那一格：`12°34′55.92″`）。
+  ///
+  ///       **它不在 [ResultPresentation.cycle] 里**，因为它不是 `x⇔E` 按出来的那一格：HiPER 的
+  ///       `x⇔E` 在**它自己的**手册与帮助里管的是结果格式循环，而这一格由 `D°M'S` 那一颗键直接
+  ///       开关——所以把 `x⇔E` 的循环加长会**改掉一颗已经工作的键的行为**，那是这个项目不许做的事。
+  ///       两颗键共用的只有「当前是哪一格」这一个状态（[ResultPresentation.resolve] 一处收口）。
+  ///       English: the **degrees-minutes-seconds spelling** alone (HiPER's `DMS` cell in the result
+  ///              format system: `12°34′55.92″`).
+  ///
+  ///              **It is not in [ResultPresentation.cycle]**, because it is not a cell `x⇔E` steps
+  ///              through: HiPER's `x⇔E` owns the result-format cycle in its own manual and help,
+  ///              while this cell is switched directly by the `D°M'S` key — so lengthening `x⇔E`'s
+  ///              cycle would **change the behaviour of a key that already works**, which this project
+  ///              does not do. All the two keys share is the single "which cell is current" state,
+  ///              funnelled through one place ([ResultPresentation.resolve]).
+  dms,
+
   /// 中文：只要十进制读数（HiPER 的 `FIX` / `SCI` 那一侧，也就是没有 `EXPR` 指示器时的默认）。
   /// English: the decimal reading alone (HiPER's `FIX` / `SCI` side — what it shows with no `EXPR`
   ///          indicator lit).
@@ -65,6 +82,7 @@ class ResultPresentation {
   const ResultPresentation._({
     required this.exactTex,
     required this.fractionTex,
+    required this.dmsTex,
     required this.hasDecimal,
     required this.cycle,
   });
@@ -79,7 +97,14 @@ class ResultPresentation {
     required String fractionTex,
     required String resultDecimal,
     required bool naturalDisplay,
+    String dmsText = '',
+    bool degreesMode = false,
   }) {
+    // 中文：后两个入参默认成「没有这一格」——既有调用方（组件测试、老代码）一个字不改就拿到与
+    //       以前逐字符相同的那一行。它们的来路是 `MathResult.dmsText` 与当前角度模式。
+    // English: the last two default to "no such cell" — existing callers (widget tests, older code)
+    //          get the line they had before, character for character, without one edit. They come from
+    //          `MathResult.dmsText` and the current angle mode.
     final decimal = resultDecimal.trim();
     final exactTex = _accepted(naturalDisplay, resultTex.trim(), decimal, const <String>[]);
     // 中文：`accepted` 的第三个实参是「已经收下的写法」——分数与精确写法相同就不算（见类注释）。
@@ -98,21 +123,70 @@ class ResultPresentation {
     //       于是 `1/3` 的 `decimal` 形态（`0.333333`）与它的 `auto` 形态逐字符相同，被合并掉，
     //       循环里不会出现一次「按下去什么都没变」。
     //
-    //       合并是**有意的**：HiPER 的手册列了五种形态，而其中三种（MIXED / DMS / POLAR）这台
-    //       计算器印不出来（引擎里没有度分秒换算，也没有极坐标印法），所以这里只列得出三种；剩下
-    //       的一种若与默认那一行画出来一模一样，它就不是一种形态，只是一个名字。
+    //       合并是**有意的**：HiPER 的手册列了五种形态，而其中两种（MIXED / POLAR）这台计算器
+    //       印不出来（没有带分数印法，也没有极坐标印法），所以循环里只列得出三种；剩下的一种若与
+    //       默认那一行画出来一模一样，它就不是一种形态，只是一个名字。
+    //       （`DMS` 曾经也在这张「印不出来」的名单上，而那是**实测错误**，见下面 [dmsTex]。）
     // English: **forms are merged by "does it draw the same line", not by name.** Each form's
     //          signature is (the TeX to typeset, whether the `≈` half is drawn); the plain reading
     //          stays out of the signature because all of them degrade to it. So `1/3`'s `decimal`
     //          form (`0.333333`) is character-for-character its `auto` form and gets merged away —
     //          the cycle never contains a press that changes nothing.
     //
-    //          The merging is **deliberate**: HiPER's manual lists five forms and three of them
-    //          (MIXED / DMS / POLAR) this calculator cannot print (the engine has no
-    //          degrees-minutes-seconds conversion and no polar print), so only three are listable
-    //          here; and one of those, if it draws exactly the default line, is not a form but a
-    //          name.
-    final autoSignature = _signature(ResultForm.auto, exactTex, fraction, hasDecimal);
+    //          The merging is **deliberate**: HiPER's manual lists five forms and two of them
+    //          (MIXED / POLAR) this calculator cannot print (there is no mixed-number print and no
+    //          polar print), so only three are listable here; and one of those, if it draws exactly
+    //          the default line, is not a form but a name.
+    //
+    //          **`DMS` was on that list of unprintable ones and no longer is** — the previous round
+    //          recorded "the engine has no degrees-minutes-seconds conversion"; that is measurably
+    //          false (`grep -rni dms` misses it because the library calls it *sexagesimal*:
+    //          `BASE_SEXAGESIMAL` in `includes.h:314`, `Number.cc:11254`). See [dmsTex].
+    // 中文：**度分秒那一格**（`D°M'S` 那一颗键）。三条门槛，缺一不可，全部走上面那同一套既有判据：
+    //       1. 引擎得给过这一串写法，而且它的**形状**得是三个十进制的度/分/秒段——`_dmsTex` 认不出
+    //          形状就返回空串，这一格于是不存在。这一条挡的是实测过的三种降级：换算/结构化结果会
+    //          把**里面每个数**都印成度分秒（`2°0′0″ × √(2°0′0″)`、`[1°0′0″  2°0′0″; …]`、
+    //          `1°0′0″ / 0°0′0″`），超出 double 量程的值则回落成十进制加指数
+    //          （`1.148130695274255E602`）——三种在形状这一关全部判不过。
+    //       2. **只在 `DEG` 下存在**：这一串写法里的 `°` 是一句断言——「这个数是若干度」。应用自己的
+    //          `°` 就是这个意思（`ExpressionParser` 把它改写成 `rad(…)`，即「度 → 弧度」），而 DEG
+    //          模式下裸数字**本来就是度**（三角函数的实参按度解释），RAD 模式下则是弧度。把弧度值
+    //          写成 `0°47′7.75″` 是一句**假话**——那不是同一个数的另一种写法，是换了一个单位，
+    //          正好是 rule 7 要挡的那类改动。所以 RAD 下这一格不存在，那一颗键是**老实的空操作**。
+    //       3. 排得出来、且不与十进制读数逐字符相同——既有的两条门槛（`_accepted`），一个字没改。
+    //
+    //       **它不进 `cycle`**（见 [ResultForm.dms]）：`x⇔E` 的行为因此一个字节都没变。它因此
+    //       要在循环之前算好——`_signature` 每个形态的 TeX 都得看得见。
+    // English: **the degrees-minutes-seconds cell** (the `D°M'S` key). Three gates, all of them the
+    //          same existing judgements used above:
+    //          1. the engine has to have handed over this spelling *and* its **shape** has to be three
+    //             decimal degree/minute/second sections — `_dmsTex` returns an empty string when it
+    //             does not recognise the shape, and the cell then does not exist. This gate stops the
+    //             three degradations that were measured: a conversion/structured result prints
+    //             **every number inside it** as DMS (`2°0′0″ × √(2°0′0″)`, `[1°0′0″  2°0′0″; …]`,
+    //             `1°0′0″ / 0°0′0″`), and a value beyond double range falls back to a decimal with an
+    //             exponent (`1.148130695274255E602`) — all three fail the shape check.
+    //          2. **it exists only under `DEG`**: the `°` in this spelling is a claim — "this number is
+    //             so many degrees". That is what the app's own `°` means (`ExpressionParser` rewrites
+    //             it to `rad(…)`, i.e. degrees → radians), and under DEG a bare number **is** degrees
+    //             (trig reads its argument in degrees) while under RAD it is radians. Writing a radian
+    //             value as `0°47′7.75″` is a **false** statement — not another spelling of the same
+    //             number but a change of unit, exactly the kind of change rule 7 exists to stop. So the
+    //             cell does not exist under RAD, and that key is an **honest no-op** there.
+    //          3. it typesets and is not character-for-character the decimal reading — the two existing
+    //             gates (`_accepted`), not one character altered.
+    //
+    //          **It does not join `cycle`** (see [ResultForm.dms]): `x⇔E`'s behaviour is therefore
+    //          unchanged, byte for byte. It is therefore computed before the loop, because every form's
+    //          TeX has to be visible to `_signature`.
+    final dms = _accepted(
+      naturalDisplay,
+      degreesMode ? _dmsTex(dmsText) : '',
+      decimal,
+      <String>[exactTex, fraction],
+    );
+
+    final autoSignature = _signature(ResultForm.auto, exactTex, fraction, dms, hasDecimal);
     final seen = <(String, bool)>{autoSignature};
     final cycle = <ResultForm>[];
     // 中文：**先按「这一种形态自己画不画得出东西」筛一遍，再按签名去重。** 两步缺一不可：少了第一步，
@@ -130,12 +204,15 @@ class ResultPresentation {
       if (fraction.isNotEmpty) ResultForm.fraction,
       if (hasDecimal) ResultForm.decimal,
     ]) {
-      if (seen.add(_signature(form, exactTex, fraction, hasDecimal))) cycle.add(form);
+      if (seen.add(_signature(form, exactTex, fraction, dms, hasDecimal))) {
+        cycle.add(form);
+      }
     }
 
     return ResultPresentation._(
       exactTex: exactTex,
       fractionTex: fraction,
+      dmsTex: dms,
       hasDecimal: hasDecimal,
       cycle: List<ResultForm>.unmodifiable(cycle),
     );
@@ -151,6 +228,33 @@ class ResultPresentation {
   ///          (no engine, nothing distinct to show for the `d/c` cell, or a fraction spelling
   ///          identical to the exact one).
   final String fractionTex;
+
+  /// 中文：这一份结果可以排出来的**度分秒**写法（`12^\circ\,34'\,55.92''`）；空串表示这一次没有
+  ///       这一格：没有引擎答案、引擎那一串的形状认不出来、不是 `DEG` 模式、或它与十进制读数
+  ///       逐字符相同（`_accepted` 里那几条既有门槛）。
+  ///
+  ///       它由引擎那一串**改写**而来（`_dmsTex`）：**数字一个都不是 Dart 算的**，只在三个十进制
+  ///       段之间插上 `^\circ` / `'` / `''` 这三个记号，并把 U+2212 减号换成 ASCII 的 `-`。形状
+  ///       认不出来就整格不要——这条路上没有「差不多能排」这一档。
+  ///
+  ///       注意它与 [fractionTex] 的来路不同：分数那一份来自**精确**结构，这一份来自**近似**结构
+  ///       （也就是 [ResultPresentation.hasDecimal] 那一份的同一个结构）。理由见
+  ///       `MathResult.dmsText`：精确结构上度分秒会把每个数都印成度分秒。
+  /// English: the **DMS** spelling this result can typeset (`12^\circ\,34'\,55.92''`); an empty string
+  ///          means there is no such cell this time: no engine answer, an engine string whose shape is
+  ///          not recognised, not in `DEG` mode, or a string identical to the decimal reading (the
+  ///          existing gates inside `_accepted`).
+  ///
+  ///          It is **rewritten** from the engine's string (`_dmsTex`): **not one digit is computed in
+  ///          Dart** — the three `^\circ` / `'` / `''` marks are inserted between three decimal
+  ///          sections and a U+2212 minus becomes an ASCII `-`. An unrecognised shape loses the whole
+  ///          cell; there is no "close enough to typeset" step on this path.
+  ///
+  ///          Note that it is sourced differently from [fractionTex]: the fraction comes from the
+  ///          **exact** structure, this one from the **approximated** structure (the same one
+  ///          [ResultPresentation.hasDecimal] comes from). The reason is in `MathResult.dmsText`: on
+  ///          the exact structure a DMS render turns every number into degrees-minutes-seconds.
+  final String dmsTex;
 
   /// 中文：这一次有没有十进制读数——它就是既有的 `showApproximation` 那条不变式（结果行的 `≈`
   ///       那一半只在有十进制读数时存在）。它在这里被算了一次，结果行读它，而不是各自再判一遍。
@@ -171,6 +275,11 @@ class ResultPresentation {
   ///          anything at all.
   bool get hasFraction => fractionTex.isNotEmpty;
 
+  /// 中文：这个结果有没有度分秒写法——`D°M'S` 那一颗键据此判断自己有没有事可做。
+  /// English: whether this result has a DMS spelling — what the `D°M'S` key asks before doing
+  ///          anything at all.
+  bool get hasDms => dmsTex.isNotEmpty;
+
   /// 中文：**把请求的形态落到这个结果上**。请求的那一种在这个结果上不存在时一律回落到
   ///       [ResultForm.auto]——**这是这条路径的 fail-closed**：换了一个结果之后，上一份结果上选的
   ///       形态不会留下来把新结果的某一段画成空白或画成另一个数，屏幕上永远是这一份结果自己那一行。
@@ -181,6 +290,12 @@ class ResultPresentation {
   ///          line belonging to this result.
   ResultForm resolve(ResultForm requested) {
     if (requested == ResultForm.auto) return ResultForm.auto;
+    // 中文：`dms` **不在 `cycle` 里**（它由 `D°M'S` 直接开关，见 [ResultForm.dms]），所以它单独问
+    //       一句——判据仍然是**同一个**：这一份结果有没有这一格。别的形态照旧只认 `cycle`。
+    // English: `dms` **is not in `cycle`** (the `D°M'S` key switches it directly; see
+    //          [ResultForm.dms]), so it is asked about on its own — by the same judgement: does this
+    //          result have that cell. Every other form still goes through `cycle` alone.
+    if (requested == ResultForm.dms) return hasDms ? requested : ResultForm.auto;
     return cycle.contains(requested) ? requested : ResultForm.auto;
   }
 
@@ -218,6 +333,25 @@ class ResultPresentation {
   ///          Casio's `S⇔D` takes this same wider route: **standard form** (fractions, radicals and
   ///          π included) ⇄ decimal. Where a fraction exists it is "fraction ⇄ decimal", to the
   ///          letter.
+  /// 中文：**度分秒 ⇄ 默认那一行**——`D°M'S` 那一颗键。它是一次开关而不是循环里的一格：
+  ///       按下去换成度分秒写法，再按一次回到默认（与 `d/c` 那颗键同一种手感）。这一份结果**没有**
+  ///       度分秒写法时（引擎没答、RAD 模式、形状认不出来、串与读数相同）它是**空操作**——不是
+  ///       假装换了点什么，也不是去猜一个。
+  ///
+  ///       它一次只跨一步，**不经过 `x⇔E` 的循环**：那一维是 `x⇔E` 的，长它一格就动了那颗键的行为。
+  /// English: **degrees-minutes-seconds ⇄ the default line** — the `D°M'S` key. It is a toggle rather
+  ///          than a cell in the cycle: a press switches to the DMS spelling, a second press returns
+  ///          to the default (the same feel as the `d/c` key). When this result has **no** DMS spelling
+  ///          (no engine answer, RAD mode, an unrecognised shape, a string equal to the reading) it is
+  ///          a **no-op** — it neither pretends something changed nor invents one.
+  ///
+  ///          It steps one cell and **never goes through `x⇔E`'s cycle**: that dimension belongs to
+  ///          `x⇔E`, and lengthening it would move a key that already works.
+  ResultForm toggleDms(ResultForm current) {
+    if (!hasDms) return current; // 这一次没有这一格：空操作
+    return current == ResultForm.dms ? ResultForm.auto : ResultForm.dms;
+  }
+
   ResultForm toggleStandard(ResultForm current) {
     final standard = cycle.contains(ResultForm.fraction)
         ? ResultForm.fraction
@@ -235,6 +369,7 @@ class ResultPresentation {
   String texFor(ResultForm form) => switch (form) {
         ResultForm.auto || ResultForm.exact => exactTex,
         ResultForm.fraction => fractionTex,
+        ResultForm.dms => dmsTex,
         ResultForm.decimal => '',
       };
 
@@ -247,38 +382,98 @@ class ResultPresentation {
       form == ResultForm.auto && hasDecimal && exactTex.isNotEmpty;
 
   /// 中文：（要排版的 TeX，有没有 `≈`）——两个形态画出来一样就当同一个。见上面合并那一段。
-  ///       **三种形态各自的 TeX 都要参与**：分数形态排的是 [fractionTex]，不是空串；写错这一格会
-  ///       让分数与十进制两个形态撞成同一个签名，于是其中一种被悄悄合并掉（这个坑踩过一次）。
+  ///       **每一种形态各自的 TeX 都要参与**：分数形态排的是 [fractionTex]、度分秒形态排的是
+  ///       [dmsTex]，都不是空串；写错这一格会让两种形态撞成同一个签名，于是其中一种被悄悄合并掉
+  ///       （这个坑踩过一次）。
+  ///
+  ///       [ResultForm.dms] 进不了 `cycle`，所以这一格今天不会被比到；它仍然写全，因为它是这个
+  ///       函数**唯一**的落点约定——留一个 `_` 兜底就等于把「签名必须逐形态写对」这条约定废掉。
   /// English: (the TeX to typeset, whether the `≈` is drawn) — two forms drawing this alike count as
-  ///          one. See the merging note above. **Each form's own TeX takes part**: the fraction form
-  ///          typesets [fractionTex], not an empty string, and getting this cell wrong makes the
-  ///          fraction and decimal forms share a signature so one is silently merged away (a pit this
+  ///          one. See the merging note above. **Every form's own TeX takes part**: the fraction form
+  ///          typesets [fractionTex] and the DMS form [dmsTex], never an empty string; getting this
+  ///          cell wrong makes two forms share a signature so one is silently merged away (a pit this
   ///          fell into once).
+  ///
+  ///          [ResultForm.dms] cannot reach `cycle`, so this cell is not compared today; it is still
+  ///          written out because it is this function's one agreed landing place — leaving a `_`
+  ///          catch-all would void the very "every form's signature is spelled out" rule.
   static (String, bool) _signature(
     ResultForm form,
     String exactTex,
     String fractionTex,
+    String dmsTex,
     bool hasDecimal,
   ) =>
       switch (form) {
         ResultForm.auto => (exactTex, hasDecimal && exactTex.isNotEmpty),
         ResultForm.exact => (exactTex, false),
         ResultForm.fraction => (fractionTex, false),
+        ResultForm.dms => (dmsTex, false),
         ResultForm.decimal => (const ('', false)),
       };
 
   /// 中文：一段 TeX 收不收——三条既有门槛，位置与含义都没变（见类注释）。`already` 是已经收下的
-  ///       写法，用来挡「与上一种写法逐字符相同」。
+  ///       写法，用来挡「与上一种写法逐字符相同」。四格（精确、分数、度分秒）都走这一个函数，
+  ///       **没有第二份判据**。
   ///
-  ///       注意 `fraction` 这一格**不额外要求值相等**：两份打印来自同一个结构，值本来就相等
-  ///       （见 `printOptions`）；这里判的是**写法**，不是值。
+  ///       注意 `fraction` 与 `dms` 这两格**不额外要求值相等**：它们与十进制那一份来自同一个
+  ///       已求值结构（`printOptions`），值本来就相等；这里判的是**写法**，不是值。
   /// English: whether a piece of TeX is accepted — the three existing gates, unchanged in place or
   ///          meaning (see the class note). `already` holds the spellings already accepted, which is
-  ///          what rejects "character-for-character the previous spelling".
+  ///          what rejects "character-for-character the previous spelling". All four cells (exact,
+  ///          fraction, DMS) go through this one function; there is **no second copy** of the test.
   ///
-  ///          Note the `fraction` cell asks for **no extra value check**: the two prints come from one
-  ///          structure and already carry equal values (see `printOptions`); what is judged here is
-  ///          the *spelling*, not the value.
+  ///          Note the `fraction` and `dms` cells ask for **no extra value check**: they and the
+  ///          decimal half come from one evaluated structure (`printOptions`) and already carry equal
+  ///          values; what is judged here is the *spelling*, not the value.
+  /// 中文：引擎那串度分秒写法 → 能排版的 TeX。**只搬记号，不动数字**：三个十进制段原样留下，
+  ///       `°` 换成 `^\circ`、`′` 换成 `'`、`″` 换成 `''`，段与段之间补一个 `\,`；U+2212 减号换成
+  ///       ASCII 的 `-`（与 `QalculateMathEngine` 洗十进制那一份用的是同一条规矩）。
+  ///
+  ///       **认不出来就整格不要**（返回空串），这是这条路的 fail-closed：引擎那串只要不是「符号 +
+  ///       整数度 + 整数分 + 十进制秒」这个形状，就一个字符也不猜。实测要挡的形状有这些（宿主
+  ///       `qalc` 5.12.0，与 App 同版本、同选项）：`2°0′0″ × √(2°0′0″)`（精确结构的无理数）、
+  ///       `[1°0′0″  2°0′0″; …]`（矩阵）、`1°0′0″ / 0°0′0″`（无穷）、
+  ///       `1.148130695274255E602`（超出 double 量程时回落成十进制）。
+  ///
+  ///       为什么不用引擎的 LaTeX 那一份：同一个数在 `TAG_TYPE_LATEX` 下印成
+  ///       `\text{12o34'55.92"}`，度符号是字母 `o`——一段字面文本，正是这个项目说的「排不出来」。
+  ///       所以这一份走终端印法（真 `°′″`），TeX 在这里拼。
+  /// English: the engine's DMS string → typesettable TeX. **Marks are moved, digits are not touched**:
+  ///          the three decimal sections stay as they are, `°` becomes `^\circ`, `′` becomes `'`, `″`
+  ///          becomes `''`, a `\,` goes between sections, and a U+2212 minus becomes an ASCII `-` (the
+  ///          same rule `QalculateMathEngine` applies while washing the decimal).
+  ///
+  ///          **An unrecognised shape loses the whole cell** (an empty string is returned), which is
+  ///          this path's fail-closed behaviour: unless the engine's string is exactly "sign + integer
+  ///          degrees + integer minutes + decimal seconds", not one character is guessed. The shapes
+  ///          that has to stop, measured (host `qalc` 5.12.0, the app's version and options):
+  ///          `2°0′0″ × √(2°0′0″)` (an irrational on the exact structure), `[1°0′0″  2°0′0″; …]`
+  ///          (a matrix), `1°0′0″ / 0°0′0″` (infinity), `1.148130695274254E602` (beyond double range,
+  ///          where the engine falls back to a decimal).
+  ///
+  ///          Why not the engine's LaTeX render: the same number prints as `\text{12o34'55.92"}`
+  ///          under `TAG_TYPE_LATEX`, with the letter `o` for a degree sign — a literal text blob,
+  ///          exactly what this project calls "cannot typeset". So this one uses the terminal render
+  ///          (real `°′″`) and the TeX is assembled here.
+  static String _dmsTex(String text) {
+    final match = _dmsShape.firstMatch(text.replaceAll('−', '-').trim());
+    if (match == null) return '';
+    const degree = '^\\circ';
+    const prime = "'";
+    const doublePrime = "''";
+    final sign = match.group(1)!;
+    return '$sign${match.group(2)}$degree\\,${match.group(3)}$prime\\,'
+        '${match.group(4)}$doublePrime';
+  }
+
+  /// 中文：引擎那串度分秒的形状：`[符号]度°分′秒″`，三段都是十进制数（秒可以有小数）。
+  ///       `_dmsTex` 唯一的判据，所以它写在一处、注释也写在一处。
+  /// English: the shape of the engine's DMS string: `[sign]degrees°minutes′seconds″`, three decimal
+  ///          sections (seconds may be fractional). It is `_dmsTex`'s only test, so it is written in
+  ///          one place and documented in one place.
+  static final RegExp _dmsShape = RegExp(r'^([+-]?)(\d+)°(\d+)′(\d+(?:\.\d+)?)″$');
+
   static String _accepted(
     bool naturalDisplay,
     String candidate,

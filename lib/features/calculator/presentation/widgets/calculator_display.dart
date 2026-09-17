@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/presentation/calc_theme.dart';
 import '../result_form.dart';
 import 'math_expression_view.dart';
+import 'status_chips.dart';
 
 /// 中文：状态行里按钮的边长——比 Material 默认的 48 小，面板本来就不高，但仍是手指能稳稳点到的
 ///       方块。状态行的高度就等于它。
@@ -11,20 +12,11 @@ import 'math_expression_view.dart';
 ///          exactly this tall.
 const double _statusButtonSize = 40;
 
-/// 中文：角度模式 chip 与记忆指示的高度。
-/// English: Height of the angle-mode chip and the memory indicator.
-const double _chipHeight = 24;
-
-/// 中文：chip / 指示灯的圆角半径。
-/// English: Corner radius of the chip and the indicators.
-const double _chipRadius = 6;
-
-/// 中文：chip 底色在显示区底上的浓度——用指示色的低透明度版本，因此底色仍全部来自
-///       `CalcDisplayColors`，没有第二个色位，也没有硬编码色值。
-/// English: How strongly the chip's fill sits on the display background — a low-alpha version of
-///          the indicator colour, so the fill still comes entirely from `CalcDisplayColors`: no
-///          second colour slot and no hardcoded value.
-const double _chipFillAlpha = 0.12;
+/// 中文：chip 那三格的度量（24dp 高、6dp 圆角、0.12 的低透明度填充）跟着它们搬到了
+///       `status_chips.dart`，因为那里是它们唯一的使用者——度量与用它的东西分开就会漂。
+/// English: the metrics of the three chip cells (24dp tall, 6dp radius, a 0.12 low-alpha fill) moved
+///          with them to `status_chips.dart`, their only user — metrics separated from their user
+///          drift apart.
 
 /// 中文：表达式字号（字号决定整条算式的大小，见 `MathExpressionView`）。
 /// English: Expression font size (the size drives the whole equation's metrics, see
@@ -178,6 +170,7 @@ class CalculatorDisplay extends StatelessWidget {
     required this.naturalDisplay,
     this.resultTex = '',
     this.resultFractionTex = '',
+    this.resultDmsText = '',
     this.resultForm = ResultForm.auto,
     this.resultDecimal = '',
     this.baseReadout = '',
@@ -231,6 +224,19 @@ class CalculatorDisplay extends StatelessWidget {
   ///          and the plain reading is drawn instead — **never blank, and never a guessed
   ///          fraction**. Like [resultTex] it must **never** be fed to a numeric consumer.
   final String resultFractionTex;
+
+  /// 中文：**度分秒写法**（引擎终端印法的原文，`12°34′55.92″`，见 `MathResult.dmsText`）。它只在
+  ///       `D°M'S` 请求 [ResultForm.dms] 时才上场，而那要求结果是在 `DEG` 下算出来的
+  ///       （[angleMode]，理由见 `ResultPresentation`）；空串表示这一次没有这一格，排出来的就是
+  ///       纯文本读数——**绝不空白、也绝不去猜一个**。与 [resultTex] 一样，**它绝不能被喂给任何
+  ///       数值消费者**。
+  /// English: **the DMS spelling** (the engine's terminal render, `12°34′55.92″`; see
+  ///          `MathResult.dmsText`). It only takes the stage when `D°M'S` asks for
+  ///          [ResultForm.dms], which requires the result to have been produced under `DEG`
+  ///          ([angleMode]; the reason is in `ResultPresentation`). An empty string means there is no
+  ///          such cell this time and the plain reading is drawn — **never blank, and never a
+  ///          guess**. Like [resultTex] it must **never** be fed to a numeric consumer.
+  final String resultDmsText;
 
   /// 中文：**结果行画哪几种形态里的哪一种**（HiPER 的 `x⇔E` 与 `d/c` 管的就是这一个）。它只是一个
   ///       请求：[ResultPresentation] 会拿它对照这一份结果真正有的形态，没有的一律回落到
@@ -446,53 +452,18 @@ class CalculatorDisplay extends StatelessWidget {
             _drawerButton(),
             const SizedBox(width: 4),
           ],
-          _statusChip(angleMode),
+          StatusChips.angleMode(angleMode, colors),
           if (hasMemory) ...<Widget>[
             const SizedBox(width: 6),
-            _memoryIndicator(),
+            StatusChips.memory(colors),
           ],
           if (baseReadout.trim().isNotEmpty) ...<Widget>[
             const SizedBox(width: 6),
-            Flexible(child: _baseReadoutChip()),
+            Flexible(child: StatusChips.baseReadout(baseReadout, colors)),
           ],
           const Spacer(),
           if (onMore != null) _moreButton(),
         ],
-      ),
-    );
-  }
-
-  /// 中文：进制读数那一格。排版与角度 chip、记忆徽标共用同一套度量（同样的 24dp 高、同样的圆角、
-  ///       同样的低透明度指示色填充），所以状态行看起来仍是一排同类的东西；它说的是**另一个
-  ///       写法**（`HEX 64`），因此用指示色前景把它与 `DEG`/`M` 那两格区分开。
-  ///       `maxLines: 1` + `ellipsis`：读数的位数最多由控制器按 `kBaseReadoutMaxDigits` 截一次，
-  ///       这里是第二道——极端字体缩放下真正放不下的笔画**看得见地被省略**，而不是被裁掉。
-  /// English: the base read-out's cell. It shares the angle chip's and memory badge's metrics (the
-  ///          same 24dp height, corner radius and low-alpha indicator fill), so the status row still
-  ///          reads as one row of like things; what it says is **another way of writing the result**
-  ///          (`HEX 64`), so its foreground takes the indicator colour to set it apart from the
-  ///          `DEG`/`M` cells. `maxLines: 1` plus `ellipsis`: the controller already caps the digits
-  ///          once (`kBaseReadoutMaxDigits`), and this is the second line of defence — under an
-  ///          extreme font scale what genuinely does not fit is **visibly elided** rather than
-  ///          clipped.
-  Widget _baseReadoutChip() {
-    return Container(
-      height: _chipHeight,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      decoration: BoxDecoration(
-        color: colors.indicatorFg.withValues(alpha: _chipFillAlpha),
-        borderRadius: BorderRadius.circular(_chipRadius),
-      ),
-      child: Text(
-        baseReadout.trim(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: colors.indicatorFg,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
       ),
     );
   }
@@ -519,54 +490,6 @@ class CalculatorDisplay extends StatelessWidget {
       constraints: const BoxConstraints.tightFor(
         width: _statusButtonSize,
         height: _statusButtonSize,
-      ),
-    );
-  }
-
-  /// 中文：角度模式 chip——底色是指示色的低透明度版本，文字用次要状态色（该色位的注释里
-  ///       点名的第一用途就是角度制）。
-  /// English: The angle-mode chip — its fill is a low-alpha indicator colour and its text uses the
-  ///          secondary status colour, whose own doc comment names the angle mode as its first
-  ///          use.
-  Widget _statusChip(String label) {
-    return Container(
-      height: _chipHeight,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration: BoxDecoration(
-        color: colors.indicatorFg.withValues(alpha: _chipFillAlpha),
-        borderRadius: BorderRadius.circular(_chipRadius),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colors.statusFg,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  /// 中文：记忆指示 `M`——一个徽标，所以用指示色；没有值时整块不渲染（不是画一个空徽标）。
-  /// English: The `M` memory indicator — a badge, hence the indicator colour; with no value the
-  ///          whole thing is absent rather than drawn empty.
-  Widget _memoryIndicator() {
-    return Container(
-      height: _chipHeight,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      decoration: BoxDecoration(
-        color: colors.indicatorFg.withValues(alpha: _chipFillAlpha),
-        borderRadius: BorderRadius.circular(_chipRadius),
-      ),
-      child: Text(
-        'M',
-        style: TextStyle(
-          color: colors.indicatorFg,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
@@ -682,6 +605,15 @@ class CalculatorDisplay extends StatelessWidget {
       fractionTex: resultFractionTex,
       resultDecimal: resultDecimal,
       naturalDisplay: naturalDisplay,
+      // 中文：度分秒那一格的另外两个入参——引擎那一串原文，以及**这一份结果算出来时的角度模式**
+      //       （`DEG` 才是「这个数是若干度」成立的那一半，判据在 `ResultPresentation` 里，不在
+      //       这里）。两者都只影响那一格存不存在，不影响别的形态。
+      // English: the DMS cell's other two inputs — the engine's string, and **the angle mode this
+      //          result was produced under** (`DEG` is the half where "this number is so many degrees"
+      //          holds; the judgement lives in `ResultPresentation`, not here). Both only affect
+      //          whether that cell exists; no other form moves.
+      dmsText: resultDmsText,
+      degreesMode: angleMode == 'DEG',
     );
     // 中文：请求 → 这一份结果真正有的形态。没有的那一种回落到 `auto`，所以下面 `texFor` 拿到的
     //       那一段一定是这一份结果自己有的，不会画出别的东西。
