@@ -169,9 +169,19 @@ void main() {
     //          `number operator number`") was a list of examples and missed a whole class; the shape
     //          the engine itself reports now decides. Every row below is verbatim **device-measured**
     //          (the `decimal` together with the engine's predicates).
-    const rows = <({String expression, String decimal, EngineResultKind kind, bool legacyAnswers})>[
+    const rows = <({
+      String expression,
+      String decimal,
+      EngineResultKind kind,
+      bool legacyAnswers
+    })>[
       // 引擎把 app 自己的名字读成了单位或常量——一个带单位的量。
-      (expression: 'fact(-1)', decimal: '-10 aa*t', kind: EngineResultKind.unit, legacyAnswers: false),
+      (
+        expression: 'fact(-1)',
+        decimal: '-10 aa*t',
+        kind: EngineResultKind.unit,
+        legacyAnswers: false
+      ),
       (
         expression: 'ncr(5,10)',
         decimal: "[(1.49896229n'r' km/us)  (2.99792458n'r' km/us)]",
@@ -181,18 +191,48 @@ void main() {
         legacyAnswers: true,
       ),
       // 引擎拒绝做这次运算，把结果留成一个未求值的形状：乘积 / 幂 / 函数调用。
-      (expression: '1/0', decimal: '1 / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
-      (expression: 'i/0', decimal: 'i / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
-      (expression: '(1+i)/0', decimal: '(1 + i) / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (
+        expression: '1/0',
+        decimal: '1 / 0',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
+      (
+        expression: 'i/0',
+        decimal: 'i / 0',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
+      (
+        expression: '(1+i)/0',
+        decimal: '(1 + i) / 0',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
       (
         expression: 'matrix(2,2,1,2,3,4)/0',
         decimal: '[1  2; 3  4] / 0',
         kind: EngineResultKind.arithmetic,
         legacyAnswers: false,
       ),
-      (expression: '2 mod 0', decimal: 'mod(2; 0)', kind: EngineResultKind.arithmetic, legacyAnswers: false),
-      (expression: 'root(2,0)', decimal: 'root(2; 0)', kind: EngineResultKind.arithmetic, legacyAnswers: false),
-      (expression: 'x/0', decimal: 'x / 0', kind: EngineResultKind.arithmetic, legacyAnswers: false),
+      (
+        expression: '2 mod 0',
+        decimal: 'mod(2; 0)',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
+      (
+        expression: 'root(2,0)',
+        decimal: 'root(2; 0)',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
+      (
+        expression: 'x/0',
+        decimal: 'x / 0',
+        kind: EngineResultKind.arithmetic,
+        legacyAnswers: false
+      ),
     ];
 
     for (final row in rows) {
@@ -374,24 +414,39 @@ void main() {
       controller.dispose();
     });
 
-    test('phi(2)：屏幕上必须是 3.236068（常量 ×2），不是引擎的欧拉函数 1', () async {
-      // 中文：**第三个 `log`，而且它换了个形状。** 引擎里 `phi` 是一个**函数**（欧拉 φ 函数），
-      //       而应用里 `phi` 是**常量**（黄金比）——于是 `phi(2)` 引擎给 `1`、应用给 `1.618…×2`
-      //       = `3.236068`。种类是 `number`、有有限十进制 → tier 1 直接采用引擎的值。
-      //       这一类（**常量被当函数调用**）在修复轮 4 之前整个漏在词表之外：那张表只收函数名。
-      //       现在常量也在表里（`AppEngineVocabulary.identifiers`），`phi` 标成不可信。
+    test('phi(2)：问出去的是常量 ×2 的数值，屏幕上必须是 3.236068（不是欧拉函数的 1）', () async {
+      // 中文：**常量被当成函数调用**（修复轮 5 的第三个 `log`）。引擎里 `phi` 是一个**函数**
+      //       （欧拉 φ 函数，实测 `phi(2)` → `1`），应用里 `phi` 是**常量**（黄金比），所以
+      //       「引擎读这个拼法」的答案曾经是错的。
+      //
+      //       **修复轮 8/9 之后这件事由翻译了结，不由名字层。** 归一化把 `phi(2)` 写成 `phi*(2)`
+      //       （常量乘分组，**不再是调用**，实测 `ExpressionParser.normalizeExpressionInput`），
+      //       名字层读的正是这一份，于是它不再判 `phi` 不可用；翻译再把常量写成它的数值，引擎被问的
+      //       是 `((1.618033988749895)*((2)))`——它对这一问的答复（实测 `3.23606797749979`）**就是
+      //       应用自己的值**。欧拉函数那个 `1` 因此**问不出来**了：引擎不会再收到 `phi(2)` 这个式子。
+      //       本条的替身回的是**引擎实测的原文**（对上面那个被问到的字符串），断言因此落在
+      //       「问出去的字符串」与「屏幕上的值」两处——替身再回一个 `1`，就成了现实里不存在的引擎。
       //       可输入、可粘贴（内联编辑器的文本框与剪贴板都能到它）。
-      // English: **the third `log`, in a different shape.** In the engine `phi` is a **function**
-      //          (Euler's totient); in this app `phi` is a **constant** (the golden ratio) — so
-      //          `phi(2)` gives the engine `1` and this app `1.618… × 2` = `3.236068`. Its kind is
-      //          `number` with a finite decimal, so tier 1 adopted the engine's value. This class —
-      //          **a constant written as a call** — was entirely outside fix round 4's vocabulary,
-      //          which held function names only. Constants are in the table now
-      //          (`AppEngineVocabulary.identifiers`) and `phi` is marked untrusted. It is typeable and
-      //          pasteable (the inline editor's text field and the clipboard both reach it).
+      // English: **a constant written as a function call** (fix round 5's third `log`). In the engine
+      //          `phi` is a **function** (Euler's totient, measured `phi(2)` → `1`) while in this app
+      //          it is a **constant** (the golden ratio), so "what the engine reads for this spelling"
+      //          used to be the wrong thing.
+      //
+      //          **After fix rounds 8/9 the translation settles this, not the name layer.**
+      //          Normalisation writes `phi(2)` as `phi*(2)` (a constant times a group, **no longer a
+      //          call** — measured with `ExpressionParser.normalizeExpressionInput`), and that is
+      //          exactly the string the name layer reads, so it stops judging `phi` unusable; the
+      //          translation then writes the constant as its value, and the engine is asked
+      //          `((1.618033988749895)*((2)))` — whose answer (measured `3.23606797749979`) **is this
+      //          app's own value**. The totient's `1` therefore **cannot be asked for any more**: the
+      //          engine never receives `phi(2)`. The double here answers with the **engine's measured
+      //          text** for that asked string, so the assertions land on "the string that goes out" and
+      //          "the value on screen" — a double answering `1` again would model an engine that
+      //          cannot exist. It is typeable and pasteable (the inline editor's text field and the
+      //          clipboard both reach it).
       final engine = _FakeMathEngine(const EngineReplyFixture(
-        displayText: '1',
-        displayTex: '1',
+        displayText: '3.23606797749979',
+        displayTex: '3.23606797749979',
         kind: EngineResultKind.number,
       ).reply);
       final controller = _controller(_FakeDatabase(), engine: engine);
@@ -399,8 +454,10 @@ void main() {
       controller.setExpression('phi(2)');
       await controller.submit();
 
+      expect(engine.calls.single.expression, '((1.618033988749895)*((2)))',
+          reason: '引擎被问的必须是常量的数值，不是 `phi(2)` 这个调用');
       expect(controller.result, '3.236068', reason: '引擎的欧拉函数被当成了黄金比');
-      expect(controller.resultDecimal, '3.236068');
+      expect(controller.resultDecimal, '3.23606797749979');
 
       controller.dispose();
     });
@@ -482,10 +539,32 @@ void main() {
       expect(AppEngineVocabulary.canRead('fact(5)'), isFalse);
       expect(AppEngineVocabulary.canRead('deg(pi)'), isFalse);
       expect(AppEngineVocabulary.canRead('1+rad(30)*2'), isFalse);
-      // 中文：`1.5° to arcmin` 里没有任何**调用**，所以词表管不着它——它由 conversion 那一支接住。
-      // English: `1.5° to arcmin` contains no **call**, so the vocabulary has nothing to say about it
-      //          — the conversion branch catches it.
-      expect(AppEngineVocabulary.canRead('1.5° to arcmin'), isTrue);
+      // 中文：**输入先过 `ExpressionParser.normalizeExpressionInput`（修复轮 9）**，下面是这一层
+      //       自己的例子。`fact 171` 归一化写成 `fact(171)`、全角 `ｌｇ(8,2)` 写成 `lg(8,2)` 再折成
+      //       `log`——**归一化之后才成为词汇表名字**的拼法。不归一化时这两条都判真，引擎的答案因此
+      //       上屏（实测：`1.241018070217668E309` 与二元素向量；两条端到端的红证在
+      //       `calculator_engine_translation_test.dart`）。
+      // English: **the input goes through `ExpressionParser.normalizeExpressionInput` first (fix round
+      //          9)**; here are that layer's own examples. `fact 171` normalises to `fact(171)`, the
+      //          full-width `ｌｇ(8,2)` to `lg(8,2)` and on to `log` — spellings that **only become
+      //          vocabulary names after normalisation**. Without the normalisation both were true and
+      //          the engine's answer reached the screen (measured: `1.241018070217668E309` and a
+      //          two-element vector; the two end-to-end red proofs are in
+      //          `calculator_engine_translation_test.dart`).
+      expect(AppEngineVocabulary.canRead('fact 171'), isFalse);
+      expect(AppEngineVocabulary.canRead('ｆａｃｔ(171)'), isFalse);
+      expect(AppEngineVocabulary.canRead('ｌｇ(8,2)'), isFalse);
+      // 中文：`1.5° to arcmin` **归一化之后**是 `rad(1.5) to arcmin`（`°` 被写成 `rad(…)`），里面因此
+      //       有一个 `rad` 调用，而 `rad` 在「不可用」那一列——修复轮 9 之前它读原文、判真。
+      //       **屏幕上没有变化**：翻译器在名字层之前就拒了 `rad`，引擎一次都没被问
+      //       （实测与那条端到端断言同在 `calculator_engine_translation_test.dart`）。
+      // English: `1.5° to arcmin` **normalises** to `rad(1.5) to arcmin` (`°` is written `rad(…)`), so
+      //          it does contain a `rad` call, and `rad` is in the unusable column — before fix round
+      //          9 this read the raw source and said true. **Nothing changes on screen**: the
+      //          translator refuses `rad` ahead of the name layer, so the engine is never asked (the
+      //          measurement lives with the end-to-end assertion in
+      //          `calculator_engine_translation_test.dart`).
+      expect(AppEngineVocabulary.canRead('1.5° to arcmin'), isFalse);
       // 中文：`i(2)`/`e(2)`/`pi(2)` 里的名字**不是函数**（`i`/`e`/`pi` 是引擎的变量、应用里的常量），
       //       所以它们不在词表里、这条规则不管它们。引擎侧放行它们是有意的：`i(2)` 是隐式乘法
       //       `2i`（在本轮之前就可显示），把「不是函数名」当成「读不懂」会误伤它——那一条判据在
@@ -513,7 +592,8 @@ void main() {
       //          renderer's own check, or the result line falls back to the plain reading (`[1  2;
       //          3  4]` is readable, but a real matrix beats a string of brackets).
       expect(
-        MathExpressionView.typesetsTex(r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}'),
+        MathExpressionView.typesetsTex(
+            r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}'),
         isTrue,
         reason: '矩阵的 LaTeX 排不出来，结果行会退回纯文本',
       );
@@ -704,7 +784,8 @@ class EngineReplyFixture {
         // English: the adapter's own rule (`QalculateMathEngine._replyFrom`): the decimal form is
         //          written only when it **is** a finite number; matrices and complex numbers leave it
         //          empty, and numeric consumers stop there.
-        decimalText: MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+        decimalText:
+            MathResult.decimalTextIsFinite(displayText) ? displayText : '',
         resultKind: kind,
       ));
 }
@@ -714,12 +795,21 @@ class _FakeMathEngine implements MathEngine {
 
   EngineReply? reply;
 
+  /// 中文：被问到的表达式。`phi(2)` 那一条要断言**问出去的是常量的数值**（修复轮 9 起那件事由
+  ///       翻译负责，名字层不再拦它）。
+  /// English: every expression it was asked about. The `phi(2)` row asserts that **the constant's
+  ///          value is what goes out** (since fix round 9 that is the translation's job; the name
+  ///          layer no longer stops it).
+  final List<({String expression, String angleMode})> calls = [];
+
   @override
   Future<EngineReply> evaluate(
     String expression, {
     required String angleMode,
-  }) async =>
-      reply ?? EngineReply.failure('no reply configured');
+  }) async {
+    calls.add((expression: expression, angleMode: angleMode));
+    return reply ?? EngineReply.failure('no reply configured');
+  }
 }
 
 /// 中文：**手动放行**的引擎替身——回答由测试在某个时刻给，于是「回包到达时状态已经变了」这个

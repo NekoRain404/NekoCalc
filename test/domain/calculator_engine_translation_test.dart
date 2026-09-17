@@ -45,17 +45,33 @@ import 'package:nekocalc/data/repositories/settings_repository.dart';
 ///          device-vs-host difference is not papered over.
 void main() {
   group('名字层：引擎读不了这个拼法时，它的答案一律不采用', () {
-    // 中文：这四个样本都是这五轮里出现过的**活错值**——引擎对它们**不报错**，只是把名字读成了
-    //       别的东西（`phi` 是欧拉 φ 函数、`log` 是自然对数、`mod` 的余数定义不同）。
-    //       修复轮 7 之后它们挡在**名字层**（`canRead`）：翻译那一层也各有分晓，但这一层更早。
-    // English: all four samples are **live wrong values** from these rounds — the engine does not error
-    //          on them, it just reads the name as something else (`phi` is Euler's totient function,
-    //          `log` is the natural logarithm, `mod`'s remainder is defined differently). After fix
-    //          round 7 they are stopped at the **name layer** (`canRead`); the translation layer
-    //          settles them too, but this one comes first.
+    // 中文：这里的样本都是这五轮里出现过的**活错值**——引擎对它们**不报错**，只是把名字读成了
+    //       别的东西（`log` 是自然对数、`mod` 的余数定义不同）。修复轮 7 之后它们挡在**名字层**
+    //       （`canRead`）：翻译那一层也各有分晓，但这一层更早。
+    //
+    //       **`phi(2)` 曾经是这一组的一行；修复轮 9 起它不是了，而且不是被删掉，是搬走了。** 名字层
+    //       现在读归一化之后的字符串，而归一化把 `phi(2)` 写成 `phi*(2)`（常量乘分组，**不再是调用**
+    //       ——实测 `ExpressionParser.normalizeExpressionInput`），所以这一层对它无话可说；常量那件事
+    //       由翻译了结（把 `phi` 写成它的数值），引擎对 `((1.618033988749895)*((2)))` 的答复
+    //       `3.23606797749979`（实测）就是应用自己的值。它的三种拼法因此由下面 `φ(2)` 那一条钉住
+    //       （问出去的字符串 + 屏幕上的值），屏幕值另有一条在
+    //       `calculator_engine_display_gate_test.dart`。
+    // English: every sample here is a **live wrong value** from these rounds — the engine does not
+    //          error on them, it just reads the name as something else (`log` is the natural
+    //          logarithm, `mod`'s remainder is defined differently). After fix round 7 they are
+    //          stopped at the **name layer** (`canRead`); the translation layer settles them too, but
+    //          this one comes first.
+    //
+    //          **`phi(2)` used to be a row here; since fix round 9 it is not — and it was moved, not
+    //          deleted.** The name layer now reads the normalised string, and normalisation writes
+    //          `phi(2)` as `phi*(2)` (a constant times a group, **no longer a call** — measured with
+    //          `ExpressionParser.normalizeExpressionInput`), so this layer has nothing to say about it.
+    //          The constant is settled by the translation (it writes `phi` as its value) and the
+    //          engine's measured answer for `((1.618033988749895)*((2)))`, `3.23606797749979`, is this
+    //          app's own value. Its three spellings are pinned by the `φ(2)` row below (the string
+    //          asked + the value on screen), with a screen-value row in
+    //          `calculator_engine_display_gate_test.dart`.
     const cases = <({String expression, String engineText, String expected})>[
-      // 引擎里 `phi` 是欧拉 φ 函数（实测：`phi(2)` → 1），应用里它是黄金比常量 ×2 = 3.236068。
-      (expression: 'phi(2)', engineText: '1', expected: '3.236068'),
       // 引擎的 `log` 是自然对数（实测 4.605170185988091），应用的是常用对数（翻译写成 `log10`）。
       (expression: 'log(100)', engineText: '4.605170185988091', expected: '2'),
       // 引擎的 `mod(7,-3)` 是 -2，应用的 `%` 是欧几里得余数 1。
@@ -63,7 +79,8 @@ void main() {
     ];
 
     for (final row in cases) {
-      test('${row.expression}：屏幕上是 ${row.expected}，不是引擎的 ${row.engineText}', () async {
+      test('${row.expression}：屏幕上是 ${row.expected}，不是引擎的 ${row.engineText}',
+          () async {
         final controller = _controller(
           _FakeDatabase(),
           engine: _FakeMathEngine(_reply(row.engineText)),
@@ -88,7 +105,8 @@ void main() {
     test('应用解析不了 ⇒ 引擎是唯一来源：矩阵照样上屏', () async {
       final controller = _controller(
         _FakeDatabase(),
-        engine: _FakeMathEngine(_reply('[1  2; 3  4]', tex: r'\\begin{bmatrix}1 & 2 \\\\ 3 & 4\\end{bmatrix}')),
+        engine: _FakeMathEngine(_reply('[1  2; 3  4]',
+            tex: r'\\begin{bmatrix}1 & 2 \\\\ 3 & 4\\end{bmatrix}')),
       );
 
       controller.setExpression('matrix(2,2,1,2,3,4)');
@@ -161,7 +179,8 @@ void main() {
       //       的控制器量它：那是应用自己的答案。
       // English: first confirm the premise — the app's own parser answers 0.0 for this expression
       //          (underflow); measured with an engine-less controller, which is the app's own answer.
-      final appOnly = _controller(_FakeDatabase(), engine: _FailingMathEngine());
+      final appOnly =
+          _controller(_FakeDatabase(), engine: _FailingMathEngine());
       appOnly.setExpression('2^-2000');
       await appOnly.submit();
       expect(appOnly.result, '0', reason: '应用自己的解析器在这里给的就是 0（下溢）');
@@ -186,7 +205,8 @@ void main() {
       //          directly.
       final controller = _controller(
         _FakeDatabase(),
-        engine: _FakeMathEngine(_reply('2.828427124746190', tex: r'2\\times \\sqrt{2}')),
+        engine: _FakeMathEngine(
+            _reply('2.828427124746190', tex: r'2\\times \\sqrt{2}')),
       );
 
       controller.setExpression('sqrt(8)');
@@ -307,7 +327,8 @@ void main() {
         // 中文：应用自己的答案——同一个控制器、没有引擎的那一份。两个值相同才算这一条成立。
         // English: this app's own answer — the same controller with no engine. The row holds only when
         //          the two agree.
-        final appOnly = _controller(_FakeDatabase(), engine: _FailingMathEngine());
+        final appOnly =
+            _controller(_FakeDatabase(), engine: _FailingMathEngine());
         appOnly.setExpression(row.expression);
         await appOnly.submit();
         final expected = appOnly.result;
@@ -335,16 +356,21 @@ void main() {
     }
   });
 
-  group('canRead 那一层是必要的：两个输入上它挡下的是屏幕上的值（修复轮 8）', () {
+  group('canRead 那一层是必要的：这些输入上它挡下的是屏幕上的值（修复轮 8 起）', () {
     // 中文：**修复轮 7 在词表文件头写过「这一层不再改变屏幕上任何一个值」，那句话是假的。**
-    //       这两条是反例，而且是**可以失败**的：把 `canRead` 变异成恒为 `true`，两条都会红，
-    //       红在与上面断言的值不同上（引擎的答复上屏）。
-    //       两条的引擎文本都是实测的（宿主 libqalculate 5.12.0，桥的调用序列）。
+    //       `log(8,2)` 与 `fact(171)` 是修复轮 8 量的两条反例；修复轮 9 又补了 `fact 171`
+    //       （裸调用）与 `ｌｇ(8,2)`（全角）两条——它们只有**归一化之后**才成为词汇表里的名字。
+    //       四条都**可以失败**：把 `canRead` 变异成恒为 `true`（或把它读的输入改回原文），
+    //       红都在屏幕值上（引擎的答复上屏）。
+    //       每一条的引擎文本都是实测的（宿主 libqalculate 5.12.0，桥的调用序列）。
     // English: **fix round 7 wrote "this layer no longer changes any value on screen" in the vocabulary
-    //          header, and that sentence is false.** These two are the counterexamples, and they **can
-    //          fail**: mutate `canRead` to a constant `true` and both go red, on the value being
-    //          different from the one asserted above (the engine's reply reaches the screen).
-    //          Both engine texts are measured (host libqalculate 5.12.0, the bridge's call sequence).
+    //          header, and that sentence is false.** `log(8,2)` and `fact(171)` are the two
+    //          counterexamples fix round 8 measured; fix round 9 added `fact 171` (a bare call) and
+    //          `ｌｇ(8,2)` (full-width) — spellings that only become vocabulary names **after
+    //          normalisation**. All four **can fail**: mutate `canRead` to a constant `true` (or put
+    //          its input back to the raw source) and every red lands on the screen value (the engine's
+    //          reply reaching the screen). Every engine text here is measured (host libqalculate
+    //          5.12.0, the bridge's call sequence).
     test('log(8,2)（logₓy 键）：引擎对 log10(8,2) 答二元素向量，屏幕上是应用的 3', () async {
       final engine = _MeasuredEngine();
       final controller = _controller(_FakeDatabase(), engine: engine);
@@ -368,6 +394,11 @@ void main() {
       //       描述的是一份永远不会被问到的表达式。
       //       所以这一条现在钉的是**翻译**（问的是常量的数值）而不是名字层，而且它照样钉住值：
       //       `φ` / `phi` / `ϕ` 三种拼法必须给同一个数。
+      //
+      //       **修复轮 9 起三种拼法走的是同一条路。** 名字层读的也是归一化之后的字符串了，
+      //       而归一化把三种拼法都写成 `phi*(2)`（常量乘分组，不再是调用），所以它不再拦 `phi(2)`
+      //       （ASCII）——三种拼法全部由引擎作答，十进制形态因此**同精度**（引擎那一份未取整的）。
+      //       屏幕上显示的数不变（`3.236068`，`formatNumber(precision: 6)`），换的是作答那条路。
       // English: **this used to be one row of the name layer's loop** (the double answered `1` for
       //          **every** expression, modelling "the engine read `φ` as Euler's function"). After fix
       //          round 8 that is no longer how it behaves: normalisation writes `φ` as `phi`, the
@@ -376,6 +407,13 @@ void main() {
       //          app's own value** — the double's "1" described an expression that is never asked.
       //          So this row now pins the **translation** (that the constant's value is what is asked),
       //          and it still pins a value: the three spellings `φ` / `phi` / `ϕ` have to agree.
+      //
+      //          **Since fix round 9 all three spellings take the same path.** The name layer reads the
+      //          normalised string too now, and normalisation writes all three as `phi*(2)` (a constant
+      //          times a group, no longer a call), so it no longer stops `phi(2)` (ASCII) — all three
+      //          are answered by the engine, and the decimal form is therefore **of one precision**
+      //          (the engine's unrounded one). The number shown does not change (`3.236068`,
+      //          `formatNumber(precision: 6)`); what changes is which path answers.
       for (final spelling in <String>['φ(2)', 'ϕ(2)', 'phi(2)']) {
         final engine = _MeasuredEngine();
         final controller = _controller(_FakeDatabase(), engine: engine);
@@ -389,21 +427,12 @@ void main() {
         // English: **the value on screen is the same for all three spellings** — what this row is
         //          really pinning.
         expect(controller.result, '3.236068', reason: spelling);
-        // 中文：十进制形态有两种精度，因为**作答的那一条路**不同：`phi(2)`（ASCII）仍被名字层拦下，
-        //       由旧解析器作答，而旧解析器的十进制形态就是取整后的显示文本
-        //       （`_calculateResult` → `MathResult.legacy`）；`φ(2)`/`ϕ(2)` 由引擎作答，拿到的是
-        //       引擎那一份未取整的十进制。这是「引擎答 vs 旧解析器答」本来就有的差别（每条表达式
-        //       都有），不是这两种拼法专有的——**显示出来的数是同一个**。
-        // English: the decimal form has two precisions because **which path answers** differs:
-        //          `phi(2)` (ASCII) is still stopped by the name layer and answered by the legacy
-        //          parser, whose decimal form is the rounded display text (`_calculateResult` →
-        //          `MathResult.legacy`), while `φ(2)`/`ϕ(2)` are answered by the engine and carry its
-        //          unrounded decimal. That is the pre-existing "engine vs legacy" difference (every
-        //          expression has it), not something specific to these spellings — **the number shown is
-        //          the same**.
-        expect(controller.resultDecimal,
-            spelling == 'phi(2)' ? '3.236068' : '3.23606797749979',
-            reason: spelling);
+        // 中文：三种拼法现在都由引擎作答，十进制形态是引擎那一份未取整的（修复轮 9 之前
+        //       `phi(2)` 还带着旧解析器那条路的取整值 `3.236068`）——**显示出来的数没变**。
+        // English: all three are answered by the engine now, so the decimal form is the engine's
+        //          unrounded one (before fix round 9 `phi(2)` still carried the legacy path's rounded
+        //          `3.236068`) — **the number shown is unchanged**.
+        expect(controller.resultDecimal, '3.23606797749979', reason: spelling);
 
         controller.dispose();
       }
@@ -419,6 +448,91 @@ void main() {
       expect(engine.calls.single.expression, 'factorial(171)');
       expect(controller.hasError, isTrue);
       expect(controller.result, isNot('1.241018070217668E309'));
+
+      controller.dispose();
+    });
+
+    test('fact 171（裸调用）：归一化之后才是 `fact(`，引擎的答案不许用', () async {
+      // 中文：**修复轮 9 的第一条红证。** `fact 171` 里没有括号，`_callName` 的正则看不见这个调用；
+      //       归一化（`_normalizeBareUnaryFunctionCalls`）把它写成 `fact(171)`，于是名字层读到的
+      //       正是那个 `fact(`，落在「不可用」那一列。修复轮 9 之前这一层读原文、判真，引擎对
+      //       `factorial(171)` 的答复 `1.241018070217668E309`（实测）因此上屏，而应用自己的答案是
+      //       「阶乘只支持 0 到 170 的整数」。裸调用（`名字 数字`）是这个应用**明确支持并测过**的
+      //       输入形态（`test/core/expression_parser_test.dart` 那一组，键盘可达），不是粘贴才有的写法。
+      // English: **fix round 9's first red proof.** `fact 171` has no bracket, so `_callName`'s regex
+      //          cannot see the call; normalisation (`_normalizeBareUnaryFunctionCalls`) writes it as
+      //          `fact(171)`, so the name layer reads exactly that `fact(` and it lands in the unusable
+      //          column. Before fix round 9 this layer read the raw source and said true, so the
+      //          engine's measured `1.241018070217668E309` for `factorial(171)` reached the screen,
+      //          where this app's own answer is "阶乘只支持 0 到 170 的整数". A bare call (`name
+      //          number`) is an input form this app **supports and tests** (the group in
+      //          `test/core/expression_parser_test.dart`, keypad-reachable), not a paste-only curiosity.
+      final engine = _MeasuredEngine();
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('fact 171');
+      await controller.submit();
+
+      expect(engine.calls.single.expression, 'factorial(171)',
+          reason: '归一化把裸调用写成 `fact(171)`，翻译再写成 `factorial(171)`');
+      expect(controller.result, '阶乘只支持 0 到 170 的整数');
+      expect(controller.hasError, isTrue);
+
+      controller.dispose();
+    });
+
+    test('ｌｇ(8,2)（全角字母）：归一化之后才是 `log(`，引擎的答案不许用', () async {
+      // 中文：**修复轮 9 的第二条红证。** 全角拉丁字母（`U+FF21`–`U+FF5A`）不在 `_callName` 的
+      //       `[A-Za-z]` 里；`_normalizeFullWidthAscii` 把 `ｌｇ` 写成 `lg`，别名表再折成 `log`，
+      //       于是名字层看得见这个调用。修复轮 9 之前判真，引擎对 `log10(8,2)` 的二元素向量
+      //       `[0.9030899869919436  0.3010299956639812]`（实测）上屏，而应用自己给 `3`。
+      //       `ｆａｃｔ(171)` 是同一类的另一个实例（同样实测过）。
+      // English: **fix round 9's second red proof.** Full-width Latin (`U+FF21`–`U+FF5A`) is not in
+      //          `_callName`'s `[A-Za-z]`; `_normalizeFullWidthAscii` writes `ｌｇ` as `lg` and the
+      //          alias table folds that to `log`, so the name layer can see the call. Before fix round
+      //          9 it said true, and the engine's measured two-element vector for `log10(8,2)`,
+      //          `[0.9030899869919436  0.3010299956639812]`, reached the screen where this app gives
+      //          `3`. `ｆａｃｔ(171)` is the same class's other measured instance.
+      final engine = _MeasuredEngine();
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('ｌｇ(8,2)');
+      await controller.submit();
+
+      expect(engine.calls.single.expression, 'log10(8,2)');
+      expect(controller.result, '3');
+      expect(controller.resultDecimal, '3');
+      expect(controller.hasError, isFalse);
+
+      controller.dispose();
+    });
+
+    test('1.5° to arcmin：名字层判假，但翻译器先拒了 `rad`——引擎一次都没被问', () async {
+      // 中文：这条钉的是**修复轮 9 那条期望值改动为什么不改变屏幕**。`1.5° to arcmin` 归一化之后是
+      //       `rad(1.5) to arcmin`，里面有一个 `rad` 调用，于是 `canRead` 判假（修复轮 9 之前它读原文、
+      //       判真）。**两种判词下屏幕都一样**：`_askEngineTranslated` 先问翻译器，翻译器对 `rad` 给
+      //       「词表里这个名字没有引擎写法」，引擎**根本没被问**（`calls` 为空），走旧解析器，
+      //       而旧解析器读不了 `to` ——应用自己的错误。所以这一条在「把 `canRead` 的输入改回原文」
+      //       的变异体里仍然是绿的，只有 `calculator_engine_display_gate_test.dart` 里那条
+      //       `canRead('1.5° to arcmin')` 的期望值断言会红。
+      // English: this pins **why fix round 9's expectation change does not change the screen**.
+      //          `1.5° to arcmin` normalises to `rad(1.5) to arcmin`, which contains a `rad` call, so
+      //          `canRead` says false (before fix round 9 it read the raw source and said true).
+      //          **The screen is the same either way**: `_askEngineTranslated` consults the translator
+      //          first, the translator has no engine spelling for `rad`, the engine is **never asked**
+      //          (`calls` is empty) and the legacy parser answers — and it cannot read `to`, so this is
+      //          the app's own error. That is why this row stays green in the "put `canRead`'s input
+      //          back to the raw source" mutant; only the `canRead('1.5° to arcmin')` expectation in
+      //          `calculator_engine_display_gate_test.dart` goes red there.
+      final engine = _MeasuredEngine();
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('1.5° to arcmin');
+      await controller.submit();
+
+      expect(engine.calls, isEmpty, reason: '翻译器先拒了 `rad`，引擎不该被问');
+      expect(controller.result, '存在无法识别的内容');
+      expect(controller.hasError, isTrue);
 
       controller.dispose();
     });
@@ -614,7 +728,8 @@ class _MeasuredEngine implements MathEngine {
   ///       （向量/矩阵走 tier 3，需要 `structured`）。
   /// English: asked text → (what the engine prints, kind). The kind only matters for the
   ///          **non-finite-decimal** ones (vectors/matrices go through tier 3 and need `structured`).
-  static const Map<String, (String, String)> _answers = <String, (String, String)>{
+  static const Map<String, (String, String)> _answers =
+      <String, (String, String)>{
     // 修好的写法（归一化之后）。
     '((((2)^((3))))/(100))': ('0.08', 'number'),
     '(((3))/(((100)^(2))))': ('0.0003', 'number'),
@@ -640,10 +755,7 @@ class _MeasuredEngine implements MathEngine {
     'floor(1,024)': ('[1  24]', 'structured'),
     'cbrt(1,024)': ('[1  2.884499140614817]', 'structured'),
     // `canRead` 那两条：引擎对**翻译后**的拼法的真实答复（这一份才是它会被问到的）。
-    'log10(8,2)': (
-      '[0.9030899869919436  0.3010299956639812]',
-      'structured'
-    ),
+    'log10(8,2)': ('[0.9030899869919436  0.3010299956639812]', 'structured'),
     'factorial(171)': ('1.241018070217668E309', 'number'),
     // `φ(2)`：翻译把常量写成它的数值，引擎对这个式子的答复就是应用自己的值。
     '((1.618033988749895)*((2)))': ('3.23606797749979', 'number'),

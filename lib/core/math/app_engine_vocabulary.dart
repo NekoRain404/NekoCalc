@@ -256,8 +256,10 @@ class AppEngineVocabulary {
     'atan2': AppFunction(engineKnowsThisName: true, engineFunction: 'atan2'),
     'matrix': AppFunction(engineKnowsThisName: true, engineFunction: 'matrix'),
     'sum': AppFunction(engineKnowsThisName: true, engineFunction: 'sum'),
-    'product': AppFunction(engineKnowsThisName: true, engineFunction: 'product'),
-    'integrate': AppFunction(engineKnowsThisName: true, engineFunction: 'integrate'),
+    'product':
+        AppFunction(engineKnowsThisName: true, engineFunction: 'product'),
+    'integrate':
+        AppFunction(engineKnowsThisName: true, engineFunction: 'integrate'),
     'diff': AppFunction(engineKnowsThisName: true, engineFunction: 'diff'),
     'limit': AppFunction(engineKnowsThisName: true, engineFunction: 'limit'),
     'rand': AppFunction(engineKnowsThisName: true, engineFunction: 'rand'),
@@ -287,7 +289,8 @@ class AppEngineVocabulary {
     'tau': AppFunction(engineKnowsThisName: true, engineFunction: 'tau'),
     'phi': AppFunction(engineKnowsThisName: false),
     'inf': AppFunction(engineKnowsThisName: false),
-    'infinity': AppFunction(engineKnowsThisName: true, engineFunction: 'infinity'),
+    'infinity':
+        AppFunction(engineKnowsThisName: true, engineFunction: 'infinity'),
 
     // 中文：**引擎不认识这几个拼法**——它会把它们拆成符号，于是答案描述的是另一件事。
     //       `ncr`/`fact` 的 `engineFunction` 就是翻译要用的映射（`engineNameFor`）：这两个名字现在
@@ -299,7 +302,8 @@ class AppEngineVocabulary {
     //          other.
     'ncr': AppFunction(engineKnowsThisName: false, engineFunction: 'binomial'),
     'npr': AppFunction(engineKnowsThisName: false),
-    'fact': AppFunction(engineKnowsThisName: false, engineFunction: 'factorial'),
+    'fact':
+        AppFunction(engineKnowsThisName: false, engineFunction: 'factorial'),
     'deg': AppFunction(engineKnowsThisName: false),
     'rad': AppFunction(engineKnowsThisName: false),
   };
@@ -323,10 +327,14 @@ class AppEngineVocabulary {
   ///       不折它们会**穿过**这张表。实测：不折时 `canRead('lg(8,2)')` 是真，引擎对 `log10(8,2)`
   ///       的二元素向量因此上屏，而 `log(8,2)`（同一个式子）被拦下。
   ///
-  ///       **这条判据读的是 ASCII 拼法**（正则就是 `[A-Za-z][A-Za-z0-9]*`）。非 ASCII 的拼法它看不见，
-  ///       今天只有 `φ`/`ϕ`（归一化之后是 `phi`，而 `phi` 在「不可用」那一列）——**它不是错值**：
-  ///       翻译把 `phi` 写成它的数值，引擎对 `(1.618033988749895)*(2)` 的答复是 `3.23606797749979`，
-  ///       与应用自己的 `phi(2)` 相同（两侧都量过）。这是**今天的**边界，不是一条保证。
+  ///       **这条判据读的是 ASCII 拼法**（正则就是 `[A-Za-z][A-Za-z0-9]*`），所以非 ASCII 的拼法
+  ///       它看不见。修复轮 9 实测的**两类**：`φ`/`ϕ`（归一化写成 `phi`，而 `phi` 在「不可用」
+  ///       那一列；应用自己的 `phi(2)` 与引擎对 `(1.618033988749895)*(2)` 的答复是同一个数，
+  ///       两侧都量过——这一类**不是错值**），以及**全角拉丁字母**（`U+FF21`–`U+FF5A`，归一化
+  ///       写成同名的 ASCII）——**这一类有两个实例是错值**：`ｌｇ(8,2)`、`ｆａｃｔ(171)`。
+  ///       修复轮 9 起 [canRead] 先把输入归一化再交给这里，所以这两类都到不了名字层；
+  ///       本函数自己看不见它们这条边界仍在（它的参数是什么字符串，它就读什么字符串），
+  ///       别再拿它当 `canRead` 的边界用。
   /// English: every function-call name in this expression, **folded to the table's canonical spelling**
   ///          (aliases and case, through `ExpressionParser`'s own [ExpressionParser.functionAliases] —
   ///          there is no second copy). The fold is required: the table's keys are canonical names, and
@@ -334,11 +342,15 @@ class AppEngineVocabulary {
   ///          Measured: unfolded, `canRead('lg(8,2)')` is true and the engine's two-element vector for
   ///          `log10(8,2)` goes on screen, while `log(8,2)` (the same expression) is stopped.
   ///
-  ///          **This judgement reads ASCII spellings** (the regex is `[A-Za-z][A-Za-z0-9]*`). A non-ASCII
-  ///          spelling is invisible to it — today only `φ`/`ϕ` (which normalise to `phi`, a name in the
-  ///          unusable column) — and **it is not a wrong value**: the translation writes `phi` as its
-  ///          value, and the engine's answer for `(1.618033988749895)*(2)` is `3.23606797749979`, the same
-  ///          as this app's own `phi(2)` (both measured). That is **today's** boundary, not a guarantee.
+  ///          **This judgement reads ASCII spellings** (the regex is `[A-Za-z][A-Za-z0-9]*`), so a
+  ///          non-ASCII spelling is invisible to it. Fix round 9 measured **two classes**: `φ`/`ϕ` (which
+  ///          normalise to `phi`, a name in the unusable column; this app's own `phi(2)` and the engine's
+  ///          answer for `(1.618033988749895)*(2)` are the same number, both measured — this class is
+  ///          **not a wrong value**), and **full-width Latin** (`U+FF21`–`U+FF5A`, which normalise to the
+  ///          same names in ASCII) — **two of its instances are wrong values**: `ｌｇ(8,2)` and
+  ///          `ｆａｃｔ(171)`. Since fix round 9 [canRead] normalises its input before handing it here, so
+  ///          neither class reaches the name layer; this function still cannot see them (it reads exactly
+  ///          the string it is handed), and that boundary is no longer `canRead`'s.
   static Set<String> callNamesIn(String expression) => <String>{
         for (final match in _callName.allMatches(expression))
           ExpressionParser.canonicalFunctionName(match.group(1)!),
@@ -479,9 +491,33 @@ class AppEngineVocabulary {
   ///
   ///          读的调用名先折成规范名（[callNamesIn]）——否则别名拼法穿过这张表：`lg(8,2)` 与
   ///          `log(8,2)` 会得到两个不同的答案，而它们是同一个调用（实测见 [callNamesIn]）。
+  ///
+  ///          中文：**输入在这里先归一化**（修复轮 9）：[ExpressionParser.normalizeExpressionInput]
+  ///          ——与翻译器（`engineExpressionFor`）、与 `ExpressionParser` 构造函数是**同一个静态
+  ///          方法**。修复轮 8 让翻译器读了归一化之后的形态，名字层却还在读原文，于是「归一化之后
+  ///          才成为词汇表名字」的拼法整个绕过这一层。两个实测（都在提交路径上，引擎只回答它真会被
+  ///          问到的那些字符串）：`fact 171` 归一化成 `fact(171)`、全角 `ｌｇ(8,2)` 归一化成
+  ///          `lg(8,2)`（别名再折成 `log`），这两条在修复轮 9 之前 `canRead` 都判真，引擎的答案
+  ///          因此上屏——分别是 `1.241018070217668E309` 与 `[0.9030899869919436  0.3010299956639812]`，
+  ///          而应用自己的答案是「阶乘只支持 0 到 170 的整数」与 `3`。两条都由
+  ///          `test/domain/calculator_engine_translation_test.dart` 钉住。
   /// English: the call names it reads are folded to their canonical spelling first ([callNamesIn]) — or
   ///          alias spellings would pass through this table and `lg(8,2)` and `log(8,2)` would get two
   ///          different answers for one and the same call (the measurement is on [callNamesIn]).
-  static bool canRead(String expression) =>
-      !callNamesIn(expression).any(unknownToEngine.contains);
+  ///
+  ///          **The input is normalised here first** (fix round 9):
+  ///          [ExpressionParser.normalizeExpressionInput] — the **same static method** the translator
+  ///          (`engineExpressionFor`) and `ExpressionParser`'s constructor use. Fix round 8 gave the
+  ///          translator the normalised form and left the name layer reading the raw source, so a
+  ///          spelling that only becomes a vocabulary name after normalisation bypassed this layer
+  ///          entirely. Two measurements (both on the submit path, with the engine answering only the
+  ///          strings it would really be asked): `fact 171` normalises to `fact(171)` and the full-width
+  ///          `ｌｇ(8,2)` to `lg(8,2)` (aliased on to `log`); before fix round 9 both passed `canRead`
+  ///          and the engine's answer reached the screen — `1.241018070217668E309` and
+  ///          `[0.9030899869919436  0.3010299956639812]` — where this app's own answers are
+  ///          "阶乘只支持 0 到 170 的整数" and `3`. Both are pinned in
+  ///          `test/domain/calculator_engine_translation_test.dart`.
+  static bool canRead(String source) => !callNamesIn(
+        ExpressionParser.normalizeExpressionInput(source),
+      ).any(unknownToEngine.contains);
 }
