@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../core/math/expression_parser.dart';
+import '../../core/math/math_result.dart';
 import '../../core/utils/number_formatter.dart';
 import '../../data/repositories/history_repository.dart';
 import '../../data/repositories/notes_repository.dart';
@@ -10,7 +11,9 @@ import '../../data/repositories/settings_repository.dart';
 import '../../domain/usecases/calculator_paste_result.dart';
 import '../../domain/usecases/calculator_save_result.dart';
 import '../../domain/usecases/calculator_submit_result.dart';
+import '../../domain/usecases/expression_editing.dart';
 import '../app_settings.dart';
+import 'expression_selection.dart';
 
 /// 中文：计算器页面的应用层状态控制器，负责表达式编辑、实时计算、历史保存和状态恢复。
 /// English: Application-layer controller for the calculator page; owns expression editing, live evaluation, history saving, and state restore.
@@ -28,9 +31,16 @@ class CalculatorController extends ChangeNotifier {
   final SettingsRepository settingsRepository;
   AppSettings _settings;
   String expression = '';
-  String result = '0';
+
+  /// 中文：当前结果的三形态（显示文本 / LaTeX / 十进制文本）。**数值消费者只许读 [resultDecimal]**：
+  ///       精确引擎接入后显示文本是 `4√2` 这样的精确形式，对它做 `double.tryParse` 会静默失败。
+  /// English: The current result in its three forms (display text / LaTeX / decimal text). Numeric
+  ///          consumers may only read [resultDecimal]: once the exact engine lands, the display text
+  ///          is an exact form such as `4√2`, and `double.tryParse` over it fails silently.
+  MathResult _result = MathResult.zero;
+
   String angleMode;
-  int cursorIndex = 0;
+  ExpressionSelection _selection = const ExpressionSelection.collapsed(0);
   double memoryValue = 0;
   bool hasError = false;
   String? errorMessage;
@@ -45,6 +55,36 @@ class CalculatorController extends ChangeNotifier {
   final List<_CalculatorSnapshot> _undoStack = [];
   final List<_CalculatorSnapshot> _redoStack = [];
   static const int _maxUndoDepth = 40;
+
+  ExpressionSelection get selection => _selection;
+
+  /// 中文：结果行的纯文本形态——**显示路径（`CalculatorDisplay`）只读它**，因此这次拆分对视图
+  ///       完全透明，屏幕上看到的东西与拆分前逐字符相同。
+  /// English: The plain-text form of the result line — the display path (`CalculatorDisplay`) reads
+  ///          only this, which is what makes the split invisible to the view: what reaches the
+  ///          screen is character-for-character what reached it before.
+  String get result => _result.displayText;
+
+  /// 中文：结果行的 LaTeX 形态（不含 `$` 定界符）。引擎未接入时始终为空串，结果行继续按纯文本
+  ///       渲染；自然排版的结果行会在下一步读它。
+  /// English: The LaTeX form of the result line (no `$` delimiters). While no engine is involved it
+  ///          is always empty and the result line keeps rendering as plain text; the typeset result
+  ///          line will read it in the next step.
+  String get resultTex => _result.displayTex;
+
+  /// 中文：结果的十进制形态——Ans/last、记忆寄存器、继续使用、历史去重与报告里的机器可读值都从
+  ///       这里取。空串表示「这一次没有十进制形态」，调用方必须照常工作而不是去解析 [result]。
+  /// English: The result's decimal form — Ans/last, the memory register, continue-with-result,
+  ///          history de-duplication and the report's machine-readable value all take it from here.
+  ///          An empty string means "no decimal form this time"; callers must keep working and must
+  ///          not parse [result] instead.
+  String get resultDecimal => _result.decimalText;
+
+  int get cursorIndex => _selection.end;
+
+  set cursorIndex(int value) {
+    _selection = ExpressionSelection.collapsed(value).clamp(expression.length);
+  }
 
   @override
   void dispose() {
@@ -110,12 +150,12 @@ class CalculatorController extends ChangeNotifier {
       return false;
     }
     expression = settings['calculator_expression'] ?? '';
-    cursorIndex =
-        _restoredCursorIndex(settings['calculator_cursor'], expression.length);
-    result = settings['calculator_result'] ?? '0';
+    _selection = _restoredSelection(settings, expression.length);
+    _result = _restoredResult(settings);
     angleMode = settings['calculator_angle'] ?? _settings.angleMode;
     memoryValue = double.tryParse(settings['calculator_memory'] ?? '') ?? 0;
-    _lastFiniteResult = _parserFriendlyNumber(result);
+    _lastFiniteResult =
+        _result.decimalText.isEmpty ? null : _result.decimalText;
     if (expression.isNotEmpty) evaluate();
     _clearEditingHistory();
     if (_disposed) return false;
@@ -130,6 +170,15 @@ class CalculatorController extends ChangeNotifier {
     angleMode = mode;
     evaluate();
     _persistState();
+    notifyListeners();
+  }
+
+  void setSelection(ExpressionSelection value) {
+    final next = value.clamp(expression.length);
+    if (_selection == next) return;
+    _markStateEdited();
+    _selection = next;
+    unawaited(_persistState());
     notifyListeners();
   }
 
@@ -152,9 +201,16 @@ class CalculatorController extends ChangeNotifier {
     if (token == '+/-') {
       _toggleSign();
     } else if (token == '%') {
-      _replaceAroundCursor(_applyPercent(expressionBeforeCursor));
+      if (selection.isCollapsed) {
+        _replaceAroundCursor(_applyPercent(expressionBeforeCursor));
+      } else {
+        _replaceSelectionWith('($_selectedExpression/100)');
+      }
     } else if (_isOperator(token)) {
-      _replaceAroundCursor(_appendOperator(expressionBeforeCursor, token));
+      final prefix = selection.isCollapsed
+          ? _appendOperator(expressionBeforeCursor, token)
+          : '$expressionBeforeCursor$token';
+      _replaceAroundCursor(prefix);
     } else if (token == '.') {
       _replaceAroundCursor(_appendDecimal(expressionBeforeCursor));
     } else {
@@ -176,14 +232,21 @@ class CalculatorController extends ChangeNotifier {
 
   CalculatorPasteResult applyPastedText(String value) {
     final paste = CalculatorPasteResult.fromText(value);
-    if (paste.expression.trim().isEmpty) return paste;
+    final hasMetadata = paste.angleMode != null || paste.memoryValue != null;
+    if (!paste.hasExpression && !hasMetadata) return paste;
     _markStateEdited();
     _recordUndoSnapshot();
-    expression = paste.expression;
-    cursorIndex = expression.length;
+    if (paste.hasExpression) {
+      expression = paste.expression;
+      cursorIndex = expression.length;
+    }
+    final angleChanged =
+        paste.angleMode != null && angleMode != paste.angleMode;
     if (paste.angleMode != null) angleMode = paste.angleMode!;
     if (paste.memoryValue != null) memoryValue = paste.memoryValue!;
-    evaluate();
+    if (paste.hasExpression || (angleChanged && expression.isNotEmpty)) {
+      evaluate();
+    }
     unawaited(_persistState());
     notifyListeners();
     return paste;
@@ -201,6 +264,12 @@ class CalculatorController extends ChangeNotifier {
   void applyUnaryFunction(String name) {
     _markStateEdited();
     _recordUndoSnapshot();
+    if (!selection.isCollapsed) {
+      _replaceSelectionWith('$name($_selectedExpression)');
+      _scheduleLiveEvaluation();
+      notifyListeners();
+      return;
+    }
     final nextPrefix = _wrapTrailingValue(expressionBeforeCursor, name);
     _replaceAroundCursor(nextPrefix);
     _scheduleLiveEvaluation();
@@ -210,6 +279,16 @@ class CalculatorController extends ChangeNotifier {
   void applyBinaryFunction(String name) {
     _markStateEdited();
     _recordUndoSnapshot();
+    if (!selection.isCollapsed) {
+      final selected = _selectedExpression;
+      _replaceSelectionWith(
+        '$name($selected,)',
+        cursorOffset: name.length + selected.length + 2,
+      );
+      _scheduleLiveEvaluation();
+      notifyListeners();
+      return;
+    }
     final nextPrefix =
         _wrapTrailingValue(expressionBeforeCursor, name, binary: true);
     _replaceAroundCursor(nextPrefix);
@@ -218,12 +297,20 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void backspace() {
-    if (expression.isEmpty || cursorIndex == 0) return;
+    if (expression.isEmpty || (selection.isCollapsed && cursorIndex == 0)) {
+      return;
+    }
     _markStateEdited();
     _recordUndoSnapshot();
-    expression = expression.substring(0, cursorIndex - 1) +
-        expression.substring(cursorIndex);
-    cursorIndex--;
+    if (!selection.isCollapsed) {
+      expression = expression.substring(0, selection.start) +
+          expression.substring(selection.end);
+      cursorIndex = selection.start;
+    } else {
+      expression = expression.substring(0, cursorIndex - 1) +
+          expression.substring(cursorIndex);
+      cursorIndex--;
+    }
     _scheduleLiveEvaluation();
     notifyListeners();
   }
@@ -250,7 +337,7 @@ class CalculatorController extends ChangeNotifier {
     _recordUndoSnapshot();
     expression = '';
     cursorIndex = 0;
-    result = '0';
+    _result = MathResult.zero;
     hasError = false;
     errorMessage = null;
     _ansSourceForExpression = null;
@@ -261,20 +348,40 @@ class CalculatorController extends ChangeNotifier {
 
   void evaluate() {
     if (expression.trim().isEmpty) {
-      result = '0';
+      _result = MathResult.zero;
       hasError = false;
       errorMessage = null;
       return;
     }
     try {
-      result = _calculateResult(expression);
+      _result = _calculateResult(expression);
       hasError = false;
       errorMessage = null;
     } catch (error) {
-      result = '等待输入';
+      _result = MathResult.pending;
       hasError = true;
       errorMessage = _friendlyCalculationError(error);
     }
+  }
+
+  /// 中文：装上一次求值的三形态结果。**这是引擎接入时唯一的写入点**；在引擎接到求值路径之前，
+  ///       只有测试用它来构造「精确形态与十进制形态并存」的结果。
+  /// English: Install one evaluation's three-form result. This is the single write point the engine
+  ///          will use when it is wired in; until the engine reaches the evaluation path, only tests
+  ///          use it, to build a result whose exact and decimal forms coexist.
+  ///
+  /// 中文：`_lastFiniteResult` 在这里与十进制形态保持一致——没有十进制形态时置空，而不是退回显示
+  ///       文本，否则 `Ans` 会把 `4√2` 当成数字塞进表达式。
+  /// English: `_lastFiniteResult` is kept in step with the decimal form here — it becomes null when
+  ///          there is no decimal form rather than falling back to the display text, which would make
+  ///          `Ans` splice `4√2` into the expression as if it were a number.
+  @visibleForTesting
+  void applyMathResult(MathResult value) {
+    _result = value;
+    _lastFiniteResult = value.decimalText.isEmpty ? null : value.decimalText;
+    hasError = false;
+    errorMessage = null;
+    notifyListeners();
   }
 
   Future<CalculatorSubmitResult> submit() async {
@@ -285,11 +392,11 @@ class CalculatorController extends ChangeNotifier {
     _liveEvaluationTimer?.cancel();
     try {
       final submittedExpression = expression;
-      result = _calculateResult(submittedExpression);
+      _result = _calculateResult(submittedExpression);
       hasError = false;
       errorMessage = null;
       final signature =
-          _submittedCalculationSignature(submittedExpression, result);
+          _submittedCalculationSignature(submittedExpression, _result);
       final duplicate = _lastSavedSignature == signature;
       if (!_settings.autoSaveHistory) {
         // 中文：状态持久化不影响当前交互，失败也不应打断计算。
@@ -323,7 +430,10 @@ class CalculatorController extends ChangeNotifier {
       );
     } catch (error) {
       final message = _friendlyCalculationError(error);
-      result = message;
+      // 中文：错误文案只是显示文本，没有十进制形态——数值消费者据此不再解析它。
+      // English: An error message is display text only and carries no decimal form, which is what
+      //          stops numeric consumers from parsing it.
+      _result = MathResult(displayText: message);
       hasError = true;
       errorMessage = message;
       notifyListeners();
@@ -338,13 +448,13 @@ class CalculatorController extends ChangeNotifier {
     _markStateEdited();
     _liveEvaluationTimer?.cancel();
     try {
-      result = _calculateResult(expression);
+      _result = _calculateResult(expression);
       hasError = false;
       errorMessage = null;
       notifyListeners();
     } catch (error) {
       final message = _friendlyCalculationError(error);
-      result = message;
+      _result = MathResult(displayText: message);
       hasError = true;
       errorMessage = message;
       notifyListeners();
@@ -384,7 +494,15 @@ class CalculatorController extends ChangeNotifier {
   void memoryRecall() {
     _markStateEdited();
     _recordUndoSnapshot();
-    expression = formatNumber(memoryValue, precision: _settings.precision);
+    // 中文：记忆寄存器本身就是一个 double，写回表达式的是十进制文本（`formatNumber` 默认不加
+    //       千分位），因此这一步与结果的三形态无关，也不需要经过显示文本。
+    // English: The memory register is a plain double and what it writes back into the expression is
+    //          decimal text (`formatNumber` adds no grouping separators by default), so this step is
+    //          independent of the result's three forms and never touches the display text.
+    expression = formatNumber(
+      memoryValue,
+      precision: _settings.precision,
+    );
     cursorIndex = expression.length;
     evaluate();
     unawaited(_persistState());
@@ -400,9 +518,17 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 中文：「继续使用」写回表达式的那份文本：**十进制形态**优先，没有十进制形态时才退回显示
+  ///       文本（去掉千分位）——与拆分前的 `result.replaceAll(',', '')` 逐字节一致，因此现有输入
+  ///       的行为一字未变；而精确引擎接入后，写回的是十进制近似，不是 `4√2`。
+  /// English: The text "continue with result" writes back into the expression: the decimal form
+  ///          first, the display text with its grouping separators stripped only when there is no
+  ///          decimal form — byte-for-byte what `result.replaceAll(',', '')` produced before the
+  ///          split, so every existing input behaves exactly as it did. Once the exact engine lands,
+  ///          what gets written back is the decimal approximation rather than `4√2`.
   String get reusableResult {
     if (hasError || result == '等待输入') return '0';
-    return result.replaceAll(',', '');
+    return _result.reusableText;
   }
 
   bool get canContinueWithResult =>
@@ -457,7 +583,12 @@ class CalculatorController extends ChangeNotifier {
 
   String noteBody() => _resultReportText(savedAt: DateTime.now());
 
-  String _calculateResult(String source) {
+  /// 中文：旧求值器的唯一出口——它只产出一个 `double`，所以三形态里的 LaTeX 是空的，而显示文本
+  ///       同时也是十进制文本。这是引擎接入时唯一要换掉的一行。
+  /// English: The legacy evaluator's only exit. It produces a bare `double`, so the LaTeX form is
+  ///          empty and the display text doubles as the decimal text. This is the one line the
+  ///          engine replaces when it is wired in.
+  MathResult _calculateResult(String source) {
     final resolvedSource = _resolveAnswerReferences(source);
     final value =
         ExpressionParser(resolvedSource, degreeMode: angleMode == 'DEG')
@@ -465,20 +596,36 @@ class CalculatorController extends ChangeNotifier {
     if (!value.isFinite) {
       throw const FormatException('Result is not finite');
     }
-    final formatted = formatNumber(value, precision: _settings.precision);
-    _lastFiniteResult = _parserFriendlyNumber(formatted);
-    return formatted;
+    final formatted = formatNumber(
+      value,
+      precision: _settings.precision,
+      groupThousands: _settings.groupThousands,
+    );
+    final mathResult = MathResult.legacy(formatted);
+    _lastFiniteResult =
+        mathResult.decimalText.isEmpty ? null : mathResult.decimalText;
+    return mathResult;
   }
 
   String _resultReportText({DateTime? savedAt}) {
     final lines = <String>[
       if (expression.trim().isEmpty) '当前值: $result' else '表达式: $expression',
       if (expression.trim().isNotEmpty) '结果: $result',
+      // 中文：显示文本本身不是可解析的十进制时（引擎给出 `4√2` 这类精确形式），报告补一行十进制：
+      //       粘贴路径优先读它，否则「复制结果再粘回计算器」这条往返会在精确形式上悄悄断掉。旧求值
+      //       器下这一行永不出现，报告文本与拆分前逐字符一致。
+      // English: When the display text is not itself a parseable decimal (the engine's exact forms
+      //          such as `4√2`), the report adds a decimal line: the paste path reads it first, or
+      //          the copy-a-result-and-paste-it-back round trip would quietly break on exact forms.
+      //          Under the legacy evaluator this line never appears, so the report text stays
+      //          character-for-character what it was.
+      if (_result.decimalText.isNotEmpty && !_result.displayTextIsParseable)
+        '十进制: ${_result.decimalText}',
       '状态: $resultStatusTitle',
       resultStatusMessage,
       '角度模式: ${_angleModeLabel()}',
       if (memoryValue != 0)
-        '记忆值: ${formatNumber(memoryValue, precision: _settings.precision)}',
+        '记忆值: ${formatNumber(memoryValue, precision: _settings.precision, groupThousands: _settings.groupThousands)}',
       if (hasError && errorMessage != null) '错误: $errorMessage',
       if (savedAt != null) '保存时间: ${_formatReportTime(savedAt)}',
     ];
@@ -508,11 +655,18 @@ class CalculatorController extends ChangeNotifier {
     return '表达式错误';
   }
 
-  String get expressionBeforeCursor => expression.substring(0, cursorIndex);
+  String get expressionBeforeCursor => expression.substring(0, selection.start);
 
-  String get expressionAfterCursor => expression.substring(cursorIndex);
+  String get expressionAfterCursor => expression.substring(selection.end);
 
   void moveCursorLeft() {
+    if (!selection.isCollapsed) {
+      _markStateEdited();
+      cursorIndex = selection.start;
+      unawaited(_persistState());
+      notifyListeners();
+      return;
+    }
     if (cursorIndex == 0) return;
     _markStateEdited();
     cursorIndex--;
@@ -521,6 +675,13 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void moveCursorRight() {
+    if (!selection.isCollapsed) {
+      _markStateEdited();
+      cursorIndex = selection.end;
+      unawaited(_persistState());
+      notifyListeners();
+      return;
+    }
     if (cursorIndex >= expression.length) return;
     _markStateEdited();
     cursorIndex++;
@@ -528,8 +689,49 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void moveCursorByBlockBackward() {
+    if (!selection.isCollapsed) {
+      _markStateEdited();
+      cursorIndex = selection.start;
+      unawaited(_persistState());
+      notifyListeners();
+      return;
+    }
+    final boundary = previousExpressionBoundary(expression, cursorIndex);
+    if (boundary == cursorIndex) return;
+    _markStateEdited();
+    cursorIndex = boundary;
+    unawaited(_persistState());
+    notifyListeners();
+  }
+
+  void moveCursorByBlockForward() {
+    if (!selection.isCollapsed) {
+      _markStateEdited();
+      cursorIndex = selection.end;
+      unawaited(_persistState());
+      notifyListeners();
+      return;
+    }
+    final boundary = nextExpressionBoundary(expression, cursorIndex);
+    if (boundary == cursorIndex) return;
+    _markStateEdited();
+    cursorIndex = boundary;
+    unawaited(_persistState());
+    notifyListeners();
+  }
+
+  void selectAll() {
+    final next = ExpressionSelection(0, expression.length);
+    if (_selection == next) return;
+    _markStateEdited();
+    _selection = next;
+    unawaited(_persistState());
+    notifyListeners();
+  }
+
   void moveCursorToStart() {
-    if (cursorIndex == 0) return;
+    if (selection.isCollapsed && cursorIndex == 0) return;
     _markStateEdited();
     cursorIndex = 0;
     unawaited(_persistState());
@@ -537,7 +739,7 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void moveCursorToEnd() {
-    if (cursorIndex == expression.length) return;
+    if (selection.isCollapsed && cursorIndex == expression.length) return;
     _markStateEdited();
     cursorIndex = expression.length;
     unawaited(_persistState());
@@ -549,10 +751,46 @@ class CalculatorController extends ChangeNotifier {
     await settingsRepository.setMany({
       'calculator_expression': expression,
       'calculator_result': result,
+      // 中文：三形态一起落盘，否则重启后精确形式会丢掉十进制形态，Ans/last 又变成静默失效。
+      // English: Land all three forms together; otherwise the exact form survives a restart without
+      //          its decimal form and Ans/last silently stop resolving again.
+      'calculator_result_tex': _result.displayTex,
+      'calculator_result_decimal': _result.decimalText,
       'calculator_angle': angleMode,
       'calculator_memory': memoryValue.toString(),
       'calculator_cursor': cursorIndex.toString(),
+      'calculator_selection_start': selection.start.toString(),
+      'calculator_selection_end': selection.end.toString(),
     });
+  }
+
+  MathResult _restoredResult(Map<String, String> settings) {
+    final displayText = settings['calculator_result'] ?? '0';
+    final decimalText = settings['calculator_result_decimal'] ?? '';
+    return MathResult(
+      displayText: displayText,
+      displayTex: settings['calculator_result_tex'] ?? '',
+      // 中文：旧的持久化数据里没有十进制键，此时按拆分前的做法从显示文本推导，行为不变。
+      // English: Rows written before the split have no decimal key; derive it from the display text
+      //          exactly as the pre-split code did, so restoring old state behaves identically.
+      decimalText: decimalText.isNotEmpty
+          ? decimalText
+          : MathResult.decimalTextOf(displayText),
+    );
+  }
+
+  ExpressionSelection _restoredSelection(
+    Map<String, String> settings,
+    int expressionLength,
+  ) {
+    final start = int.tryParse(settings['calculator_selection_start'] ?? '');
+    final end = int.tryParse(settings['calculator_selection_end'] ?? '');
+    if (start != null && end != null) {
+      return ExpressionSelection(start, end).clamp(expressionLength);
+    }
+    return ExpressionSelection.collapsed(
+      _restoredCursorIndex(settings['calculator_cursor'], expressionLength),
+    );
   }
 
   int _restoredCursorIndex(String? value, int expressionLength) {
@@ -599,6 +837,12 @@ class CalculatorController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// 中文：记忆寄存器要加/减的数值。表达式能算就用表达式，否则用**结果的十进制形态**；两者都
+  ///       没有时是 0（与拆分前一致：那时解析不了显示文本同样得到 0）。绝不解析显示文本。
+  /// English: The value the memory register adds or subtracts. The expression wins when it
+  ///          evaluates; otherwise the result's *decimal form* is used, and 0 when neither is
+  ///          available (the same as before the split, where an unparseable display text also
+  ///          yielded 0). The display text is never parsed.
   double _currentNumericValue() {
     try {
       if (expression.trim().isNotEmpty) {
@@ -606,9 +850,9 @@ class CalculatorController extends ChangeNotifier {
                 degreeMode: angleMode == 'DEG')
             .parse();
       }
-      return double.tryParse(result.replaceAll(',', '')) ?? 0;
+      return _result.decimalValue ?? 0;
     } catch (_) {
-      return double.tryParse(result.replaceAll(',', '')) ?? 0;
+      return _result.decimalValue ?? 0;
     }
   }
 
@@ -618,13 +862,17 @@ class CalculatorController extends ChangeNotifier {
 
   _SubmittedCalculationSignature _submittedCalculationSignature(
     String expression,
-    String result,
+    MathResult result,
   ) {
     return _SubmittedCalculationSignature(
       normalizedExpression: ExpressionParser.normalizeExpressionInput(
         _expressionForSubmitSignature(expression),
       ),
-      result: result.replaceAll(',', '').trim(),
+      // 中文：去重键取十进制形态（缺失时退回显示文本），与拆分前的
+      //       `result.replaceAll(',', '').trim()` 同值。
+      // English: The de-duplication key takes the decimal form (the display text when it is
+      //          missing), the same value as `result.replaceAll(',', '').trim()` before the split.
+      result: result.reusableText,
       angleMode: angleMode,
     );
   }
@@ -695,18 +943,17 @@ class CalculatorController extends ChangeNotifier {
     return value.startsWith('-') ? '($value)' : value;
   }
 
-  String? _parserFriendlyNumber(String value) {
-    final normalized = value.replaceAll(',', '').trim();
-    if (double.tryParse(normalized) == null) return null;
-    return normalized;
-  }
-
   _CalculatorSnapshot _snapshot() {
     return _CalculatorSnapshot(
       expression: expression,
-      result: result,
+      // 中文：快照带的是整个三形态结果，否则撤销/重做会把精确形式还原成只剩显示文本，十进制形态
+      //       一去不返，Ans/last 又静默失效。
+      // English: The snapshot carries the whole three-form result; otherwise undo/redo would restore
+      //          an exact form as display text alone, the decimal form would be gone for good and
+      //          Ans/last would silently stop resolving again.
+      result: _result,
       angleMode: angleMode,
-      cursorIndex: cursorIndex,
+      selection: selection,
       memoryValue: memoryValue,
       hasError: hasError,
       errorMessage: errorMessage,
@@ -726,9 +973,9 @@ class CalculatorController extends ChangeNotifier {
 
   void _restoreSnapshot(_CalculatorSnapshot snapshot) {
     expression = snapshot.expression;
-    result = snapshot.result;
+    _result = snapshot.result;
     angleMode = snapshot.angleMode;
-    cursorIndex = snapshot.cursorIndex.clamp(0, expression.length);
+    _selection = snapshot.selection.clamp(expression.length);
     memoryValue = snapshot.memoryValue;
     hasError = snapshot.hasError;
     errorMessage = snapshot.errorMessage;
@@ -750,6 +997,10 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void _toggleSign() {
+    if (!selection.isCollapsed) {
+      _replaceSelectionWith('(-$_selectedExpression)');
+      return;
+    }
     final before = expressionBeforeCursor;
     final after = expressionAfterCursor;
     if (before.isEmpty) {
@@ -830,15 +1081,23 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void _insert(String token) {
-    expression = expression.substring(0, cursorIndex) +
-        token +
-        expression.substring(cursorIndex);
-    cursorIndex += token.length;
+    final start = selection.start;
+    expression = expressionBeforeCursor + token + expressionAfterCursor;
+    cursorIndex = start + token.length;
   }
 
   void _replaceAroundCursor(String prefix) {
     expression = prefix + expressionAfterCursor;
     cursorIndex = prefix.length;
+  }
+
+  String get _selectedExpression =>
+      expression.substring(selection.start, selection.end);
+
+  void _replaceSelectionWith(String replacement, {int? cursorOffset}) {
+    final prefix = expression.substring(0, selection.start);
+    expression = '$prefix$replacement$expressionAfterCursor';
+    cursorIndex = prefix.length + (cursorOffset ?? replacement.length);
   }
 
   bool _isOperator(String token) =>
@@ -988,7 +1247,7 @@ class _CalculatorSnapshot {
     required this.expression,
     required this.result,
     required this.angleMode,
-    required this.cursorIndex,
+    required this.selection,
     required this.memoryValue,
     required this.hasError,
     required this.errorMessage,
@@ -998,9 +1257,13 @@ class _CalculatorSnapshot {
   });
 
   final String expression;
-  final String result;
+
+  /// 中文：整份三形态结果。`==` 依赖 [MathResult] 的值相等，撤销栈的去重才仍然成立。
+  /// English: The whole three-form result. `==` leans on [MathResult]'s value equality, which is
+  ///          what keeps the undo stack's de-duplication working.
+  final MathResult result;
   final String angleMode;
-  final int cursorIndex;
+  final ExpressionSelection selection;
   final double memoryValue;
   final bool hasError;
   final String? errorMessage;
@@ -1014,7 +1277,7 @@ class _CalculatorSnapshot {
         other.expression == expression &&
         other.result == result &&
         other.angleMode == angleMode &&
-        other.cursorIndex == cursorIndex &&
+        other.selection == selection &&
         other.memoryValue == memoryValue &&
         other.hasError == hasError &&
         other.errorMessage == errorMessage &&
@@ -1028,7 +1291,7 @@ class _CalculatorSnapshot {
         expression,
         result,
         angleMode,
-        cursorIndex,
+        selection,
         memoryValue,
         hasError,
         errorMessage,
