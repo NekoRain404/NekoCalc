@@ -79,7 +79,10 @@ void main() {
       final saved = await controller.saveToNote();
 
       expect(saved.status, CalculatorSaveNoteStatus.saved);
-      expect(engine.calls.single.expression, '2^2000');
+      // 中文：问引擎的是**翻译后**的表达式（修复轮 7：交给引擎之前先把括号与优先级写全）。
+      // English: what reaches the engine is the **translated** expression (fix round 7: precedence
+      //          and grouping are spelled out before the engine is asked).
+      expect(engine.calls.single.expression, '((2)^(2000))');
       expect(controller.result, huge);
       expect(controller.resultDecimal, huge);
       expect(controller.hasError, isFalse);

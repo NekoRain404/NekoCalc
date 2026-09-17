@@ -149,7 +149,13 @@ void main() {
     controller.setExpression('ans + 1');
     await controller.submit();
 
-    expect(engine.calls.map((call) => call.expression), ['6*7', '42 + 1']);
+    // 中文：`ans` 的替换照旧发生在翻译**之前**（`_resolveAnswerReferences`），所以第二个表达式
+    //       里被问的是替换后的 `42`，只是它同样被翻译成了括号形式。
+    // English: `ans` is still substituted **before** the translation (`_resolveAnswerReferences`), so
+    //          the second expression is asked with the substituted `42` — which is itself translated
+    //          into the parenthesised form.
+    expect(engine.calls.map((call) => call.expression),
+        ['((6)*(7))', '((42)+(1))']);
 
     controller.dispose();
   });
@@ -206,11 +212,20 @@ void main() {
     }
   });
 
-  test('an engine reply with no decimal form falls back', () async {
-    // 中文：没有十进制形态（精确形式、带单位的结果）与没有可用答案是一回事：没有东西可以喂给
-    //       数值消费者，也没有东西可以放到显示区上。
-    // English: No decimal form (an exact form, a result carrying a unit) is the same as no usable
-    //          answer: there is nothing for numeric consumers and nothing for the display.
+  test('an engine reply with no decimal form is displayed, and is not a number', () async {
+    // 中文：**这条规则在修复轮 7 变了，断言因此是反过来的。** 以前「没有十进制形态」等于「没有
+    //       可用答案」，整条回落旧解析器（显示旧解析器的 `5.656854`、LaTeX 为空）；那条规则的
+    //       前提是「引擎的答案可能是误读」，而翻译把那件事消除了——交给引擎的已经是翻译后的表达式。
+    //       取舍于是只剩三级：词表拦下 / 有限十进制当数字用 / **可显示就显示**。这里钉第三级，
+    //       以及那条**没有**放宽的边界：数值消费者（`Ans`/记忆）仍旧拿不到它。
+    // English: **this rule changed in fix round 7, so the assertions are the other way round.** "No
+    //          decimal form" used to mean "no usable answer" and the whole thing fell back to the
+    //          legacy parser (which showed its `5.656854`, with no LaTeX); that rule's premise was
+    //          "the engine's answer may be a misreading", which the translation removes — what
+    //          reaches the engine is already the translated expression. Three tiers are left: the
+    //          vocabulary stops it / a finite decimal is used as a number / **a displayable answer is
+    //          displayed**. This pins the third tier and the boundary that was **not** relaxed:
+    //          numeric consumers (`Ans`/memory) still get nothing from it.
     final exactForm = _controller(
       _FakeDatabase(),
       engine: _FakeMathEngine(
@@ -221,8 +236,13 @@ void main() {
     );
     exactForm.setExpression('sqrt(32)');
     await exactForm.submit();
-    expect(exactForm.result, engineDisplay);
-    expect(exactForm.resultTex, isEmpty);
+    expect(exactForm.hasError, isFalse);
+    expect(exactForm.result, r'4\sqrt{2}');
+    expect(exactForm.resultTex, r'4\sqrt{2}');
+    // 中文：十进制形态是空的——数值消费者据此拒绝它，而不是静默当成 0。
+    // English: the decimal form is empty — which is how numeric consumers refuse it instead of
+    //          silently reading a 0.
+    expect(exactForm.resultDecimal, isEmpty);
     exactForm.dispose();
   });
 

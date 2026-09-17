@@ -1205,13 +1205,17 @@ class CalculatorController extends ChangeNotifier {
   ///          *original* expression to [_calculateResult] on purpose, letting it do the same thing
   ///          itself — both resolutions produce the same string (`_ansValue…` holds exactly the
   ///          value the first one used), while skipping it would clear `_ansSource…`.
+  ///          The resolved expression then goes through [_askEngineTranslated], the same single entry
+  ///          point as-you-type uses, so both paths ask the engine the **translated** expression (fix
+  ///          round 7's criterion; the submit path was still asking it the raw source when that
+  ///          change landed).
   ///
   ///          A null return means *this submit is stale* (its `generation` is no longer current):
   ///          the caller must touch nothing at all, not even run the fallback — `_calculateResult`
   ///          writes `_lastFiniteResult`, and that too belongs to the stale timeline.
   Future<MathResult?> _submittedResult(String source, int generation) async {
     final resolvedSource = _resolveAnswerReferences(source);
-    final reply = await _askEngine(resolvedSource);
+    final reply = await _askEngineTranslated(resolvedSource);
     // 中文：回包到手的**第一件事**是问一句「这还是当前那一代吗」，在碰任何状态之前——包括
     //       回落分支会写的那份 `_lastFiniteResult`。
     // English: The *first* thing to do with a reply is ask "is this still the current generation",
@@ -1371,36 +1375,54 @@ class CalculatorController extends ChangeNotifier {
   ///          both false. Rounding has not moved into the engine; the code just does not pretend to
   ///          round what it cannot represent.
   /// 中文：**引擎这一次的回答该怎么取舍**——提交路径与边打边算共用这一处，不写第二份。
-  ///       两级，顺序不能反：
+  ///       三级，顺序不能反：
   ///
-  ///       1. **能当数字用**（有限十进制）→ 用引擎的。与迁移引擎之前逐字节一致：数值消费者要的
+  ///       1. **词表说引擎读不了这个表达式**（[AppEngineVocabulary.canRead]）→ 没有引擎答案。
+  ///          这是**名字层**的第二道判断（翻译管的是「这个名字在引擎里怎么写」，它管的是
+  ///          「这个名字的答案能不能用」），两道都不放宽对方。
+  ///       2. **能当数字用**（有限十进制）→ 用引擎的。与迁移引擎之前逐字节一致：数值消费者要的
   ///          就是它，`Ans`/`last` 拿到的是引擎的精确十进制。
-  ///       2. **只能显示**（矩阵、复数、符号结果…）→ **先问旧解析器**。旧解析器认的是这个应用
-  ///          自己的词汇表（`ncr`/`npr`/`fact`/`log2` 是应用的名字，引擎并不认识——设备实测
-  ///          `ncr(5,10)` 被引擎解释成一串带单位的量 `[(1.49896229n'r' km/us) …]`）。那种情况下
-  ///          引擎的「答案」是它把表达式理解成别的东西之后的产物，而旧解析器给的是这个应用一贯的
-  ///          答案；**已经上线的键因此逐字节不变**。旧解析器答不出来（矩阵、复数、`solve`）时，
-  ///          才用引擎的显示形态。
+  ///       3. **只能显示**（矩阵、复数、符号结果…）→ 用引擎的显示形态。
   ///
-  ///       `usableAsNumber` 就是第 1 级与第 2 级的分界，调用方据此决定 `_lastFiniteResult`——
+  ///       **值比较（修复轮 6）已经不在这里了，这是有意的。** 它问的是「引擎的值与应用的
+  ///       `double` 一致吗」，而那个问题的前提是错的：**在引擎真正有价值的场合——超出 double
+  ///       量程、灾难性相消、大角度——应用的 `double` 恰恰是错的那一方。** 活着的三个错值就是它
+  ///       造成的：`123456789012345678-123456789012345677` 被判成「引擎读错了」而显示应用下溢的
+  ///       `0`（引擎与数学都是 `1`）；DEG 下 `tan(1e12)` 因为应用自己 `arg*pi/180` 的舍入超出容差，
+  ///       引擎的正确答案被丢掉；`1/3000000000pi` 显示应用自己解析出的 `1.061033e-10` 而不是
+  ///       `1.047198e-9`。三者都由 1 级之下的翻译消歧义之后消失：**交给引擎的是翻译后的表达式**
+  ///       （`engine_expression.dart`），所以它这一份答案就是权威，应用不必、也不该再拿自己的值
+  ///       去比。
+  ///
+  ///       `usableAsNumber` 就是第 2 级与第 3 级的分界，调用方据此决定 `_lastFiniteResult`——
   ///       数值消费者依旧只认有限十进制，这一条**没有放宽**。
   /// English: **How this engine answer is to be taken** — the submit path and as-you-type evaluation
-  ///          share this one place; no second copy. Two tiers, and the order matters:
+  ///          share this one place; no second copy. Three tiers, and the order matters:
   ///
-  ///          1. **usable as a number** (a finite decimal) → take the engine's. Byte-for-byte what it
+  ///          1. **the vocabulary says the engine cannot read this expression**
+  ///             ([AppEngineVocabulary.canRead]) → no engine answer. That is the **name layer**'s
+  ///             second judgement (the translation decides *how to write* a name for the engine, this
+  ///             decides *whether that name's answer may be used*); neither relaxes the other.
+  ///          2. **usable as a number** (a finite decimal) → take the engine's. Byte-for-byte what it
   ///             was before the engine was wired in: numeric consumers want exactly this, and
   ///             `Ans`/`last` get the engine's accurate decimal.
-  ///          2. **displayable only** (a matrix, a complex number, a symbolic result, …) → **ask the
-  ///             legacy parser first**. The legacy parser knows this app's own vocabulary
-  ///             (`ncr`/`npr`/`fact`/`log2` are the app's names; the engine does not know them — on a
-  ///             device `ncr(5,10)` came back as a list of unit-carrying quantities,
-  ///             `[(1.49896229n'r' km/us) …]`). In that case the engine's "answer" is what it made of
-  ///             an expression it read as something else, while the legacy parser gives the answer
-  ///             this app has always given; **keys that already work are therefore unchanged**.
-  ///             Only when the legacy parser cannot answer (matrices, complex numbers, `solve`) is the
-  ///             engine's displayable form used.
+  ///          3. **displayable only** (a matrix, a complex number, a symbolic result, …) → take the
+  ///             engine's display form.
   ///
-  ///          `usableAsNumber` is the boundary between the two tiers, and the caller uses it to decide
+  ///          **The value comparison (fix round 6) is deliberately gone from here.** It asked "does the
+  ///          engine's value match this app's `double`", and that question's premise is false: **in
+  ///          exactly the cases the engine exists for — beyond the double range, catastrophic
+  ///          cancellation, large angles — this app's `double` is the wrong side.** Three live wrong
+  ///          values came from it: `123456789012345678-123456789012345677` was called a misreading and
+  ///          shown as the app's underflowed `0` (the engine and the mathematics both say `1`); in DEG
+  ///          `tan(1e12)` lost the engine's correct answer because the app's own `arg*pi/180` rounding
+  ///          exceeded the tolerance; `1/3000000000pi` showed `1.061033e-10` (the app's own reading)
+  ///          instead of `1.047198e-9`. All three end once gate 1's translation removes the ambiguity:
+  ///          **what reaches the engine is the translated expression** (`engine_expression.dart`), so
+  ///          its answer is the authority, and the app neither has to nor should compare its own value
+  ///          against it.
+  ///
+  ///          `usableAsNumber` is the boundary between tiers 2 and 3, and the caller uses it to decide
   ///          `_lastFiniteResult` — numeric consumers still accept nothing but a finite decimal, and
   ///          that has **not** been relaxed.
   ({MathResult result, bool usableAsNumber})? _selectEngineResult(
@@ -1425,90 +1447,25 @@ class CalculatorController extends ChangeNotifier {
     final engineResult = reply.result;
     if (engineResult == null) return null;
 
-    final appValue = _tryAppValue(source);
-    if (appValue == null) {
-      // 中文：**应用解析不了 ⇒ 引擎是唯一来源。** 这里才需要形状判据（`isDisplayable`）:
-      //       矩阵、复数这些「应用语言表达不了的类型」由它放行，其余（带单位、未求值的算式）挡下。
-      // English: **the app cannot parse it ⇒ the engine is the only source.** Only here does the shape
-      //          judgement (`isDisplayable`) matter: it lets through the types this app's language
-      //          cannot express (matrices, complex numbers) and holds back the rest (unit-carrying
-      //          quantities, unevaluated expressions).
-      if (MathResult.decimalTextIsFinite(engineResult.decimalText)) {
-        // 中文：有限十进制 ⇒ 直接用（与引擎接进提交路径之前逐字节一致：那一步没有形状字段）。
-        // English: a finite decimal ⇒ used directly (byte-for-byte what it was before the shape field
-        //          existed on the submit path).
-        return (result: _engineMathResult(engineResult), usableAsNumber: true);
-      }
-      return engineResult.isDisplayable
-          ? (result: _engineMathResult(engineResult), usableAsNumber: false)
-          : null;
+    if (MathResult.decimalTextIsFinite(engineResult.decimalText)) {
+      // 中文：有限十进制 ⇒ 直接用（与引擎接进提交路径之前逐字节一致：那一步没有形状字段）。
+      //       文本有限而 double 装不下的（`2^2000`/`2^-2000`）也在这里：判据在**字符串层面**，
+      //       不借 double——否则引擎最不可替代的那类结果会被丢掉。
+      // English: a finite decimal ⇒ used directly (byte-for-byte what it was before the shape field
+      //          existed on the submit path). Text that is finite but does not fit a double
+      //          (`2^2000`/`2^-2000`) lands here too: the test is **at the string level**, never through
+      //          a double, or the results the engine is least replaceable for would be thrown away.
+      return (result: _engineMathResult(engineResult), usableAsNumber: true);
     }
-
-    // 中文：**应用解析得了 ⇒ 值以应用为准**（判据的正文见上面的长注释）。这一支**不看形状**：
-    //       值一致就是一致——形状判据在这里只会多一条会出错的路径（种类字段缺失、映射写错，
-    //       都会把一条完全正确的答案丢掉）。
-    // English: **the app can parse it ⇒ the value comes from this app** (the criterion itself is in the
-    //          long note above). This branch deliberately **does not look at the shape**: equal values
-    //          are equal, and consulting the shape here would only add a way to get it wrong (a missing
-    //          kind field or a bad mapping would throw away a perfectly correct answer).
-    final engineValue = engineResult.decimalValue;
-    if (engineValue == null) {
-      // 中文：引擎的十进制要么**超出 double 量程**（`2^2000`/`2^-2000`：文本有限、double 装不下）
-      //       ⇒ 应用给不出这个值 ⇒ 引擎赢；要么**根本不是有限数**（矩阵、复数、带单位、未求值）
-      //       ⇒ 它读成了别的东西 ⇒ 丢弃。
-      // English: the engine's decimal either **exceeds the double range** (`2^2000`/`2^-2000`: finite as
-      //          text, unrepresentable as a double) ⇒ the app has no such value ⇒ the engine wins; or
-      //          it **is not a finite number at all** (a matrix, a complex, a unit-carrying quantity,
-      //          an unevaluated expression) ⇒ it read something else ⇒ discard.
-      return MathResult.decimalTextIsFinite(engineResult.decimalText)
-          ? (result: _engineMathResult(engineResult), usableAsNumber: true)
-          : null;
-    }
-    final agrees = (appValue - engineValue).abs() <=
-        _engineAgreementTolerance * (1 + appValue.abs());
-    if (!agrees) return null;
-    return (result: _engineMathResult(engineResult), usableAsNumber: true);
-  }
-
-  /// 中文：引擎与应用算出的同一个值允许差多少（**相对**，另加 1 的绝对底，免得接近 0 时容差消失）。
-  ///
-  ///       两边的精度不同：应用是 `double`（相对精度约 1e-16），引擎给的是 16 位有效数字的十进制；
-  ///       合法的差异来自两件事——**double 舍入**，以及 DEG 模式下应用先做 `arg * pi / 180`
-  ///       这一步 double 运算、引擎按精确值算（`sin(30)`：应用 `0.49999999999999994`、引擎 `0.5`，
-  ///       相对差约 1e-16）。**误读**的量级完全不同：`phi(2)` 差 1.6 倍、`log(100)` 差 1.3 倍、
-  ///       `mod(7,-3)` 差 3 倍。1e-9 比噪声高七个数量级、比最小的误读低八个数量级。
-  /// English: how far apart the app's and the engine's value for the same expression may be (a
-  ///          **relative** bound with an absolute floor of 1 so the tolerance does not vanish near
-  ///          zero).
-  ///
-  ///          The two sides differ in precision: the app is a `double` (about 1e-16 relative) and the
-  ///          engine hands over 16 significant digits. Legitimate differences come from two things —
-  ///          **double rounding**, and DEG mode where the app does the `arg * pi / 180` step in
-  ///          `double` while the engine computes it exactly (`sin(30)`: app `0.49999999999999994`,
-  ///          engine `0.5`, about 1e-16 relative). A **misreading** is of a completely different
-  ///          magnitude: `phi(2)` is off by a factor 1.6, `log(100)` by 1.3, `mod(7,-3)` by 3. 1e-9
-  ///          sits seven orders above the noise and eight below the smallest misreading.
-  static const double _engineAgreementTolerance = 1e-9;
-
-  /// 中文：应用自己的解析器给出的**未取整**数值；解析不了或不是有限数时给 null。
-  ///       它必须走解析器本体而不是 [_tryLegacyResult]：后者的十进制文本已经按用户精度取过整
-  ///       （`1.414214`），拿它跟引擎的 16 位（`1.414213562373095`）比会凭空多出 4e-7 的差异，
-  ///       于是**每一个结果**都会被判成「引擎读错了」。
-  /// English: the **unrounded** value this app's own parser produces, or null when it cannot parse the
-  ///          source or the value is not finite. It has to go through the parser itself rather than
-  ///          [_tryLegacyResult]: the latter's decimal text is already rounded to the user's precision
-  ///          (`1.414214`), and comparing that with the engine's 16 digits (`1.414213562373095`) would
-  ///          invent a 4e-7 difference and declare **every** result a misreading.
-  double? _tryAppValue(String source) {
-    try {
-      final value = ExpressionParser(
-        _resolveAnswerReferences(source),
-        degreeMode: angleMode == 'DEG',
-      ).parse();
-      return MathResult.usableDouble(value);
-    } catch (_) {
-      return null;
-    }
+    // 中文：**不是有限十进制**——矩阵、复数这些「应用语言表达不了的类型」由形状判据放行，其余
+    //       （带单位、未求值的算式）挡下，调用方按「这一次没有引擎答案」处理。
+    // English: **not a finite decimal** — the shape judgement lets through the types this app's language
+    //          cannot express (matrices, complex numbers) and holds back the rest (unit-carrying
+    //          quantities, unevaluated expressions), which the caller takes as "no engine answer this
+    //          time".
+    return engineResult.isDisplayable
+        ? (result: _engineMathResult(engineResult), usableAsNumber: false)
+        : null;
   }
 
   MathResult _engineMathResult(MathResult engineResult) {

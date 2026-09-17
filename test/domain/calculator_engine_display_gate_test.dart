@@ -220,18 +220,20 @@ void main() {
   });
 
   group('过期回包不许动 Ans/last（修的是守卫的顺序）', () {
-    test('过期的 tier 2 回包不写 `_lastFiniteResult`', () async {
-      // 中文：**这一条必须走得到 tier 2。** `_tryLegacyResult` → `_calculateResult` 会写
-      //       `_lastFiniteResult`，而那是 `ans`/`last` 的取值处；旧测试用的都是数值回包
-      //       （引擎有十进制），tier 1 直接采用、根本不碰旧解析器，所以覆盖不到这条路。
+    test('过期的回包不写 `_lastFiniteResult`（可显示但不是数字的那种）', () async {
+      // 中文：**这一条要的是一份「会去写 `_lastFiniteResult`」的过期回包。** 旧测试用的都是数值
+      //       回包（引擎有十进制），而落地的数值回包会把 `ans`/`last` 挪到**过期的那个表达式**上；
+      //       这里放行的是一份可显示、却没有十进制形态的回包（矩阵），于是差异只可能来自
+      //       「过期那一发到底写没写状态」。
       //
       //       构造方式：让第一发引擎调用在飞时改掉输入（代际因此前进），再放行那一发——
       //       它落地时代际已经不匹配，什么都不许写。`ans` 会被替换成哪个值，是通过**问引擎时
       //       实际发过去的字符串**观测的（替身记下了每一次调用）。
-      // English: **this one has to reach tier 2.** `_tryLegacyResult` → `_calculateResult` writes
-      //          `_lastFiniteResult`, which is what `ans`/`last` resolve from; the older staleness
-      //          tests all used numeric replies (the engine had a decimal), which are adopted at tier
-      //          1 without ever touching the legacy parser — so they cannot reach this path.
+      // English: **this one needs a stale reply that *would* write `_lastFiniteResult`.** The older
+      //          staleness tests all used numeric replies (the engine had a decimal), and a numeric
+      //          reply landing would move `ans`/`last` onto the **stale** expression; what is released
+      //          here is a displayable reply with no decimal form (a matrix), so a difference can only
+      //          come from "did the stale call write state at all".
       //
       //          Construction: change the input while the first engine call is in flight (the
       //          generation moves on), then release that call — by the time it lands the generation no
@@ -262,10 +264,11 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       expect(controller.result, '2');
 
-      // 中文：放行**第一发**（过期的那个）：它的形状是 tier 2（矩阵），所以取舍那一处会去问
-      //       旧解析器；而过期的源表达式 `6*7` 旧解析器答得出来 —— 42。
-      // English: release the **first** call (the stale one): its shape is tier 2 (a matrix), so the
-      //          selection asks the legacy parser, and the stale source `6*7` has an answer — 42.
+      // 中文：放行**第一发**（过期的那个）：它的形状是可显示、但没有十进制形态（矩阵），
+      //       所以它要是落进状态，`ans`/`last` 不会被动——但代际守卫必须在取舍**之前**拦住它。
+      // English: release the **first** call (the stale one): its shape is displayable with no decimal
+      //          form (a matrix), so if it landed it would not move `ans`/`last` — but the generation
+      //          guard has to stop it before the selection even runs.
       engine.answer(const EngineReplyFixture(
         displayText: '[1  2; 3  4]',
         displayTex: r'\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}',
@@ -595,31 +598,34 @@ void main() {
       controller.dispose();
     });
 
-    test('tier 2：旧解析器答得出来时，它优先于引擎（这才是 tier 2 内部那条规则）', () async {
-      // 中文：**这条测试必须真的走到 tier 2**，否则它测的不是它名字说的东西——这件事已经错过两次：
-      //       先是 `ncr(5,10)`（被应用词汇规则在前面拦下），再是 `log(100)`（`log` 同样被词表
-      //       标成不可信，同一个文件里就有 `canRead('log(100)') == false` 的断言）。两次的后果一样：
-      //       把 tier 2 这条规则整个删掉，测试仍然绿。
+    test('第三级：引擎给得出可显示的形态时就用它，应用解析得了也不再顶掉它', () async {
+      // 中文：**这条测试接替的是那条已经不存在的「应用解析得了 ⇒ 旧解析器优先」规则**（修复轮 5
+      //       及以前的 tier 2 内部规则）：它在修复轮 6 被值判据取代，修复轮 7 又用翻译替掉了值判据。
+      //       取舍现在只剩三级：词表拦下 / 有限十进制当数字用 / **可显示就显示**——第三级对
+      //       「应用解析得了」的表达式同样成立，因为交给引擎的已经是翻译后的表达式（前提不再是
+      //       「引擎的答案可能是误读」）。
       //
-      //       现在样本换成 **`sqrt(8)`**：`sqrt` 是词表放行、且 `canRead('sqrt(8)') == true` 的名字
-      //       （下面那条断言就在本文件里），替身给它的回包是一个矩阵（tier 2：可显示、不可当数字用），
-      //       而旧解析器答得出来（2.828427）→ **这一发真的落在 tier 2 里**。
-      //       删掉 tier 2 那两行优先规则（`_tryLegacyResult`）这条测试会红——**词表规则保持不动**，
-      //       命令与输出见本步报告第 1 条。
-      // English: **this test has to reach tier 2**, or it does not test what its name says — and that
-      //          has now gone wrong twice: first `ncr(5,10)` (stopped earlier by the app-vocabulary
-      //          rule), then `log(100)` (`log` is marked untrusted too — this very file asserts
-      //          `canRead('log(100)') == false`). Both times the consequence was the same: deleting the
-      //          whole tier-2 rule left the test green.
+      //       样本必须真的落在**第三级**上，否则它测的是词表那一级：`sqrt(8)` 过得了词表
+      //       （下面那条断言就在本文件里），旧解析器也答得出来（2.828427）——正是旧规则会起作用的那种
+      //       输入，现在的答案是**引擎那一份上屏**。
+      //       把第三级那两行（`isDisplayable` 那一支）删掉这条测试就会红：屏幕上会退回旧解析器的
+      //       `2.828427`（命令与输出见修复轮 7 的报告）。
+      // English: **this replaces the "the app can parse it ⇒ the legacy parser wins" rule, which no
+      //          longer exists** (the old tier-2 internal rule, up to fix round 5): round 6 replaced it
+      //          with the value criterion and round 7 replaced that with the translation. Three tiers
+      //          are left: the vocabulary stops it / a finite decimal is used as a number / **a
+      //          displayable answer is displayed** — and the third tier holds for expressions the app
+      //          can parse too, because what reaches the engine is already the translated expression
+      //          (the premise is no longer "the engine's answer may be a misreading").
       //
-      //          The sample is now **`sqrt(8)`**: the vocabulary lets `sqrt` through, and
-      //          `canRead('sqrt(8)') == true` is asserted right here in this file. The double makes its
-      //          reply a matrix (tier 2: displayable, not usable as a number) and the legacy parser can
-      //          answer (2.828427) — so the reply **really does land in tier 2**. Deleting the two
-      //          tier-2 preference lines (the `_tryLegacyResult` ones) turns this red **with the
-      //          vocabulary rule untouched**; the command and its output are in the report, item 1.
+      //          The sample has to land on **the third tier** or the test is really about the
+      //          vocabulary: `sqrt(8)` passes it (asserted right here), and the legacy parser can answer
+      //          it too (2.828427) — exactly the input the old rule acted on, and now the answer is that
+      //          **the engine's copy lands**. Deleting those two lines (the `isDisplayable` branch)
+      //          turns this red: the screen falls back to the legacy parser's `2.828427` (command and
+      //          output in fix round 7's report).
       expect(AppEngineVocabulary.canRead('sqrt(8)'), isTrue,
-          reason: '样本必须过得了词表，否则这条测试到不了 tier 2（前两次就是这么错的）');
+          reason: '样本必须过得了词表，否则这条测试到的是词表那一级');
       final engine = _FakeMathEngine(const EngineReplyFixture(
         displayText: '[9  9; 9  9]',
         displayTex: r'\begin{bmatrix}9 & 9 \\ 9 & 9\end{bmatrix}',
@@ -630,15 +636,14 @@ void main() {
       controller.setExpression('sqrt(8)');
       await controller.submit();
 
-      // 中文：旧解析器的答案（2.828427）说了算，引擎那个矩阵不上屏；而且它是**能当数字用**的，
-      //       所以 `Ans`/记忆照旧拿得到它。
-      // English: the legacy parser's answer (2.828427) wins and the engine's matrix stays off the
-      //          screen; it is **usable as a number**, so `Ans`/memory still get it.
-      expect(controller.result, '2.828427');
-      expect(controller.result, isNot(contains('9')));
-      // 中文：旧解析器的十进制形态就是它自己的显示文本（它只产出一个 double）。
-      // English: the legacy parser's decimal form is its own display text (it produces a bare double).
-      expect(controller.resultDecimal, '2.828427');
+      // 中文：引擎的矩阵上屏，旧解析器的 2.828427 不再说了算。
+      // English: the engine's matrix goes on screen; the legacy parser's 2.828427 no longer wins.
+      expect(controller.result, '[9  9; 9  9]');
+      expect(controller.resultTex, contains('bmatrix'));
+      // 中文：可显示**不等于**能当数字用：十进制形态是空的，`Ans`/记忆因此拿不到它（这一条没有放宽）。
+      // English: displayable is **not** the same as usable as a number: the decimal form is empty, so
+      //          `Ans`/memory get nothing from it (this one was not relaxed).
+      expect(controller.resultDecimal, isEmpty);
 
       controller.dispose();
     });
