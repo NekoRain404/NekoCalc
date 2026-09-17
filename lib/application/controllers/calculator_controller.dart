@@ -69,7 +69,8 @@ enum LiveResultPolicy {
 /// English: The default policy — ruling 1 chose (B). Switching the constant to
 ///          [LiveResultPolicy.engineOnly] selects (A); it can also be injected through the
 ///          constructor so both branches are covered by tests.
-const LiveResultPolicy kLiveResultPolicy = LiveResultPolicy.legacyFirstThenEngine;
+const LiveResultPolicy kLiveResultPolicy =
+    LiveResultPolicy.legacyFirstThenEngine;
 
 /// 中文：**显示侧的合并窗口**——「打完字之后多久看到第一个结果」就是这个值。它是给同步解析调的
 ///       （那时一次解析是微秒），职责没有变，所以这一步**不动它**：裁决 1 要的即时反馈正是由它保证
@@ -97,14 +98,18 @@ const Duration kLiveEvaluationDelay = Duration(milliseconds: 32);
 ///       微秒；现在它挡在「快速输入」和「一队跨语言调用」之间，性质完全不同。取值理由：
 ///
 ///       1. **它必须长于最快的人类连续击键间隔**，否则一次连续输入会变成一串引擎调用。这一条是
-///          针对按键重复（长按不放，Android 的默认重复间隔约 50ms）与快速连打（约 80–120ms）定的：
-///          120ms 高于这条带，连续输入期间一次引擎调用都不会发出。
+///          针对按键重复（长按不放，Android 的默认重复间隔约 50ms）与快速连打（约 80–120ms）定的。
+///          **但 120ms 是这条带的上沿，不是「高于」它**：压制成立的条件是按键间隔**严格小于**
+///          120ms——跟进定时器在末键+152ms 触发，而下一次求值在下一键+32ms，所以只要下一键比
+///          上一键晚超过 120ms，跟进就会落地，发出一整次引擎调用。**慢于 120ms/键的输入（含这段
+///          区间的上半）每键都会发一次调用**；那种情形下不积压靠的是第 4 条，不是这一条。
 ///       2. **它不是「第一个结果」的延迟，只是「精确形式」的延迟**。裁决 1 的策略 (B) 下，旧解析器
 ///          的结果仍然在 32ms 那一次上屏——与今天完全一样——这个延迟只推迟引擎那份精确形态的到来
 ///          （而精确形态本来就是新增的信息，不是用户今天已有的东西）。所以取大一点的代价很小。
 ///       3. 上限由感知定：跟进定时器每收到一次求值就重排，而求值发生在最后一次击键之后 ≤32ms，
-///          于是**从最后一次击键算起**的实际上限是 120+32≈152ms，低于「像卡顿」的那条线（约
-///          200ms）。
+///          于是**从最后一次击键算起**、**且没有在飞调用时**，上限是 120+32≈152ms，低于「像卡顿」
+///          的那条线（约 200ms）。**有在飞调用时这个上界不成立**——精确形式要先等那个调用让出
+///          槽位，再加一个跟进周期，最坏情况是 `engineTimeout`（引擎卡死时）。
 ///       4. 就算这个值取错了，**也积压不了**：在飞上限是 1（见 [_evaluateWithEngine]），再密的输入
 ///          也只是记一个「还欠一次」，不会排成队。
 ///
@@ -115,15 +120,23 @@ const Duration kLiveEvaluationDelay = Duration(milliseconds: 32);
 ///          1. **It must exceed the fastest human key interval**, or one continuous burst becomes a
 ///             stream of engine calls. That band is set by key repeat (holding a key down; Android's
 ///             default repeat interval is about 50 ms) and by fast two-thumb tapping (about
-///             80-120 ms); 120 ms sits above it, so a burst issues no engine call at all.
+///             80-120 ms). **120 ms is the band's upper edge, not above it**: suppression needs the
+///             key interval to be *strictly* under 120 ms — the follow-up fires at last-key+152 ms
+///             while the next evaluation is at next-key+32 ms — so any key arriving more than 120 ms
+///             after the previous one lets the follow-up land and issues a full engine call. **Input
+///             slower than 120 ms/key (including the upper half of that band) calls the engine once
+///             per keystroke**; there, not accumulating is reason 4's doing, not this one's.
 ///          2. **It is not the delay of the first result, only of the exact form.** Under ruling 1's
 ///             policy (B) the legacy parser's result still goes up at the 32 ms tick — exactly as
 ///             today — and this delay only defers the engine's exact form, which is new information
 ///             rather than something the user already had. Paying a little here is therefore cheap.
 ///          3. The ceiling comes from perception: the follow-up timer is restarted by every
 ///             evaluation, and an evaluation happens at most 32 ms after the last keystroke, so the
-///             worst case measured **from the last keystroke** is 120+32 ≈ 152 ms — below the ~200 ms
-///             at which a delayed update starts to read as lag.
+///             worst case measured **from the last keystroke** — and **with nothing in flight** — is
+///             120+32 ≈ 152 ms, below the ~200 ms at which a delayed update starts to read as lag.
+///             **With a call outstanding that ceiling does not hold**: the exact form waits for that
+///             call to free the slot and then for another follow-up period — up to `engineTimeout`
+///             when the engine is wedged.
 ///          4. Even if the value were wrong, it **cannot build a queue**: at most one call is in
 ///             flight (see [_evaluateWithEngine]), and denser typing merely records "one more is
 ///             owed" instead of enqueueing.
@@ -691,8 +704,14 @@ class CalculatorController extends ChangeNotifier {
   /// 中文：问引擎要边打边算的结果，并在回包到达时落地。四件事都在这里：
   ///
   ///       - **在飞上限为 1**。已经有一发在飞时不再发第二发，只把 [_liveEngineDirty] 立起来；
-  ///         那一发回包落地之后再补一次（问的是最新的表达式）。于是无论用户打得多快，同时存在的
-  ///         引擎调用最多一发，原生线程池的队列也就永远只有那一发——**队不积压**。
+  ///         那一发回包落地之后再补一次（问的是最新的表达式）。于是无论用户打得多快，**控制器同时
+  ///         等待的**引擎调用最多一发。
+  ///
+  ///         **但这不等于原生队列永远只有一发。** 超时会让 completer 完成、这里的槽位释放，
+  ///         而那一发在原生侧**仍占着它的 FIFO 位置**——被放弃，但没有被取消。所以原生队列的真实
+  ///         上界是 `1 + 被放弃的调用数`：引擎永久卡死时，每过一个 `engineTimeout` 就攒一条队列项，
+  ///         **不需要用户做任何事**。后果是缓慢且无害的（不会产出错值），但**别把这个不变式当成会
+  ///         自己报警的东西**——它恰恰在该报警的那种情形下不会报警。
   ///       - **过期的一律丢弃**。用的是提交路径同一个代际守卫：请求前记下 `_stateRevision`，落地前
   ///         再比一次；期间用户改过任何状态，这次回答描述的就是屏幕上已经不存在的那条时间线。
   ///         再比一次表达式，是为了堵住「表达式被换掉但没有走 [_markStateEdited]」的那条路
@@ -707,9 +726,16 @@ class CalculatorController extends ChangeNotifier {
   ///
   ///          - **At most one call in flight.** When one is already out, no second one is issued;
   ///            [_liveEngineDirty] is raised instead, and a further follow-up is made once that reply
-  ///            lands (asking about the newest expression). However fast the user types, then, at
-  ///            most one engine call exists at a time, so the native thread pool's queue never holds
-  ///            more than that one — **no queue builds up**.
+  ///            lands (asking about the newest expression). However fast the user types, then, at most
+  ///            one engine call is one this controller is *awaiting*.
+  ///
+  ///            **That is not the same as the native queue never holding more than one.** A timeout
+  ///            completes the completer and frees the slot here, while the call itself **keeps its
+  ///            FIFO place** on the native side — abandoned, not cancelled. So the real bound is
+  ///            `1 + abandoned calls`: a permanently wedged engine accumulates one queued entry per
+  ///            `engineTimeout`, with no user action required. The consequence is slow and harmless
+  ///            (no wrong value is produced), but **do not treat this invariant as something that
+  ///            announces itself** — it is precisely in the case that should trip it that it does not.
   ///          - **Stale replies are dropped.** It uses the submit path's own generation guard: the
   ///            generation is captured before the call and compared again before landing; if the user
   ///            changed any state in between, that answer describes a timeline that is no longer on
