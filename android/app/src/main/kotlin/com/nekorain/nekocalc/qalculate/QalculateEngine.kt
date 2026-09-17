@@ -1,10 +1,12 @@
 package com.nekorain.nekocalc.qalculate
 
 import android.util.Log
+import com.jherkenhoff.libqalculate.AngleUnit
 import com.jherkenhoff.libqalculate.ApproximationMode
 import com.jherkenhoff.libqalculate.AutomaticApproximation
 import com.jherkenhoff.libqalculate.AutomaticFractionFormat
 import com.jherkenhoff.libqalculate.Calculator
+import com.jherkenhoff.libqalculate.DigitGrouping
 import com.jherkenhoff.libqalculate.EvaluationOptions
 import com.jherkenhoff.libqalculate.IntervalDisplay
 import com.jherkenhoff.libqalculate.NumberFractionFormat
@@ -53,6 +55,25 @@ class QalculateEngine {
         if (!loaded) {
             Log.w(TAG, "global definitions missing: units and constants will be unavailable")
         }
+        // 中文：精度提到 16 位**有效数字**。默认的 8 位会让 `decimal` 在 Dart 侧取整之前就已经失真：
+        //       `1000000/3` 在 8 位下是 `333333.33`，用户把设置调到 8 位小数时显示成
+        //       `333333.33000000`——凭空多出六位假的零。16 位有效数字在整个 double 量程内都足够
+        //       喂给显示取整，MPFR 算这个几乎不花钱。
+        //
+        //       注意：这里管的是**算得多准**，不是**显示成什么样**。AppSettings.precision 的语义是
+        //       小数位数（4/6/8），与有效数字不是同一个轴，取整仍然留在 Dart 的 formatNumber 里，
+        //       否则会悄悄改掉用户现有设置的含义。
+        // English: Precision is raised to 16 *significant digits*. The default 8 corrupts `decimal`
+        //          before Dart ever rounds it for display: `1000000/3` is `333333.33` at 8 digits,
+        //          and with the user's 8-decimal-place setting that displays as `333333.33000000` —
+        //          six fabricated zeros. Sixteen significant digits feed display rounding across the
+        //          whole double range, and MPFR barely notices the cost.
+        //
+        //          Note what this does *not* own: it decides how accurately the engine computes, not
+        //          how the result is shown. AppSettings.precision is a count of decimal places
+        //          (4/6/8), which is a different axis, so rounding stays in Dart's formatNumber —
+        //          moving it here would silently change what the user's existing setting means.
+        instance.setPrecision(ENGINE_PRECISION)
         instance
     }
 
@@ -90,8 +111,8 @@ class QalculateEngine {
      * English: Evaluate once and return a string map that can cross the channel as-is.
      *          The calling thread blocks until the engine thread answers.
      */
-    fun evaluate(expression: String): Map<String, String> =
-        engineThread.submit(Callable { evaluateOnEngine(expression) }).get()
+    fun evaluate(expression: String, angleMode: String): Map<String, String> =
+        engineThread.submit(Callable { evaluateOnEngine(expression, angleMode) }).get()
 
     /**
      * 中文：把求值排到引擎线程上并在那里回调。channel 用这个入口，Android 主线程因此不必
@@ -100,20 +121,46 @@ class QalculateEngine {
      *          uses this entry point so the Android main thread never waits on the engine —
      *          MethodChannel.Result may be completed from a non-main thread.
      */
-    fun evaluateAsync(expression: String, onResult: (Map<String, String>) -> Unit) {
-        engineThread.execute { onResult(evaluateOnEngine(expression)) }
+    fun evaluateAsync(
+        expression: String,
+        angleMode: String,
+        onResult: (Map<String, String>) -> Unit,
+    ) {
+        engineThread.execute { onResult(evaluateOnEngine(expression, angleMode)) }
     }
 
-    private fun evaluateOnEngine(expression: String): Map<String, String> {
+    private fun evaluateOnEngine(expression: String, angleMode: String): Map<String, String> {
         return try {
             val engine = calc
             engine.clearMessages()
 
+            // 中文：角度单位落在 ParseOptions 上（不在 Calculator 上），而且解析与求值都要它：
+            //       `sin(30)` 在 DEG 与 RAD 下是两个不同的数。三处 EvaluationOptions 都经过
+            //       evaluationOptions()，所以传进来的模式会同时到达 unlocalizeExpression 的
+            //       parse_options 与 calculate/calculateAndPrint 的求值选项。
+            // English: The angle unit lives on ParseOptions (not on Calculator), and both parsing
+            //          and evaluation need it: `sin(30)` is a different number in DEG and RAD. All
+            //          three EvaluationOptions go through evaluationOptions(), so the mode reaches
+            //          the parse_options used by unlocalizeExpression as well as the evaluation
+            //          options used by calculate/calculateAndPrint.
+            val angleUnit = angleUnitFor(angleMode)
+
             // 中文：TRY_EXACT 用于一步式打印；要不要近似由打印阶段的 AutomaticApproximation 决定。
             // English: TRY_EXACT feeds the one-shot printer; whether to approximate is then decided
             //          at print time by AutomaticApproximation.
-            val evaluation = evaluationOptions(ApproximationMode.APPROXIMATION_TRY_EXACT)
+            val evaluation = evaluationOptions(ApproximationMode.APPROXIMATION_TRY_EXACT, angleUnit)
             val terminal = printOptions(latex = false)
+            // 中文：`decimal` 的契约是「机器可解析」——Dart 侧要把它 `double.tryParse` 成数字，
+            //       再按用户设置取整显示。所以这一份必须关掉 Unicode 符号与千分位：
+            //       `5,656.854` 与 `−5.6`（U+2212）都不是 `double.tryParse` 认的数字，而它失败
+            //       时**不抛异常**，只返回 null——记忆寄存器静默加 0、Ans/last 静默失效。
+            // English: `decimal`'s contract is "machine-parseable" — Dart parses it with
+            //          `double.tryParse` and then rounds it for display at the user's setting. So
+            //          this one must have Unicode signs and digit grouping off: `5,656.854` and
+            //          `−5.6` (U+2212) are not numbers `double.tryParse` accepts, and it fails by
+            //          returning null *without throwing* — the memory register silently adds 0 and
+            //          Ans/last silently stop resolving.
+            val machineReadable = printOptions(latex = false, machineReadable = true)
 
             // 中文：unlocalizeExpression 把本地化的函数名与符号换成引擎内部写法。
             // English: unlocalizeExpression rewrites localised function names and symbols into the
@@ -140,8 +187,8 @@ class QalculateEngine {
             val decimal = render(
                 engine,
                 normalized,
-                evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE),
-                terminal,
+                evaluationOptions(ApproximationMode.APPROXIMATION_APPROXIMATE, angleUnit),
+                machineReadable,
                 AutomaticApproximation.AUTOMATIC_APPROXIMATION_SINGLE,
             )
             val dual = render(engine, normalized, evaluation, terminal, AutomaticApproximation.AUTOMATIC_APPROXIMATION_DUAL)
@@ -175,7 +222,7 @@ class QalculateEngine {
             //          interval_display = MIDPOINT, \num{interval(…)} no longer appears here — that
             //          macro is one flutter_math_fork rejects anyway — but "5.6568542" is just as
             //          far from the exact form we want, so EXACT is still required.)
-            val exactEvaluation = evaluationOptions(ApproximationMode.APPROXIMATION_EXACT)
+            val exactEvaluation = evaluationOptions(ApproximationMode.APPROXIMATION_EXACT, angleUnit)
             val parsed = engine.parse(normalized, exactEvaluation.parse_options)
             val evaluated = engine.calculate(parsed, exactEvaluation)
             val latex = engine.print(evaluated, PRINT_TIMEOUT_MS, printOptions(latex = true), true, 0, libqalculateConstants.TAG_TYPE_LATEX)
@@ -189,6 +236,7 @@ class QalculateEngine {
                 "latex" to latex,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),
+                "angleMode" to angleMode,
             )
         } catch (error: Throwable) {
             // 中文：System.loadLibrary 失败抛的是 Error 而不是 Exception，只有捕获 Throwable
@@ -241,17 +289,56 @@ class QalculateEngine {
         libqalculateConstants.TAG_TYPE_TERMINAL,
     )
 
-    private fun evaluationOptions(approximation: ApproximationMode): EvaluationOptions = EvaluationOptions().apply {
+    /**
+     * 中文：Dart 侧只发 `DEG` / `RAD`（来自 `AppSettings.angleMode`）。别的值按弧度处理——弧度
+     *       是 `AppSettings.fallback` 的默认模式，也是 libqalculate 自己的默认角度单位。
+     * English: Dart only sends `DEG` / `RAD` (from `AppSettings.angleMode`). Anything else is read
+     *          as radians — `AppSettings.fallback`'s default mode, and libqalculate's own default
+     *          angle unit.
+     */
+    private fun angleUnitFor(angleMode: String): AngleUnit =
+        if (angleMode.equals("DEG", ignoreCase = true)) {
+            AngleUnit.ANGLE_UNIT_DEGREES
+        } else {
+            AngleUnit.ANGLE_UNIT_RADIANS
+        }
+
+    private fun evaluationOptions(
+        approximation: ApproximationMode,
+        angleUnit: AngleUnit,
+    ): EvaluationOptions = EvaluationOptions().apply {
         setApproximation(approximation)
         setAllow_complex(true)
+        // 中文：角度单位不在 EvaluationOptions 自己身上，而是在它的 `parse_options` 成员里——角度
+        //       单位本来就属于解析选项，所以 `sin` 的自变量按哪种单位解释由这里决定。
+        //       `getParse_options()` 返回的是**同一个 C++ 对象**的非拥有代理（SWIG 生成的是
+        //       `new ParseOptions(ptr, false)`，已从字节码核对），所以在这里设值就是设在本次求值
+        //       的选项上，而不是设在一个会被丢掉的副本上。
+        // English: The angle unit is not on EvaluationOptions itself but on its `parse_options`
+        //          member — the unit belongs to the parse options by design, and it is what decides
+        //          how a `sin` argument is read. `getParse_options()` returns a *non-owning* proxy
+        //          to the same C++ object (SWIG emits `new ParseOptions(ptr, false)`; verified in
+        //          the bytecode), so setting it here sets it on this evaluation's options rather
+        //          than on a copy that would be thrown away.
+        parse_options.setAngle_unit(angleUnit)
     }
 
-    private fun printOptions(latex: Boolean): PrintOptions = PrintOptions().apply {
+    private fun printOptions(latex: Boolean, machineReadable: Boolean = false): PrintOptions = PrintOptions().apply {
         setNumber_fraction_format(NumberFractionFormat.FRACTION_DECIMAL)
         // 中文：C++ 里这是 int 不是 boolean。LaTeX 必须关掉 Unicode 符号，否则拿到的是「√」而不是「\sqrt」。
+        //       机器可解析的那一份（`decimal`）同样要关：开着的时候负号是 `−`(U+2212)，Dart 侧
+        //       `double.tryParse` 直接返回 null。
         // English: an int in C++, not a boolean. Unicode signs must be off for LaTeX, or the output
-        //          carries "√" instead of "\sqrt".
-        setUse_unicode_signs(if (latex) UNICODE_SIGNS_OFF else UNICODE_SIGNS_ON)
+        //          carries "√" instead of "\sqrt". The machine-parseable one (`decimal`) needs them
+        //          off too: with them on a negative number prints `−`(U+2212), which Dart's
+        //          `double.tryParse` rejects outright.
+        setUse_unicode_signs(if (latex || machineReadable) UNICODE_SIGNS_OFF else UNICODE_SIGNS_ON)
+        // 中文：千分位只对机器可解析的那一份显式关掉。默认值不写进代码是会漂的：`5,656.854` 这种
+        //       带分隔符的输出到了 Dart 侧同样是静默的 null。人类可读的那几份（dual）保持原样。
+        // English: Digit grouping is explicitly turned off for the machine-parseable form only.
+        //          Leaving it to the default would drift: `5,656.854` is just as silently null on
+        //          the Dart side. The human-readable forms (`dual`) keep whatever the default is.
+        if (machineReadable) setDigit_grouping(DigitGrouping.DIGIT_GROUPING_NONE)
         // 中文：把区间印成中点，而不是 interval(下界, 上界)。这是「无理结果只有一个十进制数」的
         //       唯一开关，且只影响显示——Number 里的上下界原封不动，精确形态那一份照旧由
         //       APPROXIMATION_EXACT 保留。
@@ -287,6 +374,12 @@ class QalculateEngine {
         const val TAG = "NekoCalcQalculate"
 
         private const val PRINT_TIMEOUT_MS = 2000
+
+        // 中文：有效数字位数，不是小数位数。见 `calc` 上的注释：默认的 8 位会让 Dart 侧的显示取整
+        //       拿到一个已经失真的数。
+        // English: significant digits, not decimal places. See the comment on `calc`: the default 8
+        //          hands Dart's display rounding a number that is already wrong.
+        private const val ENGINE_PRECISION = 16
 
         // 中文：取值来自 libqalculate/includes.h 的 UNICODE_SIGNS_* 匿名枚举，SWIG 没有导出成 Java 常量。
         // English: values from the UNICODE_SIGNS_* anonymous enum in libqalculate/includes.h;

@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../core/math/expression_parser.dart';
+import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
+import '../../core/platform/qalculate_channel.dart';
+import '../../core/platform/qalculate_math_engine.dart';
 import '../../core/utils/number_formatter.dart';
 import '../../data/repositories/history_repository.dart';
 import '../../data/repositories/notes_repository.dart';
@@ -23,12 +26,23 @@ class CalculatorController extends ChangeNotifier {
     required this.notesRepository,
     required this.settingsRepository,
     required AppSettings settings,
+    MathEngine engine = const QalculateMathEngine(),
   })  : _settings = settings,
+        _engine = engine,
         angleMode = settings.angleMode;
 
   final HistoryRepository historyRepository;
   final NotesRepository notesRepository;
   final SettingsRepository settingsRepository;
+
+  /// 中文：求值引擎。默认就是真的那一个——生产接线不留「忘了注入于是功能静默不生效」的空档；
+  ///       测试用替身换掉它，于是「引擎答不出来时回落」这条路径在 `flutter test` 里也能断言。
+  /// English: The evaluation engine. The default is the real one, so production wiring has no gap
+  ///          where a forgotten injection silently disables the feature; tests replace it with a
+  ///          double, which makes the "the engine cannot answer, fall back" path assertable under
+  ///          `flutter test`.
+  final MathEngine _engine;
+
   AppSettings _settings;
   String expression = '';
 
@@ -392,7 +406,12 @@ class CalculatorController extends ChangeNotifier {
     _liveEvaluationTimer?.cancel();
     try {
       final submittedExpression = expression;
-      _result = _calculateResult(submittedExpression);
+      // 中文：只有「按下等号」这条路径问引擎。边打边算（`evaluate()`）一行未动，仍然完全走旧的
+      //       同步解析器——把实时路径也搬过去的时序风险留给下一步。
+      // English: Only "pressed =" asks the engine. As-you-type evaluation (`evaluate()`) is
+      //          untouched and still runs entirely on the legacy synchronous parser; the timing
+      //          risk of moving the live path stays out of this step.
+      _result = await _submittedResult(submittedExpression);
       hasError = false;
       errorMessage = null;
       final signature =
@@ -583,11 +602,111 @@ class CalculatorController extends ChangeNotifier {
 
   String noteBody() => _resultReportText(savedAt: DateTime.now());
 
+  /// 中文：**提交路径**（只有「按下等号」会走到这里）的结果来源：先问引擎，问不到就回落旧解析器。
+  ///
+  ///       回落是硬要求，且引擎的失败对用户完全不可见：引擎未加载、没有原生侧、被中止、超时、
+  ///       解析失败，用户看到的都是**今天那条结果或那条错误**，一字不差。所以这里接受引擎结果的
+  ///       条件很紧——必须是一个**有限十进制**：
+  ///
+  ///       - 引擎没有十进制形态（`1 m` 这类带单位的结果）：回落到旧解析器；
+  ///       - 十进制形态解析不出数字（`infinity`、符号表达式）：同样回落，于是 `1/0` 仍然是
+  ///         今天那条「结果不是有限数值」，而不是一个看起来像结果的 `无效`。
+  ///
+  ///       表达式先过 [_resolveAnswerReferences]，和旧路径一样：引擎不认识 `Ans`/`last`，问它
+  ///       之前必须先换成十进制数值，否则它会把 `ans` 当成一个未知变量。回落分支故意把**原始**
+  ///       表达式交给 [_calculateResult]，让它自己做同一件事——两次解析结果相同（`_ansValue…`
+  ///       记下的正是第一次用的那个值），而跳过它会让 `_ansSource…` 被清空。
+  ///
+  /// English: The result source for the *submit path* (only "pressed =" reaches it): ask the engine
+  ///          first, fall back to the legacy parser when it cannot answer.
+  ///
+  ///          The fallback is a hard requirement, and the engine's failure is invisible to the
+  ///          user: engine not loaded, no native side, aborted, timed out or failed to parse — the
+  ///          user sees *today's* result or *today's* error, character for character. So the
+  ///          condition for accepting the engine's answer is deliberately tight: it must be a
+  ///          *finite decimal*:
+  ///
+  ///          - the engine has no decimal form (a result carrying a unit, say `1 m`): fall back;
+  ///          - the decimal form does not parse into a number (`infinity`, a symbolic expression):
+  ///            fall back too, so `1/0` still produces today's "result is not finite" rather than a
+  ///            `无效` that looks like a result.
+  ///
+  ///          The expression goes through [_resolveAnswerReferences] first, exactly as on the legacy
+  ///          path: the engine does not know `Ans`/`last`, so they must be substituted before it is
+  ///          asked, or it would treat `ans` as an unknown variable. The fallback branch hands the
+  ///          *original* expression to [_calculateResult] on purpose, letting it do the same thing
+  ///          itself — both resolutions produce the same string (`_ansValue…` holds exactly the
+  ///          value the first one used), while skipping it would clear `_ansSource…`.
+  Future<MathResult> _submittedResult(String source) async {
+    final resolvedSource = _resolveAnswerReferences(source);
+    final reply = await _askEngine(resolvedSource);
+    final engineResult = reply.result;
+    final value = engineResult?.decimalValue;
+    if (reply.ok && engineResult != null && value != null && value.isFinite) {
+      // 中文：`_lastFiniteResult` 与十进制形态保持一致，规则与 [applyMathResult] 相同——十进制
+      //       形态非空（`decimalValue` 非空已经保证了这一点），于是 `Ans`/`last` 用的是引擎的
+      //       精确值，而不是显示取整后的那一份。
+      // English: `_lastFiniteResult` stays in step with the decimal form, the same rule as
+      //          [applyMathResult] — the decimal form is non-empty (which `decimalValue` being
+      //          non-null already guarantees), so `Ans`/`last` resolve to the engine's accurate
+      //          value rather than the display-rounded one.
+      _lastFiniteResult = engineResult.decimalText;
+      return _withDisplayRounding(engineResult, value);
+    }
+    // 中文：回落对用户不可见（这是要求），所以必须留下一条日志——否则「引擎其实一次都没答上来」
+    //       在设备上和「引擎工作正常」长得一模一样。
+    // English: The fallback is invisible to the user (that is the requirement), so it has to leave a
+    //          log line behind — otherwise "the engine never answered once" looks exactly like "the
+    //          engine works fine" on a device.
+    debugPrint(
+      '$qalculateLogTag 引擎没有可用结果，提交路径回落到旧解析器: '
+      '${reply.error ?? '引擎给出的十进制形态不可用'}',
+    );
+    return _calculateResult(source);
+  }
+
+  /// 中文：问一次引擎。**引擎抛出来的东西在这里停住**——[MathEngine] 的契约要求实现不抛异常，
+  ///       但提交路径不能把「实现有没有守约」当成本钱：守约失败时回落到旧解析器，而不是让一个
+  ///       只在设备上出现的异常变成用户可见的错误。
+  /// English: Ask the engine once. Anything it throws stops here — the [MathEngine] contract says
+  ///          implementations must not throw, but the submit path cannot stake its behaviour on the
+  ///          implementation keeping that promise: a broken promise falls back to the legacy parser
+  ///          instead of turning into a user-visible error that only ever appears on a device.
+  Future<EngineReply> _askEngine(String expression) async {
+    try {
+      return await _engine.evaluate(expression, angleMode: angleMode);
+    } catch (error) {
+      return EngineReply.failure('engine_threw: $error');
+    }
+  }
+
+  /// 中文：把引擎的结果变成屏幕上的结果。引擎的十进制形态是**未取整**的（16 位有效数字），显示
+  ///       形态仍然由 `formatNumber` 按 `AppSettings.precision`（小数位数）取整——取整只有这一处
+  ///       实现，边打边算与提交路径共用，用户在设置里选的位数对两条路径含义完全相同。引擎负责
+  ///       算得准，Dart 负责显示成什么样。
+  /// English: Turns the engine's result into the one on screen. The engine's decimal form is
+  ///          *unrounded* (16 significant digits) while the display form still comes from
+  ///          `formatNumber` at `AppSettings.precision` (a count of decimal places) — rounding has
+  ///          exactly one implementation, shared by as-you-type and submit, so the digit count the
+  ///          user picked means the same thing on both paths. The engine computes accurately; Dart
+  ///          decides what it looks like.
+  MathResult _withDisplayRounding(MathResult engineResult, double value) {
+    return MathResult(
+      displayText: formatNumber(
+        value,
+        precision: _settings.precision,
+        groupThousands: _settings.groupThousands,
+      ),
+      displayTex: engineResult.displayTex,
+      decimalText: engineResult.decimalText,
+    );
+  }
+
   /// 中文：旧求值器的唯一出口——它只产出一个 `double`，所以三形态里的 LaTeX 是空的，而显示文本
-  ///       同时也是十进制文本。这是引擎接入时唯一要换掉的一行。
+  ///       同时也是十进制文本。这是引擎缺席时（以及引擎答不出来时）用的那一条路。
   /// English: The legacy evaluator's only exit. It produces a bare `double`, so the LaTeX form is
-  ///          empty and the display text doubles as the decimal text. This is the one line the
-  ///          engine replaces when it is wired in.
+  ///          empty and the display text doubles as the decimal text. This is the path used while
+  ///          the engine is absent — and whenever it cannot answer.
   MathResult _calculateResult(String source) {
     final resolvedSource = _resolveAnswerReferences(source);
     final value =
@@ -766,15 +885,27 @@ class CalculatorController extends ChangeNotifier {
 
   MathResult _restoredResult(Map<String, String> settings) {
     final displayText = settings['calculator_result'] ?? '0';
-    final decimalText = settings['calculator_result_decimal'] ?? '';
+    // 中文：判别依据是**键在不在**，不是值空不空——`?? ''` 分不清两种空：
+    //       「拆分之前存下的旧行」（没有这个键，十进制形态要从显示文本推导）与「十进制形态就是
+    //       故意为空的新行」（键在、值是空串，代表引擎这一次没有给出十进制形态）。把它们混成
+    //       一种，空十进制会在重启后被从显示文本重新推导出来——一个引擎从没给过的数字，于是
+    //       `Ans`/`last` 又开始引用它。这个类型的全部意义就是「空表示没有十进制形态」，这条
+    //       不变量必须能活过一次重启。
+    // English: The discriminator is whether the *key exists*, not whether the value is empty —
+    //          `?? ''` cannot tell two different empties apart: a row written before the split
+    //          (no such key, so the decimal form is derived from the display text) and a new row
+    //          whose decimal form is deliberately empty (the key is there with an empty value,
+    //          meaning the engine produced no decimal form this time). Collapsing them re-derives
+    //          the decimal from the display text after a restart — a number the engine never
+    //          produced — and `Ans`/`last` start resolving from it again. The whole point of this
+    //          type is that an empty string means "no decimal form"; that invariant has to survive
+    //          a restart.
+    final hasDecimalField = settings.containsKey('calculator_result_decimal');
     return MathResult(
       displayText: displayText,
       displayTex: settings['calculator_result_tex'] ?? '',
-      // 中文：旧的持久化数据里没有十进制键，此时按拆分前的做法从显示文本推导，行为不变。
-      // English: Rows written before the split have no decimal key; derive it from the display text
-      //          exactly as the pre-split code did, so restoring old state behaves identically.
-      decimalText: decimalText.isNotEmpty
-          ? decimalText
+      decimalText: hasDecimalField
+          ? (settings['calculator_result_decimal'] ?? '')
           : MathResult.decimalTextOf(displayText),
     );
   }

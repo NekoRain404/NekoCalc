@@ -79,9 +79,9 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-        // 中文：libqalculate 原生引擎。这一步只开一个诊断入口，还没有接进计算器的求值路径。
-        // English: The native libqalculate engine. Only a diagnostic entry point for now; it is not
-        //          wired into the calculator's evaluation path yet.
+        // 中文：libqalculate 原生引擎。求值入口由提交路径（按下等号）使用；边打边算仍在 Dart 侧。
+        // English: The native libqalculate engine. The submit path (pressed =) uses the evaluation
+        //          entry point; as-you-type evaluation stays on the Dart side.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, qalculateChannelName).setMethodCallHandler { call, result ->
             when (call.method) {
                 "evaluate" -> {
@@ -90,9 +90,19 @@ class MainActivity : FlutterActivity() {
                         result.error("invalid_expression", "缺少 expression 参数", null)
                         return@setMethodCallHandler
                     }
+                    // 中文：角度模式必须显式传下来，缺失就拒绝——不猜默认值。角度单位决定
+                    //       sin/cos 的自变量怎么解释，猜错的代价是一个算错的答案，而不是一条错误。
+                    // English: The angle mode must be passed explicitly; a missing one is rejected
+                    //          rather than defaulted. The angle unit decides how sin/cos arguments
+                    //          are read, and guessing wrong costs a wrong answer rather than an error.
+                    val angleMode = call.argument<String>("angleMode")
+                    if (angleMode == null) {
+                        result.error("invalid_angle_mode", "缺少 angleMode 参数", null)
+                        return@setMethodCallHandler
+                    }
                     // 中文：在引擎线程上回复，主线程不等待引擎。
                     // English: Reply from the engine thread; the main thread does not wait.
-                    qalculateEngine.evaluateAsync(expression) { payload -> result.success(payload) }
+                    qalculateEngine.evaluateAsync(expression, angleMode) { payload -> result.success(payload) }
                 }
 
                 else -> result.notImplemented()

@@ -20,15 +20,22 @@ import 'qalculate_channel.dart';
 Future<void> runQalculateSmokeTest({
   QalculateChannel channel = const QalculateChannel(),
   String expression = 'sqrt(32)',
+  // 中文：角度模式跟着表达式一起过去，和提交路径的做法一致。启动诊断读不到用户设置，这里用
+  //       RAD——它也是 `AppSettings.fallback` 的默认角度模式。
+  // English: The angle mode travels with the expression, exactly as it does on the submit path.
+  //          The startup diagnostic cannot read user settings, so this uses RAD — also
+  //          `AppSettings.fallback`'s default angle mode.
+  String angleMode = 'RAD',
 }) async {
   try {
-    final result = await channel.evaluate(expression);
+    final result = await channel.evaluate(expression, angleMode: angleMode);
     debugPrint(
       '$qalculateLogTag smoke "$expression" -> ok=${result['ok']} '
       'decimal=${result['decimal']} dual=${result['dual']} latex=${result['latex']} '
       'aborted=${result['aborted']} messages=${result['messages']} error=${result['error']}',
     );
   } catch (error) {
-    debugPrint('$qalculateLogTag smoke "$expression" -> channel failed: $error');
+    debugPrint(
+        '$qalculateLogTag smoke "$expression" -> channel failed: $error');
   }
 }
