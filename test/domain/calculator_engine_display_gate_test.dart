@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
+import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
 import 'package:nekocalc/data/local/app_database.dart';
@@ -87,6 +88,42 @@ void main() {
           resultKind: EngineResultKind.number,
         );
         expect(result.isDisplayable, isFalse, reason: '「$text」不该上结果行');
+      }
+    });
+
+    test('非有限值嵌在算式里也不可显示（按位置判，不是按整串）', () {
+      // 中文：这一条是修复轮 3 的第 4 项。旧的实现是「整串恰好等于 `∞`/`infinity`/`NaN`」，
+      //       于是**嵌在算式里**的非有限值照样上屏：`infinity*i` 打印成
+      //       `(+infinity) * i`（复审实测，真机同样）。改成按位置扫描之后它被覆盖。
+      // English: fix round 3's item 4. The old implementation matched "the whole string equals
+      //          `∞`/`infinity`/`NaN`", so a non-finite value **nested inside an expression** was
+      //          still displayed: `infinity*i` prints as `(+infinity) * i` (measured by the review,
+      //          and on the device). Scanning by position covers it.
+      for (final text in <String>[
+        '(+infinity) * i',
+        'infinity',
+        '-infinity',
+        '+infinity',
+        'NaN',
+        '∞',
+        '1 + NaN',
+      ]) {
+        expect(MathResult.textIsDisplayable(text), isFalse,
+            reason: '「$text」不是有限值，不该上结果行');
+      }
+      // 中文：有限值一个都不许受影响——包括长得像名字的那些（`info` 不是 `infinity`）。
+      // English: no finite value may be affected — including ones that look like a name (`info` is
+      //          not `infinity`).
+      for (final text in <String>[
+        '[1  2; 3  4]',
+        '1 + 2i',
+        '2x',
+        '5.656854249492380',
+        'info',
+        'nanometer',
+      ]) {
+        expect(MathResult.textIsDisplayable(text), isTrue,
+            reason: '「$text」是有限值，不该被拦');
       }
     });
 
@@ -257,6 +294,109 @@ void main() {
     });
   });
 
+  group('应用词汇：引擎读不懂的调用名一律不由引擎作答', () {
+    // 中文：**这一组是修复轮 3 的核心。** `structured` 分支曾经把「引擎读不懂我们的名字」也放进来
+    //       ——引擎把 `npr` 读成符号 `n'p''r'` 之后，结果**也是一个矩阵**，于是它与「矩阵是这个语言
+    //       表达不了的类型」混在同一条分支里。规则改成看**输入**：表达式里只要有一个「属于应用词汇、
+    //       引擎不认识」的调用，引擎这一次的答案就不权威（`AppEngineVocabulary.engineCanRead`）。
+    // English: **this group is the heart of fix round 3.** The `structured` branch used to admit "the
+    //          engine cannot read our names" as well — once the engine reads `npr` as the symbols
+    //          `n'p''r'`, the result **is a matrix too**, so it sat in the same branch as "a type this
+    //          language cannot express". The rule now looks at the **input**: if a call belongs to
+    //          this app's vocabulary and the engine does not know it, the engine's answer this time is
+    //          not authoritative (`AppEngineVocabulary.engineCanRead`).
+    const rows = <({String expression, String engineText, String expectedErrorPart})>[
+      (
+        expression: 'npr(2,1.5)',
+        engineText: "[2n'p''r'  1.5n'p''r']",
+        expectedErrorPart: 'r',
+      ),
+      (expression: 'npr(,)?', engineText: '[0  0]', expectedErrorPart: ''),
+    ];
+
+    test('npr 的两条输入都不再由引擎作答', () async {
+      // 中文：两条都拿真机实测的引擎原文当回包，形状给 `structured`（那正是漏洞所在：它确实是个矩阵）。
+      // English: both use the device-measured engine text as the reply, with the shape set to
+      //          `structured` — which is exactly the hole: it really is a matrix.
+      for (final row in rows) {
+        final engine = _FakeMathEngine(EngineReplyFixture(
+          displayText: row.engineText,
+          displayTex: r'\begin{bmatrix}0 & 0\end{bmatrix}',
+          kind: EngineResultKind.structured,
+        ).reply);
+        final controller = _controller(_FakeDatabase(), engine: engine);
+
+        controller.setExpression('npr(2,1.5)');
+        await controller.submit();
+
+        expect(controller.result, isNot(row.engineText),
+            reason: '引擎对应用词汇的符号读法又一次上了屏');
+        expect(controller.hasError, isTrue,
+            reason: 'npr 的非法实参应当由旧解析器给出应用自己的错误');
+
+        controller.dispose();
+      }
+    });
+
+    test('log(100)：语义不同，引擎的答案不许采用（应用给 2，引擎给 ln）', () async {
+      // 中文：真机实测 `log(100)` 的引擎答案是 `4.605170185988091`（自然对数），而应用自己的
+      //       `log` 是常用对数 → `2`。这是一条**静默错值**（它在引擎接进提交路径的那一步就存在，
+      //       与这两轮无关），词表把它拦下之后由旧解析器给出正确值。
+      // English: measured on a device, the engine's answer for `log(100)` is `4.605170185988091` (the
+      //          natural logarithm) while this app's `log` is the common one → `2`. That is a
+      //          **silently wrong value** (it has been there since the engine reached the submit path,
+      //          nothing to do with these two rounds); the vocabulary stops it and the legacy parser
+      //          gives the right value.
+      final engine = _FakeMathEngine(const EngineReplyFixture(
+        displayText: '4.605170185988091',
+        displayTex: '4.605170185988091',
+        kind: EngineResultKind.number,
+      ).reply);
+      final controller = _controller(_FakeDatabase(), engine: engine);
+
+      controller.setExpression('log(100)');
+      await controller.submit();
+
+      expect(controller.result, '2', reason: '引擎的自然对数被当成了常用对数');
+      expect(controller.resultDecimal, '2');
+
+      controller.dispose();
+    });
+
+    test('词表：引擎的答案能用的名字照旧放行，不能用的才拦', () {
+      // 中文：`engineCanRead` 只看**输入里的调用名**与那张封闭词表，与结果无关。
+      //       「引擎不认识」那一列是用引擎自己的符号表量出来的（见词表文件头与报告）。
+      // English: `engineCanRead` looks only at the **call names in the input** against that closed
+      //          vocabulary, never at the result. The "the engine does not know it" column was
+      //          measured from the engine's own symbol table (see the vocabulary file header and the
+      //          report).
+      expect(AppEngineVocabulary.canRead('matrix(2,2,1,2,3,4)'), isTrue);
+      expect(AppEngineVocabulary.canRead('sum(x,1,10,x)'), isTrue);
+      // 中文：`log2` 是**引擎认识**的拼法（量过），所以它不拦。
+      // English: `log2` is a spelling the engine **knows** (measured), so it is not blocked.
+      expect(AppEngineVocabulary.canRead('sqrt(8)+log2(4)'), isTrue);
+      // 中文：`log` 是**语义**不同的例子：引擎有这个名字，但它的 `log` 是自然对数、应用的是
+      //       常用对数（实测 `log(100)`：引擎 `4.605170185988091`、应用 `2`），所以它的答案不权威。
+      // English: `log` is the **semantic** case: the engine has the name, but its `log` is the natural
+      //          logarithm while the app's is the common one (measured `log(100)`: engine
+      //          `4.605170185988091`, app `2`), so its answer is not authoritative.
+      expect(AppEngineVocabulary.canRead('log(100)'), isFalse);
+      // 中文：不是调用（没有括号）的名字不由这张词表管——`i` 是引擎认识的变量。
+      // English: a name that is not a call (no bracket) is not this table's business — `i` is a
+      //          variable the engine knows.
+      expect(AppEngineVocabulary.canRead('2i+1'), isTrue);
+      expect(AppEngineVocabulary.canRead('ncr(5,2)'), isFalse);
+      expect(AppEngineVocabulary.canRead('npr(2,1.5)'), isFalse);
+      expect(AppEngineVocabulary.canRead('fact(5)'), isFalse);
+      expect(AppEngineVocabulary.canRead('deg(pi)'), isFalse);
+      expect(AppEngineVocabulary.canRead('1+rad(30)*2'), isFalse);
+      // 中文：`1.5° to arcmin` 里没有任何**调用**，所以词表管不着它——它由 conversion 那一支接住。
+      // English: `1.5° to arcmin` contains no **call**, so the vocabulary has nothing to say about it
+      //          — the conversion branch catches it.
+      expect(AppEngineVocabulary.canRead('1.5° to arcmin'), isTrue);
+    });
+  });
+
   group('新点亮的两个形态在渲染器里排得出来', () {
     test('矩阵的排版形态（引擎给的 LaTeX）与复数的排版形态都认', () {
       // 中文：这两条是**引擎印出来的**精确形态（真机日志原文），结果行会原样把它们交给
@@ -352,28 +492,44 @@ void main() {
       controller.dispose();
     });
 
-    test('引擎把应用自己的词汇表读成别的东西时，旧解析器的答案优先', () async {
-      // 中文：真机实测 `ncr(5,10)` 被引擎读成一串带单位的量（`n`=纳、`c`、`r` 各自成了单位/常量），
-      //       印成 `[(1.49896229n'r' km/us) …]`——那是**可显示**的，但它是引擎把表达式理解成
-      //       另一个东西之后的产物。旧解析器认得 `ncr` 并给出 10。已经上线的键必须逐字节不变。
-      // English: measured on a device — the engine reads `ncr(5,10)` as a list of unit-carrying
-      //          quantities (`n`, `c` and `r` each become a unit or a constant) and prints
-      //          `[(1.49896229n'r' km/us) …]`. That is **displayable**, but it is what the engine
-      //          made of an expression it read as something else. The legacy parser knows `ncr` and
-      //          answers 10. A key that already works has to stay byte-for-byte what it was.
+    test('tier 2：旧解析器答得出来时，它优先于引擎（这才是 tier 2 内部那条规则）', () async {
+      // 中文：**这条测试必须真的走到 tier 2**，否则它测的不是它名字说的东西。上一版用 `ncr(5,10)`
+      //       当样本，结果被修复轮 3 新增的应用词汇规则**在前面**就拦下了（`ncr` 是引擎不认识的
+      //       拼法），于是把 tier 2 这条规则整条删掉它仍然绿——复审正是这么发现的。
+      //
+      //       现在样本换成 `log(100)`：`log` 是**引擎认识**的拼法（词表放行 ✓），而它的引擎回包
+      //       被替身做成一个矩阵（tier 2、可显示、不可当数字用）——**这才是这条规则的作用域**：
+      //       当引擎给的是"只能显示"的形态、而旧解析器又答得出来时，谁说了算。
+      //       删掉那条优先规则（`_tryLegacyResult` 那一行）这条测试会红（验证过）。
+      //       真实世界里的 `ncr` 仍然由应用词汇规则先拦（它有自己的一条测试）。
+      // English: **this test has to reach tier 2**, or it does not test what its name says. The
+      //          previous version used `ncr(5,10)`, which fix round 3's vocabulary rule now stops
+      //          **earlier** (`ncr` is a spelling the engine does not know) — so deleting the whole
+      //          tier-2 rule left it green, which is exactly how the review found it.
+      //
+      //          The sample is now `log(100)`: `log` is a spelling the engine **knows** (the vocabulary
+      //          lets it through), and the double makes its engine reply a matrix (tier 2: displayable,
+      //          not usable as a number) — **that is this rule's scope**: when the engine offers a
+      //          display-only shape and the legacy parser can answer too, which one wins. Deleting the
+      //          preference (the `_tryLegacyResult` line) turns this red (verified). The real-world
+      //          `ncr` is still stopped by the vocabulary rule first, which has a test of its own.
       final engine = _FakeMathEngine(const EngineReplyFixture(
-        displayText: "[(1.49896229n'r' km/us)  (2.99792458n'r' km/us)]",
-        displayTex: r'\begin{bmatrix}1.49896229\end{bmatrix}',
+        displayText: '[9  9; 9  9]',
+        displayTex: r'\begin{bmatrix}9 & 9 \\ 9 & 9\end{bmatrix}',
+        kind: EngineResultKind.structured,
       ).reply);
       final controller = _controller(_FakeDatabase(), engine: engine);
 
-      controller.setExpression('ncr(5,10)');
+      controller.setExpression('log(100)');
       await controller.submit();
 
-      expect(controller.hasError, isFalse);
-      // 旧解析器的答案：C(5,10) 在它那里是 0（选不出来），关键是它**答得出**，于是它说了算。
-      expect(controller.result, '0');
-      expect(controller.resultDecimal, '0');
+      // 中文：旧解析器的答案（2）说了算，引擎那个矩阵不上屏；而且它是**能当数字用**的，
+      //       所以 `Ans`/记忆照旧拿得到它。
+      // English: the legacy parser's answer (2) wins and the engine's matrix stays off the screen; it
+      //          is **usable as a number**, so `Ans`/memory still get it.
+      expect(controller.result, '2');
+      expect(controller.result, isNot(contains('9')));
+      expect(controller.resultDecimal, '2');
 
       controller.dispose();
     });

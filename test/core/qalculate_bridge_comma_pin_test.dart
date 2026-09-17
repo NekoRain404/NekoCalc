@@ -63,9 +63,36 @@ void main() {
     //          two apart would turn "every ParseOptions is pinned" into a matter of opinion.
     expect(source, contains('parse_options.setAngle_unit(angleUnit)'));
     expect(
-      source.indexOf('parse_options.setComma_as_separator(false)'),
-      greaterThan(source.indexOf('private fun evaluationOptions(')),
-      reason: '钉住的那一行必须在 evaluationOptions 里（每个 ParseOptions 都经过它）',
+      bodyOf(source, 'private fun evaluationOptions('),
+      contains('parse_options.setComma_as_separator(false)'),
+      reason: '钉住的那一行必须在 evaluationOptions 的**函数体**里'
+          '（每个 ParseOptions 都经过它；挪到别处就不再钉住任何东西）',
     );
   });
+}
+
+/// 中文：`header` 那个声明的**函数体**原文——从它之后的第一个 `{` 到与之配对的那个 `}`。
+///
+///       这条曾经写成「pin 的下标大于函数头的下标」，那个断言**没有作用域**：把那一行挪到后面
+///       任何一个函数里（例如 `drainMessages`）它照样通过。要真的钉住作用域，就得把花括号配平。
+/// English: the **body** of the declaration at `header` — from the first `{` after it to the matching
+///          `}`.
+///
+///          This used to be "the pin's index is greater than the header's index", which has **no
+///          scope**: moving the line into any later function (say `drainMessages`) kept it green.
+///          Pinning the scope for real means balancing the braces.
+String bodyOf(String source, String header) {
+  final start = source.indexOf(header);
+  expect(start, isNot(-1), reason: '找不到声明：$header');
+  final open = source.indexOf('{', start);
+  expect(open, isNot(-1), reason: '声明后面没有函数体：$header');
+  var depth = 0;
+  for (var i = open; i < source.length; i++) {
+    if (source[i] == '{') depth++;
+    if (source[i] == '}') {
+      depth--;
+      if (depth == 0) return source.substring(open, i + 1);
+    }
+  }
+  fail('花括号没有配平：$header');
 }

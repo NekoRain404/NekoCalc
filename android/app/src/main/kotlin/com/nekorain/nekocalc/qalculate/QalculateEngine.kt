@@ -189,6 +189,38 @@ class QalculateEngine {
             //          engine's internal spelling.
             val normalized = engine.unlocalizeExpression(expression, evaluation.parse_options)
 
+            // 中文：**引擎读得懂这个输入吗。** 引擎不认识一个函数名时不会拒绝它，而是把那个词拆成
+            //       它认识的符号（`npr` → `n·p·r`），于是它的答案描述的是**另一件事**——而且有时
+            //       还是一个矩阵，只按结果形状判会放它上屏。判据放在这里、问的是**引擎自己的符号表**：
+            //       表达式里每一个调用名，引擎的 `getFunction` 都得认得。
+            //
+            //       这是 Dart 侧那张应用词表的**引擎侧那一半**：词表管「属于应用词汇的名字」，
+            //       这里管**所有**调用名（用户在编辑器里敲进来的名字也在内）——两边是同一条规则的
+            //       两个入口，谁都不会把对方的拒绝放宽。不认识时按 `ok=false` 回，调用方按
+            //       「这一次没有引擎答案」处理（回落旧解析器 = 硬性边界 1）。
+            // English: **can the engine read this input.** When the engine does not know a function
+            //          name it does not reject it — it takes the word apart into symbols it does know
+            //          (`npr` → `n·p·r`), so its answer is about **something else**; and some of those
+            //          answers are matrices, which a shape-only rule would put on the screen. The test
+            //          lives here and asks the **engine's own symbol table**: every call name in the
+            //          expression must be one `getFunction` recognises.
+            //
+            //          This is the **engine-side half** of the app-side vocabulary in Dart: that table
+            //          covers "names that belong to the app's vocabulary", this covers **every** call
+            //          name (including ones typed into the editor) — two entrances to the same rule,
+            //          and neither can relax the other's rejection. An unrecognised one comes back as
+            //          `ok=false`, so the caller treats it as "no engine answer this time" (fall back
+            //          to the legacy parser = hard boundary 1).
+            firstCallNameUnknownToEngine(engine, normalized)?.let { unknown ->
+                return mapOf(
+                    "expression" to expression,
+                    "normalized" to normalized,
+                    "ok" to "false",
+                    "error" to "engine_unrecognised_identifier: $unknown",
+                    "angleMode" to angleMode,
+                )
+            }
+
             // 中文：**一次求值，两次打印。** 这是整个调用里唯一会算的地方，因此带随机性的函数
             //       （`rand()`）只抽一次样，`decimal` 与 `latex` 描述的是同一个值。
             //
@@ -552,6 +584,28 @@ class QalculateEngine {
      *          text is the only clue to why an expression did not evaluate, so it travels back
      *          alongside the result.
      */
+    /**
+     * 中文：表达式里第一个引擎的符号表不认识**调用名**（没有就返回 null）。
+     *
+     *       只问「调用」（标识符紧跟左括号）：应用自己的语法里函数调用正是这个形状，而裸标识符
+     *       （`x`、`i`、`to`、单位名）由引擎的变量/单位表管，不是同一回事。
+     *
+     * English: the first **call name** in the expression that the engine's symbol table does not know
+     *          (null when there is none).
+     *
+     *          Only calls (an identifier immediately followed by a bracket) are asked about: that is
+     *          exactly what a function call looks like in this app's syntax, while bare identifiers
+     *          (`x`, `i`, `to`, unit names) belong to the engine's variable/unit tables and are a
+     *          different question.
+     */
+    private fun firstCallNameUnknownToEngine(engine: Calculator, expression: String): String? {
+        for (match in CALL_NAME.findAll(expression)) {
+            val name = match.groupValues[1]
+            if (engine.getFunction(name) == null) return name
+        }
+        return null
+    }
+
     private fun drainMessages(engine: Calculator): String {
         val collected = mutableListOf<String>()
         var current = engine.message()
@@ -585,6 +639,9 @@ class QalculateEngine {
         const val KIND_STRUCTURED = "structured"
         const val KIND_NUMBER = "number"
         const val KIND_ARITHMETIC = "arithmetic"
+
+        /** 中文：函数调用的形状（标识符紧跟左括号），与应用自己的语法一致。 */
+        private val CALL_NAME = Regex("([A-Za-z][A-Za-z0-9]*)\\s*\\(")
 
         private const val UNICODE_SIGNS_OFF = 0
         private const val UNICODE_SIGNS_ON = 1

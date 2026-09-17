@@ -212,9 +212,12 @@ class MathResult {
   ///         矩阵、复数、解集在放宽之前被整条丢掉。
   ///       - [EngineResultKind.conversion]：用户明确要求了一次换算，引擎自己确认做过了
   ///         （`to_struct`）。带单位但用户要的，收。
-  ///       - [EngineResultKind.unit]：**应用的语言里根本没有单位**——键位表、`ExpressionAstParser`、
-  ///         `ExpressionParser` 三处都没有一个单位记号，单位换算住在另一个工具页里。所以一个带单位的
-  ///         答案只可能来自「引擎把我们的某个标识符读成了单位」（`fact(-1)` → `-10 aa*t`，
+  ///       - [EngineResultKind.unit]：**应用自己的语法里没有单位名**——它只认两个单位式后缀：
+  ///         `°`（`ExpressionParser` 把它改写成 `rad(...)`，`expression_parser.dart:487`）与
+  ///         `%`（百分号，同样是固定算术，`:599`），两者都由旧解析器按自己的算术处理。
+  ///         所以一个带**具名单位**的引擎答案不可能来自这个语法表达得出的东西——除非用户用
+  ///         `to`/`->` 明确要求了换算，而那一条由上面的 [EngineResultKind.conversion] 接住。
+  ///         剩下的只可能是「引擎把我们的某个标识符读成了单位」（`fact(-1)` → `-10 aa*t`，
   ///         `ncr(5,10)` → 一串 `n'r' km/us`），那正是「把垃圾读成合理的形状」。
   ///       - [EngineResultKind.arithmetic]：乘积、幂、函数调用、符号和——**应用的语言表达得了**，
   ///         所以旧解析器才是权威：它要么给出一个值（那就它说了算），要么明确拒绝，而它的拒绝
@@ -249,11 +252,15 @@ class MathResult {
   ///            complex numbers and solution sets were being thrown away whole.
   ///          - [EngineResultKind.conversion]: the user explicitly asked for a conversion and the
   ///            engine confirms it performed one (`to_struct`). Unit-carrying because it was asked for.
-  ///          - [EngineResultKind.unit]: **this app's language has no units at all** — not one unit
-  ///            token in the keypad, in `ExpressionAstParser` or in `ExpressionParser`; unit conversion
-  ///            lives in a separate tool page. So a unit-carrying answer can only have come from the
-  ///            engine reading one of our identifiers as a unit (`fact(-1)` → `-10 aa*t`, `ncr(5,10)`
-  ///            → a list of `n'r' km/us`), which is precisely "garbage read into a plausible shape".
+  ///          - [EngineResultKind.unit]: **this app's syntax has no unit *names*** — it recognises
+  ///            exactly two unit-ish postfix shorthands, `°` (which `ExpressionParser` rewrites to
+  ///            `rad(...)`, `expression_parser.dart:487`) and `%` (percent, likewise fixed arithmetic,
+  ///            `:599`), and both are handled by the legacy parser as its own arithmetic. So an answer
+  ///            carrying a *named* unit (`aa`, `t`, `km/us`, `n'r'`) cannot have come from anything
+  ///            this syntax expresses — unless the user asked for a conversion, which the
+  ///            [EngineResultKind.conversion] branch above catches. What is left is the engine reading
+  ///            one of our identifiers as a unit (`fact(-1)` → `-10 aa*t`, `ncr(5,10)` → a list of
+  ///            `n'r' km/us`), which is precisely "garbage read into a plausible shape".
   ///          - [EngineResultKind.arithmetic]: products, powers, calls, symbolic sums — **this app's
   ///            language can express these**, so the legacy parser is the authority: it either
   ///            produces a value (and that value wins) or refuses, and its refusal is this app's
@@ -310,29 +317,29 @@ class MathResult {
   ///          An **empty string is not displayable**: a failure receipt with no result is not a
   ///          result (that is [EngineReply]'s `ok: false` family, the caller's business).
   ///
+  ///          It **used to be** a match of "the whole string equals `∞`/`infinity`/`NaN`", so a
+  ///          non-finite value *nested inside an expression* (`infinity*i`) was displayed anyway.
+  ///          Scanning by position covers that class, and the judgement is still about finiteness
+  ///          rather than about a few examples.
+  ///
   ///          This is the **only** implementation, and it lives beside [decimalValueOf] /
   ///          [hasFiniteDecimal] — this class has moved three times already, and a second copy would
   ///          only start the same drift again.
   static bool textIsDisplayable(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return false;
-    return !_displayNonFiniteLiteral.hasMatch(_withoutSign(trimmed));
+    return !_nonFiniteToken.hasMatch(trimmed);
   }
 
-  /// 中文：`[符号]非有限字面量`。与 [_nonFiniteLiteral] 分开是免得两处的含义被读成一处：
-  ///       [_nonFiniteLiteral] 是「`double.tryParse` 认得但不是有限数」，这里还多接受 `∞` 这两个
-  ///       字符（`double.tryParse` 根本不认它，但 `PrintOptions.use_unicode_signs` 开着时引擎会印）。
-  /// English: `[sign]non-finite literal`. Kept apart from [_nonFiniteLiteral] so the two meanings are
-  ///          not read as one: that one covers what `double.tryParse` accepts but is not finite,
-  ///          while this also accepts the `∞` character (which `double.tryParse` rejects outright but
-  ///          the engine prints when `PrintOptions.use_unicode_signs` is on).
-  static final RegExp _displayNonFiniteLiteral =
-      RegExp(r'^(infinity|nan|∞)$', caseSensitive: false);
-
-  /// 中文：去掉一个前导正负号，供 [_displayNonFiniteLiteral] 判。
-  /// English: strips one leading sign for [_displayNonFiniteLiteral].
-  static String _withoutSign(String text) =>
-      text.startsWith('+') || text.startsWith('-') ? text.substring(1) : text;
+  /// 中文：表示非有限值的记号，**在文本的任意位置**匹配（前后不能是标识符字符，免得撞上
+  ///       `info`、`nanny` 这类名字）。两个拼法是 IEEE-754 那两类非有限值在**本桥的输出字母表**里的
+  ///       唯一写法（符号位由 `+`/`-` 表示，不在这个记号里）。
+  /// English: the tokens denoting a non-finite value, matched **anywhere in the text** (no identifier
+  ///          character on either side, so `info` or `nanny` cannot collide). The two spellings are the
+  ///          only ones IEEE-754's two non-finite kinds take in **this bridge's output alphabet** (the
+  ///          sign is a separate `+`/`-`; `∞` is the same value's other spelling).
+  static final RegExp _nonFiniteToken =
+      RegExp(r'(?<![A-Za-z_])(?:infinity|nan|∞)(?![A-Za-z_])', caseSensitive: false);
 
 
   /// 中文：一个**已经算出来的** double 能不能交给消费者：`Infinity` / `NaN` 不能，其余（包括真正的 0）

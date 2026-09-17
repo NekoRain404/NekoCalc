@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../core/math/expression_parser.dart';
+import '../../core/math/app_engine_vocabulary.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
 import '../../core/platform/qalculate_channel.dart';
@@ -1429,6 +1430,21 @@ class CalculatorController extends ChangeNotifier {
     EngineReply reply,
     String source,
   ) {
+    // 中文：**引擎读不懂这个表达式时，它的答案一律不算。** 判据在
+    //       [AppEngineVocabulary.canRead] 一处（应用自己的封闭词表 × 引擎自己的符号表），
+    //       与结果的形状无关——`npr(2,1.5)` 与 `npr(,)` 被引擎读成符号 `n'p''r'`，返回的是**一个
+    //       矩阵**，只按形状判会放它上屏（实测过）。这里返回 null，调用方按「这一次没有引擎答案」
+    //       处理：旧解析器作答（`npr(2,1.5)` → 「nPr 的 r 必须是整数」），它答不出来就是错误——
+    //       与引擎缺席、超时、失败走的是同一条路（硬性边界 1）。
+    // English: **when the engine cannot read this expression its answer does not count at all.** The
+    //          test lives in one place ([AppEngineVocabulary.canRead]: this app's closed
+    //          vocabulary × the engine's own symbol table) and is independent of the result's shape —
+    //          `npr(2,1.5)` and `npr(,)` are read by the engine as the symbols `n'p''r'` and come back
+    //          as **a matrix**, which a shape-only rule lets onto the screen (measured). Returning
+    //          null here means "no engine answer this time": the legacy parser answers
+    //          (`npr(2,1.5)` → "nPr's r must be an integer"), and when it cannot, that is an error —
+    //          the same route as an absent, timed-out or failed engine (hard boundary 1).
+    if (!AppEngineVocabulary.canRead(source)) return null;
     final numeric = _acceptedEngineResult(reply);
     if (numeric != null) return (result: numeric, usableAsNumber: true);
     final displayable = _displayableEngineResult(reply);
@@ -1462,6 +1478,16 @@ class CalculatorController extends ChangeNotifier {
       ),
       displayTex: engineResult.displayTex,
       decimalText: engineResult.decimalText,
+      // 中文：`resultKind` 必须跟着走。丢了它，重建出来的结果会带上 `notFromEngine`——
+      //       而那个值在 [MathResult.isDisplayable] 里是**放行**的一支，于是这句 doc 说的
+      //       「不是来自引擎」就成了假话，判断也跟着变宽。今天没有消费者读重建之后那一份的
+      //       `isDisplayable`，但那是**碰巧**，不是设计。
+      // English: `resultKind` has to travel with it. Dropping it leaves the rebuilt result carrying
+      //          `notFromEngine` — which [MathResult.isDisplayable] treats as **displayable** — so the
+      //          doc's "not from the engine" would be a lie and the judgement would widen with it.
+      //          Nothing reads the rebuilt copy's `isDisplayable` today, but that is a coincidence,
+      //          not a design.
+      resultKind: engineResult.resultKind,
     );
   }
 
