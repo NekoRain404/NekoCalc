@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/calculator_display.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
 
 // 中文：**端到端**：从主屏的按键开始，经过真实的控制器、真实的 `QalculateMathEngine`、被替换掉的
@@ -124,6 +126,175 @@ void main() {
     //          (a fallback would add a second `Text`).
     expect(find.text('2.828427124746190'), findsNothing);
   });
+
+  testWidgets('打 `√(2x)·8`：结果行只有排出来的精确形式，没有 `≈` 那一半', (tester) async {
+    // 中文：**真机上量到的那一行。** 它曾经是
+    //       `= 8 × √2 × √x ≈ 11.31370849898476 * sqrt(x)`——右半边是引擎那串 ASCII 印法，而它
+    //       **不是近似值**：`11.31370849898476 * sqrt(x)` 是同一个式子的另一种印法。
+    //       回执按**实测**配（宿主 libqalculate 5.12.0，同一组 PrintOptions）：`sqrt(2x)*8` →
+    //       十进制 `11.31370849898476 * sqrt(x)`、LaTeX `8\times \sqrt{2}\times \sqrt{x}`、种类
+    //       `symbolic`。左边那一半仍然要排出来（这里是同一个渲染器自己的解析器），右边那一半按
+    //       十进制形态缺席（符号结果没有十进制形态，实测）整个不出现。
+    // English: **the line as measured on a device.** It used to read
+    //          `= 8 × √2 × √x ≈ 11.31370849898476 * sqrt(x)` — the right half the engine's ASCII
+    //          spelling, which **is not an approximation**: `11.31370849898476 * sqrt(x)` is the same
+    //          expression spelled differently. The receipt is **measured** (host libqalculate 5.12.0,
+    //          the same PrintOptions): `sqrt(2x)*8` → decimal `11.31370849898476 * sqrt(x)`, LaTeX
+    //          `8\times \sqrt{2}\times \sqrt{x}`, kind `symbolic`. The left half still has to typeset
+    //          (the renderer's own parser answers that here); the right half is dropped entirely
+    //          because there is no decimal form — a symbolic result has none, measured.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method != 'evaluate') return null;
+      return <String, String>{
+        'ok': 'true',
+        'decimal': '11.31370849898476 * sqrt(x)',
+        'latex': r'8\times \sqrt{2}\times \sqrt{x}',
+        'aborted': 'false',
+        'messages': '',
+        'angleMode': 'RAD',
+        'kind': 'symbolic',
+      };
+    });
+
+    await tester.pumpWidget(_page());
+    await tester.pumpAndSettle();
+    // 中文：**键盘上没有字母键**，`x` 只能从内联编辑器进去——这正是用户在设备上打这一串的路径。
+    // English: **the keypad has no letter keys**, so `x` can only get in through the inline editor —
+    //          which is how this expression gets typed on a device.
+    await _typeExpression(tester, 'sqrt(2x)*8');
+
+    expect(tester.takeException(), isNull);
+    final typeset = find.byWidgetPredicate(
+      (widget) => widget is MathExpressionView && widget.tex.isNotEmpty,
+    );
+    expect(typeset, findsOneWidget,
+        reason: '精确形式仍然要排出来，不能因为去掉了 `≈` 就退回纯文本');
+    expect(
+      tester.widget<MathExpressionView>(typeset).tex,
+      r'8\times \sqrt{2}\times \sqrt{x}',
+    );
+    expect(find.text('≈'), findsNothing, reason: '符号结果没有近似值可给');
+    // 中文：引擎那串 ASCII 印法一个字都不该在结果行上——缺陷里的右半边就是它。
+    // English: not one character of the engine's ASCII spelling belongs on the result line — that
+    //          spelling is the defect's right half.
+    expect(
+      find.descendant(
+        of: find.byType(CalculatorDisplay),
+        matching: find.textContaining('11.31370849898476'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('打 `log(100)`：结果行仍然是 `= 2`，不排版也不加 `≈`', (tester) async {
+    // 中文：**不许回退的那一档。** `log(100)` 是应用自己的语言答得了的输入（`canRead` 为假），
+    //       所以引擎这一份不算、旧解析器给 `2`：结果行没有精确形式，整行就是一个纯文本的
+    //       `= 2`——接入引擎之前是什么样，现在还是什么样。回执给的是引擎**真机上量到的**答案
+    //       `4.605170185988091`（自然对数，见 `calculator_engine_display_gate_test.dart`），
+    //       屏幕必须显示 `2`。
+    // English: **the case that must not regress.** `log(100)` is an input this app's own language can
+    //          answer (`canRead` is false), so the engine's answer does not count and the legacy
+    //          parser supplies `2`: the result line has no exact form and is a plain-text `= 2` —
+    //          what it was before the engine existed. The receipt carries the engine's
+    //          **device-measured** answer, `4.605170185988091` (the natural logarithm; see
+    //          `calculator_engine_display_gate_test.dart`), and the screen must show `2`.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method != 'evaluate') return null;
+      return <String, String>{
+        'ok': 'true',
+        'decimal': '4.605170185988091',
+        'latex': r'4.605170185988091',
+        'aborted': 'false',
+        'messages': '',
+        'angleMode': 'RAD',
+      };
+    });
+
+    await tester.pumpWidget(_page());
+    await tester.pumpAndSettle();
+    // 中文：**按键必须限定在键盘里。** `log` 在表达式行上排成 `log₁₀`，那个下标本身就是两个字面
+    //       为 `1`、`0` 的文本节点——不限定范围的 `find.text('1')` 会先命中它，点下去等于点表达式行，
+    //       内联编辑器被打开，结果行整块从树里消失（实测：`display=0 textfield=1`）。
+    // English: **the taps must stay inside the keypad.** `log` typesets as `log₁₀` on the expression
+    //          line, and that subscript *is* two text nodes reading `1` and `0` — an unscoped
+    //          `find.text('1')` hits one of those first, tapping it is tapping the expression line,
+    //          the inline editor opens and the whole result row leaves the tree (measured:
+    //          `display=0 textfield=1`).
+    for (final key in <String>['log', '1', '0', '0']) {
+      await tester.tap(find.descendant(
+        of: find.byType(CalculatorKeypad),
+        matching: find.text(key, findRichText: true),
+      ));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is MathExpressionView && widget.tex.isNotEmpty,
+      ),
+      findsNothing,
+    );
+    expect(find.text('≈'), findsNothing);
+    // 中文：结果行上的那个 `2`——键盘上另有一颗 `2` 键，所以这条断言限定在显示面板里。
+    // English: the `2` **on the result line** — the keypad has a `2` key of its own, so this
+    //          assertion stays inside the display panel.
+    expect(
+      find.descendant(
+        of: find.byType(CalculatorDisplay),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(CalculatorDisplay),
+        matching: find.textContaining('4.605170185988091'),
+      ),
+      findsNothing,
+      reason: '引擎的答案（自然对数）不许上屏',
+    );
+  });
+}
+
+/// 中文：被测主屏——与前一条同样的设置（精度 6、自然排版开），只是表达式从内联编辑器里打进去。
+/// English: The screen under test — the same settings as the test above (precision 6, natural
+///          typesetting on); the expression just goes in through the inline editor.
+Widget _page() => MaterialApp(
+      home: Scaffold(
+        body: CalculatorPage(
+          db: _FakeDatabase(),
+          onOpenSettings: () {},
+          settings: const AppSettings(
+            haptics: false,
+            hapticStrength: '标准',
+            restoreState: false,
+            autoSaveHistory: false,
+            angleMode: 'RAD',
+            precision: 6,
+            themeModeLabel: '跟随系统',
+            expressionDisplayMode: '数学符号',
+            groupThousands: false,
+          ),
+        ),
+      ),
+    );
+
+/// 中文：把一段带字母的表达式打进主屏（`More...` → 编辑表达式 → 输入 → 失焦）。键盘上没有字母
+///       键，含变量的表达式只能走这条路。
+/// English: Types an expression carrying letters into the screen (`More...` → 编辑表达式 → type →
+///          unfocus). The keypad has no letter keys, so anything with a variable goes through here.
+Future<void> _typeExpression(WidgetTester tester, String expression) async {
+  await tester.tap(find.text('More...'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('编辑表达式'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), expression);
+  FocusManager.instance.primaryFocus!.unfocus();
+  await tester.pumpAndSettle();
 }
 
 class _FakeDatabase implements AppDatabase {
