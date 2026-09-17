@@ -132,13 +132,84 @@ mixin _CalculatorEditing on _CalculatorState {
           expression.substring(selection.end);
       cursorIndex = selection.start;
     } else {
-      expression = expression.substring(0, cursorIndex - 1) +
-          expression.substring(cursorIndex);
-      cursorIndex--;
+      final emptyCall = _emptyCallRangeAt(cursorIndex);
+      if (emptyCall == null) {
+        expression = expression.substring(0, cursorIndex - 1) +
+            expression.substring(cursorIndex);
+        cursorIndex--;
+      } else {
+        // 中文：光标停在一个**实参全空**的调用里（`name(|)`、`name(|,)`、`name(,|)`，正是
+        //       函数键留下光标的位置）。退格一次把整条调用删掉，见 [_emptyCallRangeAt]。
+        // English: the caret sits inside a call whose argument slots are **all empty**
+        //          (`name(|)`, `name(|,)`, `name(,|)` — exactly where the function keys leave the
+        //          caret). One backspace removes the whole call; see [_emptyCallRangeAt].
+        expression = expression.substring(0, emptyCall.start) +
+            expression.substring(emptyCall.end);
+        cursorIndex = emptyCall.start;
+      }
     }
     _scheduleLiveEvaluation();
     notifyListeners();
   }
+
+  /// 中文：**退格的「整条调用一起删」。** 光标（折叠）停在一个实参全空的调用里时，返回那条调用
+  ///       **含名字**的区间；其余情况返回 `null`，退格照旧一次删一个字符。
+  ///
+  ///       **缺陷**（真机实测）：函数键补出整对括号，光标落在括号**里**（`sqrt(|)`），右括号在
+  ///       退格的作用范围之外——「按 `√x`、再连按退格」把 `t`、`r`、`q`、`s`、`(` 一个个删光，
+  ///       停在光标 0、屏幕上留一个 `)`；`backspace()` 在光标 0 直接返回，那一颗右括号再也删不掉，
+  ///       唯一的出口是长按 AC。这一条让「按错一颗键」的代价回到**一次退格**。
+  ///
+  ///       **判据：删的是那次按键写下的整个 `名字(…)`，不是「相邻的一对括号」。** 只删 `()` 会留下
+  ///       一根光秃秃的 `sqrt`——**同一类**缺陷（应用造出自己读不懂的状态，解析器抛
+  ///       「Function sqrt needs (」）。用户自己按出来的分组括号不受影响：`(` 键不补右括号，
+  ///       `(2+3)` 那条路上括号里不会是空的、前面也没有名字。**只认「全空」**——`log(8,)`、
+  ///       `integrate(x,0,1,x)` 这类有实参的调用照旧一次删一个字符，不做推测。
+  ///
+  /// English: **backspace's "remove the whole call".** A collapsed caret inside a call whose argument
+  ///          slots are all empty returns that call's range **including its name**; otherwise `null`
+  ///          and backspace deletes one character as before.
+  ///
+  ///          **The defect** (measured on a device): a function key writes the whole bracket pair and
+  ///          leaves the caret **inside** it (`sqrt(|)`), so the closing bracket is out of backspace's
+  ///          reach — "press `√x`, then hold backspace" eats `t`, `r`, `q`, `s`, `(` and stops at
+  ///          caret 0 with a `)` on screen; `backspace()` returns immediately at caret 0, that bracket
+  ///          can never be removed, and the only way out is a long-press on AC. This brings the cost
+  ///          of "pressed a key by mistake" back to **one backspace**.
+  ///
+  ///          **The criterion: what goes is the whole `name(…)` the key wrote, not "the pair of
+  ///          brackets next to the caret".** Removing just `()` would leave a bare `sqrt` — a defect
+  ///          of the **same kind** (the app creating a state it cannot read; the parser throws
+  ///          `Function sqrt needs (`). A grouping bracket the user pressed out is untouched: the `(`
+  ///          key writes no bracket, so on the `(2+3)` path the brackets are never empty and no name
+  ///          precedes them. **Only "all empty" counts** — calls with an argument (`log(8,)`,
+  ///          `integrate(x,0,1,x)`) still lose one character per press, with no guessing.
+  ({int start, int end})? _emptyCallRangeAt(int caret) {
+    // 中文：向左找 `(`、向右找 `)`，两段路中间只允许有实参分隔符——这样才确定一个实参都没有。
+    // English: find the `(` to the left and the `)` to the right; only argument separators may sit
+    //          between them, which is what makes the region genuinely argument-free.
+    var open = caret;
+    while (open > 0 && expression[open - 1] == ',') {
+      open--;
+    }
+    if (open == 0 || expression[open - 1] != '(') return null;
+    open--;
+    var close = caret;
+    while (close < expression.length && expression[close] == ',') {
+      close++;
+    }
+    if (close >= expression.length || expression[close] != ')') return null;
+    // 中文：把名字一起圈进来（`sqrt(` 的 `sqrt`、`log2(` 的 `log2`）。
+    // English: take the name in as well (`sqrt` in `sqrt(`, `log2` in `log2(`).
+    var start = open;
+    while (start > 0 && _isIdentifierChar(expression[start - 1])) {
+      start--;
+    }
+    return (start: start, end: close + 1);
+  }
+
+  bool _isIdentifierChar(String char) =>
+      RegExp(r'[A-Za-z0-9_]').hasMatch(char);
 
   void continueWithResult() {
     if (hasError || result == '等待输入') return;
@@ -415,63 +486,56 @@ mixin _CalculatorEditing on _CalculatorState {
   }
 
   /// 中文：**右括号键的「跨过去」。** 光标（折叠）右边就是一颗 `)` 时，这一次按键只把光标移到它
-  ///       后面，**不写第二个字符**；返回 `true` 表示这次按键已经被消费掉。别的任何情况返回
-  ///       `false`，`)` 照旧由 [_insert] 写进去。
+  ///       后面、**不写第二个字符**（返回 `true` 表示按键已被消费）；别的任何情况返回 `false`，
+  ///       `)` 照旧由 [_insert] 写进去。
   ///
-  ///       **为什么是「跨过去」而不是让解析器容忍多余的右括号。** 真机实测的缺陷是
-  ///       「`√x`、`8`、`)`」写出 `sqrt(8))`：函数键补出的是 `sqrt()`（光标在括号**里**），
-  ///       用户再按一次 `)` 就成了两颗。两个方向的修法差在**风险落在哪一层**：
+  ///       **为什么是「跨过去」而不是让解析器容忍多余的右括号。** 真机实测的缺陷是「`√x`、`8`、`)`」
+  ///       写出 `sqrt(8))`：函数键补出 `sqrt()`（光标在括号**里**），用户那一颗 `)` 就成了第二颗。
+  ///       两个方向的修法差在**风险落在哪一层**：
   ///
-  ///       - **容忍**是把求值路径放宽：`ExpressionParser.parse()` 从第一版起就要求整条输入被
-  ///         完整消费（`Unexpected token` 那条检查，`7c8e7b9` 就在），放宽它等于让计算器、图形页、
-  ///         工具页、数据拟合**一起**开始接受它们本该拒绝的输入——而这些改动一个值都改不对，
-  ///         只会把「报错」变成「照算」。这一层正是本仓库反复出过**静默错值**的地方。
+  ///       - **容忍**是把求值路径放宽：`parse()` 从第一版起就要求整条输入被完整消费
+  ///         （`Unexpected token` 那条检查，`7c8e7b9` 就在），放宽它等于让计算器、图形页、工具页、
+  ///         数据拟合**一起**开始接受它们本该拒绝的输入——这些改动一个值都改不对，只会把「报错」
+  ///         变成「照算」。那一层正是本仓库反复出过**静默错值**的地方。
   ///       - **跨过去**只移动光标：**字符串一个字节都不变**，所以不可能改变任何一次求值的结果。
   ///
   ///       而且历史行为本来就是这一条：`b046b53` 之前 `√x` 只插 `sqrt(`（右括号从来不出现），
-  ///       同样这三颗键写出的正是 `sqrt(8)`。也就是说这一改**复原的是同一串按键的旧字符串**，
-  ///       而不是发明一条新的接受规则。
+  ///       同样这三颗键写出的正是 `sqrt(8)`——这一改**复原的是同一串按键的旧字符串**，不是发明
+  ///       一条新的接受规则。
   ///
   ///       **代价写在这里**：光标右边那颗 `)` 若同时还在闭合更外层未闭合的组（`(` 键不补右括号，
-  ///       于是 `(sqrt(` + `√x` 得到 `(sqrt()`），第一次按只是跨过去，要再按一次才会写下第二颗。
-  ///       换来的是**这颗键永远写不出应用自己读不懂的东西**；跨过去之后光标右边再没有括号，
-  ///       所以下一次按一定会写——按键不会丢。
-  ///
-  ///       与光标键一致：这是一次纯光标移动，[moveCursorRight] 不记撤销快照，这里也不记。
-  /// English: **the `)` key's "step over".** When a collapsed caret has a `)` immediately on its
-  ///          right, this press only moves the caret past it and **writes no second character**;
-  ///          `true` means the press has been consumed. Every other case returns `false` and the `)`
-  ///          is written by [_insert] as before.
+  ///       于是 `(` + `√x` 得到 `(sqrt()`），第一次按只是跨过去，要再按一次才写得下第二颗；
+  ///       换来的是**这颗键永远写不出应用自己读不懂的东西**（跨过去之后光标右边再没有括号，
+  ///       所以下一次按一定会写，按键不会丢）。与光标键一致：纯光标移动不记撤销快照。
+  /// English: **the `)` key's "step over".** A collapsed caret with a `)` immediately on its right
+  ///          only moves past it and **writes no second character** (`true` = press consumed); every
+  ///          other case returns `false` and `)` is written by [_insert] as before.
   ///
   ///          **Why "step over" rather than teaching the parser to tolerate a redundant bracket.**
-  ///          The measured device defect is that `√x`, `8`, `)` write `sqrt(8))`: the function key
-  ///          writes `sqrt()` (caret **inside**) and the user's `)` makes it two. The two repairs
+  ///          The measured device defect: `√x`, `8`, `)` write `sqrt(8))` — the function key writes
+  ///          `sqrt()` (caret **inside**) and the user's `)` becomes a second one. The two repairs
   ///          differ in **which layer carries the risk**:
   ///
-  ///          - **Tolerating** widens the evaluation path: `ExpressionParser.parse()` has demanded
-  ///            full consumption of the input since its first version (the `Unexpected token` check,
-  ///            present already in `7c8e7b9`), and relaxing it makes the calculator, the graph page,
-  ///            the tool pages and data fitting **all** start accepting input they should refuse.
-  ///            None of those changes could correct a value; they only turn "error" into "it
-  ///            computes anyway". That layer is exactly where this repository has repeatedly
-  ///            produced **silent wrong values**.
+  ///          - **Tolerating** widens the evaluation path: `parse()` has demanded full consumption
+  ///            since its first version (the `Unexpected token` check, present in `7c8e7b9`), and
+  ///            relaxing it makes the calculator, the graph page, the tool pages and data fitting
+  ///            **all** accept input they should refuse. None of that could correct a value; it only
+  ///            turns "error" into "it computes anyway" — the layer this repository has repeatedly
+  ///            produced **silent wrong values** in.
   ///          - **Stepping over** moves the caret only: **not one byte of the string changes**, so it
   ///            cannot alter any evaluation result.
   ///
-  ///          The historical behaviour was this one anyway: before `b046b53` the `√x` key inserted
-  ///          `sqrt(` alone (the bracket never appeared) and the same three keys wrote `sqrt(8)`.
-  ///          This change therefore **restores the old string for the same keystrokes** rather than
-  ///          inventing a new acceptance rule.
+  ///          The historical behaviour was this one anyway: before `b046b53` `√x` inserted `sqrt(`
+  ///          alone (the bracket never appeared) and the same three keys wrote `sqrt(8)` — this
+  ///          **restores the old string for the same keystrokes** rather than inventing an acceptance
+  ///          rule.
   ///
-  ///          **The price, written down**: when the `)` on the right is also closing a still-open
-  ///          outer group (the `(` key writes no bracket, so `(sqrt(` + `√x` gives `(sqrt()`), the
-  ///          first press only steps over and a second press is needed to write one. What that buys
-  ///          is that **this key can never write something the app itself cannot read**; after
-  ///          stepping over there is no bracket on the right, so the next press is bound to write —
-  ///          no keystroke is lost.
-  ///
-  ///          Consistent with the cursor keys: this is a pure caret move, and just as [moveCursorRight]
-  ///          records no undo snapshot, neither does this.
+  ///          **The price, written down**: when that `)` also closes a still-open outer group (the `(`
+  ///          key writes no bracket, so `(` + `√x` gives `(sqrt()`), the first press only steps over
+  ///          and a second press is needed. What that buys is that **this key can never write
+  ///          something the app itself cannot read** (after stepping over there is no bracket on the
+  ///          right, so the next press is bound to write — no keystroke is lost). Consistent with the
+  ///          cursor keys: a pure caret move records no undo snapshot.
   bool _skipClosingBracketAhead() {
     if (!selection.isCollapsed) return false;
     if (cursorIndex >= expression.length) return false;

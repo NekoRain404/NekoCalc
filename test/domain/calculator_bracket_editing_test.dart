@@ -149,6 +149,115 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('退格删得掉函数键补出来的括号', () {
+    test('按 `√x` 之后按退格：整条 sqrt() 一起走，回到空表达式', () {
+      final controller = _controller(_FakeDatabase());
+
+      controller.applyUnaryFunction('sqrt');
+      expect(controller.expression, 'sqrt()');
+      expect(controller.selection, const ExpressionSelection.collapsed(5));
+
+      // 中文：光标停在这对括号**里面**，右边的 `)` 在退格的作用范围之外。修复前这一下删的是
+      //       `(`，得到 `sqrt)`；一路删下去会停在光标 0、屏幕上留一个删不掉的 `)`。
+      // English: the caret sits **inside** the pair, so the `)` on its right is out of backspace's
+      //          reach. Before the fix this removed the `(` and left `sqrt)`; deleting onwards
+      //          stopped at caret 0 with an undeletable `)` on screen.
+      controller.backspace();
+
+      expect(controller.expression, isEmpty);
+      expect(controller.selection, const ExpressionSelection.collapsed(0));
+      expect(controller.hasError, isFalse);
+      expect(controller.result, '0');
+
+      // 中文：按错一颗键 = 退格一次，然后这个键盘照常可用。
+      // English: pressing a key by mistake costs one backspace, and the keypad still works.
+      controller.input('9');
+      expect(controller.expression, '9');
+      controller.evaluate();
+      expect(controller.result, '9');
+
+      controller.dispose();
+    });
+
+    test('按 `√x`、`8` 之后连按 25 次退格：表达式真的空了，不会卡在 `)` 上', () {
+      final controller = _controller(_FakeDatabase());
+
+      controller.applyUnaryFunction('sqrt');
+      controller.input('8');
+      expect(controller.expression, 'sqrt(8)');
+
+      for (var i = 0; i < 25; i++) {
+        controller.backspace();
+      }
+
+      // 中文：修复前 25 次退格之后表达式是 `)`、光标 0——`backspace()` 在光标 0 直接返回，
+      //       那一颗右括号再也删不掉，唯一的出口是长按 AC（真机实测的形状）。
+      // English: before the fix, 25 backspaces left the expression as `)` at caret 0 — `backspace()`
+      //          returns immediately at caret 0, that bracket can never be removed, and the only
+      //          way out is a long-press on AC (the shape measured on a device).
+      expect(controller.expression, isEmpty);
+      expect(controller.selection, const ExpressionSelection.collapsed(0));
+      expect(controller.hasError, isFalse);
+
+      controller.dispose();
+    });
+
+    test('二元键 `log` 补出的 `log(,)` 也一起走', () {
+      final controller = _controller(_FakeDatabase());
+
+      controller.applyBinaryFunction('log');
+      expect(controller.expression, 'log(,)');
+
+      controller.backspace();
+
+      expect(controller.expression, isEmpty);
+      expect(controller.selection, const ExpressionSelection.collapsed(0));
+
+      controller.dispose();
+    });
+
+    test('实参已填的调用一次删一个字符，空了之后才整条走', () {
+      final controller = _controller(_FakeDatabase());
+
+      // 中文：光标停在 `8` 右边、右括号**里面**——这正是函数键留下的光标位置。
+      // English: the caret sits right of the `8` and **inside** the bracket — exactly where the
+      //          function key leaves it.
+      controller.setExpression('sqrt(8)');
+      controller.setSelection(const ExpressionSelection.collapsed(6));
+
+      controller.backspace();
+      expect(controller.expression, 'sqrt()');
+
+      // 中文：实参空了，光标也在括号里——这一下删的是整个调用，而不是留下一根 `sqrt`。
+      // English: the slot is empty and the caret is inside the pair — this press removes the whole
+      //          call rather than leaving a bare `sqrt` behind.
+      controller.backspace();
+      expect(controller.expression, isEmpty);
+
+      controller.dispose();
+    });
+
+    test('用户自己的括号不受影响：`(2+3)` 照旧一次删一个字符', () {
+      final controller = _controller(_FakeDatabase());
+
+      controller.setExpression('(2+3)');
+      controller.backspace();
+      expect(controller.expression, '(2+3');
+
+      controller.setExpression('2×()');
+      controller.setSelection(const ExpressionSelection.collapsed(3));
+      controller.backspace();
+
+      // 中文：没有名字可删，删的就是这一对括号本身（`2×` 与按 `√x` 之前的状态同型）。
+      // English: there is no name to remove, so the pair itself goes (`2×` is the same shape as the
+      //          state before a function key was pressed).
+      expect(controller.expression, '2×');
+      expect(controller.selection, const ExpressionSelection.collapsed(2));
+
+      controller.dispose();
+    });
+  });
 }
 
 CalculatorController _controller(_FakeDatabase db) {

@@ -46,6 +46,33 @@ void main() {
     expect(find.text('存在无法识别的内容'), findsNothing);
     expect(find.text('2.828427'), findsOneWidget);
   });
+
+  testWidgets('主屏按 √x 之后按 ⌫：表达式空掉，不留下删不掉的 )', (tester) async {
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+
+    await _tapKey(tester, '√x');
+    expect(_displayedExpression(tester), 'sqrt()');
+
+    // 中文：缺陷的实测形状：光标在 `sqrt(|)` 里，右边的 `)` 退格够不着——一路删下去会停在
+    //       光标 0、屏幕上留一个删不掉的 `)`（唯一出口是长按 AC）。这一下应当把整条调用删掉。
+    // English: the defect's measured shape — the caret sits in `sqrt(|)` and the `)` on its right
+    //          is out of backspace's reach; deleting onwards stops at caret 0 with an undeletable
+    //          `)` (the only way out being a long-press on AC). This press must remove the call.
+    await _tapKey(tester, '⌫');
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(_displayedExpression(tester), isEmpty);
+    expect(find.text('存在无法识别的内容'), findsNothing);
+
+    // 中文：按错一颗键之后键盘照常可用（真机上这一步原本卡死）。
+    // English: after a key pressed by mistake the keypad still works (on a device this was where
+    //          the user got stuck).
+    await _tapKey(tester, '9');
+    expect(_displayedExpression(tester), '9');
+    expect(find.text('9'), findsWidgets);
+  });
 }
 
 /// 中文：按一颗真实的键。**只在键盘子树里找**——显示区会把 `)` 排成自己的一个单元，
