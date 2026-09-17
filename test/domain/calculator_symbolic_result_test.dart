@@ -287,6 +287,80 @@ void main() {
     });
   });
 
+  group('边打边算那条路同样收，并且同样不污染 `Ans`', () {
+    test('边打边算：符号结果也会上屏', () async {
+      // 中文：**两条求值路径共用 `_selectEngineResult` 一处取舍**，所以符号结果在边打边算上也上屏。
+      //       这一条钉的是那处共用的接线真的接上了（而不是只有提交路径）。
+      // English: **both evaluation paths share the one selection** (`_selectEngineResult`), so a
+      //          symbolic result reaches the screen on the as-you-type path too. This pins that the
+      //          shared wiring really is shared (rather than the submit path only).
+      final engine = _FakeMathEngine(
+        const _Receipt(displayText: '2x', displayTex: '2x').reply,
+      );
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: engine,
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+
+      controller.setExpression('2x');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(controller.result, '2x');
+      expect(controller.hasError, isFalse);
+      expect(MathExpressionView.typesetsTex(controller.resultTex), isTrue);
+
+      controller.dispose();
+    });
+
+    test('边打边算落地时 `_lastFiniteResult` 被置空（与提交路径是两条不同的写法）', () async {
+      // 中文：边打边算走的是 `_adoptEngineResult`，它**无条件下**写 `_lastFiniteResult`：没有十进制
+      //       形态就置 **null**（提交路径则是「不碰」——只在 `usableAsNumber` 为真时更新）。
+      //       两条写法都不会把显示文本当成数字，但结果不同：边打边算之后 `ans` 换不出东西，于是
+      //       引擎一次都不会被问到。这一条把那处差异钉住，免得以后有人把两条路径「顺手统一」成
+      //       退回显示文本。
+      // English: as-you-type lands through `_adoptEngineResult`, which writes `_lastFiniteResult`
+      //          **unconditionally**: with no decimal form it becomes **null** (the submit path, by
+      //          contrast, does not touch it — it updates only when `usableAsNumber` is true). Neither
+      //          spelling takes the display text as a number, but they differ in outcome: after an
+      //          as-you-type symbolic result `ans` resolves to nothing, so the engine is never asked.
+      //          This pins that difference so a later "let's unify the two paths" cannot quietly turn
+      //          it into a fallback to the display text.
+      final engine = _FakeMathEngine(
+        const _Receipt(
+          displayText: '4',
+          displayTex: '4',
+          kind: EngineResultKind.number,
+        ).reply,
+      );
+      final controller = _controller(
+        _FakeDatabase(),
+        engine: engine,
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+
+      controller.setExpression('2+2');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(controller.result, '4', reason: '前提：先有一个数字结果');
+
+      engine.reply = const _Receipt(displayText: '2x', displayTex: '2x').reply;
+      controller.setExpression('2x');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(controller.result, '2x', reason: '前提：符号结果先上了屏');
+
+      engine.calls.clear();
+      controller.setExpression('ans+1');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(engine.calls, isEmpty,
+          reason: '`ans` 在边打边算那条路上被置空了，换不出东西——显示文本绝不能被当成数字');
+
+      controller.dispose();
+    });
+  });
+
   group('引擎没算的那些照旧不显示', () {
     test('`x/0`：引擎把那次除法退回来（消息队列里有话），种类是 arithmetic，不显示', () async {
       // 中文：实测（宿主 5.12.0）：`((x)/(0))` → decimal `x / 0`、消息队列里是
@@ -462,6 +536,8 @@ class _FakeMathEngine implements MathEngine {
 CalculatorController _controller(
   _FakeDatabase db, {
   required MathEngine engine,
+  Duration liveEvaluationDelay = const Duration(minutes: 10),
+  Duration liveEngineFollowUpDelay = const Duration(minutes: 10),
 }) {
   return CalculatorController(
     historyRepository: HistoryRepository(db),
@@ -478,6 +554,8 @@ CalculatorController _controller(
       expressionDisplayMode: '数学符号',
     ),
     engine: engine,
+    liveEvaluationDelay: liveEvaluationDelay,
+    liveEngineFollowUpDelay: liveEngineFollowUpDelay,
   );
 }
 
