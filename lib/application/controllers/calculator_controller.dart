@@ -1,4 +1,8 @@
 import 'dart:async';
+// 中文：数据集落盘用 JSON 数组（见 `_datasetIdText` 上的注释：分隔符是**带内**约定，JSON 不是）。
+// English: the dataset is persisted as a JSON array (see the note on `_datasetIdText`: a separator is
+//          an **in-band** convention, JSON is not).
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -27,6 +31,7 @@ part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
 part 'calculator_controller_variables.dart';
+part 'calculator_controller_dataset.dart';
 
 /// 中文：边打边算用哪个结果上屏——**裁决 1 的那个开关**，做成可切换的常量而不是写死在流程里。
 ///
@@ -180,7 +185,8 @@ class CalculatorController extends ChangeNotifier
         _CalculatorEvaluation,
         _CalculatorPersistence,
         _CalculatorBaseReadout,
-        _CalculatorVariables {
+        _CalculatorVariables,
+        _CalculatorDataset {
   CalculatorController({
     required this.historyRepository,
     required this.notesRepository,
@@ -288,6 +294,7 @@ class _CalculatorSnapshot {
     required this.ansSourceForExpression,
     required this.ansValueForExpression,
     required this.variables,
+    required this.dataset,
   });
 
   final String expression;
@@ -317,6 +324,17 @@ class _CalculatorSnapshot {
   ///          insertion order would hash differently and the de-duplication would stop working.
   final Map<String, String> variables;
 
+  /// 中文：数据集也是**状态**，所以它也进撤销栈——与 `variables` 同一条理由：撤销一次「加了一个值」
+  ///       之后，存放处必须回到那一刻的样子，否则撤销会留下一份与刚才那一下对不上的数据。
+  ///       与 `variables` 的分别有两点：表是**有序**的（数据集的顺序是它的一部分，所以散列不排序），
+  ///       并且用 `listEquals` 而不是 `mapEquals`。
+  /// English: the dataset is **state** too, so it goes into the undo stack — the same reason as
+  ///          `variables`: after undoing "one value was added" the store has to be what it was at that
+  ///          moment, or undo leaves data that does not match the press. Two differences from
+  ///          `variables`: the list is **ordered** (a dataset's order is part of it, so nothing is
+  ///          sorted before hashing) and it uses `listEquals` rather than `mapEquals`.
+  final List<String> dataset;
+
   int get _variablesHash => Object.hashAll(
         variables.entries.map((entry) => '${entry.key}=${entry.value}').toList()
           ..sort(),
@@ -335,7 +353,8 @@ class _CalculatorSnapshot {
         other.lastFiniteResult == lastFiniteResult &&
         other.ansSourceForExpression == ansSourceForExpression &&
         other.ansValueForExpression == ansValueForExpression &&
-        mapEquals(other.variables, variables);
+        mapEquals(other.variables, variables) &&
+        listEquals(other.dataset, dataset);
   }
 
   @override
@@ -351,6 +370,7 @@ class _CalculatorSnapshot {
         ansSourceForExpression,
         ansValueForExpression,
         _variablesHash,
+        Object.hashAll(dataset),
       );
 }
 

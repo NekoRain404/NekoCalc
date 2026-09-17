@@ -100,6 +100,18 @@ mixin _CalculatorState on ChangeNotifier {
   ///          [_CalculatorVariables] reads it; the undo stack's restore and state restore write it
   ///          (both through the snapshot's `variables`).
   final Map<String, String> _variables = <String, String>{};
+
+  /// 中文：**统计数据集**——一份十进制文本的**表**（与 `_variables` 同一种货币，理由也同一套）。
+  ///       读它的是 [_CalculatorDataset]，写它的有三处：那个混因自己的四个方法、撤销栈的恢复、
+  ///       以及状态恢复。[`kMaxDatasetValues`] 是它的上限（理由在那个常量上）。
+  ///       为什么它不在表达式里（上一轮的做法）也不在引擎里：见 [_CalculatorDataset] 的类注释。
+  /// English: **the statistics dataset** — a **list** of decimal text (the same currency as
+  ///          `_variables`, and the same reasons). [_CalculatorDataset] reads it and three places
+  ///          write it: that mixin's four methods, the undo stack's restore and the state restore.
+  ///          [`kMaxDatasetValues`] is its cap (the reason is on that constant). Why it is neither in
+  ///          the expression (last round's answer) nor inside the engine: see the class note on
+  ///          [_CalculatorDataset].
+  final List<String> _dataset = <String>[];
   Timer? _liveEvaluationTimer;
 
   /// 中文：边打边算那一发的引擎跟进定时器。与 [_liveEvaluationTimer]（32ms，旧解析器上屏）分开，

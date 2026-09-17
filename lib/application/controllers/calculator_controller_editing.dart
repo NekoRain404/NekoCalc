@@ -376,6 +376,9 @@ mixin _CalculatorEditing on _CalculatorState {
       //          reference would let it change with every later binding — undo would then land on
       //          something other than the moment it recorded.
       variables: Map<String, String>.of(_variables),
+      // 中文：数据集同理（它是有序的，所以复制的是列表本身）。理由见 `_CalculatorDataset`。
+      // English: the dataset likewise (ordered, so the list itself). See `_CalculatorDataset`.
+      dataset: List<String>.of(_dataset),
     );
   }
 
@@ -402,6 +405,11 @@ mixin _CalculatorEditing on _CalculatorState {
     _variables
       ..clear()
       ..addAll(snapshot.variables);
+    // 中文：数据集与 `variables` 同一条路。理由见 `_CalculatorDataset`。
+    // English: the dataset travels exactly as `variables` does. See `_CalculatorDataset`.
+    _dataset
+      ..clear()
+      ..addAll(snapshot.dataset);
   }
 
   void _toggleSign() {

@@ -76,6 +76,13 @@ mixin _CalculatorPersistence on _CalculatorState {
       final stored = settings['calculator_variable_$name'] ?? '';
       if (MathResult.decimalValueOf(stored) != null) _variables[name] = stored;
     }
+    // 中文：数据集走的是**同一道判定**（`_readDataset` 里逐条过 `decimalValueOf`），理由与上面变量
+    //       那一段逐字相同：盘上的东西同样是输入。整串读不动时它清空——失败一律关上，绝不猜一个数。
+    // English: the dataset goes through **the same judgement** (`_readDataset` runs every entry through
+    //          `decimalValueOf`), byte for byte the reason the variables' paragraph above gives: what
+    //          is on disk is input too. An unreadable string clears it — fail closed, never guess a
+    //          number.
+    _readDataset(settings['calculator_dataset'], _dataset);
     _lastFiniteResult =
         _result.decimalText.isEmpty ? null : _result.decimalText;
     if (expression.isNotEmpty) evaluate();
@@ -386,6 +393,15 @@ mixin _CalculatorPersistence on _CalculatorState {
       //          variable would come back by itself after a restart.
       for (final name in kBindableVariableNames)
         'calculator_variable_$name': _variables[name] ?? '',
+      // 中文：数据集整份写进**一个**键（`_datasetIdText` 那一处决定它的形状），所以它不需要像变量
+      //       那样「逐个键都写上，不然旧值会留在盘上」——一个键要么被整份覆盖，要么整个不在。
+      //       它也有上限（`kMaxDatasetValues`），理由正在这里：这个键每次都跟着按键重写一遍。
+      // English: the dataset goes into **one** key (its shape is decided in `_datasetIdText`), so it
+      //          needs none of the variables' "write every key or the old value stays on disk" care —
+      //          a single key is either overwritten whole or absent. It has a cap
+      //          (`kMaxDatasetValues`), and this key is exactly why: it is rewritten with every
+      //          keypress.
+      'calculator_dataset': _datasetIdText(_dataset),
       'calculator_cursor': cursorIndex.toString(),
       'calculator_selection_start': selection.start.toString(),
       'calculator_selection_end': selection.end.toString(),
