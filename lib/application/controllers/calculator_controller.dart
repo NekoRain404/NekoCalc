@@ -1354,45 +1354,6 @@ class CalculatorController extends ChangeNotifier {
   ///          null), and forcing it through `formatNumber` would mean feeding it `Infinity` or `0` —
   ///          both false. Rounding has not moved into the engine; the code just does not pretend to
   ///          round what it cannot represent.
-  /// 中文：**引擎这一次的回答能不能采用**——提交路径与边打边算共用这一处，不写第二份。
-  ///       采用的条件只有一条：引擎给出了一个**有限十进制**（[MathResult.hasFiniteDecimal]，
-  ///       判定在字符串层面，不借 double）。不满足就返回 null，调用方按「这一次没有引擎结果」处理。
-  ///
-  ///       为什么这必须是同一处：边打边算产生的结果**远多于**提交，是更大的风险面；判定写两份，
-  ///       「显示文本 → 提交路径 → `_currentNumericValue`」那次漂移就会重演一遍。
-  ///
-  /// English: **Whether this engine answer may be adopted** — the submit path and as-you-type
-  ///          evaluation share this one place, never a second copy. There is exactly one condition:
-  ///          the engine produced a *finite decimal* ([MathResult.hasFiniteDecimal], judged at the
-  ///          string level rather than through a double). When that fails it returns null and the
-  ///          caller treats it as "no engine result this time".
-  ///
-  ///          Why it has to be one place: as-you-type evaluation produces far *more* results than
-  ///          submission and is therefore the larger risk surface; with the judgement written twice,
-  ///          the drift of "display text → submit path → `_currentNumericValue`" happens all over
-  ///          again.
-  MathResult? _acceptedEngineResult(EngineReply reply) {
-    if (!reply.ok) return null;
-    final engineResult = reply.result;
-    if (engineResult == null || !engineResult.hasFiniteDecimal) return null;
-    return _engineMathResult(engineResult);
-  }
-
-  /// 中文：**能不能显示**（第二个判据，与「能不能当数字用」分开）。矩阵、复数、解集、精确形式都没有
-  ///       有限十进制，但它们是引擎算出来的值——「有十进制才配显示」会让它们永远上不了屏，
-  ///       而它们正是引入引擎的理由。判据本身在 [MathResult.isDisplayable] 里，只有那一处实现。
-  /// English: **Whether it may be shown** — the second judgement, kept apart from "can it be used as
-  ///          a number". A matrix, a complex number, a solution set or an exact form has no finite
-  ///          decimal, yet each is a value the engine computed; "only what has a decimal deserves to
-  ///          be shown" would keep them off the screen forever, and they are why the engine is here.
-  ///          The judgement itself lives in [MathResult.isDisplayable], the one implementation.
-  MathResult? _displayableEngineResult(EngineReply reply) {
-    if (!reply.ok) return null;
-    final engineResult = reply.result;
-    if (engineResult == null || !engineResult.isDisplayable) return null;
-    return _engineMathResult(engineResult);
-  }
-
   /// 中文：**引擎这一次的回答该怎么取舍**——提交路径与边打边算共用这一处，不写第二份。
   ///       两级，顺序不能反：
   ///
@@ -1445,23 +1406,90 @@ class CalculatorController extends ChangeNotifier {
     //          (`npr(2,1.5)` → "nPr's r must be an integer"), and when it cannot, that is an error —
     //          the same route as an absent, timed-out or failed engine (hard boundary 1).
     if (!AppEngineVocabulary.canRead(source)) return null;
-    final numeric = _acceptedEngineResult(reply);
-    if (numeric != null) return (result: numeric, usableAsNumber: true);
-    final displayable = _displayableEngineResult(reply);
-    if (displayable == null) return null;
-    final legacy = _tryLegacyResult(source);
-    if (legacy != null) return (result: legacy, usableAsNumber: true);
-    return (result: displayable, usableAsNumber: false);
+    final engineResult = reply.result;
+    if (engineResult == null) return null;
+
+    final appValue = _tryAppValue(source);
+    if (appValue == null) {
+      // 中文：**应用解析不了 ⇒ 引擎是唯一来源。** 这里才需要形状判据（`isDisplayable`）:
+      //       矩阵、复数这些「应用语言表达不了的类型」由它放行，其余（带单位、未求值的算式）挡下。
+      // English: **the app cannot parse it ⇒ the engine is the only source.** Only here does the shape
+      //          judgement (`isDisplayable`) matter: it lets through the types this app's language
+      //          cannot express (matrices, complex numbers) and holds back the rest (unit-carrying
+      //          quantities, unevaluated expressions).
+      if (MathResult.decimalTextIsFinite(engineResult.decimalText)) {
+        // 中文：有限十进制 ⇒ 直接用（与引擎接进提交路径之前逐字节一致：那一步没有形状字段）。
+        // English: a finite decimal ⇒ used directly (byte-for-byte what it was before the shape field
+        //          existed on the submit path).
+        return (result: _engineMathResult(engineResult), usableAsNumber: true);
+      }
+      return engineResult.isDisplayable
+          ? (result: _engineMathResult(engineResult), usableAsNumber: false)
+          : null;
+    }
+
+    // 中文：**应用解析得了 ⇒ 值以应用为准**（判据的正文见上面的长注释）。这一支**不看形状**：
+    //       值一致就是一致——形状判据在这里只会多一条会出错的路径（种类字段缺失、映射写错，
+    //       都会把一条完全正确的答案丢掉）。
+    // English: **the app can parse it ⇒ the value comes from this app** (the criterion itself is in the
+    //          long note above). This branch deliberately **does not look at the shape**: equal values
+    //          are equal, and consulting the shape here would only add a way to get it wrong (a missing
+    //          kind field or a bad mapping would throw away a perfectly correct answer).
+    final engineValue = engineResult.decimalValue;
+    if (engineValue == null) {
+      // 中文：引擎的十进制要么**超出 double 量程**（`2^2000`/`2^-2000`：文本有限、double 装不下）
+      //       ⇒ 应用给不出这个值 ⇒ 引擎赢；要么**根本不是有限数**（矩阵、复数、带单位、未求值）
+      //       ⇒ 它读成了别的东西 ⇒ 丢弃。
+      // English: the engine's decimal either **exceeds the double range** (`2^2000`/`2^-2000`: finite as
+      //          text, unrepresentable as a double) ⇒ the app has no such value ⇒ the engine wins; or
+      //          it **is not a finite number at all** (a matrix, a complex, a unit-carrying quantity,
+      //          an unevaluated expression) ⇒ it read something else ⇒ discard.
+      return MathResult.decimalTextIsFinite(engineResult.decimalText)
+          ? (result: _engineMathResult(engineResult), usableAsNumber: true)
+          : null;
+    }
+    final agrees = (appValue - engineValue).abs() <=
+        _engineAgreementTolerance * (1 + appValue.abs());
+    if (!agrees) return null;
+    return (result: _engineMathResult(engineResult), usableAsNumber: true);
   }
 
-  /// 中文：旧解析器**试一次**——答不出来时给 null 而不是抛异常。[_calculateResult] 是那条会抛的
-  ///       出口，两者共用同一份实现：这里只是把异常收成 null。
-  /// English: one **attempt** at the legacy parser — null instead of throwing when it cannot answer.
-  ///          [_calculateResult] is the throwing exit; both share one implementation, this only turns
-  ///          the exception into null.
-  MathResult? _tryLegacyResult(String source) {
+  /// 中文：引擎与应用算出的同一个值允许差多少（**相对**，另加 1 的绝对底，免得接近 0 时容差消失）。
+  ///
+  ///       两边的精度不同：应用是 `double`（相对精度约 1e-16），引擎给的是 16 位有效数字的十进制；
+  ///       合法的差异来自两件事——**double 舍入**，以及 DEG 模式下应用先做 `arg * pi / 180`
+  ///       这一步 double 运算、引擎按精确值算（`sin(30)`：应用 `0.49999999999999994`、引擎 `0.5`，
+  ///       相对差约 1e-16）。**误读**的量级完全不同：`phi(2)` 差 1.6 倍、`log(100)` 差 1.3 倍、
+  ///       `mod(7,-3)` 差 3 倍。1e-9 比噪声高七个数量级、比最小的误读低八个数量级。
+  /// English: how far apart the app's and the engine's value for the same expression may be (a
+  ///          **relative** bound with an absolute floor of 1 so the tolerance does not vanish near
+  ///          zero).
+  ///
+  ///          The two sides differ in precision: the app is a `double` (about 1e-16 relative) and the
+  ///          engine hands over 16 significant digits. Legitimate differences come from two things —
+  ///          **double rounding**, and DEG mode where the app does the `arg * pi / 180` step in
+  ///          `double` while the engine computes it exactly (`sin(30)`: app `0.49999999999999994`,
+  ///          engine `0.5`, about 1e-16 relative). A **misreading** is of a completely different
+  ///          magnitude: `phi(2)` is off by a factor 1.6, `log(100)` by 1.3, `mod(7,-3)` by 3. 1e-9
+  ///          sits seven orders above the noise and eight below the smallest misreading.
+  static const double _engineAgreementTolerance = 1e-9;
+
+  /// 中文：应用自己的解析器给出的**未取整**数值；解析不了或不是有限数时给 null。
+  ///       它必须走解析器本体而不是 [_tryLegacyResult]：后者的十进制文本已经按用户精度取过整
+  ///       （`1.414214`），拿它跟引擎的 16 位（`1.414213562373095`）比会凭空多出 4e-7 的差异，
+  ///       于是**每一个结果**都会被判成「引擎读错了」。
+  /// English: the **unrounded** value this app's own parser produces, or null when it cannot parse the
+  ///          source or the value is not finite. It has to go through the parser itself rather than
+  ///          [_tryLegacyResult]: the latter's decimal text is already rounded to the user's precision
+  ///          (`1.414214`), and comparing that with the engine's 16 digits (`1.414213562373095`) would
+  ///          invent a 4e-7 difference and declare **every** result a misreading.
+  double? _tryAppValue(String source) {
     try {
-      return _calculateResult(source);
+      final value = ExpressionParser(
+        _resolveAnswerReferences(source),
+        degreeMode: angleMode == 'DEG',
+      ).parse();
+      return MathResult.usableDouble(value);
     } catch (_) {
       return null;
     }

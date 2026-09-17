@@ -369,7 +369,7 @@ class ExpressionParser {
     //          `log(x)` is byte-for-byte what it was, while `log(8,2)` used to be "log needs 1
     //          argument" and now evaluates to 3. That gives the `logₓy` key an answer even when the
     //          engine is absent.
-    if (const {'atan2', 'mod', 'ncr', 'npr', 'root', 'log'}.contains(name)) {
+    if (_twoArgumentFunctions.contains(name)) {
       if (args.isEmpty || args.length > 2) {
         throw FormatException('$name needs 1 or 2 arguments');
       }
@@ -587,6 +587,39 @@ class ExpressionParser {
   static const String _constantPattern = 'infinity|inf|tau|phi|pi|e';
   static const String _leadingConstantPattern =
       'infinity|inf|tau|phi|pi|e(?![+-]?\\d)';
+  /// 中文：**接受两个及以上实参的函数名——唯一的一份。** 两处用它：
+  ///       归一化时的「`名字(...)` 里的逗号是实参分隔符还是千分位」（[_startsFunctionArgument]），
+  ///       以及求值时的实参个数校验（[_validateFunctionArity]）。
+  ///       这两个问题必须用同一份表：`atan2(7,100)` 是**两个实参**（`atan2` 接两个），
+  ///       而 `log2(1,024)` 是**一个实参 1024**（`log2` 只接一个）——同一个形状，
+  ///       正确的读法相反。用「名字以数字结尾」或「括号前面是字母数字」都判不对。
+  /// English: **the function names that accept two or more arguments — one copy.** Two places use it:
+  ///          whether a comma inside `name(...)` is an argument separator or a thousands separator
+  ///          ([_startsFunctionArgument]), and the argument-count validation at evaluation time
+  ///          ([_validateFunctionArity]). They must share this table: `atan2(7,100)` is **two
+  ///          arguments** (`atan2` takes two) while `log2(1,024)` is **one argument, 1024** (`log2`
+  ///          takes one) — the same shape with opposite correct readings. Neither "the name ends in a
+  ///          digit" nor "the character before the bracket is alphanumeric" gets both right.
+  static const Set<String> _twoArgumentFunctions = <String>{
+    'atan2',
+    'mod',
+    'ncr',
+    'npr',
+    'root',
+    'log',
+  };
+
+  /// 中文：可变形参的函数（一个以上都收）。
+  /// English: variadic functions (any number of arguments from one up).
+  static const Set<String> _variadicFunctions = <String>{'min', 'max', 'gcd', 'lcm'};
+
+  /// 中文：上两张表的并集——「这个名字可能接两个以上实参」。
+  /// English: the union of the two above — "this name may take two or more arguments".
+  static const Set<String> _multiArgumentFunctions = <String>{
+    ..._twoArgumentFunctions,
+    ..._variadicFunctions,
+  };
+
   static const String _functionPattern =
       'atan2|asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|sqrt|cbrt|log2|log|ln|abs|exp|floor|ceil|round|deg|rad|min|max|mod|ncr|npr|gcd|lcm|root|fact';
   static const String _bareUnaryFunctionPattern =
@@ -619,21 +652,17 @@ class ExpressionParser {
     while (index >= 0 && source[index].trim().isEmpty) {
       index--;
     }
-    // 中文：**数字也算函数名的一部分。** `atan2`/`log2` 以数字结尾，只认字母会把它们判成
-    //       「不是函数调用」，于是 `atan2(7,100)` 里的 `7,100` 被当成千分位剥掉，整条变成
-    //       `atan2(7100)`（一个实参）→ `atan(7100)`。实测：修复前 `1.5706554817254055`，
-    //       修复后 `0.069886001634…`（= atan(7/100)）。`log2(1,024)` 同理。
-    //       放宽到数字不会把 `2(7,100)` 这类误判成调用：那里逗号保留下来之后，解析器对它
-    //       照样报错（圆括号里不接受逗号），两种读法都不是一个合法的表达式。
-    // English: **a digit is part of a function name too.** `atan2`/`log2` end in one, and recognising
-    //          letters only made them count as "not a function call", so the `7,100` in
-    //          `atan2(7,100)` was stripped as a thousands separator and the whole thing became
-    //          `atan2(7100)` (one argument) → `atan(7100)`. Measured: `1.5706554817254055` before,
-    //          `0.069886001634…` (= atan(7/100)) after; `log2(1,024)` is the same story. Widening to
-    //          digits does not misread `2(7,100)` as a call: with the comma kept, the parser rejects it
-    //          anyway (a comma is not allowed inside plain parentheses), so neither reading is a valid
-    //          expression.
-    return index >= 0 && RegExp(r'[A-Za-z0-9)]').hasMatch(source[index]);
+    if (index >= 0 && source[index] == ')') return true;
+    // 中文：读回 `(` 前面那个**标识符**，问它接不接受两个以上实参（见 [_multiArgumentFunctions]）。
+    //       `atan2(7,100)` → true（逗号是分隔符）；`log2(1,024)` 与 `2(1,234)` → false（逗号是千分位）。
+    // English: read the **identifier** before the bracket and ask whether it accepts two or more
+    //          arguments (see [_multiArgumentFunctions]). `atan2(7,100)` → true (the comma separates);
+    //          `log2(1,024)` and `2(1,234)` → false (the comma is a thousands separator).
+    final nameEnd = index + 1;
+    while (index >= 0 && RegExp(r'[A-Za-z0-9]').hasMatch(source[index])) {
+      index--;
+    }
+    return _multiArgumentFunctions.contains(source.substring(index + 1, nameEnd));
   }
 
   static String _normalizeFunctionAliases(String source) {

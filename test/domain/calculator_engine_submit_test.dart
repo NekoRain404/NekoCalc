@@ -434,10 +434,18 @@ void main() {
     expect(controller.expression, '6*7');
     expect(engine.calls, isEmpty);
 
+    // 中文：回包与表达式一致（`6*7` = 42）——新判据只采用「值与应用一致」的引擎答案，
+    //       不一致的回包会被**正确**丢弃，所以这里给一个自洽的替身。
+    // English: the reply agrees with the expression (`6*7` = 42) — the new criterion adopts only an
+    //          engine answer whose value matches the app's, discarding disagreeing ones by design, so
+    //          this double is made self-consistent.
+    engine.reply = EngineReply.success(
+      const MathResult(displayText: '42', displayTex: '42', decimalText: '42'),
+    );
     final submitted = await controller.submit();
     expect(engine.calls, hasLength(1));
     expect(submitted.submitted, isTrue);
-    expect(controller.resultTex, engineTex);
+    expect(controller.resultTex, '42');
 
     controller.dispose();
   });

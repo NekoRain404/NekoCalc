@@ -374,9 +374,18 @@ void main() {
       expect(engine.calls.last.expression, '1+1+1+1+1+1');
       expect(engine.pending, 1);
 
-      engine.answerNext(sqrt32Reply());
+      // 中文：**回包必须与表达式一致。** 新判据要求「引擎的值与应用一致」才采用，所以给
+      //       `1+1+1+1+1+1`（= 6）配一个 `sqrt(32)` 的回包会被**正确**丢弃。这里换成一致的
+      //       回包：被测的是「这一发落地了」，不是那个具体数字。
+      // English: **the reply has to agree with the expression.** The new criterion adopts an engine
+      //          answer only when its value matches the app's, so a `sqrt(32)` reply for
+      //          `1+1+1+1+1+1` (= 6) is **correctly** discarded. This one is coherent: what is under
+      //          test is that this reply lands, not the particular number.
+      engine.answerNext(EngineReply.success(
+        const MathResult(displayText: '6', displayTex: '', decimalText: '6'),
+      ));
       await pumpEventQueue();
-      expect(controller.resultDecimal, engineDecimal);
+      expect(controller.resultDecimal, '6');
 
       controller.dispose();
     });

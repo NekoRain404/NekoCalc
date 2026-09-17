@@ -73,6 +73,19 @@ void main() {
     // English: the second argument is the same "looks grouped" shape (`1,234`) — before the fix this
     //          gave `atan(1234)` = `1.569…`.
     expect(parse('atan2(1,234)'), closeTo(0.0042734783, 1e-9));
+    // 中文：**同一个形状，正确的读法却相反**——`log2` 只吃一个实参，所以 `1,024` 在这里必须
+    //       读成千分位（`log2(1024)` = 10），而不是两个实参。判据因此不能是「名字以数字结尾」，
+    //       只能是**这个函数接不接受两个以上实参**（解析器自己的参数表就是权威）。
+    //       `2(1,234)` 更直白：括号前面根本不是函数，逗号是千分位 → 2468。
+    // English: **the same shape, the opposite correct reading** — `log2` takes one argument, so
+    //          `1,024` here has to read as a thousands separator (`log2(1024)` = 10), not as two
+    //          arguments. The criterion therefore cannot be "the name ends in a digit"; it has to be
+    //          **whether this function accepts two or more arguments** (the parser's own argument
+    //          table is the authority). `2(1,234)` is starker still: there is no function before the
+    //          bracket at all, the comma is a thousands separator → 2468.
+    expect(parse('log2(1,024)'), closeTo(10, 1e-9));
+    expect(parse('2(1,234)'), closeTo(2468, 1e-9));
+    expect(parse('12(345,678)'), closeTo(4148136, 1e-9));
   });
 
   test('normalizes common pasted function aliases', () {

@@ -27,32 +27,35 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///       重算方式：`python3 - <<'PY' …` 见报告第 3 条（脚本与输出都在那里）。
 /// English: **the second half of the per-name check: values.** In fix round 3 the vocabulary's "may
 ///          the engine's answer for this spelling be used" column had **one sample per name and a
-///          hand-written app-side value** — which is exactly why `log` and `mod` both slipped
-///          through (each had one sample that happened to miss the divergence).
+///          hand-written app-side value** — which is exactly why `log` and `mod` both slipped through
+///          (each had one sample that happened to miss the divergence).
 ///
 ///          This file turns it into a **repeatable, explicitly-scoped** cross-check:
 ///
 ///          - **the app-side value is computed**: `ExpressionParser(expression)`, this app's own
 ///            evaluator, not a number somebody wrote down;
 ///          - **the engine-side values are measured**: by `tool/qalculate_semantics_probe/probe.cc`
-///            against libqalculate 5.12.0 (the same call sequence the bridge uses); the table below is
-///            its **verbatim output**;
-///          - **the test**: where the two agree the vocabulary must say "usable"; where they differ it
-///            must say "not usable". So **another `log`/`mod` turns this table red on whichever sample
-///            it lands on**, and the only fix is to mark that name untrusted (or change this app's own
-///            semantics).
+///            against libqalculate 5.12.0 (the same call sequence the bridge uses, angle unit
+///            included); the table below is its **verbatim output**;
+///          - **a divergence is attributed before it is judged**: if this app's own normalisation
+///            changes the *call shape*, the divergence is ours and this test goes red demanding a
+///            parser fix (the `atan2(7,100)` case); only a faithful reading with a divergence marks
+///            that name untrusted. The metric and its blind spot are described at `_callShapes`.
 ///
-///          Scope (**concrete numbers, no rounding up**): **40 samples** covering **29 of the
-///          vocabulary's 42 names**, of which **8 names carry more than one sample**
-///          (`sin`/`atan2`/`round`/`floor`/`ceil`/`mod`/`root`/…), the other 21 having one each. This
-///          is **not** "every name has several samples" — the real improvement is that the app-side
-///          value is *computed* rather than written down, that the judgement is **per name** (any
-///          divergent sample makes that name untrusted), and that the samples deliberately include
-///          negatives, fractions, zero, multi-argument calls and a negative second argument — where
-///          `mod`'s and `log`'s divergences hid. **Not covered**: the 13 names in the vocabulary whose
-///          arguments are not numbers (`matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/`rand`, plus
-///          `ncr`/`npr`/`fact`/`deg`/`rad`/`log`, which the engine has no counterpart for at all) — the
-///          next test and the shape rules carry those.
+///          Scope (**concrete numbers, from the script in the step 5 fix-round-5 report**): the
+///          vocabulary holds **47 identifiers** (41 function names + 6 constants — constants joined in
+///          round 5), this table has **45 samples** covering **33 of those names**, **9 of them with
+///          more than one sample** (`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`), and
+///          **14 are uncovered**: `deg`/`fact`/`ncr`/`npr`/`rad` (no engine counterpart at all, held by
+///          the test below and the native check), `matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/
+///          `rand` (their arguments are variables and ranges, no comparable value), and `inf`/
+///          `infinity` (neither side's value is a finite number, so this table cannot hold them).
+///
+///          **What this table is for, after round 6**: the runtime criterion is no longer this
+///          vocabulary but the **value agreement** in `CalculatorController` (the app's value wins
+///          whenever the app can parse the expression). This vocabulary is the **redundant first
+///          line**: it answers before the engine is even asked. Only the value criterion can catch a
+///          spelling nobody enumerated (`φ(2)`), which is why it exists.
 void main() {
   test('分歧先归因：我们自己读错了要修解析器，引擎读错了才让名字不可信', () {
     // 中文：**「任何分歧 ⇒ 该名字不可信」是好的探测器、错误的裁决者。** 反例是 `atan2(7,100)`：
@@ -143,6 +146,11 @@ void main() {
     expect(_callShapes('atan2(7100)'), <String>['atan2/1']);
     expect(_callShapes('atan2(7,100)'), isNot(_callShapes('atan2(7100)')));
     expect(_callShapes('log(100)+sqrt(8)'), <String>['log/1', 'sqrt/1']);
+    // 中文：常量域不再空转——`phi(2)` 现在收得出一个形状，所以「常量被当调用」这类改动看得见。
+    // English: the constants domain is no longer vacuous — `phi(2)` now yields a shape, so a change to
+    //          how a constant-as-call is read is visible.
+    expect(_callShapes('phi(2)'), <String>['phi(call)']);
+    expect(_callShapes('phi(2)'), isNot(_callShapes('3.236(2)')));
   });
 
   test('引擎根本没有这个函数的名字一律不可信', () {
@@ -167,6 +175,30 @@ void main() {
 List<String> _callShapes(String source) {
   final shapes = <String>[];
   void walk(ExprNode node) {
+    // 中文：**常量/变量紧跟左括号**也算一种「调用形状」。修复轮 4 的这条度量只看 `FunctionNode`，
+    //       于是常量域**结构性地空转**：`phi(2)` 在语法树里是「常量 × 分组」（`ImplicitProductNode`），
+    //       两边都收出 `[]`，任何常量分歧都按构造被归因给引擎 ✗。这里用节点自带的源码区间把它读出来。
+    // English: **a constant or variable immediately followed by a bracket** is a call shape too. Fix
+    //          round 4's metric looked only at `FunctionNode`, so it was **structurally vacuous** on the
+    //          constants domain: `phi(2)` is "constant × group" (`ImplicitProductNode`) in the tree, both
+    //          sides collected `[]`, and every constant divergence was attributed to the engine by
+    //          construction. Read it out of the node's own source span here.
+    if ((node is ConstantNode || node is VariableNode) &&
+        node.end < source.length &&
+        source[node.end] == '(') {
+      final name = node is ConstantNode ? node.name : (node as VariableNode).name;
+      shapes.add('$name(call)');
+    }
+    // 中文：应用自己的归一化会把 `phi(2)` 写成 `phi*(2)`（显式乘号）——**读法没变**，所以这两种写法
+    //       必须收出同一个形状，否则度量会把归一化本身当成「我们读错了」（实测到的假阳性）。
+    // English: this app's own normalisation rewrites `phi(2)` as `phi*(2)` (an explicit `*`) — **the
+    //          reading is unchanged**, so both spellings must yield the same shape, or the metric would
+    //          call normalisation itself "our misreading" (a false positive, measured).
+    if (node is BinaryNode && node.op == '*' && node.right is GroupNode) {
+      final left = node.left;
+      if (left is ConstantNode) shapes.add('${left.name}(call)');
+      if (left is VariableNode) shapes.add('${left.name}(call)');
+    }
     if (node is FunctionNode) {
       shapes.add('${node.name}/${node.args.length}');
       for (final arg in node.args) {
