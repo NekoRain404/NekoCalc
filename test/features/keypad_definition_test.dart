@@ -59,7 +59,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
   ],
   <String>[
     "angleMode|DRG|on function",
-    "dis:xchgE|x⇔E|off disabled",
+    "resultForm|x⇔E|on function",
     "ins:matrix|MTRX|on function",
     "ins:sum|Σ|on function shift:ins:product|Π|on",
     "ins:integrate|∫dx|on function",
@@ -83,7 +83,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
   ],
   <String>[
     "dis:dms|D°M'S|off disabled",
-    "dis:dc|d/c|off disabled",
+    "fractionForm|d/c|on function",
     "openVariables|X|on variable",
     "dis:xym|XY,M|off disabled",
     "memoryRecall|MR|on variable",
