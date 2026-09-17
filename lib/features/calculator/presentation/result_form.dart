@@ -5,10 +5,28 @@ import 'widgets/math_expression_view.dart';
 /// 中文：**结果行的形态**——同一份结果用哪一种写法出现在 `=` 后面。HiPER 的 `x⇔E` 管的就是这一维
 ///       （它的手册把「结果格式」与「数字记法」分成两维，`x⇔E` 是前者、`FSE` 是后者），
 ///       `d/c` 则是其中的分数那一格。
+///
+///       **HiPER 那一颗键是开菜单，不是走一圈**：厂商站点自己的 FAQ 写死了
+///       「press the `x⇔E` key. It **opens the Select Result Format menu**」，手册 v12.0 p.10
+///       也写「press `x⇔E` and **choose** one of the following formats」。那个菜单的六条菜单项
+///       在帮助文本里就是 `rfMenu.*`（`Decimal` / `Expression` / `Fraction` / `Mixed number` /
+///       `Degrees, mins, secs` / `Polar coordinates`），标题 `rfMenu.title` = 'Select Result
+///       Format'。本应用画成**循环**，是因为这六格里只有三格印得出来（十进制、表达式、分数；
+///       带分数、度分秒、极坐标都没有印法）——循环与菜单的差别见 [ResultPresentation.next]。
 /// English: **What the result line shows** — which spelling of one result appears after the `=`.
 ///          This is the dimension HiPER's `x⇔E` owns (its manual splits "result format" from
 ///          "number notation": `x⇔E` is the first, `FSE` the second), and `d/c` is the fraction
 ///          cell inside it.
+///
+///          **HiPER's key opens a menu, it does not walk a cycle**: the vendor's own FAQ fixes it —
+///          "press the `x⇔E` key. It **opens the Select Result Format menu**" — and manual v12.0
+///          p.10 says "press `x⇔E` and **choose** one of the following formats". That menu's six
+///          entries are `rfMenu.*` in the help text (`Decimal` / `Expression` / `Fraction` /
+///          `Mixed number` / `Degrees, mins, secs` / `Polar coordinates`), its title
+///          `rfMenu.title` = 'Select Result Format'. This app draws a **cycle** instead because
+///          only three of the six can be printed here (decimal, expression, fraction; there is no
+///          mixed-number, DMS-result or polar printer) — the difference is spelled out in
+///          [ResultPresentation.next].
 enum ResultForm {
   /// 中文：默认——今天那一行。有精确形式时是「排版 + `≈` 近似值」，否则是纯十进制读数。
   ///       **它恒为初始态，也恒是回落态**：新结果上来、或当前形态对这个结果不存在时，都回到它。
@@ -21,25 +39,45 @@ enum ResultForm {
   /// English: the engine's exact spelling alone (HiPER's `EXPR` indicator).
   exact,
 
-  /// 中文：只要**分数写法**（HiPER 的 `d/c` / `a b/c` 那一格）。
-  /// English: the **fraction spelling** alone (HiPER's `d/c` / `a b/c` cell).
+  /// 中文：只要**分数写法**（HiPER 结果格式系统里 `fraction` 那一格，就是 `d/c` 那一颗键）。
+  ///       `a b/c`（`d/c` 的 SHIFT）**不是这一格的反面，而是另一格** `mixed number`：手册 v12.0
+  ///       p.6 把两个键帽并排印着——「用 `d/c` 输入分数」「用 `a b/c` 输入带分数」——而命令表里
+  ///       它们是两条命令（`command.name.FRACTION` = 'Fraction'、`command.name.MIXED_NUMBER`
+  ///       = 'Mixed Number'）。所以 `d/c` 既不是 Casio 的 `S⇔D`，也不是「假分数 ⇄ 带分数」的开关。
+  /// English: the **fraction spelling** alone (the `fraction` cell of HiPER's result-format system,
+  ///          which is the `d/c` key). `a b/c` (`d/c`'s SHIFT) is **not the other side of this cell
+  ///          but another cell**, `mixed number`: manual v12.0 p.6 prints both key caps side by side
+  ///          — "use `d/c` to enter a fraction", "use `a b/c` to enter a mixed number" — and the
+  ///          command table has them as two commands (`command.name.FRACTION` = 'Fraction',
+  ///          `command.name.MIXED_NUMBER` = 'Mixed Number'). So `d/c` is neither Casio's `S⇔D` nor
+  ///          a "improper ⇄ mixed" toggle.
   fraction,
 
   /// 中文：只要**度分秒写法**（HiPER 结果格式系统里 `DMS` 那一格：`12°34′55.92″`）。
   ///
-  ///       **它不在 [ResultPresentation.cycle] 里**，因为它不是 `x⇔E` 按出来的那一格：HiPER 的
-  ///       `x⇔E` 在**它自己的**手册与帮助里管的是结果格式循环，而这一格由 `D°M'S` 那一颗键直接
-  ///       开关——所以把 `x⇔E` 的循环加长会**改掉一颗已经工作的键的行为**，那是这个项目不许做的事。
+  ///       **它不在 [ResultPresentation.cycle] 里，这是本应用的画法选择**——**不是因为 HiPER 那一格
+  ///       不在这套结果格式里**，恰恰相反：`rfMenu.dms` = 'Degrees, mins, secs' 正是那个菜单的六格
+  ///       之一（见文件头）。本应用把它单独交给 `D°M'S` 那一颗键，是因为这一格在这里**有自己的
+  ///       印法也有自己的键**，加进循环会**改掉一颗已经工作的键的行为**（本项目不许做的事）。
+  ///       （另一处不再成立的说法：HiPER 内置键盘上那颗 `D°M'S` 在 HiPER 自己是**输入键**
+  ///       （`command.name.DMS` = 'Insert Degrees, Mins, Secs'），换结果格式的是 `REDMS`——
+  ///       手册 p.7 明说它「不在内置键盘上」。见 `hiper_keypad.dart` 里同一件事的记法。）
   ///       两颗键共用的只有「当前是哪一格」这一个状态（[ResultPresentation.resolve] 一处收口）。
   ///       English: the **degrees-minutes-seconds spelling** alone (HiPER's `DMS` cell in the result
   ///              format system: `12°34′55.92″`).
   ///
-  ///              **It is not in [ResultPresentation.cycle]**, because it is not a cell `x⇔E` steps
-  ///              through: HiPER's `x⇔E` owns the result-format cycle in its own manual and help,
-  ///              while this cell is switched directly by the `D°M'S` key — so lengthening `x⇔E`'s
-  ///              cycle would **change the behaviour of a key that already works**, which this project
-  ///              does not do. All the two keys share is the single "which cell is current" state,
-  ///              funnelled through one place ([ResultPresentation.resolve]).
+  ///              **It is not in [ResultPresentation.cycle], and that is this app's drawing choice**
+  ///              — **not because HiPER's cell is outside the result-format system**; the opposite:
+  ///              `rfMenu.dms` = 'Degrees, mins, secs' is one of that menu's six entries (see the file
+  ///              header). This app hands it to the `D°M'S` key alone because here that cell **has its
+  ///              own printer and its own key**, and adding it to the cycle would **change the
+  ///              behaviour of a key that already works** (something this project does not do).
+  ///              (A second claim that no longer holds: HiPER's built-in `D°M'S` is an **entry** key
+  ///              on HiPER itself (`command.name.DMS` = 'Insert Degrees, Mins, Secs'); the one that
+  ///              changes the result format is `REDMS`, which manual p.7 says "is not present on
+  ///              built-in keyboards". See the same record in `hiper_keypad.dart`.)
+  ///              All the two keys share is the single "which cell is current" state, funnelled
+  ///              through one place ([ResultPresentation.resolve]).
   dms,
 
   /// 中文：只要十进制读数（HiPER 的 `FIX` / `SCI` 那一侧，也就是没有 `EXPR` 指示器时的默认）。
@@ -74,16 +112,18 @@ enum ResultForm {
   ///         而本应用印的是**假分数**——`10/4` 印成 `\frac{5}{2}`，实测记在
   ///         `QalculateOptions.kt:158`，全应用没有任何一处印带分数。把 `\frac{5}{2}` 标成
   ///         `MIXED` 是一句**关于画面上那个东西的假话**，所以宁可沉默。
-  ///         （另有一个更老的帮助变体把格式列成「decimal, **fraction**, mixed number or
-  ///         sexagesimal number」，即 HiPER 某一版把 fraction 与 mixed number 当成两格，而
-  ///         四盏灯里没有一盏以分数命名——**哪一盏给 fraction 这一格，来源里定不下来**，
-  ///         所以这条路上不猜。见下面「取不到的东西」。）
+  ///         （「fraction 与 mixed number 是两格」现在**有据**：`rfMenu` 的六条菜单项
+  ///         （`Decimal` / `Expression` / `Fraction` / `Mixed number` / `Degrees, mins, secs` /
+  ///         `Polar coordinates`）与手册 v12.0 p.6 的两个键帽都这么说。但手册 p.7 的灯仍然只有
+  ///         `EXPR` `MIXED` `DMS` `POLAR` 四盏，**没有一盏以分数命名**——所以这一格不点灯，
+  ///         是来源说它没有灯，而不是来源说不清。）
   ///       - [dms]：`DMS`。HiPER 的 sexagesimal 格式，`D°M'S` / `x⇔E` 那一格。
   ///       - [decimal]：**不点灯**——HiPER 那一格本来就没有灯（四盏灯对五种格式）。
   ///
-  ///       **来源与取法**（本机实测取回，不是记忆）：HiPER 手册 PDF v12.0 仍不在盘上
-  ///       （`find /home/nekorain -iname "*hiper*"` 只有一张截图与无关的 C 文件；仓库里没有 PDF）。
-  ///       上面两串取自 HiPER **自己的**帮助文本，经项目公开的翻译 API 取回：
+  ///       **来源与取法**（本机实测取回，不是记忆）：上面两串取自 HiPER **自己的**帮助文本，
+  ///       经项目公开的翻译 API 取回。**v12.0 手册 PDF 本轮也从厂商站点取到了**
+  ///       （`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`，55 页，落到 `/tmp`），
+  ///       逐句对过：p.7 的「RESULT FORMAT」段与上面第一句同文，四盏灯的名字也相同。
   ///
   ///       ```
   ///       $ curl -sS "https://weblate.a4tune.com/api/units/?q=help.numbers\
@@ -134,16 +174,21 @@ enum ResultForm {
   ///            Labelling `\frac{5}{2}` `MIXED` is a **false sentence about what is on the screen**,
   ///            so silence wins.
   ///            (An older help variant lists the formats as "decimal, **fraction**, mixed number or
-  ///            sexagesimal number" — one HiPER version treats fraction and mixed number as two cells,
-  ///            and not one of the four lamps is named after a fraction — **which lamp the fraction
-  ///            cell gets is undetermined by the sources**, so nothing is guessed here. See below.)
+  ///            sexagesimal number", naming `<ind:FRAC>` instead of `<ind:EXPR>` and dropping polar.
+  ///            That variant is **stale**: `hiper.pot` still carries it beside the current sentence,
+  ///            but manual v12.0 p.7 — the vendor's own current text — uses the five-format wording
+  ///            and the `EXPR`/`MIXED`/`DMS`/`POLAR` lamps. Either way **not one of the lamps is named
+  ///            after a fraction**, so this cell lights nothing — the sources say it has no lamp,
+  ///            not that they are unclear.)
   ///          - [dms]: `DMS`. HiPER's sexagesimal format, the `D°M'S` / `x⇔E` cell.
   ///          - [decimal]: **lights nothing** — that HiPER cell has no lamp (four lamps, five formats).
   ///
   ///          **Source and how it was fetched** (measured on this machine just now, not remembered):
-  ///          the HiPER manual PDF v12.0 is still not on disk (`find /home/nekorain -iname "*hiper*"`
-  ///          returns one screenshot and unrelated C files; the repo holds no PDF). The two strings
-  ///          above come from HiPER's **own** help text, through the project's public translation API:
+  ///          the two strings above come from HiPER's **own** help text, through the project's public
+  ///          translation API. The **v12.0 manual PDF was also fetched this round from the vendor's
+  ///          own site** (`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`, 55 pages,
+  ///          landed in `/tmp`) and checked sentence by sentence: its "RESULT FORMAT" section on
+  ///          p.7 carries the first string above verbatim, with the same four lamp names.
   ///
   ///          ```
   ///          $ curl -sS "https://weblate.a4tune.com/api/units/?q=help.numbers\
@@ -426,10 +471,21 @@ class ResultPresentation {
   /// 中文：从 [current] 走到**下一个画出来不一样的形态**，走完一圈回到 [ResultForm.auto]。
   ///       `current` 不在循环里（包括就是 `auto`）时回到循环的第一个。循环为空时恒为 `auto`
   ///       ——这一份结果只有一行可画，那颗键于是是空操作，而不是假装换了点什么。
+  ///
+  ///       **这一步与 HiPER 的形状不同，是有意的、也是记下来的**：HiPER 那一边 `x⇔E` 打开的是
+  ///       「Select Result Format」菜单（六格：十进制 / 表达式 / 分数 / 带分数 / 度分秒 / 极坐标），
+  ///       本应用画成循环，因为六格里只有三格印得出来。**没有来源说 HiPER 是循环**，
+  ///       所以这里不假称自己是 HiPER 的循环——它是本应用对那一维的一次画法选择。
   /// English: advance from [current] to the **next form that draws differently**, wrapping back to
   ///          [ResultForm.auto]. A `current` outside the cycle (including `auto` itself) goes to the
   ///          cycle's first entry. An empty cycle is always `auto` — this result has one line to
   ///          draw, so that key is a no-op rather than pretending something changed.
+  ///
+  ///          **This shape differs from HiPER's, deliberately and on the record**: HiPER's `x⇔E`
+  ///          opens the "Select Result Format" menu (six cells: decimal / expression / fraction /
+  ///          mixed number / DMS / polar), while this app draws a cycle because only three of the
+  ///          six can be printed here. **No source says HiPER cycles**, so nothing here claims to be
+  ///          HiPER's cycle — it is a drawing decision for that one dimension.
   ResultForm next(ResultForm current) {
     if (cycle.isEmpty) return ResultForm.auto;
     final index = cycle.indexOf(current);
@@ -441,22 +497,39 @@ class ResultPresentation {
   ///       `\frac{5}{2}`），这一次没有分数写法时退回引擎的精确写法（`√8` 的 `2\times \sqrt{2}`），
   ///       两者都没有时这颗键是空操作（`2+2`：精确写法就是那串十进制，没有第二种写法）。
   ///
-  ///       为什么不是「只切分数」：分数写法**只对有理数存在**，而 `√8`、`√2`、`π` 这类结果一个都
-  ///       没有。只切分数的 `d/c` 在那些结果上按下去什么都不发生——一颗看起来坏掉的键，而它的
-  ///       名字与它该做的事并没有矛盾。Casio 的 `S⇔D` 走的就是这条更宽的路：**标准写法**（分数、
-  ///       根号、π 都算）⇄ 十进制。分数存在时它就是「分数 ⇄ 十进制」，一字不差。
+  ///       **「有分数取分数、没分数取表达式」不是本项目的放宽，它就是 HiPER 这一格的定义。**
+  ///       HiPER 把这一格叫 `detailGroup.EXPRESSION.title` = **'Result as fraction or
+  ///       expression'**（「作为分数**或表达式**的结果」），而手册 v12.0 给这一格举的例子正是
+  ///       一个分数——p.11「Expression: `2√3 / 5`」。所以只切分数的版本比 HiPER **窄**，
+  ///       而且在 `√8`、`√2`、`π` 这些结果上按下去什么都不发生：一颗看起来坏掉的键。
+  ///       （早先这里写的是「Casio 的 `S⇔D` 走的就是这条更宽的路」——**那个类比是错的归因**，
+  ///       `d/c` 在 HiPER 上不是 `S⇔D`；宽的那条路 HiPER 自己就有名字，就是上面这一格。）
+  ///
+  ///       **第二次按回到十进制这一步没有来源**：HiPER 的帮助只说「Pressing fraction keys, when
+  ///       a result of calculation is displayed, converts the result to a fraction or mixed number」
+  ///       ——方向有了，来回有没有**没说**，手册 p.6 的 FRACTIONS 段只讲输入、一个字都没提结果。
+  ///       留成一次开关是为了让这颗键能自己走回来（`x⇔E` 那边也能回到十进制）。
   /// English: **standard spelling ⇄ decimal reading** — the `d/c` key. The standard spelling prefers
   ///          the **fraction** (`1/3`, `10/4`'s `\frac{5}{2}`) and falls back to the engine's exact
   ///          spelling when this result has no fraction (`√8`'s `2\times \sqrt{2}`); with neither,
   ///          the key is a no-op (`2+2`: the exact spelling *is* that decimal, so there is no second
   ///          spelling).
   ///
-  ///          Why not "fractions only": a fraction spelling **exists only for rationals**, and none
-  ///          of `√8`, `√2` or `π` has one. A fractions-only `d/c` would do nothing at all on those
-  ///          results — a key that looks broken, while its name and its job are not in conflict.
-  ///          Casio's `S⇔D` takes this same wider route: **standard form** (fractions, radicals and
-  ///          π included) ⇄ decimal. Where a fraction exists it is "fraction ⇄ decimal", to the
-  ///          letter.
+  ///          **"Fraction when there is one, otherwise the expression" is not this project widening
+  ///          the key — it is the definition of HiPER's cell.** HiPER calls this cell
+  ///          `detailGroup.EXPRESSION.title` = **'Result as fraction or expression'**, and manual
+  ///          v12.0's own example for it is a fraction — p.11 "Expression: `2√3 / 5`". So a
+  ///          fractions-only version would be **narrower** than HiPER, and would do nothing at all on
+  ///          `√8`, `√2` or `π`: a key that looks broken. (This note used to say "Casio's `S⇔D` takes
+  ///          this same wider route" — **that analogy is a misattribution**: `d/c` is not `S⇔D` on
+  ///          HiPER, and the wider route has HiPER's own name, the cell above.)
+  ///
+  ///          **The second press, returning to the decimal, has no source**: HiPER's help says only
+  ///          "Pressing fraction keys, when a result of calculation is displayed, converts the result
+  ///          to a fraction or mixed number" — the direction is given, the way back is **not stated**,
+  ///          and the FRACTIONS section of manual p.6 is about entry only and says nothing about a
+  ///          result. It is kept as a toggle so the key can walk itself back (`x⇔E` reaches the
+  ///          decimal too).
   /// 中文：**度分秒 ⇄ 默认那一行**——`D°M'S` 那一颗键。它是一次开关而不是循环里的一格：
   ///       按下去换成度分秒写法，再按一次回到默认（与 `d/c` 那颗键同一种手感）。这一份结果**没有**
   ///       度分秒写法时（引擎没答、RAD 模式、形状认不出来、串与读数相同）它是**空操作**——不是
