@@ -64,6 +64,37 @@ const List<String> _statisticsStartingSample = <String>['1', '2', '3', '4'];
 ///          Two pairs (four values) and up is real: `pearson(matrix(2,2,1,3,2,4))` = `1` (measured).
 const int kMinRegressionPairs = 2;
 
+/// 中文：**三个拟合函数各自要几对值。** 这不是我挑的下限，是**引擎自己的 `<condition>`**
+///       （`data/functions.xml.in`，libqalculate 5.12.0）：`linearfit` 要
+///       `dimension(x)>=2`、`quadraticfit` 要 `>=3`、`cubicfit` 要 `>=4`。
+///
+///       它是**量出来的、而且必须按函数分开**：一个行向量 `matrix(1,n,…)` 的 `dimension` 就是
+///       `n`（实测），所以 n=2 时 `quadraticfit(matrix(1,2,…),matrix(1,2,…))` 原样退回
+///       `quadraticfit([1  2]; [1  4])`、种类 `arithmetic`（不显示）——屏幕上会是一句错误。
+///       **一个「拟合」共用的下限会让那两格各按下去插一条答不出来的调用**，所以下限写在函数上。
+///
+///       `linearfit` 的 2 与 [kMinRegressionPairs] 数值相同，但**理由不同**（那一个是
+///       `pearson` 在 n=1 上给未求值的 `0 / 0`），所以两张表各写各的，谁也不引用谁。
+///
+/// English: **how many pairs each of the three fits needs.** This is not a floor I picked, it is the
+///          engine's own `<condition>` (`data/functions.xml.in`, libqalculate 5.12.0): `linearfit`
+///          wants `dimension(x)>=2`, `quadraticfit` `>=3`, `cubicfit` `>=4`.
+///
+///          It is **measured, and it has to be per function**: a row vector `matrix(1,n,…)` has
+///          `dimension` `n` (measured), so at n=2 `quadraticfit(matrix(1,2,…),matrix(1,2,…))` comes
+///          straight back as `quadraticfit([1  2]; [1  4])` with kind `arithmetic` (not displayable) —
+///          an error on screen. **One floor shared by "the fits" would make those two cells each insert
+///          a call the engine cannot answer**, which is why the floor lives on the function.
+///
+///          `linearfit`'s 2 happens to equal [kMinRegressionPairs], but the **reasons differ** (that
+///          one comes from `pearson` returning the unevaluated `0 / 0` at n=1), so the two tables are
+///          written separately and neither cites the other.
+const Map<String, int> kFitMinimumPairs = <String, int>{
+  'linearfit': 2,
+  'quadraticfit': 3,
+  'cubicfit': 4,
+};
+
 /// 中文：**统计数据集住在应用这一侧**——一份十进制文本的表，与变量（`x`/`y`）和记忆寄存器同一
 ///       种货币（[MathResult.decimalText]），因此也与它们走同一套判据、撤销栈、落盘与代际守卫。
 ///
@@ -406,6 +437,110 @@ mixin _CalculatorDataset on _CalculatorState {
     if (!canReadDatasetAsTwoRows) return null;
     final rows = datasetPairCount;
     return '$function(matrix(2,$rows,${_dataset.join(',')}))';
+  }
+
+  /// 中文：**三个拟合函数插进表达式的那一整条调用**，读不成两行（或对数不够）时是 `null`。
+  ///
+  ///       形状与 [regressionCall] **故意不同，而且这一处是量出来的**：`pearson` 那三个吃
+  ///       **一个两行矩阵**（`matrix(2,n,…)`），而这三个**不能**吃那个形状——把它们喂成两行矩阵
+  ///       会拿到另一件事，且答案照样上屏。宿主实测（libqalculate 5.12.0，种类判据照抄
+  ///       `QalculateEngine.kt`）：
+  ///
+  ///       | 第一个实参 | 引擎印出来 | 种类 |
+  ///       |---|---|---|
+  ///       | `matrix(2,5,1,2,3,4,5,2,4,6,8,10)`（两**行**） | `[x  2x  3x  4x  5x]`（一个向量） | `structured` |
+  ///       | `matrix(2,2,1,2,3,4)`（两行，n=2） | `x + 1`（**X、Y 反了**，正解 `x + 2`） | `symbolic` |
+  ///       | `matrix(1,5,…),matrix(1,5,…)`（两**个行矩阵**） | `2x`（正解） | `symbolic` |
+  ///
+  ///       n=2 那一行尤其要紧：**两行形状在 n=2 上不是「碰巧对」，是错的**——它的子函数只在
+  ///       `rows>1 && columns=2` 时读列，而 `matrix(2,2,…)` 的两列是 `(x1,y1)`、`(x2,y2)`。
+  ///       （上一轮的 `stat-regression-report.md` 写着「n=2 时两行与两列是同一个布局，所以碰巧对」
+  ///       ——**那句话是错的**，这一行是它的反例。）
+  ///
+  ///       所以这里写的是**两个行矩阵**：前一半 X、后一半 Y，与 [datasetPairCount] 那一种切法
+  ///       逐字相同（不是第二种切法），只是形状从「一个两行」换成「两个一行」。**两个实参各一条
+  ///       序列**也正是 [AppFunction.oneSeriesPerArgument] 那一列要求的东西，翻译层不会再拒。
+  ///
+  ///       下限按函数取（[kFitMinimumPairs]）。值与 [statisticsCall] 同一条：逐字来自
+  ///       [MathResult.decimalText]，不按精度取整。
+  /// English: **the whole call the three fits insert**, or `null` when the dataset cannot be read as
+  ///          two rows (or holds too few pairs).
+  ///
+  ///          The shape is **deliberately different from [regressionCall]'s, and that is measured**:
+  ///          those three take **one two-row matrix** (`matrix(2,n,…)`) while these three **cannot** —
+  ///          feeding them that shape buys something else, and the answer reaches the screen anyway.
+  ///          Measured on the host (libqalculate 5.12.0, the kind predicate copied from
+  ///          `QalculateEngine.kt`):
+  ///
+  ///          | first argument | what the engine prints | kind |
+  ///          |---|---|---|
+  ///          | `matrix(2,5,1,2,3,4,5,2,4,6,8,10)` (two **rows**) | `[x  2x  3x  4x  5x]` (a vector) | `structured` |
+  ///          | `matrix(2,2,1,2,3,4)` (two rows, n=2) | `x + 1` (**X and Y swapped**; the answer is `x + 2`) | `symbolic` |
+  ///          | `matrix(1,5,…),matrix(1,5,…)` (two **row matrices**) | `2x` (right) | `symbolic` |
+  ///
+  ///          The n=2 row matters most: **the two-row shape is not "coincidentally right" at n=2, it is
+  ///          wrong** — its subfunction reads columns only while `rows>1 && columns=2`, and
+  ///          `matrix(2,2,…)`'s two columns are `(x1,y1)` and `(x2,y2)`. (Last round's
+  ///          `stat-regression-report.md` says "at n=2 the two-row and two-column layouts are the same,
+  ///          so it happens to be right" — **that sentence is false**, and this row is its
+  ///          counterexample.)
+  ///
+  ///          So what is written here is **two row matrices**: the first half X, the second half Y, the
+  ///          same cut as [datasetPairCount] (not a second cut), only the shape changes from "one
+  ///          two-row" to "two one-row". **One series per argument** is exactly what
+  ///          [AppFunction.oneSeriesPerArgument] demands, so the translation will not refuse it.
+  ///
+  ///          The floor comes from the function ([kFitMinimumPairs]). The values follow
+  ///          [statisticsCall]: verbatim from [MathResult.decimalText], never rounded.
+  String? fitCall(String function) {
+    final minimum = kFitMinimumPairs[function];
+    if (minimum == null) return null;
+    final pairs = datasetPairCount;
+    if (pairs < minimum) return null;
+    final xs = _dataset.take(pairs).join(',');
+    final ys = _dataset.skip(pairs).join(',');
+    return '$function(matrix(1,$pairs,$xs),matrix(1,$pairs,$ys))';
+  }
+
+  /// 中文：**拟合格那一行的读数**——三格各要几对、数据集此刻有几个值，以及**此刻真会插哪一条**。
+  ///
+  ///       它**与上面那一行的读数形状不同，而且这是判据逼出来的**：上面那三格共用一个下限，所以
+  ///       「亮着」是一个布尔；这三格各有各的下限（[kFitMinimumPairs]），**同一个面板上可以一格亮
+  ///       两格灰**。于是「亮着时只写那一条调用」会让灰的那两格**说不出自己为什么灰**——而灰键
+  ///       不解释自己为什么灰，就等于没说。所以这条读数**永远**给出下限与个数，另在至少有一格亮着
+  ///       时再把第一条会插进去的调用接在后面。
+  ///
+  ///       **措辞与 [regressionUnavailableMessage] 逐字不同，这也是有意的**：两句话会同时出现在
+  ///       面板上（一行一条），共用一串字符会让「屏幕上那句话说的是哪一行」变成猜的。
+  /// English: **the fit row's reading** — how many pairs each cell needs, how many values the dataset
+  ///          holds, and **which call would really be inserted right now**.
+  ///
+  ///          Its shape **differs from the row above's, and the judgement forces that**: those three
+  ///          cells share one floor, so "lit" is a boolean; these three have a floor each
+  ///          ([kFitMinimumPairs]), so **one sheet can hold one lit cell and two dark ones**. Writing
+  ///          only the call while something is lit would therefore leave the dark cells **unable to say
+  ///          why they are dark** — and a grey cell that does not explain itself may as well say
+  ///          nothing. So this reading **always** gives the floors and the count, and appends the first
+  ///          call that would be inserted once at least one cell is lit.
+  ///
+  ///          **The wording is deliberately word for word different from
+  ///          [regressionUnavailableMessage]'s**, too: both sentences sit on the sheet at once (one per
+  ///          row) and sharing a run of characters would make "which row is that sentence about" a
+  ///          guess.
+  String get fitStatusMessage {
+    final floors = kFitMinimumPairs.entries
+        .map((entry) => '${entry.key} 要 ${entry.value} 对')
+        .join('、');
+    final head = _dataset.isEmpty
+        ? '拟合把数据集读成两行（前一半 X、后一半 Y）：$floors；数据集是空的'
+        : _dataset.length.isOdd
+            ? '拟合把数据集读成两行（需要偶数个值）：$floors；当前有 ${_dataset.length} 个'
+            : '拟合把数据集读成两行：$floors；当前有 ${_dataset.length} 个值';
+    for (final function in kFitMinimumPairs.keys) {
+      final call = fitCall(function);
+      if (call != null) return '$head → $call';
+    }
+    return head;
   }
 
   /// 中文：**读不成两行时对用户说的那一句话**——说清两行读法要什么、数据集此刻有几个值。

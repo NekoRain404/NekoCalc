@@ -568,57 +568,45 @@ void main() {
       }
     });
 
-    test('引擎的三个拟合函数这一轮仍不提供——挡下它们的已经不是那条判据了', () {
-      // 中文：**上一轮在这里钉住的是那条判据的样子，判据那一轮把它翻了过来。** 现在写着的是
-      //       事实的两半：
-      //       ① **判据不再挡它们**：`canExpress(fit)` 为**假**——这棵树里的调用名
-      //       （`linearfit`、`matrix`）应用自己的求值器一个都没绑定（函数名那一半见
-      //       `namesSomethingOutsideTheAppLanguage`：`functionNames` 之外的名字与 `VariableNode`
-      //       同一条判据）。上一轮量出的那条链于是断在最前面一环：引擎那份 `symbolic` 答复不再是
-      //       「表达得了所以丢掉」。宿主实测（libqalculate 5.12.0，按桥的选项）：
-      //       `linearfit(matrix((1),(5),(1),(2),(3),(4),(5)),matrix((1),(5),(2),(4),(6),(8),(10)))`
-      //       精确印成 `2x`、队列空、结构里有变量 ⇒ 种类 `symbolic`，而 `MathResult.isDisplayable`
-      //       对 `symbolic` 是放行——所以它现在会（在有名字可问之后）上屏。
-      //       ② **仍然不放它们进词表**，但理由换成了另外两条：**名字不在词表里 ⇒ 翻译层拒绝，
-      //       引擎根本不会被问**（`engineNameFor` 对表外标识符一律拒绝），所以这一轮之后屏幕上
-      //       逐字节不变；而两行形状那一侧还压着一条实测的错值——`linearfit(matrix(2,5,…))`
-      //       （两行）**不报错，返回一个向量** `[x  2x  3x  4x  5x]`（宿主实测，种类 `structured`
-      //       ⇒ 可显示），因为它的子函数要的是两**列**。点亮那几格因此是**它自己的一轮**：
-      //       喂两列、并量它印出来的东西。
-      //       这一条钉住的仍是判据此刻的样子——再改它会红，那正是它该有的作用。
-      // English: **the previous round pinned the judgement here; the judgement round turned it over.**
-      //          What is written now is the two halves of the fact:
-      //          ① **the judgement no longer blocks them**: `canExpress(fit)` is **false** — not one of
-      //          the call names in this tree (`linearfit`, `matrix`) is bound by this app's own
-      //          evaluator (the function half is on `namesSomethingOutsideTheAppLanguage`: a name
-      //          outside `functionNames` faces the same judgement as a `VariableNode`). The chain the
-      //          last round measured therefore breaks at its first link: the engine's `symbolic` answer
-      //          is no longer "expressible, so discarded". Measured on the host (libqalculate 5.12.0,
-      //          through the bridge's options):
-      //          `linearfit(matrix((1),(5),(1),(2),(3),(4),(5)),matrix((1),(5),(2),(4),(6),(8),(10)))`
-      //          prints exactly `2x` with an empty queue and a variable in the structure ⇒ kind
-      //          `symbolic`, and `MathResult.isDisplayable` admits `symbolic` — so it would now reach
-      //          the screen (once there is a name to ask about).
-      //          ② **they still do not enter the vocabulary**, for two other reasons now: **a name
-      //          outside the vocabulary is refused by the translation layer, so the engine is never
-      //          asked** (`engineNameFor` refuses every identifier outside the table) — which is why
-      //          nothing on screen changes this round; and the two-row side still carries a measured
-      //          wrong value — `linearfit(matrix(2,5,…))` (two rows) **does not error, it returns a
-      //          vector** `[x  2x  3x  4x  5x]` (host-measured, kind `structured` ⇒ displayable),
-      //          because its subfunction wants two **columns**. Lighting those cells is therefore a
-      //          round of its own: feed two columns, and measure what they print.
-      //          This test still pins the judgement's shape right now — changing it again turns this
-      //          red, which is exactly what it is for.
+    test('三个拟合函数现在提供了，而且只在一种形状下（判决与拒绝都在翻译层）', () {
+      // 中文：**这条上一轮钉的是「不提供」，拟合那一轮把它翻了过来。** 现在是三件事：
+      //       ① **三个名字都在词表里**，判据（`canRead`/`canExpress`）都不再挡它们；
+      //       ② **翻译层只管一种形状**：每个实参都得是一行矩阵，理由与实测表在
+      //       `engine_expression.dart` 的 `_seriesShapeRefusal` 上；
+      //       ③ **两行形状被拒**——那是两件事共用一个形状：`linearfit(matrix(2,5,…))` 印出向量
+      //       `[x 2x 3x 4x 5x]`（`structured`，可显示），`linearfit(matrix(2,2,1,2,3,4))` 印出
+      //       `x + 1`（X、Y 反了，正解 `x + 2`，`symbolic`，也可显示）。
+      //       断言没有削弱：上一轮那条 `isNot(contains(name))` 在这里**反过来**了，而不是被删掉。
+      // English: **this pinned "not provided" last round; the fitting round turned it over.** It is
+      //          now three things: ① **all three names are in the vocabulary**, and neither judgement
+      //          (`canRead`/`canExpress`) blocks them any more; ② **the translation layer allows one
+      //          shape only** — every argument must be a one-row matrix, the reasons and the
+      //          measurement table are on `_seriesShapeRefusal` in `engine_expression.dart`; ③ **the
+      //          two-row shape is refused**, and that is two things sharing one shape:
+      //          `linearfit(matrix(2,5,…))` prints the vector `[x 2x 3x 4x 5x]` (`structured`,
+      //          displayable) and `linearfit(matrix(2,2,1,2,3,4))` prints `x + 1` (X and Y swapped; the
+      //          answer is `x + 2`; `symbolic`, also displayable). No assertion is weakened: last
+      //          round's `isNot(contains(name))` is **inverted** here rather than deleted.
       const fit = 'linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))';
       for (final name in <String>['linearfit', 'quadraticfit', 'cubicfit']) {
-        expect(AppEngineVocabulary.identifiers, isNot(contains(name)));
+        expect(AppEngineVocabulary.identifiers, contains(name));
+        expect(AppEngineVocabulary.identifiers[name]!.oneSeriesPerArgument, isTrue,
+            reason: '`$name` 的实参形状要按格判，所以这一列必须为真');
       }
-      expect(AppEngineVocabulary.canRead(fit), isTrue,
-          reason: '引擎读得懂它——挡下它的不是名字层');
+      expect(AppEngineVocabulary.canRead(fit), isTrue);
       expect(AppEngineVocabulary.canExpress(fit), isFalse,
-          reason: '应用自己的求值器没有绑定 `linearfit`/`matrix` 这两个调用名，'
-              '所以这份 `symbolic` 答复不再被丢掉；挡着那三格的现在是词表（翻译层）'
-              '与两行形状那条向量');
+          reason: '应用自己的求值器没有绑定 `linearfit`/`matrix`，所以这份 `symbolic` 答复不再被丢掉');
+      expect(engineExpressionFor(fit), isA<TranslatedExpression>(),
+          reason: '两个行矩阵正是翻译层认的那一种形状');
+      // 中文：两行形状——两种 n 各拒一次（向量那一支与 X/Y 反了那一支）。
+      // English: the two-row shape — refused once per n (the vector branch and the swapped-X/Y one).
+      for (final twoRow in <String>[
+        'linearfit(matrix(2,5,1,2,3,4,5,2,4,6,8,10))',
+        'linearfit(matrix(2,2,1,2,3,4))',
+      ]) {
+        expect(engineExpressionFor(twoRow), isA<UntranslatableExpression>(),
+            reason: '`$twoRow` 的两行形状引擎读成另一件事，答案照样上屏');
+      }
     });
 
     test('引擎缺席时，两变量那条调用回落旧解析器并报错——绝不猜一个数', () async {
