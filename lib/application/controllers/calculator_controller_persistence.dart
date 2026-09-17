@@ -61,6 +61,21 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          as "no usable memory value" (0), the same as a missing or unparseable one.
     memoryValue =
         MathResult.decimalValueOf(settings['calculator_memory'] ?? '') ?? 0;
+    // 中文：变量的恢复走**与记忆寄存器同一道判定**（`decimalValueOf`）——磁盘上的东西同样是输入，
+    //       同样可能是 `Infinity`、`NaN` 或一个下溢成 0 的值；挡下来的按「没有绑定」处理，
+    //       与键缺失、值不可解析时一致。这一条也保证了一件事：**变量的值永远是一个能装进 double
+    //       的有限数**，于是回落旧解析器时它不会变成一个静默的 0。
+    // English: the variables are restored through **the same judgement the memory register uses**
+    //          (`decimalValueOf`) — what is on disk is input too, and it may just as well be an
+    //          `Infinity`, a `NaN` or a value that underflows to 0; what it rejects is treated as "not
+    //          bound", exactly like a missing or unparseable entry. This also guarantees one thing:
+    //          **a variable's value is always a finite number that fits in a double**, so it cannot
+    //          turn into a silent 0 when the legacy parser answers instead of the engine.
+    _variables.clear();
+    for (final name in kBindableVariableNames) {
+      final stored = settings['calculator_variable_$name'] ?? '';
+      if (MathResult.decimalValueOf(stored) != null) _variables[name] = stored;
+    }
     _lastFiniteResult =
         _result.decimalText.isEmpty ? null : _result.decimalText;
     if (expression.isNotEmpty) evaluate();
@@ -281,6 +296,13 @@ mixin _CalculatorPersistence on _CalculatorState {
       'calculator_result_decimal': _result.decimalText,
       'calculator_angle': angleMode,
       'calculator_memory': memoryValue.toString(),
+      // 中文：两个变量各写一条，没绑定时写空串——`setMany` 只覆盖列出来的键，不写就等于把上一次的
+      //       绑定留在磁盘上，重启之后那个变量会自己回来。
+      // English: one entry per variable, an empty string while unbound — `setMany` only overwrites the
+      //          keys it is given, so leaving them out would keep the previous binding on disk and the
+      //          variable would come back by itself after a restart.
+      for (final name in kBindableVariableNames)
+        'calculator_variable_$name': _variables[name] ?? '',
       'calculator_cursor': cursorIndex.toString(),
       'calculator_selection_start': selection.start.toString(),
       'calculator_selection_end': selection.end.toString(),
@@ -506,8 +528,31 @@ mixin _CalculatorPersistence on _CalculatorState {
     _ansValueForExpression = null;
   }
 
+  /// 中文：**求值侧的替换入口，也是唯一的那一个。** 两层，顺序固定：先 `Ans`/`last`（它们换成的是
+  ///       上一次的结果），再变量（`x`/`y` 换成用户绑定的值）。两者都不是「按名字拼字符串」这么简单
+  ///       的事，各自的判据在各自那一处（[_resolveAnswerValue] 与 [resolveVariableReferences]）。
+  ///
+  ///       为什么变量挂在**这一层**而不是翻译器里：这一层的输出是三个消费者共同看到的那一个字符串
+  ///       ——翻译器（`_askEngineTranslated`）、旧解析器（`_calculateResult`，它自己也调这一层）、
+  ///       以及 `M+` 取值用的 `_currentNumericValue`。放进翻译器会让翻译器与解析器看到两份输入，
+  ///       而这一条正是修复轮 7/8 反复吃过亏的地方。
+  /// English: **the evaluator's substitution entry point, and the only one.** Two layers, in a fixed
+  ///          order: `Ans`/`last` first (they become the previous result), then the variables (`x`/`y`
+  ///          become the user's bound value). Neither is as simple as gluing a name together, and each
+  ///          judgement lives where it belongs ([_resolveAnswerValue] and
+  ///          [resolveVariableReferences]).
+  ///
+  ///          Why the variables hang on **this** layer rather than in the translator: this layer's
+  ///          output is the one string all three consumers see — the translator
+  ///          (`_askEngineTranslated`), the legacy parser (`_calculateResult`, which calls this layer
+  ///          itself) and `_currentNumericValue` (what `M+` reads). Putting it in the translator would
+  ///          give the translator and the parser two inputs, and that is exactly where fix rounds 7
+  ///          and 8 kept losing.
   @override
-  String _resolveAnswerReferences(String source) {
+  String _resolveAnswerReferences(String source) =>
+      _resolveVariableReferences(_resolveAnswerValue(source));
+
+  String _resolveAnswerValue(String source) {
     if (!_hasAnswerReference(source)) {
       _ansSourceForExpression = null;
       _ansValueForExpression = null;

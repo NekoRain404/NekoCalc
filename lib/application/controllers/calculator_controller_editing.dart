@@ -370,6 +370,12 @@ mixin _CalculatorEditing on _CalculatorState {
       lastFiniteResult: _lastFiniteResult,
       ansSourceForExpression: _ansSourceForExpression,
       ansValueForExpression: _ansValueForExpression,
+      // 中文：表要复制一份。快照会在栈里躺很久，直接存引用等于让它跟着之后的每一次绑定一起变——
+      //       撤销到的就不是当时那一刻了。
+      // English: the map is copied. A snapshot sits on the stack for a long time, and keeping the
+      //          reference would let it change with every later binding — undo would then land on
+      //          something other than the moment it recorded.
+      variables: Map<String, String>.of(_variables),
     );
   }
 
@@ -393,6 +399,9 @@ mixin _CalculatorEditing on _CalculatorState {
     _lastFiniteResult = snapshot.lastFiniteResult;
     _ansSourceForExpression = snapshot.ansSourceForExpression;
     _ansValueForExpression = snapshot.ansValueForExpression;
+    _variables
+      ..clear()
+      ..addAll(snapshot.variables);
   }
 
   void _toggleSign() {

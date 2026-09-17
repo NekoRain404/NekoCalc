@@ -49,6 +49,14 @@ mixin _CalculatorState on ChangeNotifier {
   Future<void> _persistState();
   String _friendlyCalculationError(Object error);
   String _resolveAnswerReferences(String source);
+  /// 中文：`Ans`/`last` 替换之后、任何人读它之前，把绑定了值的变量换成数（实现留在变量混入里）。
+  ///       `_resolveAnswerReferences` 是它唯一的调用方，于是两条消费者（引擎路径与旧解析器路径）
+  ///       看到的是同一个字符串——修复轮 7/8 反复吃过的那个亏。
+  /// English: after the `Ans`/`last` substitution and before anyone reads it, replace bound variables
+  ///          with their numbers (the implementation lives in the variables mixin).
+  ///          `_resolveAnswerReferences` is its only caller, so both consumers (the engine path and the
+  ///          legacy parser) see one string — the trap fix rounds 7 and 8 kept falling into.
+  String _resolveVariableReferences(String source);
   Future<CalculatorSubmitResult> _saveSubmittedResult(
     String expression,
     String result,
@@ -80,6 +88,18 @@ mixin _CalculatorState on ChangeNotifier {
   String? _lastFiniteResult = '0';
   String? _ansSourceForExpression;
   String? _ansValueForExpression;
+
+  /// 中文：绑定了值的变量（小写名字 → 十进制文本）。空表 = 两个变量都是自由的，于是含它们的表达式
+  ///       仍旧是符号式——**这一点必须成立**：`x`/`y` 从上一轮起就是引擎认识的自由变量（`2x` 印成
+  ///       `2x`），绑定是加法而不是改法。读它的是 [_CalculatorVariables]，写它的是撤销栈的恢复与
+  ///       状态恢复（都通过 [_CalculatorSnapshot] 的 `variables` 那一格）。
+  /// English: the variables that hold a value (lower-case name → decimal text). An empty map means both
+  ///          variables are free, so an expression holding them is still symbolic — **and that has to
+  ///          hold**: `x`/`y` have been free variables the engine knows since the previous round
+  ///          (`2x` prints as `2x`), so binding is an addition rather than a change.
+  ///          [_CalculatorVariables] reads it; the undo stack's restore and state restore write it
+  ///          (both through the snapshot's `variables`).
+  final Map<String, String> _variables = <String, String>{};
   Timer? _liveEvaluationTimer;
 
   /// 中文：边打边算那一发的引擎跟进定时器。与 [_liveEvaluationTimer]（32ms，旧解析器上屏）分开，

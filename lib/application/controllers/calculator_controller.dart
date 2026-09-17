@@ -7,6 +7,7 @@ import '../../core/math/expression_parser.dart';
 import '../../core/math/app_engine_vocabulary.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
+import '../../core/math/variable_references.dart';
 import '../../core/platform/qalculate_channel.dart';
 import '../../core/platform/qalculate_math_engine.dart';
 import '../../core/utils/number_formatter.dart';
@@ -25,6 +26,7 @@ part 'calculator_controller_editing.dart';
 part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
+part 'calculator_controller_variables.dart';
 
 /// 中文：边打边算用哪个结果上屏——**裁决 1 的那个开关**，做成可切换的常量而不是写死在流程里。
 ///
@@ -177,7 +179,8 @@ class CalculatorController extends ChangeNotifier
         _CalculatorEditing,
         _CalculatorEvaluation,
         _CalculatorPersistence,
-        _CalculatorBaseReadout {
+        _CalculatorBaseReadout,
+        _CalculatorVariables {
   CalculatorController({
     required this.historyRepository,
     required this.notesRepository,
@@ -284,6 +287,7 @@ class _CalculatorSnapshot {
     required this.lastFiniteResult,
     required this.ansSourceForExpression,
     required this.ansValueForExpression,
+    required this.variables,
   });
 
   final String expression;
@@ -301,6 +305,23 @@ class _CalculatorSnapshot {
   final String? ansSourceForExpression;
   final String? ansValueForExpression;
 
+  /// 中文：变量绑定也是**状态**，所以它也进撤销栈——`memoryValue` 早就在里面，理由相同：撤销一次
+  ///       绑定之后，屏幕上的结果必须与那一次的绑定配套，否则「撤销」会留下一行与变量对不上的结果。
+  ///       `Map` 在 Dart 里没有值相等，所以 `==` 用 `mapEquals`、`hashCode` 用一份**排序后**的
+  ///       条目串——不排序的话，两张内容相同而插入顺序不同的表会算出两个不同的散列，去重就失效了。
+  /// English: a variable binding is **state** too, so it goes into the undo stack — `memoryValue` has
+  ///          been in there all along for the same reason: after undoing a binding the result on screen
+  ///          has to belong to that binding, or "undo" leaves a result that does not match its
+  ///          variables. Dart's `Map` has no value equality, so `==` uses `mapEquals` and `hashCode`
+  ///          uses a **sorted** run of entries — unsorted, two maps with equal contents but different
+  ///          insertion order would hash differently and the de-duplication would stop working.
+  final Map<String, String> variables;
+
+  int get _variablesHash => Object.hashAll(
+        variables.entries.map((entry) => '${entry.key}=${entry.value}').toList()
+          ..sort(),
+      );
+
   @override
   bool operator ==(Object other) {
     return other is _CalculatorSnapshot &&
@@ -313,7 +334,8 @@ class _CalculatorSnapshot {
         other.errorMessage == errorMessage &&
         other.lastFiniteResult == lastFiniteResult &&
         other.ansSourceForExpression == ansSourceForExpression &&
-        other.ansValueForExpression == ansValueForExpression;
+        other.ansValueForExpression == ansValueForExpression &&
+        mapEquals(other.variables, variables);
   }
 
   @override
@@ -328,6 +350,7 @@ class _CalculatorSnapshot {
         lastFiniteResult,
         ansSourceForExpression,
         ansValueForExpression,
+        _variablesHash,
       );
 }
 
