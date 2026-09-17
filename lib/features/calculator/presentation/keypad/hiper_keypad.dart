@@ -266,7 +266,8 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   ),
 
   // 中文：行 5——度分秒 / 分数 / X / XY,M（三条禁用）/ 记忆读取 / 记忆写入。
-  //       上方标签：STAT、a b/c、Y 三个禁用键，HISTORY（打开抽屉的历史入口），
+  //       上方标签：**`STAT` 从这一步起点亮**（原来是一颗灰键 `dis:stat`），`a b/c` 仍是禁用键，
+  //       `Y` 把 `y` 插进表达式，HISTORY（打开抽屉的历史入口），
   //       M+、M−（记忆累加与累减——它们与 `memoryAdd`/`memorySubtract` 语义一致）。
   //       注意 `x→M`：它**不是**累加，HiPER 上它是把当前值写进寄存器（替换）；主屏用
   //       「先清空再累加」实现它，见 `calculator_page.dart` 的 `memoryStore` case。
@@ -276,8 +277,9 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   //       再按一次换回十进制。分数写法由引擎对**同一个已求值结构**换一种 `number_fraction_format`
   //       印出来（见 `printOptions`），两份的值严格相等；引擎没答上来时它是空操作，不去猜一个分数。
   // English: Row 5 — D°M'S / d/c / X / XY,M (three disabled) / memory recall / memory store.
-  //          Band above: the disabled STAT, a b/c and Y keys, HISTORY (the drawer's history
-  //          entry), and M+ / M− (memory accumulate and decrement — these two do match
+  //          Band above: **`STAT` lights up from this step on** (it used to be a grey `dis:stat`),
+  //          `a b/c` is still disabled, `Y` inserts `y`, HISTORY (the drawer's history entry), and
+  //          M+ / M− (memory accumulate and decrement — these two do match
   //          `memoryAdd`/`memorySubtract`). Note `x→M`: it is **not** an accumulate — on HiPER it
   //          writes the current value into the register (a replace); the screen implements that as
   //          "clear, then add", see the `memoryStore` case in `calculator_page.dart`.
@@ -334,10 +336,25 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
       ),
     ],
     labels: <KeypadLabel?>[
+      // 中文：**`STAT` 打开统计面板。** 为什么是「打开面板」而不是「一下插一个数」：HiPER 的
+      //       `STAT` 背后是一台**统计编辑器**（输入一串数，再要众数/标准差/回归），而键盘上既没有
+      //       逗号键、也没有字母键，那串数与那几个函数名都只能由面板送进表达式——与 `CONV`/`X`
+      //       同一种做法，也与 `Σ`/`Π`/`∫dx` 那几颗「插完整调用」的键同一条理由。
+      //       面板插入的是**完整**调用（`mean(1,2,3,4)`），插完就关：面板盖住键盘，留着它挡住
+      //       下一步输入，而半条调用（`mean(`）在没有逗号键的键盘上永远补不完。
+      // English: **`STAT` opens the statistics sheet.** Why "open a sheet" rather than "insert a
+      //          number": what sits behind HiPER's `STAT` is a **statistics editor** (enter a run of
+      //          numbers, then ask for the mean, the standard deviation, a regression), and the keypad
+      //          has neither a comma key nor letter keys, so both the run of numbers and those
+      //          function names can only reach the expression through a sheet — the `CONV`/`X` shape,
+      //          and the same reason the `Σ`/`Π`/`∫dx` keys insert **complete** calls.
+      //          The sheet inserts a complete call (`mean(1,2,3,4)`) and closes on the press: it covers
+      //          the keypad otherwise, and half a call (`mean(`) can never be completed on a keypad
+      //          with no comma key.
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'STAT', id: 'dis:stat', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'STAT', id: 'openStatistics'),
+          category: KeyCategory.function,
         ),
       ),
       InlineKey(
@@ -380,10 +397,12 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   ),
 
   // 中文：行 6——数字 7 8 9 与括号。HiPER 在这里收窄为 5 列，标签横带只有 4 格，末格补 null。
-  //       上方标签：CPLX 禁用键，∞（`ins:inf`）、%（`ins:%`）、mod。
+  //       上方标签：**`CPLX` 从这一步起点亮**（原来是一颗灰键 `dis:cplx`），以及 ∞（`ins:inf`）、
+  //       %（`ins:%`）、mod。
   // English: Row 6 — digits 7 8 9 and parentheses. HiPER narrows to five columns here, so the
-  //          band above holds only four cells and the last slot is padded with null: the disabled
-  //          CPLX key plus ∞ (`ins:inf`), % (`ins:%`) and mod.
+  //          band above holds only four cells and the last slot is padded with null: **`CPLX` lights
+  //          up from this step on** (it used to be a grey `dis:cplx`), plus ∞ (`ins:inf`), `%`
+  //          (`ins:%`) and mod.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -400,10 +419,29 @@ const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
           category: KeyCategory.operator),
     ],
     labels: <KeypadLabel?>[
+      // 中文：**`CPLX` 打开复数面板——它是一个入口，不是一个模式。** 这一步先量后定，量出来的是：
+      //       复数**能力早就在**（引擎的 `EvaluationOptions.setAllow_complex(true)` 一直接着，
+      //       实测 `sqrt(-4)` = `2i`、`(3+4i)(1-i)` = `7 + i`、`abs(3+4i)` = `5`），所以「打开复数
+      //       模式」会是一颗**把已经开着的东西再打开一次**的键，它的指示灯会是一句假话。
+      //       真正缺的只有**入口**：共轭、辐角、实部、虚部这四个函数键盘上没有键，而它们都要括号
+      //       与实参——键盘给不出来，面板可以（与 `CONV`/`X` 同一种做法）。
+      //       面板插入的是一次**一元函数**调用（`conj`/`arg`/`re`/`im` 走 `applyUnaryFunction`，
+      //       与 `sin`/`abs`/`sqrt` 逐字同一条路），所以光标位置、撤销栈、边打边算全都照旧。
+      // English: **`CPLX` opens the complex sheet — it is an entrance, not a mode.** This was measured
+      //          before it was decided: the complex **capability has been there all along** (the
+      //          engine's `EvaluationOptions.setAllow_complex(true)` is set, and `sqrt(-4)` = `2i`,
+      //          `(3+4i)(1-i)` = `7 + i`, `abs(3+4i)` = `5` all measure correctly), so "turn complex
+      //          mode on" would be a key that switches on what is already on, and its indicator lamp
+      //          would be a lie. What is genuinely missing is the **entrance**: the four functions
+      //          conjugate / argument / real part / imaginary part have no key, and each needs brackets
+      //          and an argument — the keypad cannot supply that, a sheet can (the `CONV`/`X` shape).
+      //          The sheet inserts a **unary function** call (`conj`/`arg`/`re`/`im` go through
+      //          `applyUnaryFunction`, byte for byte the path `sin`/`abs`/`sqrt` take), so cursor
+      //          position, the undo stack and as-you-type evaluation all behave as before.
       InlineKey(
         KeypadKey(
-          base: KeyVariant(label: 'CPLX', id: 'dis:cplx', enabled: false),
-          category: KeyCategory.disabled,
+          base: KeyVariant(label: 'CPLX', id: 'openComplex'),
+          category: KeyCategory.function,
         ),
       ),
       InlineKey(

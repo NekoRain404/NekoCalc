@@ -148,6 +148,74 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     );
   }
 
+  /// 中文：`CPLX` 打开的复数面板。与 `CONV`/`X` 同一种做法：面板只交出**记号**，插入仍走主屏的
+  ///       `_pressKey`——于是「面板里有什么」与「键盘能派发什么」是同一套 id 词汇，没有第二份映射
+  ///       （`_MoreFunctionsSheet` 立的规矩）。四颗一元函数按下去包住光标前那一个值，`i` 按下去把
+  ///       虚数单位追加进去，两者都是键盘上已经有的动作，只是键盘上没有这几颗键。
+  ///
+  ///       为什么这里**没有一个「复数模式」开关**：这一轮量出来的事实是那个能力**已经开着**
+  ///       （`allow_complex(true)`，实测 `sqrt(-4)` = `2i`），所以一个开关只会是一盏骗人的指示灯。
+  ///       键位表上 `CPLX` 那颗键的注释写了完整的论证。
+  /// English: the complex sheet `CPLX` opens. The `CONV`/`X` shape: the sheet hands over **tokens**
+  ///          only, and insertion still travels the screen's `_pressKey` — so "what is in the sheet"
+  ///          and "what the keypad can dispatch" are one id vocabulary with no second mapping (the rule
+  ///          `_MoreFunctionsSheet` set). The four unary functions wrap the value before the cursor and
+  ///          `i` appends the imaginary unit, and both are actions the keypad already has — it simply
+  ///          has no key for these.
+  ///
+  ///          Why there is **no "complex mode" switch** here: what was measured this round is that the
+  ///          capability is **already on** (`allow_complex(true)`, `sqrt(-4)` = `2i` measured), so a
+  ///          switch could only be a lying indicator lamp. The full argument is on the `CPLX` cell in
+  ///          the key table.
+  void _openComplexSheet() {
+    final theme = CalcTheme.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => _ComplexSheet(page: this, theme: theme),
+    );
+  }
+
+  /// 中文：`STAT` 打开的统计面板。形状与上面那个一样（面板交记号、插入走 `_pressKey`），插入的是
+  ///       **完整**的引擎调用：这几个函数都吃一串数，而**键盘上没有逗号键**，所以 `mean(` 这种前缀
+  ///       在键盘上永远补不完——与 `Σ`/`Π`/`∫dx`/`logₓy` 那几颗键同一条理由。
+  ///
+  ///       **这一轮没有做「统计编辑器」。** HiPER 的 `STAT` 背后是一台能存数据集、能算回归、能画
+  ///       散点的编辑器，而那样一个东西必须有一个**参与撤销/重做、落盘与代际守卫**的存放处
+  ///       （变量那一轮否掉引擎自己的变量表，正是这条理由）。这一轮只做**入口**：把完整的统计调用
+  ///       送进表达式。数据集就是表达式里那串实参——它已经在撤销栈、落盘与代际守卫里了，用户可以在
+  ///       内联编辑器里直接改（那里打得进逗号）。
+  /// English: the statistics sheet `STAT` opens. Same shape as the one above (the sheet hands over
+  ///          tokens, insertion travels `_pressKey`), and what it inserts is a **complete** engine
+  ///          call: these functions each take a run of numbers and **the keypad has no comma key**, so
+  ///          a prefix like `mean(` can never be completed from the keypad — the same reason as the
+  ///          `Σ`/`Π`/`∫dx`/`logₓy` keys.
+  ///
+  ///          **This round does not build the "statistics editor".** Behind HiPER's `STAT` sits an
+  ///          editor that stores a dataset, computes regressions and draws scatter plots, and such a
+  ///          thing needs a home that takes part in **undo/redo, persistence and the generation
+  ///          guard** (the reason the variables round rejected the engine's own variable table). This
+  ///          round builds the **entrance** only: it delivers a complete statistics call into the
+  ///          expression. The dataset is the argument list written in that expression — already inside
+  ///          the undo stack, the persisted state and the generation guard — and the user edits it in
+  ///          the inline editor, which does accept commas.
+  void _openStatisticsSheet() {
+    final theme = CalcTheme.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * _CalculatorPageState._moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => _StatisticsSheet(page: this, theme: theme),
+    );
+  }
+
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
@@ -298,6 +366,172 @@ class _MoreFunctionsSheet extends StatelessWidget {
                 child: Text(id,
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 中文：`CPLX` 面板的内容——**复数入口**，与 `CONV`/`X` 同一种形状：面板只列记号，按下去交给
+///       本页的 `_pressKey`，所以这里没有第二份「记号 → 动作」的映射。
+///
+///       六格里的每一格都有一个**理由**，写下来是因为「复数面板该放什么」不是一个自明的问题：
+///       - `conj` / `arg` / `re` / `im`：键盘上一个键都没有，而它们各自要一个实参（`arg` 还要跟着
+///         角度模式走），所以只能从这里进；
+///       - `abs`：键盘上**有**这颗键（算复数就是模），放在这里是因为没有模的复数面板不成套；
+///       - `i`：`i` 那颗键也在键盘上，但虚数单位不在面板里同样说不通。两者都只是**再指一次**
+///         同一个 id，主屏那一侧一行没改。
+///
+///       面板**按一下就关**（与 `OTHER` 一致，不像 `CONV`/`X` 那样留着）：这里每一下都是完整动作，
+///       而面板盖住键盘与显示区，留着它反而挡住「看看包出什么来了」。
+/// English: the contents of the `CPLX` sheet — the **complex entrance**, the `CONV`/`X` shape: the
+///          sheet lists tokens only and hands a press to this page's `_pressKey`, so no second
+///          "token → action" mapping exists here.
+///
+///          Each of the six cells has a **reason**, written down because "what belongs in a complex
+///          sheet" is not a self-evident question:
+///          - `conj` / `arg` / `re` / `im`: the keypad has no key for any of them, and each takes an
+///            argument (`arg` also follows the angle mode), so this is their only way in;
+///          - `abs`: the keypad **does** have this key (for a complex number it is the modulus); it is
+///            here because a complex sheet without a modulus is not a set;
+///          - `i`: the `i` key is on the keypad too, but an imaginary unit missing from the sheet would
+///            be just as odd. Both merely **point again** at the same id; the screen is unchanged.
+///
+///          The sheet **closes on a press** (as `OTHER` does, not staying up like `CONV`/`X`): every
+///          press here is a complete action, and the sheet covers the keypad and the display, so
+///          leaving it up would block the "see what it wrapped" step.
+class _ComplexSheet extends StatelessWidget {
+  const _ComplexSheet({required this.page, required this.theme});
+
+  final _CalculatorPageState page;
+  final CalcTheme theme;
+
+  /// 中文：（键面文字, 派发的 id）。id 逐字来自主屏的 `_pressKey`，与键位表用的是同一套词汇。
+  /// English: (key face, dispatched id). The ids come verbatim from the screen's `_pressKey` and are
+  ///          the same vocabulary the key table uses.
+  static const List<(String, String)> _entries = <(String, String)>[
+    ('i', 'ins:i'),
+    ('abs', 'abs'),
+    ('conj', 'conj'),
+    ('arg', 'arg'),
+    ('re', 're'),
+    ('im', 'im'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final (label, id) in _entries)
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  page._pressKey(id);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.display.indicatorFg,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 中文：`STAT` 面板的内容——**统计入口**。同样只列记号，按下去交给本页的 `_pressKey`。
+///
+///       每一格派发的是一个 `ins:` id，主屏把它变成**一整个调用**（`mean(1,2,3,4)`）追加进表达式。
+///       那串实参是一份**起手数据**，不是算出来的值：它与 `Σ`/`Π`/`∫dx` 那几颗键插进去的
+///       `sum(x,1,10,x)` 是同一类东西——按下去立刻求得出一个数，同时把引擎的实参顺序摆在屏幕上，
+///       用户在内联编辑器里照着改成自己那串数（那里打得进逗号）。
+///
+///       **这一轮没有数据集编辑器**：没有表格、没有增删行、没有回归、没有散点。数据集活在表达式里
+///       （因此撤销、落盘、代际守卫全都已经盖着它），而不是活在一个新的存放处。这是有意的取舍：
+///       一个真正存数据集的编辑器需要一个参与那三样的存放处，那是下一轮的事，这一轮不半做。
+/// English: the contents of the `STAT` sheet — the **statistics entrance**. It likewise lists tokens
+///          only and hands a press to this page's `_pressKey`.
+///
+///          Each cell dispatches an `ins:` id that the screen turns into **a whole call**
+///          (`mean(1,2,3,4)`) appended to the expression. That argument list is a **starting sample**,
+///          not a computed value: it is the same kind of thing as the `sum(x,1,10,x)` the `Σ`/`Π`/`∫dx`
+///          keys insert — one press yields a number immediately, and it puts the engine's argument
+///          order on screen so the user can edit it into their own run of numbers in the inline
+///          editor, which accepts commas.
+///
+///          **There is no dataset editor this round**: no table, no add/remove row, no regression, no
+///          scatter plot. The dataset lives in the expression (so undo, persistence and the generation
+///          guard already cover it) rather than in a new home. That is a deliberate trade: an editor
+///          that really stores a dataset needs a home taking part in those three, which is the next
+///          round's work — this round does not half-build it.
+class _StatisticsSheet extends StatelessWidget {
+  const _StatisticsSheet({required this.page, required this.theme});
+
+  final _CalculatorPageState page;
+  final CalcTheme theme;
+
+  /// 中文：（键面文字, 派发的 id）。id 与主屏 `_pressKey` 里那几个 `ins:` case 逐字对应。
+  /// English: (key face, dispatched id). The ids correspond byte for byte to the `ins:` cases in the
+  ///          screen's `_pressKey`.
+  static const List<(String, String)> _entries = <(String, String)>[
+    ('mean', 'ins:mean'),
+    ('median', 'ins:median'),
+    ('stdev', 'ins:stdev'),
+    ('var', 'ins:var'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final (label, id) in _entries)
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      page._pressKey(id);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.display.indicatorFg,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 38),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(label,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            // 中文：把「插进去的那串数是什么」与「它怎么改」讲清楚。没有这句话，屏幕上会凭空多出
+            //       一串用户没打过的数字，而那看起来像一个错值。
+            // English: spell out what the inserted run of numbers is and how to change it. Without
+            //          this line a run of digits the user never typed appears from nowhere, which
+            //          reads as a wrong value.
+            Text(
+              '插入的是完整调用，实参是一份起手数据；'
+              '括号里的数在内联编辑器里改成你自己的（逗号可以打）。',
+              style: TextStyle(color: theme.display.statusFg, fontSize: 12),
+            ),
           ],
         ),
       ),

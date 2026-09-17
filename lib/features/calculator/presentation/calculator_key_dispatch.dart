@@ -97,6 +97,35 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //          caught by the screen", both of which are updated with this change).
       case 'openVariables':
         _openVariableSheet();
+      // 中文：**`CPLX` 与 `STAT` 打开各自的入口面板**（本轮点亮的两颗灰键）。这是加法：两个 `dis:`
+      //       id 此前从不在 `dispatchedKeyIds` 里，也没有任何测试钉过它们的行为；键位表那两条契约
+      //       （逐格快照、每个已启用 id 主屏接得住）随这一次改动一起更新。
+      //
+      //       两颗键做的事**不是同一类**，这一点值得写下来：
+      //       - `CPLX` 是**入口**——复数能力早就在（引擎的 `allow_complex` 一直开着），缺的只是
+      //         共轭/辐角/实部/虚部这四个没有键的函数；
+      //       - `STAT` 是**入口**，但它背后那个「统计编辑器」这一轮**没有做**（数据集、回归、
+      //         散点图都不在），面板只把完整的统计调用送进表达式。这一点在报告里明写了。
+      //       两颗都**不改任何已经在工作的键**，也都不往结果行上放任何东西。
+      // English: **`CPLX` and `STAT` open their own entrance sheets** (the two grey keys lit this
+      //          round). This is an addition: neither `dis:` id was ever in `dispatchedKeyIds`, and no
+      //          test pinned their behaviour; the key table's two contracts (the per-cell snapshot and
+      //          "every enabled id is caught by the screen") are updated with this change.
+      //
+      //          What the two keys do is **not the same kind of thing**, and that is worth writing
+      //          down:
+      //          - `CPLX` is an **entrance** — the complex capability was already there (the engine's
+      //            `allow_complex` is on), and only the four keyless functions conjugate / argument /
+      //            real part / imaginary part were missing;
+      //          - `STAT` is an **entrance** too, but the "statistics editor" behind it is **not built**
+      //            this round (no dataset, no regression, no scatter plot); the sheet only delivers
+      //            complete statistics calls into the expression. The report says so plainly.
+      //          Neither changes any key that already worked, and neither puts anything on the result
+      //          line.
+      case 'openComplex':
+        _openComplexSheet();
+      case 'openStatistics':
+        _openStatisticsSheet();
       case 'openConstants':
         _navigate('tools');
       // 中文：**四个进制胶囊从这一步起真的做进制换算**（它们此前只是切到工具箱）。理由与代价：
@@ -310,6 +339,33 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //          parenthesised spelling is immediately evaluable.
       case 'ins:rand':
         _controller.append('rand()');
+      // 中文：**`STAT` 面板插的四个统计调用**，与上面那几颗同一个形状：完整、立刻求得出一个数、
+      //       把引擎的实参顺序摆在屏幕上。那四个名字都要一串实参，而**键盘上没有逗号键**，所以
+      //       `mean(` 这种前缀在键盘上永远补不完——理由与 `ins:sum` 那一段逐字相同。
+      //
+      //       实参 `(1,2,3,4)` 是一份**起手数据**，不是算出来的值：宿主实测（`qalc` 5.12.0）
+      //       `mean(1,2,3,4)` = `2.5`、`median(1,2,3,4)` = `2.5`、`stdev(1,2,3,4)` = `1.290994449`、
+      //       `var(1,2,3,4)` = `1.666666667`（后两个是**样本**口径，分母 n−1）。四个用同一串数，
+      //       是为了让它们互相可比，也短到看得完。
+      // English: **the four statistics calls the `STAT` sheet inserts**, the same shape as the keys
+      //          above: complete, immediately evaluable, and it puts the engine's argument order on
+      //          screen. Those four names each take a run of arguments and **the keypad has no comma
+      //          key**, so a prefix like `mean(` can never be completed from the keypad — byte for byte
+      //          the reason in the `ins:sum` note.
+      //
+      //          The argument list `(1,2,3,4)` is a **starting sample**, not a computed value: measured
+      //          on the host (`qalc` 5.12.0), `mean(1,2,3,4)` = `2.5`, `median(1,2,3,4)` = `2.5`,
+      //          `stdev(1,2,3,4)` = `1.290994449` and `var(1,2,3,4)` = `1.666666667` (the last two are
+      //          the **sample** convention, divisor n−1). All four share one run of numbers so they are
+      //          comparable with each other, and short enough to read at a glance.
+      case 'ins:mean':
+        _controller.append('mean(1,2,3,4)');
+      case 'ins:median':
+        _controller.append('median(1,2,3,4)');
+      case 'ins:stdev':
+        _controller.append('stdev(1,2,3,4)');
+      case 'ins:var':
+        _controller.append('var(1,2,3,4)');
       case 'ins:%':
         _controller.input('%');
       case 'ins:exp':
@@ -345,6 +401,19 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       case 'sqrt':
       case 'cbrt':
       case 'fact':
+      // 中文：复数面板插的那四个（`CPLX`）。与 `abs` 一样是**一元函数**，走同一条 `applyUnaryFunction`
+      //       ——它包住光标前那一个值（`3+4i` 上按 `conj` 得到 `conj(3+4i)`），与 `sin`/`sqrt` 逐字
+      //       同一条路，所以光标位置、撤销栈与边打边算都不需要新代码。
+      //       它们的 id 与解析器函数名逐字相同，`_functionNameForKey` 因此原样返回。
+      // English: the four the complex sheet inserts (`CPLX`). Unary like `abs`, travelling the same
+      //          `applyUnaryFunction` — which wraps the value before the cursor (`conj` on `3+4i` gives
+      //          `conj(3+4i)`), byte for byte the path `sin`/`sqrt` take, so cursor position, the undo
+      //          stack and as-you-type evaluation need no new code. Their ids are the parser's own
+      //          function names, so `_functionNameForKey` returns them unchanged.
+      case 'conj':
+      case 'arg':
+      case 're':
+      case 'im':
         _controller.applyUnaryFunction(_functionNameForKey(key));
       case 'mod':
       case 'nCr':

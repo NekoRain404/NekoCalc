@@ -156,7 +156,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "hint:eˣ",
   ],
   <String>[
-    "dis:stat|STAT|off disabled",
+    "openStatistics|STAT|on function",
     "dis:abc|a b/c|off disabled",
     "ins:y|Y|on variable",
     "openHistory|HISTORY|on function",
@@ -164,7 +164,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "memorySubtract|M−|on variable",
   ],
   <String>[
-    "dis:cplx|CPLX|off disabled",
+    "openComplex|CPLX|on function",
     "ins:inf|∞|on function",
     "ins:%|%|on function",
     "mod|mod|on function",

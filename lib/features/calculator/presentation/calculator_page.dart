@@ -71,6 +71,22 @@ class CalculatorPage extends StatefulWidget {
     // 修饰键 / 页面级动作
     'shift', 'hyp', 'drawer', 'openHistory', 'openTools',
     'openConstants', 'openUnits', 'openVariables',
+    // 中文：`CPLX` 与 `STAT` 两颗键各自打开的面板（本轮点亮的那两颗）。面板插入的记号仍走主屏这
+    //       一条通路：`conj`/`arg`/`re`/`im` 是下面的**一元函数** id，`mean`/`median`/`stdev`/`var`
+    //       由面板直接拼成完整调用交给控制器——所以「面板里有什么」与「主屏接得住什么」是同一套
+    //       词汇，没有第二份映射（`_MoreFunctionsSheet` 立的规矩）。
+    // English: the sheets the `CPLX` and `STAT` keys each open (the two lit this round). What a sheet
+    //          inserts still travels the screen's own path: `conj`/`arg`/`re`/`im` are the **unary
+    //          function** ids below, and `mean`/`median`/`stdev`/`var` are assembled by the sheet into a
+    //          complete call handed to the controller — so "what is in the sheet" and "what the screen
+    //          accepts" are one vocabulary with no second mapping (the rule `_MoreFunctionsSheet` set).
+    'openComplex', 'openStatistics',
+    // 中文：`STAT` 面板插入的四个完整统计调用。它们与 `ins:sum`/`ins:product`/… 同属「插一整条引擎
+    //       调用」那一类：这几个函数都要一串实参，而键盘上没有逗号键。
+    // English: the four complete statistics calls the `STAT` sheet inserts. They belong with
+    //          `ins:sum`/`ins:product`/… in the "insert a whole engine call" class: each takes a run of
+    //          arguments and the keypad has no comma key.
+    'ins:mean', 'ins:median', 'ins:stdev', 'ins:var',
     'baseDec', 'baseHex', 'baseBin', 'baseOct',
     // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。两者都只改**显示**，
     // 结果行、`Ans`/`last`、记忆寄存器、继续使用与历史一个字都不动。
@@ -94,6 +110,15 @@ class CalculatorPage extends StatefulWidget {
     'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
     'cot', 'sec', 'csc', 'log₂', 'exp', 'floor', 'ceil', 'round',
     'deg', 'rad', 'log', 'ln', 'abs', 'sqrt', 'cbrt', 'fact',
+    // 中文：复数面板插的那四个一元函数（`CPLX`）。它们没有键、也不在 `OTHER` 面板里，只能从
+    //       `CPLX` 的面板进来——所以它们**必须**在这里，否则键位覆盖率那条测试会红（它只走键位表，
+    //       而这几颗不在表里）。放在这一组是因为它们走的就是一元函数那一条 `case`。
+    // English: the four unary functions the complex sheet inserts (`CPLX`). They have no key and are
+    //          not in the `OTHER` sheet, so the `CPLX` sheet is their only entrance — which is why
+    //          they **have to** be listed here or the key-coverage test goes red (it walks the key
+    //          table, and these are not in it). They sit in this group because they take that group's
+    //          unary-function `case`.
+    'arg', 'conj', 're', 'im',
     // 二元函数
     'mod', 'nCr', 'nPr', 'root', 'min', 'max', 'gcd', 'lcm', 'atan2',
     // 只从 `OTHER` 面板进来的常数与角度快捷值
