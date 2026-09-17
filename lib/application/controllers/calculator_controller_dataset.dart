@@ -39,6 +39,31 @@ const int kMaxDatasetValues = 40;
 ///          was before this round.
 const List<String> _statisticsStartingSample = <String>['1', '2', '3', '4'];
 
+/// 中文：**把数据集读成两行时，每行至少要有几个值。**
+///
+///       2 是**量出来的下限**，不是我挑的：一对值时 `covar(matrix(2,1,1,2))` 给一个没有信息的
+///       `0`，而 `pearson(matrix(2,1,1,2))` 给的是**未求值的 `0 / 0`**（宿主 `qalc` 5.12.0，
+///       与本 AAR 同版本）。`0 / 0` 是一个式子，不是数——引擎把它原样退回来，而这个应用对
+///       「退回来的式子」那一支（`arithmetic`）是不显示的，所以屏幕上会是一句错误。两句都不是
+///       用户要的答案，所以一对时**直接拒绝并说出来**（[CalculatorController.regressionCall]
+///       返回 `null`、[CalculatorController.regressionUnavailableMessage] 给出那句话）。
+///
+///       两对（4 个值）起就是真的了：`pearson(matrix(2,2,1,3,2,4))` = `1`（实测）。
+///
+/// English: **how many values each row needs when the dataset is read as two rows.**
+///
+///          The 2 is a **measured floor**, not a choice: with one pair `covar(matrix(2,1,1,2))`
+///          returns an uninformative `0` and `pearson(matrix(2,1,1,2))` returns the **unevaluated
+///          `0 / 0`** (host `qalc` 5.12.0, the version this AAR bundles). `0 / 0` is an expression, not
+///          a number — the engine hands it straight back, and this app does not display that branch
+///          (`arithmetic`), so the screen would carry an error. Neither is the answer the user wants,
+///          so one pair is **refused outright and said out loud**
+///          ([CalculatorController.regressionCall] returns `null` and
+///          [CalculatorController.regressionUnavailableMessage] gives the sentence).
+///
+///          Two pairs (four values) and up is real: `pearson(matrix(2,2,1,3,2,4))` = `1` (measured).
+const int kMinRegressionPairs = 2;
+
 /// 中文：**统计数据集住在应用这一侧**——一份十进制文本的表，与变量（`x`/`y`）和记忆寄存器同一
 ///       种货币（[MathResult.decimalText]），因此也与它们走同一套判据、撤销栈、落盘与代际守卫。
 ///
@@ -255,6 +280,122 @@ mixin _CalculatorDataset on _CalculatorState {
   ///          already inserted.
   String statisticsCall(String function) =>
       '$function($datasetCallArguments)';
+
+  /// 中文：**同一个数据集按两行读时每行有几个值**；读不成两行时是 `0`。
+  ///
+  ///       一个存放处、两种读法，这不是第二个真相源：读的还是 [datasetValues] 那一串，
+  ///       变的只是它被切成什么形状。两种读法都来自来源，不是我发明的：
+  ///       HiPER 的帮助文本一句话里就写着两种形状——「A set is represented by a **row matrix**
+  ///       … or **two-row matrix** (with frequencies in the second row)」，而它的回归错误文本
+  ///       又把两行说死：「Regression parameter must have two rows: the first one with X values,
+  ///       the second one with Y values」。所以：
+  ///
+  ///       - `mean`/`median`/`stdev`/`var` 读**一行**（`matrix(1,n,…)`，见 [statisticsCall]）；
+  ///       - `pearson`/`covar`/`spearman` 读**两行**（`matrix(2,n,…)`，见 [regressionCall]）。
+  ///
+  ///       切法就是 `matrix(2,n,…)` 自己的填法（**按行**）：前 n 个是第一行（X），后 n 个是第二行
+  ///       （Y）。这也正是 HiPER 那个两行矩阵摊平之后的顺序，所以这里没有多出任何一条约定。
+  ///
+  ///       奇数个值读不成两行（[datasetPairCount] 因此是 0）：**拒绝，不是四舍五入**。
+  /// English: **how many values each row holds when this one dataset is read as two rows**; `0` when
+  ///          it cannot be.
+  ///
+  ///          One store, two readings — and that is not a second source of truth: what is read is
+  ///          still [datasetValues], only the shape it is cut into changes. Both readings come from
+  ///          the source rather than from me: HiPER's help text names both in one sentence — "A set is
+  ///          represented by a **row matrix** … or **two-row matrix** (with frequencies in the second
+  ///          row)" — and its regression error text pins the two rows down: "Regression parameter must
+  ///          have two rows: the first one with X values, the second one with Y values". So:
+  ///
+  ///          - `mean`/`median`/`stdev`/`var` read **one row** (`matrix(1,n,…)`, see [statisticsCall]);
+  ///          - `pearson`/`covar`/`spearman` read **two rows** (`matrix(2,n,…)`, see [regressionCall]).
+  ///
+  ///          The cut is `matrix(2,n,…)`'s own fill order (**row by row**): the first n values are the
+  ///          first row (X), the last n are the second row (Y). That is also the order HiPER's two-row
+  ///          matrix flattens to, so no new convention is introduced here.
+  ///
+  ///          An odd number of values cannot be read as two rows ([datasetPairCount] is then `0`):
+  ///          **refused, not rounded**.
+  int get datasetPairCount =>
+      _dataset.length.isEven ? _dataset.length ~/ 2 : 0;
+
+  /// 中文：**这个数据集此刻能不能读成两行**。至少两对（4 个值）——下限是量出来的，不是我挑的：
+  ///       一对时 `covar` 给一个没有信息的 `0`，而 `pearson` 给的是**未求值的 `0 / 0`**
+  ///       （宿主实测 `qalc -t 'pearson(matrix(2,1,1,2))'` → `0 / 0`）。
+  /// English: **whether this dataset can be read as two rows right now.** At least two pairs (four
+  ///          values) — the floor is measured, not chosen: with one pair `covar` gives an
+  ///          uninformative `0` while `pearson` gives the **unevaluated `0 / 0`** (measured on the
+  ///          host, `qalc -t 'pearson(matrix(2,1,1,2))'` → `0 / 0`).
+  bool get canReadDatasetAsTwoRows => datasetPairCount >= kMinRegressionPairs;
+
+  /// 中文：**`pearson`/`covar`/`spearman` 那三格插进表达式的那一整条调用**
+  ///       （`pearson(matrix(2,3,1,2,3,4,5,6))`），读不成两行时是 `null`。
+  ///
+  ///       实参是**一个**两行矩阵，不是一个行矩阵加另一个行矩阵：那是 HiPER 的形状
+  ///       （「two-row matrix … the first one with X values, the second one with Y values」），
+  ///       也是引擎实测收得下的形状。宿主实测（`qalc` 5.12.0）——**两行矩阵与两个行矩阵给的
+  ///       是同一个数**，逐对量过：
+  ///
+  ///       | 两行矩阵 | 两个行矩阵 | 两者 |
+  ///       |---|---|---|
+  ///       | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` = `0.9958932065` | `pearson(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,11))` = `0.9958932065` | 同 |
+  ///       | `covar(matrix(2,3,1,2,3,4,5,6))` = `0.6666666667` | `covar(matrix(1,3,1,2,3),matrix(1,3,4,5,6))` = `0.6666666667` | 同 |
+  ///       | `spearman(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` = `1.000000000` | `spearman(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,11))` = `1.000000000` | 同 |
+  ///
+  ///       为什么用两行那一个：它是来源里那个形状，而且**一个实参**比两个短——屏幕上那串数是
+  ///       用户自己要改的，少一半长度不是小事。它靠的是引擎那条「形参声明是向量、拿到的是矩阵
+  ///       就拆开用」的机制（`MathStructure-calculate.cc`），只有**行数等于形参数**时才成立；
+  ///       这两族函数恰好都是两个形参。**万一那条机制哪天不成立，引擎会把调用原样退回来**，
+  ///       结果是 `arithmetic` 那一支（不显示）→ 一句错误。**失败是关上的，不是一个错值。**
+  ///
+  ///       值与 [statisticsCall] 同一条：逐字来自 [MathResult.decimalText]，不按精度取整。
+  /// English: **the whole call the `pearson`/`covar`/`spearman` cells insert**
+  ///          (`pearson(matrix(2,3,1,2,3,4,5,6))`), or `null` when the dataset cannot be read as two
+  ///          rows.
+  ///
+  ///          The argument is **one** two-row matrix rather than two one-row matrices: that is HiPER's
+  ///          shape ("two-row matrix … the first one with X values, the second one with Y values") and
+  ///          it is the shape the engine was measured to take. Measured on the host (`qalc` 5.12.0) —
+  ///          **the two-row matrix and the two row-matrices give the same number**, pair by pair:
+  ///
+  ///          | two-row matrix | two row-matrices | |
+  ///          |---|---|---|
+  ///          | `pearson(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` = `0.9958932065` | `pearson(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,11))` = `0.9958932065` | same |
+  ///          | `covar(matrix(2,3,1,2,3,4,5,6))` = `0.6666666667` | `covar(matrix(1,3,1,2,3),matrix(1,3,4,5,6))` = `0.6666666667` | same |
+  ///          | `spearman(matrix(2,5,1,2,3,4,5,2,4,6,8,11))` = `1.000000000` | `spearman(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,11))` = `1.000000000` | same |
+  ///
+  ///          Why the two-row one: it is the source's shape, and **one argument** is shorter than two —
+  ///          the numbers on screen are what the user edits, and halving that length is not a small
+  ///          thing. It rests on the engine's "an argument declared a vector that receives a matrix is
+  ///          taken apart" mechanism (`MathStructure-calculate.cc`), which holds only while the row
+  ///          count equals the arity; both these families have exactly two parameters. **Should that
+  ///          mechanism ever stop holding, the engine hands the call straight back**, the result kinds
+  ///          as `arithmetic` (not displayable) and the screen shows an error. **Failure is closed,
+  ///          not a wrong value.**
+  ///
+  ///          The values are the same as [statisticsCall]'s: verbatim from [MathResult.decimalText],
+  ///          never rounded by the precision setting.
+  String? regressionCall(String function) {
+    if (!canReadDatasetAsTwoRows) return null;
+    final rows = datasetPairCount;
+    return '$function(matrix(2,$rows,${_dataset.join(',')}))';
+  }
+
+  /// 中文：**读不成两行时对用户说的那一句话**——说清两行读法要什么、数据集此刻有几个值。
+  ///       不说的话，用户看到的只是三格灰键，而灰键不解释自己为什么灰。
+  ///       **拒绝不是静默的**（与 [addDatasetValue] 的返回值同一条）。
+  /// English: **what the user is told when the dataset cannot be read as two rows** — what that
+  ///          reading needs and how many values there are right now. Without it the user sees three
+  ///          grey cells, and a grey cell does not say why it is grey. **The refusal is not silent**
+  ///          (the same rule as [addDatasetValue]'s return value).
+  String get regressionUnavailableMessage => _dataset.isEmpty
+      ? '两变量函数把数据集读成两行（前一半 X、后一半 Y），'
+          '现在数据集是空的，先加至少 $kMinRegressionPairs 对值'
+      : _dataset.length.isOdd
+          ? '两变量函数把数据集读成两行，需要偶数个值，'
+              '现在有 ${_dataset.length} 个'
+          : '两变量函数把数据集读成两行，每行至少 $kMinRegressionPairs 个值，'
+              '现在有 ${_dataset.length} 个';
 
   /// 中文：数据集拒绝一个值时的两句话。它们是**说给用户听的**（与记忆寄存器那句同一种），所以
   ///       说的是真正的原因与后果，不是「错误」两个字。

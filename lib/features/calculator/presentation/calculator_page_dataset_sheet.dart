@@ -119,6 +119,41 @@ class _StatisticsSheet extends StatelessWidget {
     ('var', 'ins:var'),
   ];
 
+  /// 中文：**双变量那三格**——它们读的是同一个数据集的**另一种形状**（两行：前一半 X、后一半 Y），
+  ///       所以它们自成一行，而且跟着数据集走。判据只有一处
+  ///       （`canReadDatasetAsTwoRows`）：为假时这三格**禁用**，并在旁边写出为什么
+  ///       （`regressionUnavailableMessage`）。
+  ///
+  ///       为什么禁用而不是「按下去插一条会报错的调用」：那样一颗键看起来是好的，按下去给一句
+  ///       错误——那是一句谎。**灰键是诚实的**，而且它旁边就写着要加几个值才能亮。
+  ///
+  ///       为什么不是「数据集中有一个成对约定」：这个数据集里没有成对约定，是**两行**约定。
+  ///       HiPER 的帮助文本把两种形状写在一句话里（行矩阵＝一组值，两行矩阵＝X 行与 Y 行），
+  ///       本应用的一个数据集因此有两种读法——四个描述统计读一行，这三个读两行。
+  ///       **不是第二个真相源**：读的还是同一串值（理由在 `datasetPairCount` 上）。
+  ///
+  /// English: **the three two-variable cells** — they read **another shape** of the same dataset (two
+  ///          rows: the first half X, the second half Y), so they get a row of their own and they
+  ///          follow the dataset. The judgement lives in one place (`canReadDatasetAsTwoRows`): while
+  ///          it is false these three are **disabled**, with the reason written beside them
+  ///          (`regressionUnavailableMessage`).
+  ///
+  ///          Why disabled rather than "a press inserts a call that errors": such a key looks fine and
+  ///          answers with an error — a lie. **A grey cell is honest**, and the cell beside it says how
+  ///          many values it needs before it lights up.
+  ///
+  ///          Why this is not "a pairing convention inside the dataset": there is no pairing
+  ///          convention here, there is a **two-row** one. HiPER's help text names both shapes in a
+  ///          single sentence (a row matrix is a set of values, a two-row matrix is an X row and a Y
+  ///          row), so one dataset in this app has two readings — the four descriptive statistics read
+  ///          one row, these three read two. **It is not a second source of truth**: the same run of
+  ///          values is read (the reasons are on `datasetPairCount`).
+  static const List<(String, String)> _regressionEntries = <(String, String)>[
+    ('pearson', 'ins:pearson'),
+    ('spearman', 'ins:spearman'),
+    ('covar', 'ins:covar'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -155,6 +190,11 @@ class _StatisticsSheet extends StatelessWidget {
               builder: (context, _) => _datasetRow(context),
             ),
             const SizedBox(height: 6),
+            AnimatedBuilder(
+              animation: page._controller,
+              builder: (context, _) => _regressionRow(context),
+            ),
+            const SizedBox(height: 6),
             // 中文：两句都不是装饰。①不说「那串数是从哪儿来的」，屏幕上就凭空多出一串用户没打过的
             //       数字，看起来像错值；②不说样本（n−1）约定，`stdev` 给的 1.290 会被当成总体的
             //       1.118——**两个都是合理的数**，而屏幕上没有任何线索。
@@ -165,7 +205,7 @@ class _StatisticsSheet extends StatelessWidget {
             Text(
               '插入的是完整调用；实参来自数据集，数据集为空时用起手数据，'
               '插入之后那串数仍可在内联编辑器里改（逗号可以打）。'
-              'stdev/var 按样本（n−1）算。',
+              'stdev/var 按样本（n−1）算；pearson/covar 按总体（n）算。',
               style: TextStyle(color: theme.display.statusFg, fontSize: 12),
             ),
           ],
@@ -207,6 +247,71 @@ class _StatisticsSheet extends StatelessWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: const Text('数据集…'),
+        ),
+      ],
+    );
+  }
+
+  /// 中文：双变量那三格，以及它们在数据集读不成两行时的**禁用态与理由**。
+  ///
+  ///       读数那一行说清**这个数据集此刻被切成什么形状**（`matrix(2,n,…)` 逐字写出来），因为
+  ///       屏幕上那串数正是用户自己会去改的东西——不说清，`pearson(matrix(2,3,…))` 里那个 `2`
+  ///       与 `3` 就是两个没有来历的数字。这与上面 `_datasetRow` 那条读数是同一个理由。
+  ///
+  ///       禁用时**同一行里就写着为什么**（控制器给的 [regressionUnavailableMessage]，不是这里
+  ///       另写一句）：判定在控制器里、界面在别处，两者不可能漂开。
+  ///
+  /// English: the three two-variable cells, together with their **disabled state and its reason**
+  ///          while the dataset cannot be read as two rows.
+  ///
+  ///          The reading line says **what shape this dataset is cut into right now**
+  ///          (`matrix(2,n,…)` spelled out), because the numbers on screen are exactly what the user
+  ///          will edit — unsaid, the `2` and the `3` in `pearson(matrix(2,3,…))` are two numbers with
+  ///          no provenance. That is the same reason `_datasetRow`'s reading above is there.
+  ///
+  ///          While disabled, **the why sits on the same line** (the controller's
+  ///          [regressionUnavailableMessage] rather than a sentence written here): the judgement is in
+  ///          the controller and the screen is elsewhere, so the two cannot drift apart.
+  Widget _regressionRow(BuildContext context) {
+    final controller = page._controller;
+    final available = controller.canReadDatasetAsTwoRows;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '两变量',
+              style: TextStyle(color: theme.display.statusFg, fontSize: 12),
+            ),
+            for (final (label, id) in _regressionEntries)
+              TextButton(
+                onPressed: available
+                    ? () {
+                        Navigator.of(context).pop();
+                        page._pressKey(id);
+                      }
+                    : null,
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.display.indicatorFg,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 38),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ],
+        ),
+        Text(
+          available
+              ? '数据集读成两行：${controller.regressionCall('pearson')}'
+              : controller.regressionUnavailableMessage,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.display.statusFg, fontSize: 12),
         ),
       ],
     );

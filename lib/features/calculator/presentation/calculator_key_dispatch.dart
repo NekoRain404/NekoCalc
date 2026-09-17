@@ -432,6 +432,37 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.append(_controller.statisticsCall('stdev'));
       case 'ins:var':
         _controller.append(_controller.statisticsCall('var'));
+      // 中文：**双变量那三格。** 它们与上面四格的分别只有一处：**实参的形状**。上面四格吃
+      //       **一个行矩阵**（`mean(5,12,13)`），这三格吃**一个两行矩阵**
+      //       （`pearson(matrix(2,3,1,2,3,4,5,6))`）——第一行 X、第二行 Y，正是 HiPER 自己那句话
+      //       （`error.regression_parameter_error`：「two rows: the first one with X values, the
+      //       second one with Y values」）。切法与理由都在 `regressionCall` 上。
+      //
+      //       **读不成两行时插不进去任何东西**：`regressionCall` 那一条为 `null` 时这里是空操作。
+      //       这不是「静默失灵」——`STAT` 面板上那三格在这种状态下**是禁用的**（同一个判据，
+      //       见 `_StatisticsSheet`），所以这条 `null` 分支在界面上到不了；把它写成空操作是为了
+      //       让「判据说不行」与「屏幕上不动作」是同一句话，而不是让某个 id 绕过面板去插一条
+      //       引擎答不出来的调用。**宁可什么都不发生，也不要一个错值。**
+      // English: **the three two-variable cells.** They differ from the four above in exactly one
+      //          place: **the shape of the argument**. Those four take **a one-row matrix**
+      //          (`mean(5,12,13)`); these three take **a two-row matrix**
+      //          (`pearson(matrix(2,3,1,2,3,4,5,6))`) — first row X, second row Y, which is HiPER's own
+      //          sentence (`error.regression_parameter_error`: "two rows: the first one with X values,
+      //          the second one with Y values"). The cut and its reasons are on `regressionCall`.
+      //
+      //          **When the dataset cannot be read as two rows nothing is inserted**: while
+      //          `regressionCall` is `null` this is a no-op. That is not a silent failure — in that
+      //          state those three cells are **disabled** on the `STAT` sheet (the same judgement; see
+      //          `_StatisticsSheet`), so the `null` branch is unreachable from the screen. It is
+      //          written as a no-op so that "the judgement says no" and "the screen does nothing" are
+      //          the same sentence, rather than letting some id bypass the sheet and insert a call the
+      //          engine cannot answer. **Better that nothing happens than a wrong value.**
+      case 'ins:pearson':
+        _appendRegressionCall('pearson');
+      case 'ins:covar':
+        _appendRegressionCall('covar');
+      case 'ins:spearman':
+        _appendRegressionCall('spearman');
       case 'ins:%':
         _controller.input('%');
       case 'ins:exp':
@@ -562,6 +593,35 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         );
         _controller.input(key);
     }
+  }
+
+  /// 中文：双变量那三格（`pearson`/`covar`/`spearman`）共用的一条：**控制器说读不成两行就不插**。
+  ///
+  ///       为什么不让 `case` 里直接 `append(regressionCall(...)!)`：`regressionCall` 在数据集读不成
+  ///       两行时返回 `null`，而 `!` 会把它变成一个只在设备上崩的异常——那正是 `MathEngine` 契约里
+  ///       明说不许出现的形状（「实现不抛异常，调用方不能把守约当本钱」）。这里把 `null` 与「什么
+  ///       都不做」对上，判据仍然是 `regressionCall` 那一处，这里不写第二份。
+  ///
+  ///       面板上同一条判据把这三格变成禁用态，所以从界面上到不了这个 `null`；这条分支的存在是为了
+  ///       **让 id 本身不会绕过面板**去插一条引擎答不出来的调用。
+  ///
+  /// English: the one path the three two-variable cells (`pearson`/`covar`/`spearman`) share: **when
+  ///          the controller says the dataset cannot be read as two rows, nothing is inserted.**
+  ///
+  ///          Why not `append(regressionCall(...)!)` in the `case`: `regressionCall` returns `null`
+  ///          while the dataset cannot be read as two rows, and `!` would turn that into an exception
+  ///          that only ever fires on a device — exactly the shape the `MathEngine` contract forbids
+  ///          ("implementations do not throw, and the caller may not bank on that"). Here `null` maps
+  ///          to "do nothing", and the judgement still lives in `regressionCall` alone; no second copy
+  ///          is written.
+  ///
+  ///          The sheet turns these three cells into disabled ones on the same judgement, so the
+  ///          `null` is unreachable from the screen; this branch exists so that **an id cannot bypass
+  ///          the sheet** and insert a call the engine cannot answer.
+  void _appendRegressionCall(String function) {
+    final call = _controller.regressionCall(function);
+    if (call == null) return;
+    _controller.append(call);
   }
 
   /// 中文：四个进制胶囊共用的那一条：让控制器去换算，**有事要说时**把它说的话交给用户。
