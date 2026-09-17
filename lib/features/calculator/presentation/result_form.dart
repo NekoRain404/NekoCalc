@@ -45,7 +45,131 @@ enum ResultForm {
   /// 中文：只要十进制读数（HiPER 的 `FIX` / `SCI` 那一侧，也就是没有 `EXPR` 指示器时的默认）。
   /// English: the decimal reading alone (HiPER's `FIX` / `SCI` side — what it shows with no `EXPR`
   ///          indicator lit).
-  decimal,
+  decimal;
+
+  /// 中文：**这一格在 HiPER 屏上那盏指示灯的字面**；空串表示这一格不点灯。
+  ///
+  ///       判据是「**当前画出来的那一格**」（也就是已经 `resolve` 过的结果），不是结果的种类、也
+  ///       不是「有没有精确写法」——HiPER 自己的帮助文本把这件事说死了：
+  ///
+  ///       > Tap on the result or press `<key:CHANGE_EXPR>` key to change the result format to
+  ///       > decimal, expression, mixed number, sexagesimal number or polar coordinates.
+  ///       > **Selected format is indicated by** `<ind:EXPR>`, `<ind:MIXED>`, `<ind:DMS>` and
+  ///       > `<ind:POLAR>` **indicators on the display**.
+  ///
+  ///       两句都是 `help.numbers.contents`，取得方式见本节末尾。第一句给的是**结果格式**的五种
+  ///       取值（`x⇔E` = `CHANGE_EXPR` 换的就是它）；第二句说明点灯的是**选中的格式**，
+  ///       而**五种格式只有四盏灯**——`decimal` 那一格不点灯。指示器名只有这四个，一台计算器
+  ///       印不出 `POLAR`（本应用没有极坐标印法）就少一盏，而不是拿别的名字顶上。
+  ///
+  ///       逐格的理由：
+  ///       - [auto]：**不点灯**。它是本应用自己那一行（`2√2 ≈ 2.828427`，或没有精确写法时的
+  ///         `4`），HiPER 没有这种「精确写法 + `≈` 读数」同行的形态，五种格式里没有一种是它，
+  ///         所以任何字面都是假话。`2+2` 的 `4` 尤其——给它点 `EXPR` 正是这个项目不许的那种谎。
+  ///       - [exact]：`EXPR`。结果行画的**就是**引擎的精确写法（HiPER 的 expression 格式，
+  ///         `resultFormat.info2` 说它「uses fractions, square roots, polar coordinates, etc.」）。
+  ///         这一格存在的前提本身就挡住了「`EXPR` 点在一个纯数字上」：与十进制读数逐字符相同的
+  ///         写法在 `_accepted` 里已经被丢掉（`2+2` 根本没有这一格）。
+  ///       - [fraction]：**不点灯**。HiPER 唯一以分数命名的那盏是 `MIXED`（mixed number），
+  ///         而本应用印的是**假分数**——`10/4` 印成 `\frac{5}{2}`，实测记在
+  ///         `QalculateOptions.kt:158`，全应用没有任何一处印带分数。把 `\frac{5}{2}` 标成
+  ///         `MIXED` 是一句**关于画面上那个东西的假话**，所以宁可沉默。
+  ///         （另有一个更老的帮助变体把格式列成「decimal, **fraction**, mixed number or
+  ///         sexagesimal number」，即 HiPER 某一版把 fraction 与 mixed number 当成两格，而
+  ///         四盏灯里没有一盏以分数命名——**哪一盏给 fraction 这一格，来源里定不下来**，
+  ///         所以这条路上不猜。见下面「取不到的东西」。）
+  ///       - [dms]：`DMS`。HiPER 的 sexagesimal 格式，`D°M'S` / `x⇔E` 那一格。
+  ///       - [decimal]：**不点灯**——HiPER 那一格本来就没有灯（四盏灯对五种格式）。
+  ///
+  ///       **来源与取法**（本机实测取回，不是记忆）：HiPER 手册 PDF v12.0 仍不在盘上
+  ///       （`find /home/nekorain -iname "*hiper*"` 只有一张截图与无关的 C 文件；仓库里没有 PDF）。
+  ///       上面两串取自 HiPER **自己的**帮助文本，经项目公开的翻译 API 取回：
+  ///
+  ///       ```
+  ///       $ curl -sS "https://weblate.a4tune.com/api/units/?q=help.numbers\
+  ///       &project=hiper-scientific-calculator&format=json"
+  ///       [help.numbers.contents] Selected format is indicated by <ind:EXPR>, <ind:MIXED>,
+  ///                               <ind:DMS> and <ind:POLAR> indicators on the display.
+  ///       ```
+  ///
+  ///       同一份文本还确定了**这些灯在哪一行**：`DEG`/`RAD`/`GRAD` 与 `M` 用的是同一个
+  ///       `<ind:…>` 家族，且 `help.memory.contents` 把放它们的叫「the top indicator line」——
+  ///       也就是本应用的状态行（角度 chip、`M` 徽标、进制读数已经在的那一行），不是另起一行。
+  ///       所以本应用把它画在状态行上，与 `DEG`/`M`/`HEX` 同排，而不是给显示区加第二行——加一行会
+  ///       动 `calculator_display.dart` 里那份按真实字体度量量出来的高度契约。
+  ///
+  ///       **它不在这条路上产生任何值**：它只把已经 `resolve` 好的那一格念出名字，不参与求值，
+  ///       不进 `MathResult`，也不进控制器（见 `CalculatorDisplay` 的那一格）。
+  /// English: **the word HiPER lights for this cell**; an empty string means this cell lights nothing.
+  ///
+  ///          The judgement is "**which cell is drawn right now**" (i.e. the already-`resolve`d
+  ///          form) — not the result's kind, and not "does an exact spelling exist". HiPER's own help
+  ///          text settles it:
+  ///
+  ///          > Tap on the result or press `<key:CHANGE_EXPR>` key to change the result format to
+  ///          > decimal, expression, mixed number, sexagesimal number or polar coordinates.
+  ///          > **Selected format is indicated by** `<ind:EXPR>`, `<ind:MIXED>`, `<ind:DMS>` and
+  ///          > `<ind:POLAR>` **indicators on the display**.
+  ///
+  ///          Both are `help.numbers.contents` (how they were fetched is at the end of this note).
+  ///          The first gives the **result format**'s five values (what `x⇔E` = `CHANGE_EXPR`
+  ///          switches); the second says what lights is the **selected format**, and that **five
+  ///          formats share four lamps** — the `decimal` cell lights nothing. Those four names are
+  ///          the only ones there are: a calculator that cannot print `POLAR` (this app has no polar
+  ///          print) has one lamp fewer, not a different name.
+  ///
+  ///          Cell by cell:
+  ///          - [auto]: **lights nothing**. It is this app's own line (`2√2 ≈ 2.828427`, or `4` when
+  ///            there is no exact form); HiPER has no such form — an exact spelling and an `≈`
+  ///            reading on one line — so none of the five formats is it, and any word would be false.
+  ///            `2+2`'s `4` above all: lighting `EXPR` over it is exactly the lie this project bans.
+  ///          - [exact]: `EXPR`. The line draws the engine's exact spelling, which *is* HiPER's
+  ///            expression format (`resultFormat.info2`: it "uses fractions, square roots, polar
+  ///            coordinates, etc."). The cell's own precondition already stops "`EXPR` over a bare
+  ///            number": a spelling character-for-character equal to the decimal reading is discarded
+  ///            in `_accepted` (`2+2` has no such cell at all).
+  ///          - [fraction]: **lights nothing**. HiPER's only fraction-named lamp is `MIXED` (mixed
+  ///            number), while this app prints an **improper** fraction — `10/4` prints `\frac{5}{2}`,
+  ///            measured in `QalculateOptions.kt:158`; nothing in the app prints a mixed number.
+  ///            Labelling `\frac{5}{2}` `MIXED` is a **false sentence about what is on the screen**,
+  ///            so silence wins.
+  ///            (An older help variant lists the formats as "decimal, **fraction**, mixed number or
+  ///            sexagesimal number" — one HiPER version treats fraction and mixed number as two cells,
+  ///            and not one of the four lamps is named after a fraction — **which lamp the fraction
+  ///            cell gets is undetermined by the sources**, so nothing is guessed here. See below.)
+  ///          - [dms]: `DMS`. HiPER's sexagesimal format, the `D°M'S` / `x⇔E` cell.
+  ///          - [decimal]: **lights nothing** — that HiPER cell has no lamp (four lamps, five formats).
+  ///
+  ///          **Source and how it was fetched** (measured on this machine just now, not remembered):
+  ///          the HiPER manual PDF v12.0 is still not on disk (`find /home/nekorain -iname "*hiper*"`
+  ///          returns one screenshot and unrelated C files; the repo holds no PDF). The two strings
+  ///          above come from HiPER's **own** help text, through the project's public translation API:
+  ///
+  ///          ```
+  ///          $ curl -sS "https://weblate.a4tune.com/api/units/?q=help.numbers\
+  ///          &project=hiper-scientific-calculator&format=json"
+  ///          [help.numbers.contents] Selected format is indicated by <ind:EXPR>, <ind:MIXED>,
+  ///                                  <ind:DMS> and <ind:POLAR> indicators on the display.
+  ///          ```
+  ///
+  ///          The same text fixes **which line those lamps live on**: `DEG`/`RAD`/`GRAD` and `M` are
+  ///          the same `<ind:…>` family, and `help.memory.contents` calls where they sit "the top
+  ///          indicator line" — this app's status row (where the angle chip, the `M` badge and the
+  ///          base read-out already are), not a new line. So this app draws it on the status row
+  ///          beside `DEG`/`M`/`HEX` rather than adding a second line to the display — a second line
+  ///          would move the height contract `calculator_display.dart` measured against real font
+  ///          metrics.
+  ///
+  ///          **It produces no value on this path**: it only speaks the name of a cell already
+  ///          resolved, takes no part in evaluation, and enters neither `MathResult` nor the
+  ///          controller (see that cell in `CalculatorDisplay`).
+  String get indicator => switch (this) {
+        ResultForm.auto => '',
+        ResultForm.exact => 'EXPR',
+        ResultForm.fraction => '',
+        ResultForm.dms => 'DMS',
+        ResultForm.decimal => '',
+      };
 }
 
 /// 中文：**某一份结果有哪几种形态可显示**，以及每种形态各自画什么。它是这个文件里唯一做判断的地方，

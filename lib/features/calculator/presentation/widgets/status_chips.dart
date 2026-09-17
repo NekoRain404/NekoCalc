@@ -91,6 +91,70 @@ class StatusChips {
     );
   }
 
+  /// 中文：**结果形式那一格**（`EXPR` / `DMS`）。排版与角度 chip、记忆徽标共用同一套度量
+  ///       （同样的 24dp 高、同样的圆角、同样的低透明度指示色填充），所以状态行仍是一排同类的东西。
+  ///
+  ///       字面本身的判据**不在这里**：它由 `ResultForm.indicator`（`result_form.dart`）给出，
+  ///       也就是「当前画出来的那一格叫什么」。这一格只负责画——与角度 chip 的关系一样，
+  ///       度量与画法在这里，判据在它自己的文件里，**没有第二份**。
+  ///
+  ///       前景取 `indicatorFg` 而不是角度 chip 那一个 `statusFg`：HiPER 自己把这类字面叫做
+  ///       `<ind:EXPR>`（它的帮助文本「Selected format is indicated by … **indicators on the
+  ///       display**」），而 `CalcDisplayColors.indicatorFg` 这一色位注释里点名的用途正是
+  ///       「状态**指示灯** / 徽标」——`M` 徽标与进制读数已经用的是它，三者同族。
+  ///       角度 chip 用 `statusFg` 是因为它说的是计算器**模式**，而这一格说的是结果**怎么写**。
+  ///
+  ///       空串**不应该**走到这里（调用方在空串时整格不渲染，见 `CalculatorDisplay._statusRow`），
+  ///       所以这里不画空盒子：画一个空 chip 就等于在状态行上说了一句空话。
+  ///
+  ///       **`maxLines: 1` + `ellipsis` 与进制读数那一格逐字相同**，理由也相同：这一格是 `Flexible`
+  ///       里的一格，放不下时**看得见地被省略**，而不是把状态行撑破（`RenderFlex overflowed by 30
+  ///       pixels on the right` 是实测过的，见下面那条）。它的自然宽度只有两到四个拉丁字母，所以
+  ///       寻常字号下拿到的都是全字；只有在「抽屉按钮 + 角度 chip + 记忆徽标 + 一个四十字符的读数 +
+  ///       `More...` 同时在场」这种最挤的组合里才会收窄——那时**整个状态行本来就没有余量**，
+  ///       收窄是本组件给出的唯一诚实的降级。
+  /// English: **the result-form cell** (`EXPR` / `DMS`). Its typesetting shares the angle chip's and
+  ///          memory badge's metrics (the same 24dp height, corner radius and low-alpha indicator
+  ///          fill), so the status row still reads as one row of like things.
+  ///
+  ///          What the word *is* is **not judged here**: it comes from `ResultForm.indicator`
+  ///          (`result_form.dart`), i.e. "what the cell being drawn right now is called". This cell
+  ///          only draws it — exactly as with the angle chip, the metrics and the drawing live here
+  ///          and the judgement lives in its own file; there is **no second copy**.
+  ///
+  ///          Its foreground takes `indicatorFg` rather than the angle chip's `statusFg`: HiPER calls
+  ///          this class of word `<ind:EXPR>` in its own help ("Selected format is indicated by …
+  ///          **indicators on the display**"), and `CalcDisplayColors.indicatorFg`'s own comment
+  ///          names "status **indicators** and badges" as its use — the `M` badge and the base
+  ///          read-out already take it, so the three are one family. The angle chip takes `statusFg`
+  ///          because it says which **mode** the calculator is in, while this one says how the result
+  ///          is **written**.
+  ///
+  ///          An empty string **must not** arrive here (the caller does not render the cell at all
+  ///          when it is empty — see `CalculatorDisplay._statusRow`), so no empty box is drawn here:
+  ///          an empty chip would be the status row saying nothing.
+  static Widget resultForm(String label, CalcDisplayColors colors) {
+    return Container(
+      height: height,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: colors.indicatorFg.withValues(alpha: fillAlpha),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: colors.indicatorFg,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
   /// 中文：进制读数那一格。排版与角度 chip、记忆徽标共用同一套度量（同样的 24dp 高、同样的圆角、
   ///       同样的低透明度指示色填充），所以状态行看起来仍是一排同类的东西；它说的是**另一个
   ///       写法**（`HEX 64`），因此用指示色前景把它与 `DEG`/`M` 那两格区分开。
