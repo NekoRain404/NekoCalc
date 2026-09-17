@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import com.nekorain.nekocalc.qalculate.QalculateEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -16,8 +17,16 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val backupChannelName = "nekocalc/backup_file"
     private val hapticsChannelName = "nekocalc/haptics"
+    private val qalculateChannelName = "nekocalc/qalculate"
     private val exportRequestCode = 8101
     private val importRequestCode = 8102
+
+    // 中文：引擎必须提成字段。每次调用新建一个的话，每次调用都会重新加载一遍全局定义。
+    //       内部的 Calculator 是 by lazy，所以这里构造很便宜。
+    // English: The engine must be hoisted to a field. Building one per call would reload the global
+    //          definitions on every call. Its internal Calculator is `by lazy`, so constructing
+    //          this is cheap.
+    private val qalculateEngine = QalculateEngine()
 
     private var pendingExportContent: String? = null
     private var pendingResult: MethodChannel.Result? = null
@@ -65,6 +74,25 @@ class MainActivity : FlutterActivity() {
                     val strength = call.argument<String>("strength") ?: "标准"
                     performHapticTap(strength)
                     result.success(null)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+        // 中文：libqalculate 原生引擎。这一步只开一个诊断入口，还没有接进计算器的求值路径。
+        // English: The native libqalculate engine. Only a diagnostic entry point for now; it is not
+        //          wired into the calculator's evaluation path yet.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, qalculateChannelName).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "evaluate" -> {
+                    val expression = call.argument<String>("expression")
+                    if (expression == null) {
+                        result.error("invalid_expression", "缺少 expression 参数", null)
+                        return@setMethodCallHandler
+                    }
+                    // 中文：在引擎线程上回复，主线程不等待引擎。
+                    // English: Reply from the engine thread; the main thread does not wait.
+                    qalculateEngine.evaluateAsync(expression) { payload -> result.success(payload) }
                 }
 
                 else -> result.notImplemented()
