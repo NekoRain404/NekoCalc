@@ -568,49 +568,57 @@ void main() {
       }
     });
 
-    test('引擎的三个拟合函数这一轮不提供——它们的答案在这个应用里只能变成一句错误', () {
-      // 中文：**这一条钉的是「没做」的那个决定，和它为什么。** 引擎**有**三个回归拟合
-      //       （`linearfit`/`quadraticfit`/`cubicfit`，`functions.xml.in` 的
-      //       `<title>Regression</title>` 那一节），而它们**一个都没有**进词表。原因是量出来的：
-      //       它们的答案是 `2x`/`x²`/`x³`——**一个函数**，不是数；引擎把这种结果判成 `symbolic`；
-      //       而 `_selectEngineResult` 只在「应用自己的语言表达不了这个输入」时才收 `symbolic`。
-      //       `linearfit(matrix(…),matrix(…))` 的实参全是数字、语法树里没有 `VariableNode`，
-      //       于是 `canExpress` 为真 → 引擎的答案**不算** → 旧解析器作答 → 屏幕上是一句
-      //       「表达式错误」。实测过：把 `linearfit` 加进词表、用假引擎回一条与宿主逐字节相同的
-      //       `2x`，落地的就是 `表达式错误`。
-      //
-      //       所以这三格点不亮：**一颗按下去只给错误的键就是「能力不存在」**，而灰键（这里干脆
-      //       不出现）是诚实的。哪天要让拟合函数上屏，那是**判据**那一轮的事——不是加三个名字
-      //       就行的。
-      //
-      //       下半段钉的是那条判据此刻的样子，所以它改了这里会红——那正是它该有的作用。
-      // English: **this pins the decision not to offer them, and why.** The engine **has** three
-      //          regression fits (`linearfit`/`quadraticfit`/`cubicfit`, the
-      //          `<title>Regression</title>` section of `functions.xml.in`) and **not one** of them is in
-      //          the vocabulary. The reason is measured: their answer is `2x`/`x²`/`x³` — **a function**,
-      //          not a number; the engine kinds such a result `symbolic`; and
-      //          `_selectEngineResult` takes a `symbolic` answer only when "this app's own language
-      //          cannot express this input". `linearfit(matrix(…),matrix(…))` has nothing but numbers
-      //          for arguments and no `VariableNode` in its tree, so `canExpress` is true → the
-      //          engine's answer **does not count** → the legacy parser answers → the screen shows
-      //          "expression error". Measured: with `linearfit` in the vocabulary and a fake engine
-      //          replying the byte-for-byte `2x` the host gives, what lands is `表达式错误`.
-      //
-      //          So these three cells stay dark: **a key that can only produce an error is a capability
-      //          that does not exist**, and a grey cell (here, no cell at all) is honest. Making a
-      //          fitted function reach the screen is a **judgement** round, not three vocabulary lines.
-      //
-      //          The second half pins what that judgement looks like right now, so changing it turns
-      //          this red — which is exactly what it is for.
+    test('引擎的三个拟合函数这一轮仍不提供——挡下它们的已经不是那条判据了', () {
+      // 中文：**上一轮在这里钉住的是那条判据的样子，判据那一轮把它翻了过来。** 现在写着的是
+      //       事实的两半：
+      //       ① **判据不再挡它们**：`canExpress(fit)` 为**假**——这棵树里的调用名
+      //       （`linearfit`、`matrix`）应用自己的求值器一个都没绑定（函数名那一半见
+      //       `namesSomethingOutsideTheAppLanguage`：`functionNames` 之外的名字与 `VariableNode`
+      //       同一条判据）。上一轮量出的那条链于是断在最前面一环：引擎那份 `symbolic` 答复不再是
+      //       「表达得了所以丢掉」。宿主实测（libqalculate 5.12.0，按桥的选项）：
+      //       `linearfit(matrix((1),(5),(1),(2),(3),(4),(5)),matrix((1),(5),(2),(4),(6),(8),(10)))`
+      //       精确印成 `2x`、队列空、结构里有变量 ⇒ 种类 `symbolic`，而 `MathResult.isDisplayable`
+      //       对 `symbolic` 是放行——所以它现在会（在有名字可问之后）上屏。
+      //       ② **仍然不放它们进词表**，但理由换成了另外两条：**名字不在词表里 ⇒ 翻译层拒绝，
+      //       引擎根本不会被问**（`engineNameFor` 对表外标识符一律拒绝），所以这一轮之后屏幕上
+      //       逐字节不变；而两行形状那一侧还压着一条实测的错值——`linearfit(matrix(2,5,…))`
+      //       （两行）**不报错，返回一个向量** `[x  2x  3x  4x  5x]`（宿主实测，种类 `structured`
+      //       ⇒ 可显示），因为它的子函数要的是两**列**。点亮那几格因此是**它自己的一轮**：
+      //       喂两列、并量它印出来的东西。
+      //       这一条钉住的仍是判据此刻的样子——再改它会红，那正是它该有的作用。
+      // English: **the previous round pinned the judgement here; the judgement round turned it over.**
+      //          What is written now is the two halves of the fact:
+      //          ① **the judgement no longer blocks them**: `canExpress(fit)` is **false** — not one of
+      //          the call names in this tree (`linearfit`, `matrix`) is bound by this app's own
+      //          evaluator (the function half is on `namesSomethingOutsideTheAppLanguage`: a name
+      //          outside `functionNames` faces the same judgement as a `VariableNode`). The chain the
+      //          last round measured therefore breaks at its first link: the engine's `symbolic` answer
+      //          is no longer "expressible, so discarded". Measured on the host (libqalculate 5.12.0,
+      //          through the bridge's options):
+      //          `linearfit(matrix((1),(5),(1),(2),(3),(4),(5)),matrix((1),(5),(2),(4),(6),(8),(10)))`
+      //          prints exactly `2x` with an empty queue and a variable in the structure ⇒ kind
+      //          `symbolic`, and `MathResult.isDisplayable` admits `symbolic` — so it would now reach
+      //          the screen (once there is a name to ask about).
+      //          ② **they still do not enter the vocabulary**, for two other reasons now: **a name
+      //          outside the vocabulary is refused by the translation layer, so the engine is never
+      //          asked** (`engineNameFor` refuses every identifier outside the table) — which is why
+      //          nothing on screen changes this round; and the two-row side still carries a measured
+      //          wrong value — `linearfit(matrix(2,5,…))` (two rows) **does not error, it returns a
+      //          vector** `[x  2x  3x  4x  5x]` (host-measured, kind `structured` ⇒ displayable),
+      //          because its subfunction wants two **columns**. Lighting those cells is therefore a
+      //          round of its own: feed two columns, and measure what they print.
+      //          This test still pins the judgement's shape right now — changing it again turns this
+      //          red, which is exactly what it is for.
       const fit = 'linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))';
       for (final name in <String>['linearfit', 'quadraticfit', 'cubicfit']) {
         expect(AppEngineVocabulary.identifiers, isNot(contains(name)));
       }
       expect(AppEngineVocabulary.canRead(fit), isTrue,
           reason: '引擎读得懂它——挡下它的不是名字层');
-      expect(AppEngineVocabulary.canExpress(fit), isTrue,
-          reason: '应用自己的语言「表达得了」这个输入（实参全是数字），'
-              '所以引擎那份 `symbolic` 答案会被丢掉');
+      expect(AppEngineVocabulary.canExpress(fit), isFalse,
+          reason: '应用自己的求值器没有绑定 `linearfit`/`matrix` 这两个调用名，'
+              '所以这份 `symbolic` 答复不再被丢掉；挡着那三格的现在是词表（翻译层）'
+              '与两行形状那条向量');
     });
 
     test('引擎缺席时，两变量那条调用回落旧解析器并报错——绝不猜一个数', () async {

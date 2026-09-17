@@ -169,21 +169,75 @@ void main() {
     });
 
     test('判据本身：应用自己的语言答得了的表达式为真，含未绑定名字的为假', () {
-      // 中文：判据是**节点类型**，不是名字表也不是正则——`ExpressionAstParser` 只产出三种东西：
-      //       常量、调用、以及「其余一切」（`VariableNode`）。所以这一条钉的是那三种落在哪一边。
-      //       `km` 是单位名，应用自己的解析器同样不认它，所以它也在「为假」那一列。
-      // English: the test is the **node type**, not a name table and not a regex —
-      //          `ExpressionAstParser` produces exactly three things: a constant, a call, and
-      //          "everything else" (a `VariableNode`). So this pins which side each falls on. `km`
-      //          is a unit name and this app's own parser does not bind those either, so it is on the
-      //          false side too.
-      for (final source in <String>['2+2', 'pi!', 'sin(1)', 'matrix(2,2,1,2,3,4)']) {
+      // 中文：判据是**节点类型 + 求值器自己那份名字表**，不是第二张名字表也不是正则——
+      //       `ExpressionAstParser` 只产出三种东西：常量、调用、以及「其余一切」（`VariableNode`），
+      //       而**调用那一种里函数名要过应用自己求值器的 `functionNames`**：表外的名字与
+      //       `VariableNode` 是**同一类东西**（判据那一轮的改动，见
+      //       `namesSomethingOutsideTheAppLanguage`）。`km` 是单位名，应用自己的解析器同样不认它，
+      //       所以它也在「为假」那一列。
+      //
+      //       **两列的分界，说清是哪两条**：为真 = 树里每个名字应用自己的求值器都绑定了
+      //       （真值那一列里的 `matrix(2,2,1,2,3,4)` 因此在判据那一轮**从真挪到假**——应用自己的
+      //       求值器没有实现 `matrix`，实测 `matrix(1)` 抛 `Unknown function matrix`；屏幕上没有
+      //       变化，因为矩阵回执的种类是 `structured`，压根读不到这条判据，那一半钉在
+      //       「这条判据不碰已经工作的那几支」里）。`lg`/`c`/`arcsin` 这些别名拼法折到规范名之后
+      //       落在真那一列（**别名折叠用的是归一化那张表**，没有第二份）。
+      // English: the test is the **node type plus the evaluator's own name list**, not a second name
+      //          table and not a regex — `ExpressionAstParser` produces exactly three things: a
+      //          constant, a call, and "everything else" (a `VariableNode`), and in the **call** case
+      //          the function name goes through this app's own evaluator's `functionNames`: a name
+      //          outside that list is **the same kind of thing** as a `VariableNode` (the judgement
+      //          round's change; see `namesSomethingOutsideTheAppLanguage`). `km` is a unit name and
+      //          this app's own parser does not bind those either, so it is on the false side too.
+      //
+      //          **Where the two sides divide, spelled out**: true = every name in the tree is bound by
+      //          this app's own evaluator (which is why `matrix(2,2,1,2,3,4)` **moved from the true
+      //          side to the false side** in the judgement round — this app's own evaluator does not
+      //          implement `matrix`, measured: `matrix(1)` throws `Unknown function matrix`; nothing on
+      //          screen changed, because a matrix receipt's kind is `structured` and this judgement is
+      //          never read for it — that half is pinned in
+      //          `calculator_canexpress_test.dart`, "这条判据不碰已经工作的那几支"). Alias
+      //          spellings (`lg`/`c`/`arcsin`) fold onto their canonical names and stay on the true
+      //          side (**the fold is the normalisation's own table**, there is no second copy).
+      for (final source in <String>[
+        '2+2',
+        'pi!',
+        'sin(1)',
+        'lg(8,2)',
+        'c(5,2)',
+        'arcsin(0.5)',
+        'phi(2)',
+      ]) {
         expect(AppEngineVocabulary.canExpress(source), isTrue,
-            reason: '「$source」里没有应用自己的语言没有绑定的名字');
+            reason: '「$source」里每一个名字应用自己的求值器都绑定了');
       }
-      for (final source in <String>['2x', 'x', 'x^2+1', 'sqrt(x)', 'sin(x)', 'x km', 'i']) {
+      for (final source in <String>[
+        '2x',
+        'x',
+        'x^2+1',
+        'sqrt(x)',
+        'sin(x)',
+        'x km',
+        'i',
+        // 中文：应用自己的求值器没有实现这些调用名（实测：`matrix(1)`/`mean(1)`/`conj(1)` 各自抛
+        //       `Unknown function …`）——只有引擎答得出来。
+        // English: this app's own evaluator does not implement these call names (measured:
+        //          `matrix(1)`/`mean(1)`/`conj(1)` each throw `Unknown function …`) — only the engine
+        //          can answer them.
+        'matrix(2,2,1,2,3,4)',
+        'mean(1,2)',
+        'conj(pi)',
+        'pearson(matrix(2,3,1,2,3,4,5,6))',
+        // 中文：词表之外的名字（翻译层会拒绝它，引擎因此根本不会被问）以及**被当成调用名的变量**
+        //       （`x(2)` 在应用自己的语法树里是一个名为 `x` 的调用，不是变量乘 2）。
+        // English: a name outside the vocabulary (the translation layer refuses it, so the engine is
+        //          never asked) and **a variable used as a call name** (`x(2)` is a call named `x` in
+        //          this app's tree, not the variable times 2).
+        'linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))',
+        'x(2)',
+      ]) {
         expect(AppEngineVocabulary.canExpress(source), isFalse,
-            reason: '「$source」里有应用自己的语言没有绑定的名字');
+            reason: '「$source」里有应用自己的求值器没有绑定的名字');
       }
     });
   });

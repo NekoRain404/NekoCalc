@@ -4,6 +4,10 @@
 /// English: Expression syntax tree nodes. The expression string stays the single source of
 ///          truth, so every node must carry the span it occupies in that source; that is what
 ///          lets the renderer map a tap back to the right character offset in the input.
+library;
+
+import '../expression_parser.dart';
+
 sealed class ExprNode {
   const ExprNode({required this.start, required this.end});
 
@@ -168,11 +172,31 @@ bool _isPlainInfixOperator(String op) => op == '+' || op == '-' || op == '*';
 
 /// 中文：**这棵树里有没有一个「应用自己的语言没有绑定的名字」。**
 ///
-///       判据是**节点类型**，不是名字表：`ExpressionAstParser._parseName` 只产出三种东西——
-///       常量（`ConstantNode`，`pi`/`e`/`tau`/`phi`/`inf`/`infinity`）、调用（`FunctionNode`，
-///       标识符紧跟 `(`）、以及**其余一切**（`VariableNode`）。所以一个 [VariableNode] 就是
-///       「这个名字应用自己的语言没有绑定」这一句话本身，而不是它的近似——没有第二张名字表
-///       会漂移，也没有正则要维护。`km` 这类单位名同样落在这里：应用自己的解析器也不认它们。
+///       判据分两半，两半问的是同一个问题：
+///
+///       - **变量名**：`ExpressionAstParser._parseName` 只产出三种东西——常量
+///         （`ConstantNode`，`pi`/`e`/`tau`/`phi`/`inf`/`infinity`）、调用（`FunctionNode`，
+///         标识符紧跟 `(`）、以及**其余一切**（`VariableNode`）。所以一个 [VariableNode] 就是
+///         「这个名字应用自己的语言没有绑定」这一句话本身，而不是它的近似——没有第二张名字表
+///         会漂移，也没有正则要维护。`km` 这类单位名同样落在这里：应用自己的解析器也不认它们。
+///       - **函数名**：应用自己的**求值器**绑定了哪些调用名，是它自己那份数据
+///         （`ExpressionParser.functionNames`，也就是求值那个 `switch` 的清单），名字先过
+///         `ExpressionParser.canonicalFunctionName` 折一次（归一化折叠别名用的是**同一张表**，
+///         没有第二份）。表外的名字 ⇒ 一个 [FunctionNode] 也判「没有绑定」——**与变量同一条
+///         判据**。（`FunctionNode` 只说「这里有一个标识符紧跟 `(`」，它**不**保证应用自己的
+///         求值器实现了那个名字。）
+///
+///       **为什么函数名问求值器，不问词表（`AppEngineVocabulary.identifiers`）**：这条判据问的是
+///       「应用**自己**答得了这个输入吗」，而词表里有一批名字（`matrix`/`sum`/`mean`/`pearson`/
+///       `conj`/`rand`…，共 18 个，由 `test/domain/app_engine_vocabulary_semantics_test.dart` 的
+///       集合相等钉住）**只有引擎答得出来**——应用自己的求值器对它们抛 `Unknown function`
+///       （实测）。按词表判，这些输入会一直算作「表达得了」，引擎那份 `symbolic` 答复就永远被丢掉。
+///
+///       **它与变量那一半共用同一条安全论证**：名字没绑定时，旧解析器对这一行只会抛
+///       `Unknown function …`（实测），所以收紧之后新放行的是**引擎的答复**，而不是拿它顶掉一个
+///       应用已经答得出的值。反方向（名字在求值器里而数据表里缺了它）会把应用答得出的输入判成
+///       「表达不了」——那才是错值方向，由 `test/domain/app_engine_vocabulary_semantics_test.dart`
+///       里那条逐名实测钉住。
 ///
 ///       递归覆盖全部节点类型——[ExprNode] 是 `sealed`，所以穷尽性由类型系统保证（漏一个节点
 ///       `flutter analyze` 直接报 `non_exhaustive_switch_statement`）。
@@ -181,13 +205,39 @@ bool _isPlainInfixOperator(String op) => op == '+' || op == '-' || op == '*';
 ///       [EngineResultKind.symbolic] 结果配不配显示（见 `AppEngineVocabulary.canExpress`）。
 /// English: **Whether this tree holds a name this app's own language has no binding for.**
 ///
-///          The test is the **node type**, not a table of names: `ExpressionAstParser._parseName`
-///          produces exactly three things — a constant (`ConstantNode`: `pi`/`e`/`tau`/`phi`/`inf`/
-///          `infinity`), a call (`FunctionNode`: an identifier immediately followed by `(`) — and
-///          **everything else** (`VariableNode`). A [VariableNode] therefore *is* the sentence "this
-///          app's own language has no binding for this name" rather than an approximation of it: no
-///          second name table to drift, no regex to maintain. Unit names such as `km` land here too —
-///          this app's own parser does not bind those either.
+///          The judgement has two halves, both asking one question:
+///
+///          - **variable names**: `ExpressionAstParser._parseName` produces exactly three things —
+///            a constant (`ConstantNode`: `pi`/`e`/`tau`/`phi`/`inf`/`infinity`), a call
+///            (`FunctionNode`: an identifier immediately followed by `(`) — and **everything else**
+///            (`VariableNode`). A [VariableNode] therefore *is* the sentence "this app's own language
+///            has no binding for this name" rather than an approximation of it: no second name table
+///            to drift, no regex to maintain. Unit names such as `km` land here too — this app's own
+///            parser does not bind those either.
+///          - **function names**: which call names this app's own **evaluator** binds is its own
+///            data (`ExpressionParser.functionNames`, the list behind the evaluation `switch`), and
+///            the name is folded first by `ExpressionParser.canonicalFunctionName` — the **same
+///            table** normalisation folds aliases with, there is no second copy. A name outside that
+///            list means a [FunctionNode] is judged "no binding" as well — **the same judgement as a
+///            variable**. (A `FunctionNode` only says "an identifier is followed by `(`"; it does
+///            **not** promise this app's own evaluator implements that name.)
+///
+///          **Why the function half asks the evaluator and not the vocabulary**
+///          (`AppEngineVocabulary.identifiers`): this judgement asks "can this app **itself** answer
+///          this input", and the vocabulary holds a batch of names (`matrix`/`sum`/`mean`/`pearson`/
+///          `conj`/`rand`…, 18 of them, pinned by a set equality in
+///          `test/domain/app_engine_vocabulary_semantics_test.dart`) that **only the engine can
+///          answer** — this app's own evaluator throws `Unknown function` for every one of them
+///          (measured). Judged by the vocabulary they would keep counting as "expressible" and the
+///          engine's `symbolic` answer would be discarded for ever.
+///
+///          **It shares the variable half's safety argument**: with the name unbound, the legacy
+///          parser can only throw `Unknown function …` for that line (measured), so what the
+///          tightening admits is the **engine's answer** rather than something that displaces a value
+///          this app can already produce. The other direction (a name the evaluator has but the data
+///          list lacks) would call an answerable input inexpressible — that is the wrong-value
+///          direction, and it is pinned by the name-by-name measurement in
+///          `test/domain/app_engine_vocabulary_semantics_test.dart`.
 ///
 ///          The recursion covers every node type — [ExprNode] is `sealed`, so exhaustiveness is
 ///          guaranteed by the type system (an omitted node is a `non_exhaustive_switch_statement`
@@ -214,7 +264,25 @@ bool namesSomethingOutsideTheAppLanguage(ExprNode node) {
     case ImplicitProductNode(:final left, :final right):
       return namesSomethingOutsideTheAppLanguage(left) ||
           namesSomethingOutsideTheAppLanguage(right);
-    case FunctionNode(:final args):
-      return args.any(namesSomethingOutsideTheAppLanguage);
+    case FunctionNode(:final name, :final args):
+      // 中文：名字与变量同一条判据（见上面那一段）；实参照样要走——`sin(x)` 这种「已绑定的名字
+      //       包着一个未绑定的名字」也属于这一类。
+      // English: the name faces the same judgement as a variable (see the note above), and the
+      //          arguments are still walked — `sin(x)`, a bound name wrapping an unbound one, is in
+      //          this class too.
+      return !_appEvaluatorBindsCall(name) ||
+          args.any(namesSomethingOutsideTheAppLanguage);
   }
 }
+
+/// 中文：应用自己的求值器绑不绑定这个调用名。**复用解析器自己那份数据**——名字表是
+///       `ExpressionParser.functionNames`，别名与大小写的折叠是
+///       `ExpressionParser.canonicalFunctionName`（它背后那张 `functionAliases` 表与归一化
+///       用的是同一张）。这里**不新建名字表**，所以「求值器绑了哪些名字」只有一处可改。
+/// English: whether this app's own evaluator binds this call name. **The parser's own data is
+///          reused** — the name list is `ExpressionParser.functionNames` and aliases/case fold
+///          through `ExpressionParser.canonicalFunctionName` (whose `functionAliases` table is the
+///          one normalisation uses too). **No second name table is created here**, so "which names
+///          the evaluator binds" has exactly one place to change.
+bool _appEvaluatorBindsCall(String name) => ExpressionParser.functionNames
+    .contains(ExpressionParser.canonicalFunctionName(name));
