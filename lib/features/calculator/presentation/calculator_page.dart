@@ -18,12 +18,14 @@ import 'keypad/calculator_keypad.dart';
 import 'keypad/hiper_keypad.dart';
 import 'result_form.dart';
 import 'widgets/calculator_display.dart';
+import 'widgets/dataset_sheet.dart';
 import 'widgets/inline_expression_editor.dart';
 import 'widgets/unit_picker_sheet.dart';
 import 'widgets/variable_picker_sheet.dart';
 
 part 'calculator_key_dispatch.dart';
 part 'calculator_page_sheets.dart';
+part 'calculator_page_dataset_sheet.dart';
 part 'calculator_page_repeat_button.dart';
 
 /// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的

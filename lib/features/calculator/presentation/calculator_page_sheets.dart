@@ -221,6 +221,7 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     );
   }
 
+
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
@@ -478,97 +479,6 @@ class _ComplexSheet extends StatelessWidget {
   }
 }
 
-/// 中文：`STAT` 面板的内容——**统计入口**。同样只列记号，按下去交给本页的 `_pressKey`。
-///
-///       每一格派发的是一个 `ins:` id，主屏把它变成**一整个调用**（`mean(1,2,3,4)`）追加进表达式。
-///       那串实参是一份**起手数据**，不是算出来的值：它与 `Σ`/`Π`/`∫dx` 那几颗键插进去的
-///       `sum(x,1,10,x)` 是同一类东西——按下去立刻求得出一个数，同时把引擎的实参顺序摆在屏幕上，
-///       用户在内联编辑器里照着改成自己那串数（那里打得进逗号）。
-///
-///       **这一轮没有数据集编辑器**：没有表格、没有增删行、没有回归、没有散点。数据集活在表达式里
-///       （因此撤销、落盘、代际守卫全都已经盖着它），而不是活在一个新的存放处。这是有意的取舍：
-///       一个真正存数据集的编辑器需要一个参与那三样的存放处，那是下一轮的事，这一轮不半做。
-/// English: the contents of the `STAT` sheet — the **statistics entrance**. It likewise lists tokens
-///          only and hands a press to this page's `_pressKey`.
-///
-///          Each cell dispatches an `ins:` id that the screen turns into **a whole call**
-///          (`mean(1,2,3,4)`) appended to the expression. That argument list is a **starting sample**,
-///          not a computed value: it is the same kind of thing as the `sum(x,1,10,x)` the `Σ`/`Π`/`∫dx`
-///          keys insert — one press yields a number immediately, and it puts the engine's argument
-///          order on screen so the user can edit it into their own run of numbers in the inline
-///          editor, which accepts commas.
-///
-///          **There is no dataset editor this round**: no table, no add/remove row, no regression, no
-///          scatter plot. The dataset lives in the expression (so undo, persistence and the generation
-///          guard already cover it) rather than in a new home. That is a deliberate trade: an editor
-///          that really stores a dataset needs a home taking part in those three, which is the next
-///          round's work — this round does not half-build it.
-class _StatisticsSheet extends StatelessWidget {
-  const _StatisticsSheet({required this.page, required this.theme});
-
-  final _CalculatorPageState page;
-  final CalcTheme theme;
-
-  /// 中文：（键面文字, 派发的 id）。id 与主屏 `_pressKey` 里那几个 `ins:` case 逐字对应。
-  /// English: (key face, dispatched id). The ids correspond byte for byte to the `ins:` cases in the
-  ///          screen's `_pressKey`.
-  static const List<(String, String)> _entries = <(String, String)>[
-    ('mean', 'ins:mean'),
-    ('median', 'ins:median'),
-    ('stdev', 'ins:stdev'),
-    ('var', 'ins:var'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final (label, id) in _entries)
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      page._pressKey(id);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.display.indicatorFg,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(0, 38),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(label,
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            // 中文：两句都不是装饰。①不说「那串数是起手数据、怎么改」，屏幕上就凭空多出一串用户
-            //       没打过的数字，看起来像错值；②不说样本（n−1）约定，`stdev` 给的 1.290 会被当成
-            //       总体的 1.118——**两个都是合理的数**，而屏幕上没有任何线索。
-            // English: neither sentence is decoration. Without (1) a run of digits the user never
-            //          typed appears from nowhere and reads as a wrong value; without (2) `stdev`'s
-            //          sample-convention 1.290 reads as the population 1.118 — **both are reasonable
-            //          numbers** and nothing on screen would say which one this is.
-            Text(
-              '插入的是完整调用，实参是一份起手数据；'
-              '括号里的数在内联编辑器里改成你自己的（逗号可以打）。'
-              'stdev/var 按样本（n−1）算。',
-              style: TextStyle(color: theme.display.statusFg, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// 中文：`More...` 面板的内容。它直接驱动本页的控制器——面板是本页私有的 UI，把十几个回调逐个传进来
 ///       只会更难读，所以它拿页面状态本体。一次性动作（复制、保存、编辑、退格、撤销/重做、光标移动）

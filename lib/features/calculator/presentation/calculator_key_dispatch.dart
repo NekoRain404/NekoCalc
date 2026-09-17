@@ -404,14 +404,34 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //          `stdev(1,2,3,4)` = `1.290994449` and `var(1,2,3,4)` = `1.666666667` (the last two are
       //          the **sample** convention, divisor n−1). All four share one run of numbers so they are
       //          comparable with each other, and short enough to read at a glance.
+      //
+      // 中文：**实参从这一轮起由数据集给出**（`statisticsCall` 是唯一那一处判断）。数据集非空时插的
+      //       是它那几个值（`mean(5,12,13)`），**为空时插的仍然是上面那串起手数据**——所以「没有
+      //       数据集」这条路上，本轮的行为与上一轮逐字节相同。形状一点没变（完整调用、立刻可求值），
+      //       变的只是那几个数从哪里来。
+      //
+      //       用户在表达式里手改过的那条调用**不受任何影响**：面板只往光标处插一条新的，从不回头去
+      //       改已经写下的文本。数据集与那条调用从插入那一刻起就是两样东西（理由写在
+      //       `_CalculatorDataset` 与 `statisticsCall` 的注释里）。
+      // English: **the arguments come from the dataset from this round on** (`statisticsCall` is the
+      //          one place that decides). With a non-empty dataset it inserts those values
+      //          (`mean(5,12,13)`); **with an empty one it still inserts the starting sample above** —
+      //          so on the "no dataset" path this round's behaviour is byte for byte the last round's.
+      //          The shape is untouched (a complete, immediately evaluable call); all that moved is
+      //          where the numbers come from.
+      //
+      //          A call the user has hand-edited in the expression is **not affected at all**: the
+      //          sheet only inserts a new one at the cursor and never reaches back into text already
+      //          written. Dataset and call are two different objects from the moment of insertion (the
+      //          reasons are on `_CalculatorDataset` and on `statisticsCall`).
       case 'ins:mean':
-        _controller.append('mean(1,2,3,4)');
+        _controller.append(_controller.statisticsCall('mean'));
       case 'ins:median':
-        _controller.append('median(1,2,3,4)');
+        _controller.append(_controller.statisticsCall('median'));
       case 'ins:stdev':
-        _controller.append('stdev(1,2,3,4)');
+        _controller.append(_controller.statisticsCall('stdev'));
       case 'ins:var':
-        _controller.append('var(1,2,3,4)');
+        _controller.append(_controller.statisticsCall('var'));
       case 'ins:%':
         _controller.input('%');
       case 'ins:exp':
