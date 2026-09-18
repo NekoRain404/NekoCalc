@@ -358,6 +358,75 @@ void main() {
     controller.dispose();
   });
 
+  test('DEG 下的三角奇点与 `log(0)` 落在同一句话上', () async {
+    // 中文：**这是设备上量到的那一条。** DEG 下 `tan(90)` 没有值（参考实现 `qalc -set "angle deg"`
+    //       把算式原样印回来，等于拒绝），而旧解析器在修好之前给的是一个**有限**的
+    //       1.6331239353195370e16——一个不存在的值被答成了看起来像答案的数。修好之后它落在**同一句
+    //       话**上，而不是一句新文案：下游那道非有限闸（`_calculateResult` 里的 `!value.isFinite`）
+    //       本来就产这句话，`log(0)`/`1/0` 走的也是它。
+    // English: **The row measured on the device.** Under DEG `tan(90)` has no value (the reference,
+    //          `qalc -set "angle deg"`, prints the expression back — a refusal), while the legacy
+    //          parser used to answer a **finite** 1.6331239353195370e16: a value that does not exist,
+    //          answered with something shaped like an answer. After the fix it lands on the **same
+    //          sentence** rather than on new wording — the downstream non-finite gate (`!value.isFinite`
+    //          in `_calculateResult`) already produced it, and `log(0)`/`1/0` go through it too.
+    for (final source in <String>[
+      'tan(90)', 'tan(270)', 'tan(-90)', 'sec(90)', 'csc(180)', 'cot(180)',
+      'cot(0)', 'log(0)', '1/0',
+    ]) {
+      final db = _FakeDatabase();
+      final controller = _controller(
+        db,
+        settings: const AppSettings(
+          haptics: true,
+          hapticStrength: '标准',
+          restoreState: false,
+          autoSaveHistory: true,
+          angleMode: 'DEG',
+          precision: 6,
+          themeModeLabel: '跟随系统',
+          expressionDisplayMode: '数学符号',
+        ),
+      );
+
+      controller.setExpression(source);
+      controller.evaluate();
+
+      expect(controller.result, '等待输入', reason: source);
+      expect(controller.hasError, isTrue, reason: source);
+      expect(controller.errorMessage, '结果不是有限数值', reason: source);
+
+      final submitResult = await controller.submit();
+      expect(submitResult.submitted, isFalse, reason: source);
+      expect(submitResult.status, CalculatorSubmitStatus.invalidExpression,
+          reason: source);
+      expect(submitResult.message, '表达式需要修正：结果不是有限数值',
+          reason: source);
+      expect(controller.result, '结果不是有限数值', reason: source);
+      expect(db.savedHistory, isEmpty, reason: source);
+
+      controller.dispose();
+    }
+  });
+
+  test('同一个 `tan(90)` 在 RAD 下照算——两种模式的判据不同', () {
+    // 中文：**这条是上一条的反例，也是「不许改 RAD」那道要求的护栏。** 弧度制里 `tan(90)` 是一个
+    //       普通的数（−1.9952…），奇点判据不适用于它；RAD 真正的奇点 π/2 不是可判定的实参。
+    // English: **The counter-example to the row above, and the guard for "do not touch RAD".** In
+    //          radians `tan(90)` is an ordinary number (−1.9952…) and the pole judgement does not
+    //          apply to it; RAD's real poles (π/2) are not decidable arguments.
+    final db = _FakeDatabase();
+    final controller = _controller(db);
+
+    controller.setExpression('tan(90)');
+    controller.evaluate();
+
+    expect(controller.hasError, isFalse);
+    expect(controller.resultDecimal, startsWith('-1.9952'));
+
+    controller.dispose();
+  });
+
   test('auto save skips equivalent submitted expressions', () async {
     final db = _FakeDatabase();
     final controller = _controller(

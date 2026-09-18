@@ -107,6 +107,59 @@ class ExpressionParser {
       final arg = args.isEmpty ? 0.0 : args.first;
       final secondArg = args.length >= 2 ? args[1] : null;
       final angle = degreeMode ? arg * math.pi / 180 : arg;
+      // 中文：**角度制下的三角奇点：那里没有值，不是「值很大」。** `tan`/`sec` 在 90° 的奇数倍没有
+      //       定义（`cos` 在那里恰好是 0），`cot`/`csc` 在 180° 的整数倍没有定义（`sin` 在那里是 0）。
+      //       判据因此下在**实参**上——这个角度值是不是 90°/180° 的精确整数倍——而不是在结果的大小
+      //       上：`2^2000` 是合法的大数，按大小一刀切会连它一起拒掉。
+      //
+      //       **为什么非有这条不可：** double 里没有真 π，`math.sin(math.pi)` 是 1.2246e-16 而不是
+      //       0，于是 `1/math.sin(angle)` 在 180° 上得到一个**有限的** 8.1656e15——下游那道非有限闸
+      //       什么也拦不住。（`cot(0)`/`1/tan(0)` 一直是对的，只是因为 `math.tan(0)` 恰好是精确的
+      //       0，不是判据本身对。）实测（DEG、修复前）：`tan(90)` = 1.6331239353195370e16、
+      //       `tan(270)` = 5.443746451065123e15、`sec(90)` = 1.6331239353195370e16、`cot(180)` =
+      //       -8.165619676597685e15、`csc(360)` = -4.0828098382988425e15；参考实现（`qalc -set
+      //       "angle deg"`）对这五条全部拒绝——把算式原样印回来（未求值），或给 `1 / 0`。
+      //
+      //       返回 `NaN` 而不是抛异常：NaN 就是「不是数」，而三个调用方（计算器提交路径、工具数值
+      //       输入、自定义公式）**都已经**拿 `!value.isFinite` 把非有限结果拒成同一句「结果不是有限
+      //       数值」/「公式结果不是有限数值」——奇点于是和 `log(0)` 走**完全同一条**拒绝路径，一句
+      //       新文案都不加。NaN 还让奇点**传染**：`tan(90)-tan(90)` 也是 NaN，而不是一个 0——0 会是
+      //       对一个没有值的问题的「答案」。
+      //
+      //       只在角度制下判。RAD 下 `tan(90)` 是一个**普通**的数（−1.9952…），90 这个数在那里没有
+      //       任何特殊含义；RAD 真正的奇点（π/2）在这个解析器里根本不是可判定的实参——`math.pi/2`
+      //       只是**离** π/2 最近的那个 double，`tan` 在它上面有值（1.6331239353195370e16）。两种
+      //       模式因此不可能共用一条判据。
+      // English: **Trigonometric poles in degree mode: the value does not exist there — this is not "a
+      //          big value".** `tan`/`sec` are undefined at odd multiples of 90° (`cos` is exactly 0
+      //          there) and `cot`/`csc` at integer multiples of 180° (`sin` is 0 there). So the test is
+      //          on the **argument** — is this degree value an exact integer multiple of 90°/180° — and
+      //          not on the size of the result: `2^2000` is a legitimate huge result, and a magnitude
+      //          cutoff would throw it away too.
+      //
+      //          **Why this has to exist:** a double has no exact π, so `math.sin(math.pi)` is
+      //          1.2246e-16 rather than 0, which makes `1/math.sin(angle)` at 180° a **finite**
+      //          8.1656e15 — nothing for the non-finite gate downstream to catch. (`cot(0)`/`1/tan(0)`
+      //          were only ever right because `math.tan(0)` happens to be an exact 0, not because the
+      //          judgement itself was right.) Measured (DEG, before the fix): `tan(90)` =
+      //          1.6331239353195370e16, `tan(270)` = 5.443746451065123e15, `sec(90)` =
+      //          1.6331239353195370e16, `cot(180)` = -8.165619676597685e15, `csc(360)` =
+      //          -4.0828098382988425e15; the reference (`qalc -set "angle deg"`) refuses all five —
+      //          it prints the expression back unevaluated, or answers `1 / 0`.
+      //
+      //          `NaN` rather than an exception: NaN *is* "not a number", and all three callers (the
+      //          calculator submit path, tool numeric input, custom formulas) **already** refuse a
+      //          non-finite result with the same 「结果不是有限数值」/「公式结果不是有限数值」 — so a pole
+      //          takes **exactly** the refusal path `log(0)` takes, adding no new wording. NaN also
+      //          makes the pole **contagious**: `tan(90)-tan(90)` is NaN rather than 0, and 0 would be
+      //          an "answer" to a question that has none.
+      //
+      //          Degree mode only. Under RAD `tan(90)` is an ordinary number (−1.9952…) and the number
+      //          90 carries no special meaning there; RAD's real poles (π/2) are not decidable
+      //          arguments in this parser at all — `math.pi/2` is merely the double **nearest** π/2,
+      //          and `tan` has a value there (1.6331239353195370e16). The two modes therefore cannot
+      //          share one judgement.
+      if (degreeMode && _hitsTrigPole(name, arg)) return double.nan;
       // 中文：三角函数在这里集中做角度制转换，其他函数始终按纯数值处理。
       // English: Trigonometric functions centralize degree/radian conversion here; other functions stay numeric.
       return switch (name) {
@@ -157,6 +210,54 @@ class ExpressionParser {
       };
     }
     return _readNumber();
+  }
+
+  /// 中文：**这个角度值是不是三角函数的极点**——即那一族里「值不存在」的那些实参。四张面孔分两组：
+  ///       `tan`/`sec` 在 90° 的**奇数**倍（`cos` 恰好为 0），`cot`/`csc` 在 180° 的**整数**倍
+  ///       （`sin` 恰好为 0）。两个**反例**同样钉在这张表里：`tan(180)`（90° 的偶数倍）与
+  ///       `cot(90)`（180° 的半整数倍）都**有**值，必须照算——奇数那一半不是修饰，是判据本身。
+  /// English: **is this degree value a pole of the trigonometric function** — the arguments in that
+  ///          family for which no value exists. Four faces in two groups: `tan`/`sec` at **odd**
+  ///          multiples of 90° (`cos` is exactly 0), `cot`/`csc` at **integer** multiples of 180°
+  ///          (`sin` is exactly 0). Two **counter-examples** are pinned by the same table: `tan(180)`
+  ///          (an even multiple of 90°) and `cot(90)` (a half-integer multiple of 180°) both **have**
+  ///          values and must keep computing — "odd" is not a decoration, it is half the judgement.
+  static bool _hitsTrigPole(String name, double degrees) => switch (name) {
+        'tan' || 'sec' => _isExactMultipleOf(degrees, 90, oddOnly: true),
+        'cot' || 'csc' => _isExactMultipleOf(degrees, 180, oddOnly: false),
+        _ => false,
+      };
+
+  /// 中文：`degrees` 是不是 `unit` 的**精确**整数倍（`oddOnly` 时还要求倍数本身是奇数）。
+  ///
+  ///       全程走整数，不借任何 double 中间量：先要求这个 double 自己是个整数，再用 [BigInt] 做整除
+  ///       判定。**为什么不能写成 `degrees / unit * unit == degrees`**——实测 `(1e300/90)*90 ==
+  ///       1e300` 是 `true`，那只是大数上的舍入自己转回了原值，1e300 根本不是 90 的整数倍；照那样写
+  ///       会把一个合法的大角度判成奇点。整数域里没有这种事。
+  ///
+  ///       非有限的实参先挡掉：`tan(1/0)` 的实参是 `Infinity`，而 `BigInt.from` 对无穷会抛
+  ///       `ArgumentError`——那会把一句「结果不是有限数值」变成一句「表达式错误」，是**退步**。
+  /// English: is `degrees` an **exact** integer multiple of `unit` (with the quotient itself odd when
+  ///          `oddOnly`)? Everything stays in the integer domain: first the double must be an integer
+  ///          itself, then [BigInt] decides divisibility. **Why it cannot be written
+  ///          `degrees / unit * unit == degrees`** — measured, `(1e300/90)*90 == 1e300` is `true`, but
+  ///          that is rounding on a large number landing back on itself; 1e300 is not a multiple of 90
+  ///          at all, and that spelling would call a legitimate large angle a pole. In the integer
+  ///          domain that cannot happen.
+  ///
+  ///          Non-finite arguments are refused up front: `tan(1/0)` passes `Infinity`, and
+  ///          `BigInt.from` throws `ArgumentError` for infinity — which would turn "结果不是有限数值"
+  ///          into "表达式错误", a **regression**.
+  static bool _isExactMultipleOf(double degrees, int unit,
+      {required bool oddOnly}) {
+    if (!degrees.isFinite) return false;
+    final integral = degrees.roundToDouble();
+    if (integral != degrees) return false;
+    final value = BigInt.from(integral);
+    final divisor = BigInt.from(unit);
+    final quotient = value ~/ divisor;
+    if (quotient * divisor != value) return false;
+    return !oddOnly || quotient.isOdd;
   }
 
   double _readNumber() {
