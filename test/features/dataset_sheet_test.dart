@@ -182,20 +182,33 @@ void main() {
     await tester.pumpAndSettle();
 
     // 中文：**手改过的那一条一个字符都没动**——面板只往光标处加了一条新的，没有回头去改写已经写下的
-    //       文本。两条紧挨着排（`_appendSmart` 的「补一个乘号」那张函数名前缀表里没有 `mean(`，与
-    //       `sum(`/`matrix(` 一样），这是**本轮之前就有的**形状，本轮没有动它；这里钉住的是「手改
-    //       的那一段原样留着、新的一段接在后面」。
+    //       文本。这里钉住的是「手改的那一段原样留着、新的一段接在后面」。
+    //
+    //       **两条之间那个 `×` 是本轮加上的**（这条断言以前写的是 `mean(7,8,9)mean(5)`）。原因写在
+    //       `_startsValue` 上：那条判据从一张手抄的函数名前缀表换成了一条语法规则（`名字(` 开头即值），
+    //       于是 `mean(` 这一类**完整的调用**也按隐式乘法处理，与 `sum(`/`integrate(`/`limit(` 一致。
+    //       **值一个都没变**（实测 `engineExpressionFor`）：这两种写法都译成
+    //       `((mean(7,8,9))*(mean(5)))`，宿主 `qalc` 5.12.0 两种写法都给 `40`。
+    //       （那段旧注释里还有一句是错的：「`sum(`/`matrix(` 也不在表里」——`sum(` **在**表里，
+    //       从它进键盘那一轮起就在。）
     // English: **the hand-edited call is not touched by a single character** — the sheet only appends a
-    //          new one at the cursor and never reaches back into text already written. The two sit
-    //          side by side (`_appendSmart`'s "insert a ×" function-prefix table has no `mean(`, just as
-    //          it has no `sum(`/`matrix(`), which is a shape that **predates this round** and is
-    //          untouched here; what is pinned is "the hand-edited run stays verbatim and the new one
-    //          follows it".
+    //          new one at the cursor and never reaches back into text already written. What is pinned
+    //          is "the hand-edited run stays verbatim and the new one follows it".
+    //
+    //          **The `×` between the two is this round's addition** (this assertion used to read
+    //          `mean(7,8,9)mean(5)`). The reason is on `_startsValue`: that criterion went from a
+    //          hand-copied table of function-name prefixes to one syntax rule (a token opening with
+    //          `name(` is a value), so a **complete call** like `mean(` is treated as implicit
+    //          multiplication too, exactly like `sum(`/`integrate(`/`limit(`). **No value changed**
+    //          (measured with `engineExpressionFor`): both spellings translate to
+    //          `((mean(7,8,9))*(mean(5)))`, and the host's `qalc` 5.12.0 answers `40` for both.
+    //          (That old comment also said something false — "`sum(`/`matrix(` are not in the table
+    //          either": `sum(` **was** in it, from the round its keypad key landed.)
     expect(_expression(tester), startsWith('mean(7,8,9)'),
         reason: '手改的那条必须原样留着');
     expect(_expression(tester), endsWith('mean(5)'),
         reason: '新的一条必须接在后面');
-    expect(_expression(tester), 'mean(7,8,9)mean(5)');
+    expect(_expression(tester), 'mean(7,8,9)×mean(5)');
   });
 
   testWidgets('负值与小数插进去照样排得出来（数据集里的值原样进调用）', (tester) async {
