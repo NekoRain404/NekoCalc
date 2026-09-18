@@ -1,3 +1,4 @@
+import '../../core/math/result_text_rules.dart';
 import 'dart:async';
 // 中文：数据集落盘用 JSON 数组（见 `_datasetIdText` 上的注释：分隔符是**带内**约定，JSON 不是）。
 // English: the dataset is persisted as a JSON array (see the note on `_datasetIdText`: a separator is
@@ -31,6 +32,13 @@ part 'calculator_controller_state.dart';
 part 'calculator_controller_editing.dart';
 part 'calculator_controller_insertion.dart';
 part 'calculator_controller_evaluation.dart';
+// 中文：**顺序承重**：边打边算那条流程读 `_CalculatorEvaluation` 的 `_selectEngineResult` 与
+//       `_askEngineTranslated`，所以它必须排在它**后面**（`on` 子句里写着）。换顺序是一个编译
+//       错误，不是一条静默的错行为。
+// English: **the order is load-bearing**: the as-you-type flow reads `_CalculatorEvaluation`'s
+//          `_selectEngineResult` and `_askEngineTranslated`, so it has to come **after** it (the
+//          `on` clause records it). Reordering is a compile error, not a silent wrong behaviour.
+part 'calculator_controller_live_evaluation.dart';
 // 中文：引擎那一份答案**怎么画**（取整、单位尾巴）——从 `…_evaluation` 里搬出来的一半，理由写在
 //       那个文件的头部：本文件所在的这一组到了 800 行那条硬边界。
 // English: **how the engine's answer is drawn** (rounding, unit tail) — the half split out of
@@ -203,6 +211,7 @@ class CalculatorController extends ChangeNotifier
         //          error, not a silent wrong behaviour.
         _CalculatorEngineDisplay,
         _CalculatorEvaluation,
+        _CalculatorLiveEvaluation,
         _CalculatorPersistence,
         _CalculatorBaseReadout,
         _CalculatorNotation,

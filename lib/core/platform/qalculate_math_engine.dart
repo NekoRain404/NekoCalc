@@ -1,3 +1,4 @@
+import '../math/result_text_rules.dart';
 import 'package:flutter/services.dart';
 
 import '../math/math_engine.dart';
@@ -159,7 +160,7 @@ class QalculateMathEngine implements MathEngine {
         //          as it stands; if not (a result carrying a unit, `Infinity`, an unreadable comma)
         //          the field stays empty, meaning "no decimal form this time", so numeric consumers
         //          stop rather than taking 0 after a failed parse.
-        decimalText: MathResult.decimalTextIsFinite(decimal) ? decimal : '',
+        decimalText: decimalTextIsFinite(decimal) ? decimal : '',
       ),
       messages: messages,
     );

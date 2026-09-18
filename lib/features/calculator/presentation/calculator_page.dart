@@ -30,6 +30,16 @@ import 'widgets/variable_picker_sheet.dart';
 part 'calculator_key_dispatch.dart';
 part 'calculator_notation_dispatch.dart';
 part 'calculator_page_sheets.dart';
+// 中文：三块自成一体的面板（`OTHER` / `CPLX` / `More...`）按本页已有的那条规矩搬进了各自的
+//       part 文件——**一个键与它打开的那一个面板住在一个文件里**，与 `MTRX`/`STAT`/`DRG` 三块
+//       逐条相同。`calculator_page_sheets.dart` 只留它们共用的那点东西。
+// English: three self-contained panels (`OTHER` / `CPLX` / `More...`) moved into part files of their
+//          own by the rule this screen already follows — **one key and the one panel it opens live
+//          in one file** — exactly as `MTRX`/`STAT`/`DRG` do. `calculator_page_sheets.dart` keeps
+//          only what they share.
+part 'calculator_page_other_sheet.dart';
+part 'calculator_page_complex_sheet.dart';
+part 'calculator_page_more_sheet.dart';
 part 'calculator_page_dataset_sheet.dart';
 part 'calculator_page_matrix_sheet.dart';
 part 'calculator_page_angle_sheet.dart';

@@ -316,8 +316,8 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
     if (pairs < kMinRegressionPairs) return const <({double x, double y})>[];
     final points = <({double x, double y})>[];
     for (var i = 0; i < pairs; i++) {
-      final x = MathResult.decimalValueOf(_dataset[i]);
-      final y = MathResult.decimalValueOf(_dataset[pairs + i]);
+      final x = decimalValueOf(_dataset[i]);
+      final y = decimalValueOf(_dataset[pairs + i]);
       if (x == null || y == null) return const <({double x, double y})>[];
       points.add((x: x, y: y));
     }
@@ -454,7 +454,7 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
         return const RegressionCurveOutcome.refused(_kCurveStaleError);
       }
       final value = reply.ok
-          ? MathResult.decimalValueOf(reply.result?.decimalText ?? '')
+          ? decimalValueOf(reply.result?.decimalText ?? '')
           : null;
       if (value == null) {
         return const RegressionCurveOutcome.refused(_kCurveNoEngineAnswer);

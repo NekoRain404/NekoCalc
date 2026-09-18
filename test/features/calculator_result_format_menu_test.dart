@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
-import 'package:nekocalc/core/math/math_result.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_strings.dart';
@@ -394,7 +394,7 @@ void main() {
       //          must be byte-identical to before — that field is what `Ans`/`last`, the memory
       //          register, continue-with and history read.
       expect(_display(tester).resultDecimal, '2.5');
-      expect(MathResult.decimalValueOf(_display(tester).resultDecimal), 2.5);
+      expect(decimalValueOf(_display(tester).resultDecimal), 2.5);
 
       // 中文：**这一份结果有哪几格**：`2.5` 的精确印法就是那串十进制（被合并掉），所以「Expression」
       //       这一项对它不存在——下面**只点存在的那些**，另外单独断言 `Expression` 是灰的。
@@ -417,7 +417,7 @@ void main() {
 
         expect(_display(tester).resultDecimal, '2.5',
             reason: '选了「$label」之后十进制形态动了');
-        expect(MathResult.decimalValueOf(_display(tester).resultDecimal), 2.5,
+        expect(decimalValueOf(_display(tester).resultDecimal), 2.5,
             reason: '选了「$label」之后数值动了');
         expect(_display(tester).result, '2.5', reason: '选了「$label」之后结果行的读数动了');
       }

@@ -151,7 +151,7 @@ class BaseReadout {
 ///
 ///       - **把 `-> hex` 插进表达式**（像 `CONV` 插 ` to ` 那样）会走进值通路：
 ///         `100 to hex` 在引擎那边是 `kind = conversion`、`decimal = 64`，而
-///         `MathResult.decimalTextIsFinite('64')` 为真——于是 `_selectEngineResult` 的第 1 级
+///         `decimalTextIsFinite('64')` 为真——于是 `_selectEngineResult` 的第 1 级
 ///         会把它当成「能当数字用」，`Ans`/记忆/继续使用全都拿到 **64**（而用户要的是 100）。
 ///         同一条路上 `255 to hex` 是 `FF`、`100 to oct` 是 `144`、`0.5 to hex` 是 `0.8`：
 ///         一串**看着像十进制**的另一个进制的数字。这正是本项目花了十几轮在消灭的那类错值。
@@ -181,7 +181,7 @@ class BaseReadout {
 ///
 ///          - **Inserting `-> hex` into the expression** (as `CONV` inserts ` to `) walks into the
 ///            value path: the engine answers `100 to hex` with `kind = conversion` and `decimal = 64`,
-///            and `MathResult.decimalTextIsFinite('64')` is true — so tier 1 of `_selectEngineResult`
+///            and `decimalTextIsFinite('64')` is true — so tier 1 of `_selectEngineResult`
 ///            takes it as **usable as a number** and `Ans`/memory/continue-with all receive **64**
 ///            where the user meant 100. Along the same path `255 to hex` is `FF`, `100 to oct` is
 ///            `144` and `0.5 to hex` is `0.8`: another base's digits, spelled like decimals. That is

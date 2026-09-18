@@ -6,6 +6,7 @@ import 'package:nekocalc/application/controllers/calculator_controller.dart';
 import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
@@ -34,13 +35,13 @@ void main() {
     test('矩阵、复数、符号结果、解集都可显示', () {
       // 中文：每一条都是真机日志里的原文（`smoke` 行的 decimal 字段）。
       // English: each of these is verbatim from a device log line (the `decimal` field).
-      expect(MathResult.textIsDisplayable('[1  2; 3  4]'), isTrue);
-      expect(MathResult.textIsDisplayable('1 + 2i'), isTrue);
-      expect(MathResult.textIsDisplayable('2x'), isTrue);
-      expect(MathResult.textIsDisplayable('[2  -2]'), isTrue);
-      expect(MathResult.textIsDisplayable('i'), isTrue);
-      expect(MathResult.textIsDisplayable('5.656854249492380'), isTrue);
-      expect(MathResult.textIsDisplayable('1.071508607186267E301'), isTrue);
+      expect(textIsDisplayable('[1  2; 3  4]'), isTrue);
+      expect(textIsDisplayable('1 + 2i'), isTrue);
+      expect(textIsDisplayable('2x'), isTrue);
+      expect(textIsDisplayable('[2  -2]'), isTrue);
+      expect(textIsDisplayable('i'), isTrue);
+      expect(textIsDisplayable('5.656854249492380'), isTrue);
+      expect(textIsDisplayable('1.071508607186267E301'), isTrue);
     });
 
     test('真正非有限的字面量不可显示', () {
@@ -55,7 +56,7 @@ void main() {
         '-∞',
         '+∞',
       ]) {
-        expect(MathResult.textIsDisplayable(text), isFalse,
+        expect(textIsDisplayable(text), isFalse,
             reason: '「$text」不是有限值，不该上结果行');
       }
     });
@@ -108,7 +109,7 @@ void main() {
         '∞',
         '1 + NaN',
       ]) {
-        expect(MathResult.textIsDisplayable(text), isFalse,
+        expect(textIsDisplayable(text), isFalse,
             reason: '「$text」不是有限值，不该上结果行');
       }
       // 中文：有限值一个都不许受影响——包括长得像名字的那些（`info` 不是 `infinity`）。
@@ -122,14 +123,14 @@ void main() {
         'info',
         'nanometer',
       ]) {
-        expect(MathResult.textIsDisplayable(text), isTrue,
+        expect(textIsDisplayable(text), isTrue,
             reason: '「$text」是有限值，不该被拦');
       }
     });
 
     test('空串不可显示', () {
-      expect(MathResult.textIsDisplayable(''), isFalse);
-      expect(MathResult.textIsDisplayable('   '), isFalse);
+      expect(textIsDisplayable(''), isFalse);
+      expect(textIsDisplayable('   '), isFalse);
       // 中文：判据只对**引擎印出来的值**用（[isDisplayable] 的唯一调用点是引擎回执那条路），
       //       所以它刻意只拒绝那两类、其余一律放行；「等待输入」这类应用自己的占位文本从不经过它。
       //       这一条钉住「拒绝面是窄的」这件事本身：多拒绝一类就会少显示一类引擎结果。
@@ -137,7 +138,7 @@ void main() {
       //          the engine-receipt path), so it deliberately rejects those two families and lets
       //          everything else through; app-side placeholders like "等待输入" never reach it. This
       //          assertion pins that narrowness: one extra rejection is one engine result fewer.
-      expect(MathResult.textIsDisplayable('等待输入'), isTrue);
+      expect(textIsDisplayable('等待输入'), isTrue);
     });
 
     test('两个判据互不替代', () {
@@ -543,7 +544,7 @@ class EngineReplyFixture {
         //          written only when it **is** a finite number; matrices and complex numbers leave it
         //          empty, and numeric consumers stop there.
         decimalText:
-            MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+            decimalTextIsFinite(displayText) ? displayText : '',
         resultKind: kind,
       ));
 }

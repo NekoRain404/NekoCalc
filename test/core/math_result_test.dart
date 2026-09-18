@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/math/math_result.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 
 void main() {
   test('keeps the three forms apart', () {
@@ -34,9 +35,9 @@ void main() {
     expect(error.decimalText, isEmpty);
     expect(error.decimalValue, isNull);
     expect(MathResult.legacy('4√2').decimalText, isEmpty);
-    expect(MathResult.decimalTextOf('  7.5  '), '7.5');
-    expect(MathResult.decimalTextOf(''), isEmpty);
-    expect(MathResult.decimalTextOf('无效'), isEmpty);
+    expect(decimalTextOf('  7.5  '), '7.5');
+    expect(decimalTextOf(''), isEmpty);
+    expect(decimalTextOf('无效'), isEmpty);
   });
 
   test('reusable text prefers the decimal form and never drops back to it', () {
@@ -124,9 +125,9 @@ void main() {
     expect(infinity.hasFiniteDecimal, isFalse);
     expect(negative.hasFiniteDecimal, isFalse);
     expect(notANumber.hasFiniteDecimal, isFalse);
-    expect(MathResult.decimalTextIsFinite('5.656854'), isTrue);
-    expect(MathResult.decimalTextIsFinite(''), isFalse);
-    expect(MathResult.decimalTextIsFinite('1 m'), isFalse);
+    expect(decimalTextIsFinite('5.656854'), isTrue);
+    expect(decimalTextIsFinite(''), isFalse);
+    expect(decimalTextIsFinite('1 m'), isFalse);
   });
 
   test('whitespace does not smuggle a non-finite literal past the check', () {
@@ -137,11 +138,11 @@ void main() {
     //          regex does not — without trimming first, `' Infinity '` and `'NaN '` both came back
     //          as finite numbers. The adapter trims before calling, so it is unreachable today, but
     //          it is a trap for the next caller.
-    expect(MathResult.decimalTextIsFinite(' Infinity '), isFalse);
-    expect(MathResult.decimalTextIsFinite('NaN '), isFalse);
-    expect(MathResult.decimalTextIsFinite('\t-Infinity\n'), isFalse);
-    expect(MathResult.decimalTextIsFinite(' 5 '), isTrue);
-    expect(MathResult.decimalTextIsFinite('   '), isFalse);
+    expect(decimalTextIsFinite(' Infinity '), isFalse);
+    expect(decimalTextIsFinite('NaN '), isFalse);
+    expect(decimalTextIsFinite('\t-Infinity\n'), isFalse);
+    expect(decimalTextIsFinite(' 5 '), isTrue);
+    expect(decimalTextIsFinite('   '), isFalse);
     // 中文：`decimalValue` 走同一处实现，所以空白包着的值该给的还是给。
     // English: `decimalValue` runs through the same implementation, so a whitespace-wrapped value
     //          still yields its number.
@@ -161,16 +162,16 @@ void main() {
     // English: `decimalValueOf` is the app's single implementation of "decimal text into a usable
     //          double" — the submit path, the paste path and the memory register's expression branch
     //          all come through it. This pins its four exits.
-    expect(MathResult.decimalValueOf('5.656854'), 5.656854);
-    expect(MathResult.decimalValueOf(''), isNull);
-    expect(MathResult.decimalValueOf('1 m'), isNull);
-    expect(MathResult.decimalValueOf('1e602'), isNull, reason: 'overflow');
-    expect(MathResult.decimalValueOf('9.3e-603'), isNull, reason: 'underflow');
-    expect(MathResult.decimalValueOf('0'), 0);
-    expect(MathResult.decimalValueOf('0e-999'), 0, reason: 'a real zero');
-    expect(MathResult.usableDouble(5), 5);
-    expect(MathResult.usableDouble(double.infinity), isNull);
-    expect(MathResult.usableDouble(double.nan), isNull);
+    expect(decimalValueOf('5.656854'), 5.656854);
+    expect(decimalValueOf(''), isNull);
+    expect(decimalValueOf('1 m'), isNull);
+    expect(decimalValueOf('1e602'), isNull, reason: 'overflow');
+    expect(decimalValueOf('9.3e-603'), isNull, reason: 'underflow');
+    expect(decimalValueOf('0'), 0);
+    expect(decimalValueOf('0e-999'), 0, reason: 'a real zero');
+    expect(usableDouble(5), 5);
+    expect(usableDouble(double.infinity), isNull);
+    expect(usableDouble(double.nan), isNull);
   });
 
   test('equality is by value so undo snapshots still de-duplicate', () {

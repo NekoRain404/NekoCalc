@@ -1,4 +1,5 @@
 import '../utils/number_formatter.dart';
+import './result_text_rules.dart';
 import 'math_result.dart';
 
 /// 中文：**带单位结果的显示取整**——用户设置里的「小数位数」对一个「量」的含义。
@@ -132,7 +133,7 @@ String? roundedQuantityDisplayText(
   if (!_roundableKinds.contains(result.resultKind)) return null;
   final match = _numberThenUnit.firstMatch(result.displayText.trim());
   if (match == null) return null;
-  final amount = MathResult.decimalValueOf(match.group(1)!);
+  final amount = decimalValueOf(match.group(1)!);
   if (amount == null) return null;
   return '${formatNumber(amount, precision: precision, groupThousands: groupThousands)}'
       ' ${match.group(2)!}';

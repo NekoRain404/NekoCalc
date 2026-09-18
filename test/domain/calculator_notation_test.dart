@@ -5,6 +5,7 @@ import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
@@ -126,7 +127,7 @@ void main() {
     await controller.cycleNotation();
     expect(controller.resultDecimal, before, reason: 'SCI 之后十进制形态逐字节不变');
     expect(controller.result, resultBefore, reason: '结果行上的字也不动——记法不是值');
-    expect(MathResult.decimalTextIsFinite(controller.resultDecimal), isTrue,
+    expect(decimalTextIsFinite(controller.resultDecimal), isTrue,
         reason: '它仍然是一个能被解析的数');
 
     await controller.cycleNotation();

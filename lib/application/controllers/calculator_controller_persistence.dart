@@ -60,7 +60,7 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          register; `decimalValueOf` also rejects `NaN` and underflow. What it rejects is treated
     //          as "no usable memory value" (0), the same as a missing or unparseable one.
     memoryValue =
-        MathResult.decimalValueOf(settings['calculator_memory'] ?? '') ?? 0;
+        decimalValueOf(settings['calculator_memory'] ?? '') ?? 0;
     // 中文：变量的恢复走**与记忆寄存器同一道判定**（`decimalValueOf`）——磁盘上的东西同样是输入，
     //       同样可能是 `Infinity`、`NaN` 或一个下溢成 0 的值；挡下来的按「没有绑定」处理，
     //       与键缺失、值不可解析时一致。这一条也保证了一件事：**变量的值永远是一个能装进 double
@@ -74,7 +74,7 @@ mixin _CalculatorPersistence on _CalculatorState {
     _variables.clear();
     for (final name in kBindableVariableNames) {
       final stored = settings['calculator_variable_$name'] ?? '';
-      if (MathResult.decimalValueOf(stored) != null) _variables[name] = stored;
+      if (decimalValueOf(stored) != null) _variables[name] = stored;
     }
     // 中文：数据集走的是**同一道判定**（`_readDataset` 里逐条过 `decimalValueOf`），理由与上面变量
     //       那一段逐字相同：盘上的东西同样是输入。整串读不动时它清空——失败一律关上，绝不猜一个数。
@@ -431,7 +431,7 @@ mixin _CalculatorPersistence on _CalculatorState {
       displayTex: settings['calculator_result_tex'] ?? '',
       decimalText: hasDecimalField
           ? (settings['calculator_result_decimal'] ?? '')
-          : MathResult.decimalTextOf(displayText),
+          : decimalTextOf(displayText),
     );
   }
 
@@ -565,8 +565,8 @@ mixin _CalculatorPersistence on _CalculatorState {
     try {
       if (expression.trim().isEmpty) return _result.decimalValue;
       final source = _resolveAnswerReferences(expression);
-      if (MathResult.decimalTextIsFinite(source)) {
-        return MathResult.decimalValueOf(source);
+      if (decimalTextIsFinite(source)) {
+        return decimalValueOf(source);
       }
       // 中文：`hasTex` 就是「这个结果是引擎算出来的」——旧路径从不写 LaTeX 形态，而引擎路径总有
       //       一段（见 [MathResult.displayTex] 的 doc）。
@@ -574,7 +574,7 @@ mixin _CalculatorPersistence on _CalculatorState {
       //          a LaTeX form and the engine path always carries one (see the doc on
       //          [MathResult.displayTex]).
       if (_result.hasTex) return _result.decimalValue;
-      return MathResult.usableDouble(
+      return usableDouble(
         ExpressionParser(source, degreeMode: angleMode == 'DEG').parse(),
       );
     } catch (_) {

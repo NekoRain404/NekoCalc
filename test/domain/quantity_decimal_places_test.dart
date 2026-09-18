@@ -4,6 +4,7 @@ import 'package:nekocalc/application/controllers/calculator_controller.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
 import 'package:nekocalc/core/math/quantity_display.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
@@ -395,7 +396,7 @@ class EngineReplyFixture {
         displayText: displayText,
         displayTex: displayTex,
         decimalText:
-            MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+            decimalTextIsFinite(displayText) ? displayText : '',
         resultKind: kind,
       );
 }
@@ -412,7 +413,7 @@ MathResult _quantity(
   return MathResult(
     displayText: displayText,
     decimalText:
-        MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+        decimalTextIsFinite(displayText) ? displayText : '',
     resultKind: kind,
   );
 }

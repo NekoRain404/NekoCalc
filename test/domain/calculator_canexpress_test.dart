@@ -4,6 +4,7 @@ import 'package:nekocalc/application/controllers/calculator_controller.dart';
 import 'package:nekocalc/core/math/app_engine_vocabulary.dart';
 import 'package:nekocalc/core/math/math_engine.dart';
 import 'package:nekocalc/core/math/math_result.dart';
+import 'package:nekocalc/core/math/result_text_rules.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
@@ -297,7 +298,7 @@ class _Receipt {
         // English: `QalculateMathEngine._replyFrom`'s own rule: the decimal form is written only when
         //          it **is** a finite number.
         decimalText:
-            MathResult.decimalTextIsFinite(displayText) ? displayText : '',
+            decimalTextIsFinite(displayText) ? displayText : '',
         resultKind: kind,
       ));
 }

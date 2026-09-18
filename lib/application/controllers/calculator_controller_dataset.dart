@@ -186,7 +186,7 @@ mixin _CalculatorDataset on _CalculatorState {
   ///          therefore the same sentence, byte for byte the reason `storableVariableValue` gives.
   String? get storableDatasetValue {
     final text = _result.decimalText;
-    return MathResult.decimalValueOf(text) == null ? null : text;
+    return decimalValueOf(text) == null ? null : text;
   }
 
   /// 中文：**把屏幕上那个结果加进数据集**。返回值与那三个记忆键同一种形状：`null` = 加进去了，
@@ -612,7 +612,7 @@ void _readDataset(String? stored, List<String> into) {
   for (final entry in entries) {
     if (into.length >= kMaxDatasetValues) break;
     if (entry is! String) continue;
-    if (MathResult.decimalValueOf(entry) == null) continue;
+    if (decimalValueOf(entry) == null) continue;
     into.add(entry);
   }
 }

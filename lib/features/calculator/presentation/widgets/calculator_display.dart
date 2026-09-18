@@ -3,15 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../shared/presentation/calc_theme.dart';
 import '../calculator_strings.dart';
 import '../result_form.dart';
+import 'display_status_row.dart';
 import 'math_expression_view.dart';
-import 'status_chips.dart';
-
-/// 中文：状态行里按钮的边长——比 Material 默认的 48 小，面板本来就不高，但仍是手指能稳稳点到的
-///       方块。状态行的高度就等于它。
-/// English: Edge length of a status-row button — smaller than Material's default 48 because the
-///          panel itself is short, yet still a square a finger can hit reliably. The status row is
-///          exactly this tall.
-const double _statusButtonSize = 40;
 
 /// 中文：chip 那三格的度量（24dp 高、6dp 圆角、0.12 的低透明度填充）跟着它们搬到了
 ///       `status_chips.dart`，因为那里是它们唯一的使用者——度量与用它的东西分开就会漂。
@@ -144,9 +137,13 @@ const double _errorMessageFontSize = 12;
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠
 ///       这个 tooltip 找到它，因此**主屏不得再另造一个 ☰**；`onOpenDrawer` 为空时它整个不渲染。
+///       那颗按钮本身这一轮跟着状态行搬到了 `display_status_row.dart`（tooltip 由本组件取好再
+///       递进去，契约一字未改）。
 /// English: The screen's ☰ lives here and carries `tooltip: '打开导航'` — the Task 4 screen and
 ///          the Task 5 shell test both find it by that tooltip, so **no second ☰ may be built on
-///          the screen**; when `onOpenDrawer` is null it is not rendered at all.
+///          the screen**; when `onOpenDrawer` is null it is not rendered at all. The button itself
+///          moved to `display_status_row.dart` with the status row this round (this widget fetches
+///          the tooltip and hands it in; the contract did not change by one character).
 ///
 /// 结果行的两种形态 / The result line's two shapes:
 /// 中文：结果行画**哪一形态**由 [ResultPresentation]（`result_form.dart`）算出来，本文件不自己判：
@@ -394,7 +391,26 @@ class CalculatorDisplay extends StatelessWidget {
           //          slack is zero and this alignment is a no-op.
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            _statusRow(presentation, CalculatorStrings.of(context)),
+            // 中文：**请求的形态落到这一份结果上**之后才念名字。少了 `resolve` 这一步，上一份结果上
+            //       选的形态会留在状态行上给新结果点一盏假灯——「这一份结果没有那一格」时就该一个字
+            //       都不说。判据只有 `ResultPresentation` 那一份（rule 6），这里不重判。
+            // English: the word is read off **after the requested form is resolved against this
+            //          result**. Without that `resolve` step a form chosen for the previous result would
+            //          leave a false lamp lit over the new one — when this result has no such cell,
+            //          nothing must be said. The judgement is `ResultPresentation`'s alone (rule 6) and
+            //          is not repeated here.
+            DisplayStatusRow(
+              formIndicator: presentation.resolve(resultForm).indicator,
+              angleMode: angleMode,
+              hasMemory: hasMemory,
+              baseReadout: baseReadout,
+              notationReadout: notationReadout,
+              colors: colors,
+              openNavigationTooltip:
+                  CalculatorStrings.of(context).openNavigationTooltip,
+              onOpenDrawer: onOpenDrawer,
+              onMore: onMore,
+            ),
             const SizedBox(height: 6),
             // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：面板高度够
             //       类注释里那条下限时，fixed 的状态行与结果行不会被裁掉；再矮下去就先挤这一行，
@@ -461,124 +477,6 @@ class CalculatorDisplay extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、**结果形式指示**、读数（进制 / 记法），
-  ///       `Spacer` 之后是 `More...`。两类格子都是宽松 [Flexible]：旁边的 `Spacer` 是
-  ///       `Expanded`，两者按 flex 分余量，所以格子**永远放得下**——内容比份额长时自己按省略号
-  ///       收窄而不让整行溢出（不给 `Flexible` 时实测报
-  ///       `A RenderFlex overflowed by 30 pixels on the right.`）；空串时整格不存在。
-  ///       读数为什么落在这一行见 [baseReadout]，形式指示见 [ResultForm.indicator]。
-  /// English: The status row — drawer button, angle-mode chip, memory indicator, **the result-form
-  ///          indicator**, the read-outs (base / notation), then `More...` after a `Spacer`. Both
-  ///          kinds of cell are a loose `Flexible`: the `Spacer` beside them is an `Expanded`, the
-  ///          two share the slack by flex, so a cell **always fits** — longer than its share it
-  ///          narrows itself with an ellipsis rather than overflowing the row (measured: `A
-  ///          RenderFlex overflowed by 30 pixels on the right.` without it); empty means absent.
-  ///          Why the read-outs land here is in [baseReadout], the form indicator in
-  ///          [ResultForm.indicator].
-  Widget _statusRow(
-      ResultPresentation presentation, CalculatorStrings strings) {
-    // 中文：**请求的形态落到这一份结果上**之后才念名字。少了 `resolve` 这一步，上一份结果上选的
-    //       形态会留在状态行上给新结果点一盏假灯——「这一份结果没有那一格」时就该一个字都不说。
-    //       判据只有 `ResultPresentation` 那一份（rule 6），这里不重判。
-    // English: the word is read off **after the requested form is resolved against this result**.
-    //          Without that `resolve` step a form chosen for the previous result would leave a false
-    //          lamp lit over the new one — when this result has no such cell, nothing must be said.
-    //          The judgement is `ResultPresentation`'s alone (rule 6) and is not repeated here.
-    final indicator = presentation.resolve(resultForm).indicator;
-    return SizedBox(
-      height: _statusButtonSize,
-      child: Row(
-        children: <Widget>[
-          if (onOpenDrawer != null) ...<Widget>[
-            _drawerButton(strings.openNavigationTooltip),
-            const SizedBox(width: 4),
-          ],
-          StatusChips.angleMode(angleMode, colors),
-          if (hasMemory) ...<Widget>[
-            const SizedBox(width: 6),
-            StatusChips.memory(colors),
-          ],
-          if (indicator.isNotEmpty) ...<Widget>[
-            const SizedBox(width: 6),
-            // 中文：宽松 `Flexible`——与进制读数那一格同一契约，实测见 `_statusRow` 的注释。
-            // English: a loose `Flexible` — the base read-out's contract; the measurement is in
-            //          `_statusRow`'s note.
-            Flexible(child: StatusChips.resultForm(indicator, colors)),
-          ],
-          // 中文：两格读数（进制 / 记法）走同一段渲染——它们是同一类东西，形状、配色与省略规则不该
-          //       分家；各自为空时各自不存在，布局与从前逐像素相同。
-          // English: the two read-outs (base / notation) share one stretch of rendering — the same
-          //          kind of thing, with a shape and elision rule that must not drift apart. Each is
-          //          absent while empty, so the layout is pixel-for-pixel what it was.
-          for (final readout in <String>[baseReadout, notationReadout])
-            if (readout.trim().isNotEmpty) ...<Widget>[
-              const SizedBox(width: 6),
-              Flexible(child: StatusChips.baseReadout(readout, colors)),
-            ],
-          const Spacer(),
-          if (onMore != null) _moreButton(),
-        ],
-      ),
-    );
-  }
-
-  /// 中文：主屏的 ☰。tooltip 是本组件对外的固定契约（见类注释），图标色取次要状态色。
-  ///       `shrinkWrap` 关掉 Material 默认把命中区撑到 48 的行为：那个隐形的 48 宽盒子会让状态行
-  ///       的左间距忽大忽小，而这里的尺寸是自己定死的正方形，图标因此正好居中。
-  /// English: The screen's ☰. Its tooltip is this widget's fixed outward contract (see the class
-  ///          comment) and its icon takes the secondary status colour. `shrinkWrap` turns off
-  ///          Material's default padding of the hit area out to 48: that invisible 48-wide box
-  ///          makes the status row's left spacing read as uneven, while this size is a square of
-  ///          our own choosing — so the icon sits exactly in its middle.
-  /// 中文：`openNavigationTooltip` 由调用方传进来——本方法没有 `BuildContext`，而那句话现在跟着
-  ///       界面语言走（表在 `calculator_strings.dart`）。
-  /// English: `openNavigationTooltip` arrives from the caller: this method has no `BuildContext`, and
-  ///          that sentence now follows the interface language (`calculator_strings.dart`).
-  Widget _drawerButton(String openNavigationTooltip) {
-    return IconButton(
-      onPressed: onOpenDrawer,
-      tooltip: openNavigationTooltip,
-      icon: const Icon(Icons.menu),
-      iconSize: 20,
-      color: colors.statusFg,
-      style: IconButton.styleFrom(
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(
-        width: _statusButtonSize,
-        height: _statusButtonSize,
-      ),
-    );
-  }
-
-  /// 中文：`More...` 按钮——本阶段接入现有能力（复制结果、保存笔记等）的入口。
-  ///       它只把点击转给上层，自身不关心菜单内容；`shrinkWrap` 与抽屉按钮同理，命中区不外扩，
-  ///       于是它与右侧内边距的关系是可预算的。
-  /// English: The `More...` button — the entry point to what already exists (copying the result,
-  ///          saving a note, ...). It only forwards the tap and does not care what the menu holds;
-  ///          `shrinkWrap` as on the drawer button keeps the hit area from expanding, so where its
-  ///          right edge lands against the padding is predictable.
-  Widget _moreButton() {
-    return TextButton(
-      onPressed: onMore,
-      style: TextButton.styleFrom(
-        foregroundColor: colors.indicatorFg,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        minimumSize: const Size(0, 34),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(
-        'More...',
-        style: TextStyle(
-          color: colors.indicatorFg,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

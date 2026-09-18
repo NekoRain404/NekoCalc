@@ -13,6 +13,9 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import '../../../l10n/app_language.dart';
+import 'text_tool_detail_cards.dart';
+import 'text_tool_inputs.dart';
+import 'text_tool_result_saver.dart';
 import 'text_tool_strings.dart';
 import 'tools_strings.dart';
 
@@ -48,6 +51,12 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   late final TextEditingController _cController;
   late final HistoryRepository _historyRepository;
   late final NotesRepository _notesRepository;
+  /// 中文：保存那一层（错误即拒 / 没写进去 / 抛出来，三条出口都住在它里面）。屏幕这一侧
+  ///       只剩防重入与把回来的那句话显示出来。
+  /// English: the saving layer (refuse on error / not written / threw — all three exits live in
+  ///          it). What is left on the screen is the re-entry guard and showing the sentence
+  ///          that comes back.
+  late final TextToolResultSaver _saver;
   late final SettingsRepository _settingsRepository =
       SettingsRepository(widget.db);
   final TextToolController _toolController = const TextToolController();
@@ -98,6 +107,10 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     _cController = TextEditingController(text: TextToolController.defaultC);
     _historyRepository = HistoryRepository(widget.db);
     _notesRepository = NotesRepository(widget.db);
+    _saver = TextToolResultSaver(
+      historyRepository: _historyRepository,
+      notesRepository: _notesRepository,
+    );
     _inputController.addListener(() => _scheduleRecalculate(_draftInputKey));
     _formulaController
         .addListener(() => _scheduleRecalculate(_draftFormulaKey));
@@ -154,7 +167,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     _seededOnce = true;
     _applyingDraft = true;
     try {
-      _inputController.text = _defaultInput(widget.tool.id);
+      _inputController.text = defaultInputFor(widget.tool.id, ToolsStrings.of(context));
     } finally {
       _applyingDraft = false;
     }
@@ -313,56 +326,30 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     }
   }
 
-  Future<ToolSaveResult> _saveHistoryResult() async {
-    if (_output.hasError) {
-      return ToolSaveResult.inputInvalid(
-        target: ToolSaveTarget.history,
-        summary: _output.statusMessage(_strings.output),
-      );
-    }
-    try {
-      final historyId = await _historyRepository.saveToolResult(
-        expression: '${widget.tool.title}: ${_mainInputText()}',
-        result: _result,
-        toolId: widget.tool.id,
-      );
-      if (historyId <= 0) {
-        return ToolSaveResult.notWritten(ToolSaveTarget.history);
-      }
-      return ToolSaveResult.savedHistory(historyId);
-    } catch (error) {
-      return ToolSaveResult.failed(
-        target: ToolSaveTarget.history,
-        error: error,
-      );
-    }
+  /// 中文：保存那两条路的**判定**搬到了 `text_tool_result_saver.dart`（错误即拒 / 没写进去 /
+  ///       抛出来），这里只把这次输出的四样东西交给它：工具（标题与 id）、输出本体、文案表，
+  ///       以及这一串算的是什么。
+  /// English: the **judgements** behind both save roads moved to `text_tool_result_saver.dart`
+  ///          (refuse on error / not written / threw); all that is left here is handing over this
+  ///          output's four things: the tool (its title and id), the output itself, the copy table,
+  ///          and the string saying what was computed.
+  Future<ToolSaveResult> _saveHistoryResult() {
+    return _saver.saveHistory(
+      tool: widget.tool,
+      output: _output,
+      strings: _strings.output,
+      input: _mainInputText(),
+      result: _result,
+    );
   }
 
-  Future<ToolSaveResult> _saveNoteResult() async {
-    if (_output.hasError) {
-      return ToolSaveResult.inputInvalid(
-        target: ToolSaveTarget.note,
-        summary: _output.statusMessage(_strings.output),
-      );
-    }
-    try {
-      final noteId = await _notesRepository.create(
-        title: widget.tool.title,
-        body: _output.copyText(
-          strings: _strings.output,
-          title: widget.tool.title,
-          input: _mainInputText(),
-        ),
-        description: widget.tool.description,
-      );
-      if (noteId <= 0) return ToolSaveResult.notWritten(ToolSaveTarget.note);
-      return ToolSaveResult.savedNote(noteId);
-    } catch (error) {
-      return ToolSaveResult.failed(
-        target: ToolSaveTarget.note,
-        error: error,
-      );
-    }
+  Future<ToolSaveResult> _saveNoteResult() {
+    return _saver.saveNote(
+      tool: widget.tool,
+      output: _output,
+      strings: _strings.output,
+      input: _mainInputText(),
+    );
   }
 
   @override
@@ -429,11 +416,17 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Expanded(child: _smallField('a', _aController)),
+                          Expanded(
+                              child: TextToolSmallField(
+                                  label: 'a', controller: _aController)),
                           const SizedBox(width: 8),
-                          Expanded(child: _smallField('b', _bController)),
+                          Expanded(
+                              child: TextToolSmallField(
+                                  label: 'b', controller: _bController)),
                           const SizedBox(width: 8),
-                          Expanded(child: _smallField('c', _cController)),
+                          Expanded(
+                              child: TextToolSmallField(
+                                  label: 'c', controller: _cController)),
                         ],
                       ),
                     ] else
@@ -442,7 +435,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                         minLines: widget.tool.id == 'json_format' ? 6 : 2,
                         maxLines: 10,
                         decoration: InputDecoration(
-                          hintText: _hintText(widget.tool.id),
+                          hintText: hintTextFor(widget.tool.id, ToolsStrings.of(context)),
                           alignLabelWithHint: true,
                         ),
                       ),
@@ -451,7 +444,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _statusCard(),
+            TextToolStatusCard(output: _output, strings: _strings.output),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(18),
@@ -518,7 +511,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
             ),
             if (_insights.isNotEmpty) ...[
               const SizedBox(height: 12),
-              _insightCard(),
+              TextToolInsightCard(insights: _insights),
             ],
             const SizedBox(height: 12),
             Row(
@@ -556,91 +549,9 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     );
   }
 
-  Widget _statusCard() {
-    final scheme = Theme.of(context).colorScheme;
-    final hasError = _output.hasError;
-    final color = hasError ? scheme.error : scheme.primary;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: softPanel(context: context),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            hasError ? Icons.error_outline : Icons.verified_outlined,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_output.statusTitle(_strings.output),
-                    style: TextStyle(
-                        color: color,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text(
-                  _output.statusMessage(_strings.output),
-                  style: TextStyle(
-                      color:
-                          hasError ? scheme.onSurface : scheme.onSurfaceVariant,
-                      height: 1.35),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _smallField(String label, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      keyboardType:
-          const TextInputType.numberWithOptions(decimal: true, signed: true),
-      decoration: InputDecoration(labelText: label, isDense: true),
-    );
-  }
-
-  Widget _insightCard() {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionTitle(ToolsStrings.of(context).insights),
-            ..._insights.map(
-              (line) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline, size: 17, color: scheme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(line,
-                          style: TextStyle(
-                              color: scheme.onSurfaceVariant, height: 1.35)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _reset() {
     _recalculateTimer?.cancel();
-    _inputController.text = _defaultInput(widget.tool.id);
+    _inputController.text = defaultInputFor(widget.tool.id, ToolsStrings.of(context));
     _formulaController.text = TextToolController.defaultFormula;
     _aController.text = TextToolController.defaultA;
     _bController.text = TextToolController.defaultB;
@@ -740,53 +651,4 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     return _inputController.text;
   }
 
-  String _defaultInput(String id) {
-    final strings = ToolsStrings.of(context);
-    return switch (id) {
-      'base_convert' => '0xFF',
-      'timestamp' => (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
-      'color_convert' => '#5B47FF',
-      'base64' => 'NekoCalc',
-      'url_codec' => strings.urlCodecSample,
-      'json_format' =>
-        '{"name":"NekoCalc","tools":["calculator","units","notes"]}',
-      'ascii_unicode' => 'NekoCalc',
-      'bitwise' => '12 5',
-      'checksum' => 'NekoCalc',
-      'uuid' => '',
-      'jwt_decode' =>
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJOZWtvQ2FsYyIsImV4cCI6MTg5MzQ1NjAwMH0.signature',
-      'query_params' => 'https://example.com/#/tools?tab=text&id=query_params',
-      'html_entities' => '<div class="name">NekoCalc & Tools</div>',
-      'regex_test' => r'\d+\nNekoCalc 2026 build 42',
-      'text_stats' => strings.textStatsSample,
-      'csv_json' => 'name,category\nNekoCalc,calculator\nGraph,tool',
-      'fnv_crc' => 'NekoCalc',
-      _ => '',
-    };
-  }
-
-  String _hintText(String id) {
-    final strings = ToolsStrings.of(context);
-    return switch (id) {
-      'base_convert' => strings.hintBaseConvert,
-      'timestamp' => strings.hintTimestamp,
-      'color_convert' => strings.hintColorConvert,
-      'base64' => strings.hintBase64,
-      'url_codec' => strings.hintUrlCodec,
-      'json_format' => strings.hintJsonFormat,
-      'ascii_unicode' => strings.hintAsciiUnicode,
-      'bitwise' => strings.hintBitwise,
-      'checksum' => strings.hintChecksum,
-      'uuid' => strings.hintUuid,
-      'jwt_decode' => strings.hintJwtDecode,
-      'query_params' => strings.hintQueryParams,
-      'html_entities' => strings.hintHtmlEntities,
-      'regex_test' => strings.hintRegexTest,
-      'text_stats' => strings.hintTextStats,
-      'csv_json' => strings.hintCsvJson,
-      'fnv_crc' => strings.hintFnvCrc,
-      _ => strings.hintDefault,
-    };
-  }
 }

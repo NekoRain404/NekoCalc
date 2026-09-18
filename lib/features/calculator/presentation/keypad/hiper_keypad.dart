@@ -2,6 +2,7 @@ import 'keypad_definition.dart';
 
 part 'hiper_keypad_band_key_rows.dart';
 part 'hiper_keypad_function_rows.dart';
+part 'hiper_keypad_angle_matrix_row.dart';
 part 'hiper_keypad_number_rows.dart';
 
 /// 中文：HiPER Calc Pro 的完整键位表——键盘的内容全在这里，渲染层只读不改。
@@ -52,7 +53,7 @@ part 'hiper_keypad_number_rows.dart';
 ///          disabled keys use `dis:`; page-level actions (drawer, tools, history) also carry
 ///          no prefix (`drawer`, `openTools`, …).
 
-/// 中文：**这张表住在四个文件里，有两条缝。** 第一条缝仍在「功能键区」与「数字区」之间：上半个
+/// 中文：**这张表住在五个文件里，有三条缝。** 第一条缝仍在「功能键区」与「数字区」之间：上半个
 ///       键区（第 1–5 行：修饰键与光标、DRG/MTRX/Σ/∫dx/相机、π 与三角函数、幂与对数、
 ///       度分秒/分数/变量/记忆）在 `hiper_keypad_function_rows.dart`；数字区（第 6–9 行：从
 ///       `7 8 9 ( )` 到 `0 . +/− EXP ✓`，也就是上面那段结构说明里被点名的那一块）在
@@ -61,15 +62,20 @@ part 'hiper_keypad_number_rows.dart';
 ///       这里决定**——两半只是内容，拼法与先后只此一处。
 ///
 ///       第二条缝在功能键区**内部**，落点是「横带里那一格是不是一颗按钮」（规格书第 17 行画的
-///       就是这条线）：横带只有不可点提示的行（1、2、4）留在 `hiper_keypad_function_rows.dart`，
+///       就是这条线）：横带只有不可点提示的行（1、4）留在 `hiper_keypad_function_rows.dart`，
 ///       横带里放了 `InlineKey` 的两行（3、5）搬到 `hiper_keypad_band_key_rows.dart`。两处各自的
 ///       文件头都写了这条缝为什么对；**那个文件里的每一条 `InlineKey` 都得指得出出处**，因为
 ///       「提示被做成按钮」正是最近五轮一直在撤的形状。
 ///
+///       第三条缝与第一条同源（**区域之间**）：行 2（`DRG`/`x⇔E`/`MTRX`/`Σ`/`Π`/📷）整行搬到
+///       `hiper_keypad_angle_matrix_row.dart`。它本来和另两行横带只有提示的行住在一起，而最近两轮
+///       的全部改动（`▸DRG`、`MTRX` 点亮，`FSE` 退回提示，📷 重新量过布局版本）都落在那六格上，
+///       那一行的档案因此是另外两行合计的近两倍。理由在那里的文件头。
+///
 ///       **拆分的动因是那条 800 行上限**：加 `d/dx`（`∫dx` 的 SHIFT 变体）时，还是单文件的它到了
 ///       801 行（实测）；本轮加 `DRG`/`MTRX` 两处挂载时，功能键区文件是 787 行、只剩 13 行余量。
 ///       两次拆的都是**数据**，缝落在区域之间或横带的性质之间，拆完每一半都有余量。
-/// English: **The table lives in four files, with two seams.** The first seam still runs between the
+/// English: **The table lives in five files, with three seams.** The first seam still runs between the
 ///          function half and the number area: the upper half (rows 1–5: modifiers and cursor,
 ///          DRG/MTRX/Σ/∫dx/camera, π and trigonometry, powers and logarithms,
 ///          D°M'S/fraction/variables/memory) is in `hiper_keypad_function_rows.dart`; the number
@@ -81,11 +87,18 @@ part 'hiper_keypad_number_rows.dart';
 ///
 ///          The second seam runs **inside** the function half, and its cut is "whether a band cell
 ///          is a button" (the line line 17 of the spec draws): the rows whose band holds nothing but
-///          hints (1, 2, 4) stay in `hiper_keypad_function_rows.dart`, and the two rows whose band
+///          hints (1, 4) stay in `hiper_keypad_function_rows.dart`, and the two rows whose band
 ///          carries `InlineKey`s (3, 5) move to `hiper_keypad_band_key_rows.dart`. Each file head
 ///          says why that seam is right; **every `InlineKey` over there has to point at its
 ///          source**, because "a hint turned into a button" is the shape the last five rounds have
 ///          been taking back out.
+///
+///          The third seam is the first one's kin (**between regions**): row 2
+///          (`DRG`/`x⇔E`/`MTRX`/`Σ`/`Π`/📷) moved whole to `hiper_keypad_angle_matrix_row.dart`. It
+///          used to share a file with the other two hint-only-band rows, while the last two rounds'
+///          entire work (`▸DRG` and `MTRX` lit, `FSE` demoted to a hint, the camera's layout version
+///          re-measured) landed on its six cells — its dossier alone is nearly twice the other two
+///          rows put together. The reasons are at that file's head.
 ///
 ///          **The reason for both splits is the 800-line cap**: adding `d/dx` (the SHIFT variant of
 ///          `∫dx`) took the single-file version to 801 lines (measured), and this round's two mounts

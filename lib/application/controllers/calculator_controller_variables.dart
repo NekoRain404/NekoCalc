@@ -70,7 +70,7 @@ mixin _CalculatorVariables on _CalculatorState {
   ///          button is pressed" and "what went in" are therefore the same sentence.
   String? get storableVariableValue {
     final text = _result.decimalText;
-    return MathResult.decimalValueOf(text) == null ? null : text;
+    return decimalValueOf(text) == null ? null : text;
   }
 
   /// 中文：这个变量现在绑着的值（小写名字查表）；没绑定时是 `null`。

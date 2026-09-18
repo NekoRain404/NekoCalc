@@ -106,10 +106,10 @@ void main() {
 
   test('**读数不进值通路**：引擎回 `decimal = 64`，结果与 Ans 仍然是 100', () async {
     // 中文：这一条是本设计的存在理由。真实的回执里 `100 to hex` 的 `decimal` 就是 `64`，而
-    //       `MathResult.decimalTextIsFinite('64')` 为真——只要那串数字走进结果，`Ans` 就会从
+    //       `decimalTextIsFinite('64')` 为真——只要那串数字走进结果，`Ans` 就会从
     //       100 变成 64，没有任何异常、没有任何提示。
     // English: this is why the design exists. In a real receipt `100 to hex` carries `decimal = 64`,
-    //          and `MathResult.decimalTextIsFinite('64')` is true — the moment those digits enter the
+    //          and `decimalTextIsFinite('64')` is true — the moment those digits enter the
     //          result, `Ans` turns from 100 into 64 with nothing thrown and nothing said.
     final engine = _FakeMathEngine(
       EngineReply.success(conversion),

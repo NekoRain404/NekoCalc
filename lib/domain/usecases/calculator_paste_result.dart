@@ -1,3 +1,4 @@
+import '../../core/math/result_text_rules.dart';
 import 'dart:convert';
 
 import '../../core/math/math_result.dart';
@@ -185,7 +186,7 @@ class CalculatorPasteResult {
     } else if (normalized.startsWith('.')) {
       normalized = '0$normalized';
     }
-    return MathResult.decimalValueOf(normalized) == null ? '' : normalized;
+    return decimalValueOf(normalized) == null ? '' : normalized;
   }
 
   static String? _labeledValue(String text, List<String> labels) {
@@ -256,7 +257,7 @@ class CalculatorPasteResult {
   static double? _memoryValueFromText(String text) {
     final raw = _labeledValue(text, const ['记忆值', 'memory', 'memory value']);
     if (raw == null) return null;
-    return MathResult.decimalValueOf(raw.replaceAll(',', '').trim());
+    return decimalValueOf(raw.replaceAll(',', '').trim());
   }
 
   static bool _looksLikeCalculatorReport(String text) {
