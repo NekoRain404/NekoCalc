@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/math/engine_expression.dart';
 import '../../core/math/expression_parser.dart';
 import '../../core/math/app_engine_vocabulary.dart';
+import '../../core/math/app_unit_catalog.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
 import '../../core/math/variable_references.dart';
@@ -32,6 +33,7 @@ part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
 part 'calculator_controller_notation.dart';
+part 'calculator_controller_angle_convert.dart';
 part 'calculator_controller_variables.dart';
 part 'calculator_controller_dataset.dart';
 part 'calculator_controller_fit_curve.dart';
@@ -189,6 +191,12 @@ class CalculatorController extends ChangeNotifier
         _CalculatorPersistence,
         _CalculatorBaseReadout,
         _CalculatorNotation,
+        // 中文：`►DRG` 那一次角度换算（HiPER 的 `TO_DRG`）。它只读结果的十进制形态、只写表达式，
+        //       所以对别的混因没有依赖——放在这一组里只是跟着「一个键一条路」的顺序走。
+        // English: the one angle conversion behind `►DRG` (HiPER's `TO_DRG`). It reads only the
+        //          result's decimal form and writes only the expression, so it depends on no other
+        //          mixin; it sits in this group to follow the "one key, one path" ordering.
+        _CalculatorAngleConvert,
         _CalculatorVariables,
         _CalculatorDataset,
         // 中文：**顺序承重**。回归图那一层读 [CalculatorController.fitCall] 与那个数据集，所以它

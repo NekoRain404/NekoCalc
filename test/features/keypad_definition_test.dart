@@ -58,7 +58,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "clear|AC|on destructive",
   ],
   <String>[
-    "angleMode|DRG|on function shift:dis:angleConvert|DRG|off",
+    "angleMode|DRG|on function shift:openAngleConvert|DRG|on",
     "resultForm|x⇔E|on function shift:notationCycle|FSE|on",
     "ins:matrix|MTRX|on function shift:openMatrixMenu|MTRX|on",
     "ins:sum|Σ|on function shift:ins:product|Π|on",

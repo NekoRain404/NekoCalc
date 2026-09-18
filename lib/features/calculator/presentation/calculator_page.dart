@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../application/app_settings.dart';
 import '../../../application/controllers/calculator_controller.dart';
 import '../../../application/controllers/expression_selection.dart';
+import '../../../core/math/app_unit_catalog.dart';
 import '../../../core/math/variable_references.dart';
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/utils/number_formatter.dart';
@@ -31,6 +32,7 @@ part 'calculator_notation_dispatch.dart';
 part 'calculator_page_sheets.dart';
 part 'calculator_page_dataset_sheet.dart';
 part 'calculator_page_matrix_sheet.dart';
+part 'calculator_page_angle_sheet.dart';
 part 'calculator_page_repeat_button.dart';
 
 /// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的
@@ -95,6 +97,18 @@ class CalculatorPage extends StatefulWidget {
     //          disabled `dis:matrixMenu` and lights up this round — the same precedent as the three
     //          above (the `dis:` prefix becomes a real action id).
     'openMatrixMenu',
+    // 中文：`►DRG` 的第二功能（HiPER 的 `TO_DRG`「换算角度单位」）。它同样是 `dis:` 前缀换成真动作
+    //       id 的那条先例（上一轮 `MTRX` 那一格走的就是它），只是**面板里没有第二个 id**：那一对
+    //       「源单位 × 目标单位」由面板直接交给控制器（与数据集面板的「加入当前结果」同一种做法），
+    //       因为 6×6 对组合没有一份可枚举的键位词汇，而**这个 id 本身仍旧只有一个入口**（`DRG`
+    //       那颗键的 SHIFT 变体）。
+    // English: `►DRG`'s second function (HiPER's `TO_DRG`, "Convert Angular Units"). It is the same
+    //          precedent as the `MTRX` cell above (a `dis:` prefix becoming a real action id), except
+    //          that **its sheet carries no second id**: the "source × target" pair goes straight from
+    //          the sheet to the controller (what the dataset sheet's "add current result" does), since
+    //          6×6 pairs have no enumerable keypad vocabulary — and **this id still has exactly one
+    //          entrance** (the `DRG` key's SHIFT variant).
+    'openAngleConvert',
     // 中文：矩阵菜单插的四条完整调用。与下面 `ins:sum`/`ins:mean` 同属「插一整条引擎调用」那一类：
     //       键盘上没有逗号键，而它们都要一整个矩阵实参；插的形状（围着 `matrix(2,2,1,2,3,4)`，
     //       不是围着用户的表达式）与理由写在 `_pressKey` 里那几个 case 的注释上。

@@ -29,7 +29,8 @@
 ///
 ///       **翻译不了的一律走旧解析器**（硬性边界 1 的同一条路）：那些构造要么引擎没有对应
 ///       （`npr`），要么两边**定义真的不同**（`mod`：应用的 `%` 是欧几里得余数、引擎的 `mod`
-///       在被除数为负时不同），要么翻译过去会改变含义（`deg`/`rad` 在引擎里是**单位**）。
+///       在被除数为负时不同），要么翻译过去会改变含义（`deg`/`rad` 在引擎里是**单位**——这条
+///       有一个**写明了形状的例外**，见 [_angleConversion]：一次 `to` 换算的两侧本来就在说单位）。
 ///
 /// English: **Translate this app's expression into the engine's language before asking the engine.**
 ///
@@ -74,10 +75,13 @@
 ///          those constructs either have no engine counterpart (`npr`), or the two sides genuinely
 ///          **define them differently** (`mod`: this app's `%` is the Euclidean remainder, the engine's
 ///          `mod` differs for negative dividends), or translating them would change the meaning
-///          (`deg`/`rad` are **units** in the engine).
+///          (`deg`/`rad` are **units** in the engine — that last one has a **shape-limited exception**,
+///          see [_angleConversion]: the two sides of one `to` conversion are talking about units to
+///          begin with).
 library;
 
 import 'app_engine_vocabulary.dart';
+import 'app_unit_catalog.dart';
 import 'ast/expression_ast_parser.dart';
 import 'expression_parser.dart';
 
@@ -218,12 +222,15 @@ EngineExpression engineExpressionForNode(ExprNode node) => _translate(node);
 ///          ([AppEngineVocabulary.engineNameFor] refuses it), every operator outside the whitelists
 ///          ([_binaryOperators], [_unaryOperators]), a `%` still bare after normalisation, and any
 ///          fragment the parser cannot read — each carries the reason the place that produces it gives.
-///          **Together they are that closed set.**
+///          **Together they are that closed set.** The two `deg`/`rad` rows below describe the **call**
+///          form only: since this round the bare words may be units **inside one `to` conversion**
+///          (the shape, the evidence and the argument are on [_angleConversion]).
 const Map<String, String> untranslatableReason = <String, String>{
   'npr': '引擎没有排列数函数（量过：`npr`/`permutations` 都不是函数名），应用自己的解析器才是它的定义处',
   'mod': '两边定义真的不同：应用的 `%` 是欧几里得余数（`7 % -3` = 1），引擎的 `mod(7,-3)` 是 -2',
-  'deg': '引擎里的 `deg` 是一个**单位**，翻译过去含义就变了；应用自己的解析器有精确定义',
-  'rad': '同上（引擎里的 `rad` 也是单位）',
+  'deg': '引擎里的 `deg` 是一个**单位**，翻译过去含义就变了；应用自己的解析器有精确定义'
+      '（这一条只说**调用**那个形状：裸的 `deg` 在一次 `to` 换算里是单位，见 [_angleConversion]）',
+  'rad': '同上（引擎里的 `rad` 也是单位；同样只在 `to` 换算里放行裸词）',
 };
 
 EngineExpression _translate(ExprNode node) {
@@ -275,6 +282,15 @@ EngineExpression _translate(ExprNode node) {
         TranslatedExpression(:final text) => TranslatedExpression('$op($text)'),
       };
     case BinaryNode(:final op, :final left, :final right):
+      // 中文：**`to` 先按「一次角度换算」读一次，读不成再走原来那条。** 这个例外只有一个形状，
+      //       判据、凭据与不开的那些门都在 [_angleConversion] 上；`op` 不是 `to` 时一个字都不变。
+      // English: **`to` is first read as "one angle conversion"; failing that it takes the old road.**
+      //          The exception has exactly one shape — the judgement, the evidence and the doors left
+      //          shut are all on [_angleConversion]; with an `op` other than `to` nothing moves.
+      if (op == 'to') {
+        final conversion = _angleConversion(left, right);
+        if (conversion != null) return conversion;
+      }
       return _binary(op, left, right);
     case PostfixNode(:final op, :final operand):
       final inner = _translate(operand);
@@ -329,9 +345,10 @@ EngineExpression _translate(ExprNode node) {
       final r = _translate(right);
       if (l is UntranslatableExpression) return l;
       if (r is UntranslatableExpression) return r;
-      return TranslatedExpression(
-        '((${(l as TranslatedExpression).text})*(${(r as TranslatedExpression).text}))',
-      );
+      return TranslatedExpression(_productText(
+        (l as TranslatedExpression).text,
+        (r as TranslatedExpression).text,
+      ));
     case ParseErrorNode(:final text):
       return UntranslatableExpression('解析器读不懂 `$text`');
   }
@@ -359,6 +376,143 @@ EngineExpression _binary(String op, ExprNode left, ExprNode right) {
   return TranslatedExpression(
     '((${(l as TranslatedExpression).text})$pad$op$pad(${(r as TranslatedExpression).text}))',
   );
+}
+
+/// 中文：**本翻译里「两个东西相乘」唯一的写法**：`(A)*(B)`。并置乘法（[ImplicitProductNode]）与
+///       下面那次角度换算共用它，所以「乘起来写给引擎是什么样」只有一处答案。（`_binary` 里的
+///       `*` 写出同一个字符串，但那是**另一个构造**——显式乘号；两者印出来一样是应该的。）
+/// English: **the one spelling of "two things multiplied" in this translation**: `(A)*(B)`.
+///          Juxtaposition ([ImplicitProductNode]) and the angle conversion below share it, so "what a
+///          product looks like written for the engine" has exactly one answer. (`_binary`'s `*` emits
+///          the same string, but that is **another construct** — the explicit sign; printing the same
+///          is the point.)
+String _productText(String left, String right) => '(($left)*($right))';
+
+/// 中文：**一次角度换算：`<值> <源单位> to <目标单位>`——`►DRG`（HiPER 的 `TO_DRG`）插的那一条。**
+///
+///       这个形状是**本轮唯一新放行的东西**，所以它窄到什么程度、为什么仍然安全，都要写清楚。
+///
+///       **一、只放行哪一个拼法：`deg`，而且只在两个位置上。** 六个角度拼法（[kAngleUnits]）里，
+///       五个早在 `kAppUnits` 里（`rad`/`gon`/`turn`/`arcmin`/`arcsec`），**只有 `deg` 是本轮新开的
+///       一格**。它开在**一次换算的两侧**，别处一个字都不动：`deg` 单独（`deg`）、`5 deg`、
+///       `deg + 1`、`deg(90)` 仍然一律翻译不了（实测），于是仍旧回落旧解析器——旧解析器对裸的
+///       `deg` 给的正是应用自己的那句「Function deg needs (」。
+///
+///       **二、形状判据（两条，都在这里）：**
+///       1. `to` 的**右**操作数必须是一个裸单位词，且拼法在 [kAngleUnits] 里；
+///       2. `to` 的**左**操作数必须是「值 × 一个裸单位词」，右边那个词也在 [kAngleUnits] 里。
+///       两条都要求**单位是写出来的词**（`VariableNode`，不是括号、不是运算、不是别的节点）。
+///       不满足就返回 `null`，调用方**原样走老路**——所以这不是放宽，是多了一条窄路。
+///
+///       **三、为什么这个形状里的单位含义是清楚的，而不是「替引擎猜」。** `to` 是本应用自己的
+///       换算运算符（`5 km to mi` 早就是这个意思，`expression_ast_parser.dart` 的 `_parseExpression`），
+///       而它两侧的裸词只可能是**单位名**——`<值> <单位> to <单位>` 里没有第二个读法。反过来说：
+///       这扇门不承认任何「裸数 + 目标单位」的写法（`90 to deg` 过不去，因为左边不是「值 × 单位」），
+///       那正是最坏的一类静默错值——它的源单位会变成**当前角度模式**（实测：`90 to rad` 在
+///       DEG/RAD/GRA 三档下分别是 `1.570796327 rad` / `90 rad` / `1.413716694 rad`）。
+///
+///       **四、旧注释里那两句被本轮实测改掉了。** 旧注释说「`90 to deg` → `90°`：只在裸数后面贴上
+///       度的记号，值一个字节没变」，并据此说「反方向（→ 度）不存在」。两句都只在**一半**上成立：
+///       - 「贴记号」只在 **DEG** 下成立；**RAD** 下 `90 to deg` = `5156.620156°`（引擎把 90 读成
+///         弧度）。所以正确的说法是「源单位是当前角度模式」，不是「值不变」。
+///       - 「→ 度」在引擎里一直存在：`90 rad to deg` = `5156.620156°`（实测）。过去过不去的是
+///         **应用这一侧**（`deg` 不是可插入单位），不是引擎做不到。
+///
+///       **五、本轮量到、但本轮**没有**改的一条。** `X to rad`（以及 `gon`/`turn`/`arcmin`/
+///       `arcsec`）今天从 `CONV` 面板就能按出来，而它的源单位是当前角度模式——所以同一个输入在
+///       DEG 与 RAD 下给两个不同的答案（上面那张表）。关掉它要改一个已经在工作的键路上的行为，
+///       而且那一步在 DEG 下给出的答案未必是错的（用户的角度模式就是他声明的角度单位）；本轮的
+///       做法是**把新的入口写成模式无关的**（两侧都写出来，实测三档同答），并把这一条量下来留给
+///       下一轮。`►DRG` 这条路上没有它：源单位永远写出来。
+///
+///       **六、凭什么说这几个拼法引擎读得对、读得稳。** 六个拼法、两个方向、三种角度模式，逐条
+///       量过，表在 `app_unit_catalog.dart` 的 [kAngleUnits] 上；被拒绝的 `grad`（值对、单位坏）
+///       也在那里。
+///
+///       产出与 [_binary] 的形状逐字相同（`((左) to (右))`，左是一个 `(值)*(单位)`），所以引擎那边
+///       看到的还是它已经读了几轮的那一种串。
+/// English: **one angle conversion: `<value> <source unit> to <target unit>` — what `►DRG` (HiPER's
+///          `TO_DRG`) inserts.**
+///
+///          This shape is **the only new admission this round**, so how narrow it is and why it is
+///          still safe both have to be written down.
+///
+///          **1. Which spelling it admits: `deg`, and only in two positions.** Of the six angle
+///          spellings ([kAngleUnits]) five have been in `kAppUnits` all along
+///          (`rad`/`gon`/`turn`/`arcmin`/`arcsec`); **`deg` is the one cell opened this round**, and it
+///          is opened **on the two sides of one conversion** — nowhere else moves. On its own
+///          (`deg`), in `5 deg`, in `deg + 1` and in `deg(90)` it still cannot be translated
+///          (measured), so it still falls back to the legacy parser, whose own answer for a bare `deg`
+///          is this app's "Function deg needs (".
+///
+///          **2. The shape judgement (two clauses, both here):**
+///          1. the **right** operand of `to` must be a bare unit word whose spelling is in
+///             [kAngleUnits];
+///          2. the **left** operand must be "a value × a bare unit word", that word also in
+///             [kAngleUnits].
+///          Both require the unit to be **a written word** (`VariableNode`, not a bracket, not an
+///          operator, not another node). When either fails this returns `null` and the caller **takes
+///          the old road unchanged** — so this is not a relaxation, it is one narrow path.
+///
+///          **3. Why the unit meaning is clear in this shape rather than "guessed for the engine".**
+///          `to` is this app's own conversion operator (`5 km to mi` has meant that all along;
+///          `_parseExpression` in `expression_ast_parser.dart`), and a bare word on either side of it
+///          can only be a **unit name** — in `<value> <unit> to <unit>` there is no second reading.
+///          The converse is the important half: this door admits no "bare number plus a target unit"
+///          shape (`90 to deg` cannot get through, because its left side is not "a value × a unit"),
+///          which is the worst class of silent wrong value — its source unit becomes the **current
+///          angle mode** (measured: `90 to rad` is `1.570796327 rad` / `90 rad` / `1.413716694 rad`
+///          under DEG / RAD / GRA).
+///
+///          **4. Two sentences in the old notes that this round's measurements replaced.** The old
+///          note said "`90 to deg` → `90°`: a degree symbol is attached to a bare number and the value
+///          does not move a byte", and concluded that "the other direction (→ degrees) does not
+///          exist". Both hold on **one side only**:
+///          - "attaches a symbol" holds only under **DEG**; under **RAD** `90 to deg` measures
+///            `5156.620156°` (the engine reads 90 as radians). The right sentence is "the source unit
+///            is the current angle mode", not "the value does not move".
+///          - "→ degrees" has always existed in the engine: `90 rad to deg` = `5156.620156°`
+///            (measured). What did not exist was the spelling on **this app's** side (`deg` was not an
+///            insertable unit) — not the engine's ability.
+///
+///          **5. Something measured this round that this round did *not* change.** `X to rad` (and
+///          `gon`/`turn`/`arcmin`/`arcsec`) can be pressed out of the `CONV` sheet today, and its source
+///          unit is the current angle mode — so one input gives two different answers under DEG and RAD
+///          (the table above). Closing it would change the behaviour of a path that already works, and
+///          under DEG the answer it gives need not be wrong (the user's angle mode *is* the unit he
+///          declared); what this round does instead is make **the new entrance mode-independent**
+///          (both sides written out, measured identical in all three modes) and record this one for
+///          the next round. `►DRG`'s path does not have it: the source unit is always written out.
+///
+///          **6. Why these spellings can be trusted to be read correctly and stably.** Six spellings,
+///          both directions, three angle modes, measured one by one; the table is on [kAngleUnits] in
+///          `app_unit_catalog.dart`, and the refused `grad` (right value, corrupted unit) is there too.
+///
+///          What it emits is item-for-item [_binary]'s shape (`((left) to (right))`, with the left a
+///          `(value)*(unit)`), so the engine sees the same kind of string it has read for rounds.
+EngineExpression? _angleConversion(ExprNode left, ExprNode right) {
+  final target = _unitWord(right);
+  if (target == null) return null;
+  if (left is! ImplicitProductNode) return null;
+  final source = _unitWord(left.right);
+  if (source == null) return null;
+  final value = _translate(left.left);
+  if (value is UntranslatableExpression) return value;
+  return TranslatedExpression(
+    '((${_productText((value as TranslatedExpression).text, source)}) to ($target))',
+  );
+}
+
+/// 中文：**这个节点是不是一个裸的单位词**（拼法在 [kAngleUnits] 里）——是就返回那个拼法，不是就
+///       返回 `null`。**只认裸的 `VariableNode`**：括号、运算、函数调用一概不认，那是刻意的
+///       （「认出别的写法」等于替引擎猜它的意思，而这一层不猜）。
+/// English: **is this node a bare unit word** (spelling in [kAngleUnits]) — the spelling when it is,
+///          `null` when it is not. **Only a bare `VariableNode` counts**: brackets, operators and
+///          calls are all rejected on purpose (recognising other spellings would mean guessing what
+///          the engine makes of them, and this layer does not guess).
+String? _unitWord(ExprNode node) {
+  if (node is! VariableNode) return null;
+  return kAngleUnitSymbols.contains(node.name) ? node.name : null;
 }
 
 /// 中文：常量 → 引擎里的写法。**`phi` 翻成它的数值**：引擎里 `phi` 是一个**函数**（欧拉 φ），

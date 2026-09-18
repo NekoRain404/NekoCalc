@@ -148,9 +148,11 @@ const KeypadRow _modifierRow = KeypadRow(
 );
 
 // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
-//       上方标签：DRG（**`DRG` 的 SHIFT 提示，本轮挂上、仍是禁用**——HiPER 那一格是 `TO_DRG`
-//       「换算角度单位」，与下方 `DRG` 的「切换角度单位」**是两个命令**，而应用今天没有前者；
-//       理由、来源与它为什么是禁用写在下面 `DRG` 那颗键的长注释里）、
+//       上方标签：DRG（**`DRG` 的 SHIFT 提示，本轮真的点亮了**——HiPER 那一格是 `TO_DRG`
+//       「换算角度单位」，与本行下方 `DRG` 那颗键的「切换角度单位」**是两个命令**：前者换算**当前
+//       显示的那个数**、先问源单位与目标单位，后者换的是**模式**。本轮建起了前者：`openAngleConvert`
+//       打开一个面板，选好源与目标之后把整条表达式换成 `<值> <源单位> to <目标单位>`。来源、理由与
+//       被拒绝的 `grad` 写在下面 `DRG` 那颗键的长注释里），
 //       FSE（**`x⇔E` 的 SHIFT 提示，已接上**——上一轮它被做成横带里一颗可点的 `InlineKey`，
 //       本轮按来源退回提示，理由见下面 `x⇔E` 那颗键上的长注释。那一维在 HiPER 上有五档——
 //       Normal / Fixed / Scientific / Engineering / Engineering SI，**本应用只接得上三档**
@@ -176,10 +178,13 @@ const KeypadRow _modifierRow = KeypadRow(
 //       带它的 `►DRG` 与不带它的 `FSE`/`MTRX`/`Π`/`d/dx` 在截图上**逐像素同一种画法**
 //       （字形核心 (159,161,168)、无胶囊底），而横带里每一颗**真按钮**都戴着胶囊底。
 // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
-//          Band above: DRG (**the SHIFT hint of `DRG`, mounted this round and still disabled** — on
-//          HiPER that cell is `TO_DRG`, "Convert Angular Units", which is **a different command**
-//          from the `DRG` key's "Switch Angular Units", and this app has no such action; the
-//          reason, the sources and why it stays disabled are in the long note on the `DRG` key
+//          Band above: DRG (**the SHIFT hint of `DRG`, really lit this round** — on HiPER that cell is
+//          `TO_DRG`, "Convert Angular Units", which is **a different command** from the `DRG` key
+//          below it in the same row: the former converts **the number currently displayed**, after
+//          asking for a source and a target unit, while the latter switches the **mode**. This round
+//          builds the former: `openAngleConvert` opens a sheet, and once a source and a target are
+//          chosen it replaces the whole expression with `<value> <source unit> to <target unit>`.
+//          The sources, the reasons and the refused `grad` are in the long note on the `DRG` key
 //          below), FSE (**the SHIFT hint of `x⇔E`, wired** — the previous round made it a tappable
 //          `InlineKey` in this band; this round puts it back to a hint per the sources, and the
 //          reasoning is on the `x⇔E` key's long note below. On HiPER that dimension has five
@@ -213,11 +218,11 @@ const KeypadRow _modifierRow = KeypadRow(
 //          core (159,161,168), no capsule), while every real band **button** wears a capsule.
 const KeypadRow _angleAndAggregateRow = KeypadRow(
   keys: <KeypadKey>[
-    // 中文：**`DRG` 的 SHIFT 功能是 `TO_DRG`「换算角度单位」——与这颗键的基准不是同一个动作。**
-    //       本轮把它按位置挂上（`dis:angleConvert`），**但它仍是禁用的**：应用今天没有这个动作，
-    //       而这一格在 HiPER 上是一颗真动作。下面按顺序说清楚三件事。
+    // 中文：**`DRG` 的 SHIFT 功能是 `TO_DRG`「换算角度单位」——与这颗键的基准不是同一个动作，
+    //       本轮真的点亮了**（`openAngleConvert`）。下面按顺序说清楚三件事。
     //
-    //       **一、HiPER 上它是 `DRG` 的第二功能，不是一颗独立的键。** 四条来源，都是本轮自己量的：
+    //       **一、HiPER 上它是 `DRG` 的第二功能，不是一颗独立的键。** 四条来源（上一轮量的，本轮
+    //       一条都没动——它们是这一格**挂在这里**的理由，与它能不能点亮无关）：
     //       1. **位置**：1440×3200 原图（`~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`）
     //          第 2 行横带 `y=1225..1310`，六格字形列中心 `128.0 / 364.5 / 602.0 / 838.0 / 1075.5 /
     //          1311.5`，下方主键 `y=1314..1437` 的列中心 `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 /
@@ -235,7 +240,8 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          available in custom keyboards"），而同一族在**展开布局**里是 `►DEG`/`►RAD`/`►GRAD`
     //          三颗键——展开布局**没有 SHIFT 键、也没有第二功能**（手册 §SHIFT："Expanded and pocket
     //          layouts do not have SHIFT key and all functions are accessible by 'one click'"）。
-    //          所以这个箭头属于**换算命令的名字**，不属于控件的种类。
+    //          所以这个箭头属于**换算命令的名字**，不属于控件的种类。（**`►GRAD` 那颗键的拼法正是
+    //          下面面板里灰掉的那一行**：引擎里的 `grad` 不是一个角，见第三条。）
     //
     //       **二、它是什么动作：`TO_DRG`，与 `DRG` 是两个命令。** `command.name.DRG` = "Switch
     //       Angular Units"（手册："Use DRG key (or DEG etc. in expanded layout) to switch among these
@@ -245,33 +251,34 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //       number."** ——一个换的是**模式**，一个换的是**当前显示的那个数**，并且要选源与目标。
     //       （`x⇔E`/`FSE` 是同一种「相邻两条命令」的形状，上一轮已核。）
     //
-    //       **三、为什么挂上却是禁用：应用给不出这个动作。** 本轮用应用自己的翻译层探过（临时探针，
-    //       跑完即删）：
+    //       **三、本轮点亮它靠的是什么，以及上一轮那两句错话。** 这个动作今天做得了，是因为翻译层
+    //       开了一条**只有一个形状**的窄路（`engine_expression.dart` 的 `_angleConversion`：
+    //       `<值> <角度单位> to <角度单位>`，两侧都是写出来的单位词），六个角度拼法逐个量过
+    //       （表在 `app_unit_catalog.dart` 的 `kAngleUnits` 上）。面板、取舍与 `grad` 那一行灰格的
+    //       凭据在 `calculator_page_angle_sheet.dart` 的文件头上。
     //
-    //       | 送进去的 | `engineExpressionFor` 的答复 |
-    //       |---|---|
-    //       | `90 to rad` | `TranslatedExpression`（**只有这一个方向过得去**） |
-    //       | `1.5707963268 to deg` | 不能翻译：引擎不认识这个自由变量：`deg` |
-    //       | `90 deg to rad` | 不能翻译：引擎不认识这个自由变量：`deg` |
-    //       | `90 to degrees` | 不能翻译：引擎不认识这个自由变量：`degrees` |
-    //       | `1.5707963268 to radians` | 不能翻译：引擎不认识这个自由变量：`radians` |
+    //       **上一轮的注释在这里写着「源单位说不出来、反方向（→ 度）不存在」——本轮实测把这两句都
+    //       改掉了，两处都留在这里免得下一轮再抄一遍：**
+    //       - **「反方向不存在」是假的。** 引擎一直做得了 `90 rad to deg`（实测 = `5156.620156°`）；
+    //         过去过不去的是**应用这一侧**（`deg` 不是可插入单位拼法），不是引擎做不到。
+    //       - **「`90 to deg` 只是贴了个记号、值一个字节没变」只在 DEG 下成立。** 同一个输入在 RAD 下
+    //         实测是 `5156.620156°`（引擎把 90 读成弧度）、在 GRA 下是 `90.00000000 d·°` 那一族。
+    //         正确的说法是「**不写源单位时，源单位就是当前角度模式**」——`90 to rad` 在三档下分别是
+    //         `1.570796327 rad` / `90 rad` / `1.413716694 rad`。**这正是本应用新面板永远把源单位写
+    //         出来的理由**（写全了，答案与角度模式无关：`90 deg to rad` 三档同答）。
+    //       - 那份「`degrees`/`radians` 过不去」的读数今天仍然成立（那两个拼法不在应用的单位表里），
+    //         但它们**不是引擎读不懂**（实测 `90 degrees to rad` = `1.570796327 rad`），而是本应用
+    //         没有给它们拼法——与 `zorkmid` 那一类同一条路。
     //
-    //       也就是说：**源单位说不出来**，**反方向（→ 度）不存在**，而本应用的「角度」是一个**两态
-    //       开关**（`angleMode`：DEG↔RAD，`setAngleMode`），不是一次换算。硬做出一个单向版本，
-    //       在 RAD 档下会把一个**看起来像答案的错数**印到屏幕上——比报错更糟。所以这里是 fail
-    //       closed：位置照挂（`shift`），`enabled: false`——SHIFT 态下这颗键变暗且不响应，正是
-    //       「这个动作在本应用里到不了」的诚实画法。**基准动作 `angleMode` 一格未动。**
+    //       **基准动作 `angleMode` 一格未动**：那颗键按下去仍然是 DEG↔RAD 的模式开关，不换算任何数，
+    //       也不碰表达式（本文件下面那段与 `calculator_key_dispatch.dart` 的 `angleMode` case 都没动）。
+    // English: **`DRG`'s SHIFT function is `TO_DRG`, "Convert Angular Units" — not the same action as
+    //          this key's base, and really lit this round** (`openAngleConvert`). Three things, in
+    //          order.
     //
-    //       **这条拒绝写成了断言**：`test/features/calculator_drg_matrix_band_keys_test.dart` 里
-    //       那一组把上表的实测**钉住**——哪一天应用真的有了两向换算（或那几个词进了词表），
-    //       那组会变红，那时这一格该点亮，而不是让一条过期的禁用悄悄留着。
-    // English: **`DRG`'s SHIFT function is `TO_DRG`, "Convert Angular Units" — not the same action
-    //          as this key's base.** This round mounts it at the position it occupies on HiPER
-    //          (`dis:angleConvert`) **but it stays disabled**: this app does not have that action,
-    //          while the cell is a real action on HiPER. Three things, in order.
-    //
-    //          **1. On HiPER it is `DRG`'s second function, not a key of its own.** Four sources,
-    //          all measured this round:
+    //          **1. On HiPER it is `DRG`'s second function, not a key of its own.** Four sources
+    //          (measured last round and untouched by this one — they are why the cell is **mounted
+    //          here**, which is independent of whether it can light up):
     //          1. **Position**: on the 1440×3200 original cited above, the six glyph column centres
     //             of row 2's band (`y=1225..1310`) are `128.0 / 364.5 / 602.0 / 838.0 / 1075.5 /
     //             1311.5` and those of the keys below (`y=1314..1437`) are `127.5 / 364.0 / 601.0 /
@@ -294,6 +301,8 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //             SHIFT key and no second functions at all** (manual §SHIFT: "Expanded and pocket
     //             layouts do not have SHIFT key and all functions are accessible by 'one click'").
     //             The arrow belongs to the conversion commands' **names**, not to the kind of widget.
+    //             (**`►GRAD`'s spelling is exactly the grey row in the sheet below**: `grad` is not an
+    //             angle in the engine — see item 3.)
     //
     //          **2. What the action is: `TO_DRG`, a second command.** `command.name.DRG` = "Switch
     //          Angular Units" (the manual: "Use DRG key (or DEG etc. in expanded layout) to switch
@@ -305,35 +314,40 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          target. (`x⇔E`/`FSE` are the same "two neighbouring commands" shape, checked last
     //          round.)
     //
-    //          **3. Why it is mounted but disabled: this app cannot provide the action.** Probed this
-    //          round through the app's own translation layer (temporary probe, deleted after the
-    //          run):
+    //          **3. What lights it up this round, and the two false sentences that were here.** This
+    //          action is reachable today because the translation opened a narrow path with **exactly
+    //          one shape** (`_angleConversion` in `engine_expression.dart`:
+    //          `<value> <angle unit> to <angle unit>`, both sides written-out unit words), with all six
+    //          angle spellings measured (the table is on `kAngleUnits` in `app_unit_catalog.dart`). The
+    //          sheet, the trade-offs and the evidence behind the grey `grad` row are in
+    //          `calculator_page_angle_sheet.dart`'s file head.
     //
-    //          | input | `engineExpressionFor`'s answer |
-    //          |---|---|
-    //          | `90 to rad` | `TranslatedExpression` (**the only direction that gets through**) |
-    //          | `1.5707963268 to deg` | 不能翻译：引擎不认识这个自由变量：`deg` |
-    //          | `90 deg to rad` | 不能翻译：引擎不认识这个自由变量：`deg` |
-    //          | `90 to degrees` | 不能翻译：引擎不认识这个自由变量：`degrees` |
-    //          | `1.5707963268 to radians` | 不能翻译：引擎不认识这个自由变量：`radians` |
+    //          **Last round's note said here that "the source unit cannot be stated" and "the other
+    //          direction (→ degrees) does not exist" — this round's measurements replaced both, and
+    //          both corrections stay here so the next round does not copy them again:**
+    //          - **"the other direction does not exist" is false.** The engine has always done
+    //            `90 rad to deg` (measured = `5156.620156°`); what did not exist was the spelling on
+    //            **this app's** side (`deg` was not an insertable unit), not the engine's ability.
+    //          - **"`90 to deg` merely attaches a symbol and the value does not move a byte" holds under
+    //            DEG only.** The same input under RAD measures `5156.620156°` (the engine reads 90 as
+    //            radians) and under GRA it is in the `90.00000000 d·°` family. The right sentence is
+    //            "**with no source unit written, the source unit is the current angle mode**" —
+    //            `90 to rad` is `1.570796327 rad` / `90 rad` / `1.413716694 rad` under the three modes.
+    //            **That is exactly why this app's new sheet always writes the source unit out** (written
+    //            out, the answer does not depend on the angle mode: `90 deg to rad` answers the same
+    //            under all three).
+    //          - The old reading that `degrees`/`radians` cannot get through still holds (those two
+    //            spellings are not in this app's unit table), but they are **not** cases of the engine
+    //            failing to read them (measured: `90 degrees to rad` = `1.570796327 rad`) — this app
+    //            simply gives them no spelling, the same road as `zorkmid`.
     //
-    //          That is: **the source unit cannot be stated**, **the other direction (→ degrees) does
-    //          not exist**, and this app's "angle" is a **two-state switch** (`angleMode`: DEG↔RAD
-    //          through `setAngleMode`), not a conversion. A hand-rolled one-way version would print a
-    //          **plausible-looking wrong number** on screen under RAD — worse than an error. So this
-    //          fails closed: the position is mounted (`shift`) with `enabled: false` — under SHIFT the
-    //          key dims and does not respond, the honest picture of "this action is out of reach in
-    //          this app". **The base action `angleMode` has not moved a cell.**
-    //
-    //          **The refusal is written down as assertions**:
-    //          `test/features/calculator_drg_matrix_band_keys_test.dart` pins the table above — the
-    //          day the app really gains a two-way conversion (or those words enter the vocabulary),
-    //          that group goes red and this cell should light up, rather than leaving an expired
-    //          refusal quietly in place.
+    //          **The base action `angleMode` has not moved a cell**: that key still switches the
+    //          DEG↔RAD mode, converts no number and touches no expression (neither the note below this
+    //          one nor the `angleMode` case in `calculator_key_dispatch.dart` was touched).
     KeypadKey(
       base: KeyVariant(label: 'DRG', id: 'angleMode'),
       category: KeyCategory.function,
-      shift: KeyVariant(label: 'DRG', id: 'dis:angleConvert', enabled: false),
+      shift: KeyVariant(label: 'DRG', id: 'openAngleConvert', enabled: true),
     ),
     // 中文：**`FSE` 是这一颗键的 SHIFT 功能**——不是横带里独立的键。上一轮把它做成了横带里
     //       一颗可点的 `InlineKey`，那是错的，本轮按来源改回来。三条来源，各自独立：

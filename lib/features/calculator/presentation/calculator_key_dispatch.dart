@@ -140,6 +140,31 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //          lives with the thing it describes, and this is only the signpost.
       case 'openMatrixMenu':
         _openMatrixMenuSheet();
+      // 中文：**`►DRG` 的第二功能打开「换算角度单位」**（HiPER 的 `TO_DRG`，手册第 678 行）。这一格
+      //       原来是禁用的 `dis:angleConvert`，本轮点亮：`dis:` 前缀换成真正的动作 id，先例与上一轮
+      //       的 `MTRX` 那一格逐条相同。**面板里有什么、两行为什么会灰、`grad` 那一行为什么灰，都在
+      //       `calculator_page_angle_sheet.dart` 的文件头上**——长注释跟它描述的东西住在一起，这里
+      //       只留一句指路的话。
+      //
+      //       **与 `MTRX` 那一格的一处不同，写在这里**：那个面板只递 id（四个 `ins:`），而这里递的是
+      //       一对单位拼法，由面板直接调控制器的 `convertAngle`（与数据集面板的「加入当前结果」同一
+      //       种做法）。理由是 6×6 对组合没有一份可枚举的键位词汇，而**这个动作 id 仍然只有一个入口**
+      //       ——`DRG` 那颗键的 SHIFT 变体（`键的 id 全局唯一` 那条不变式管的是这一个 id）。
+      // English: **`►DRG`'s second function opens "Convert Angular Units"** (HiPER's `TO_DRG`, manual
+      //          line 678). This cell used to be the disabled `dis:angleConvert` and lights up this
+      //          round: the `dis:` prefix becomes a real action id, item for item the precedent the
+      //          `MTRX` cell set last round. **What is in the sheet, why its two rows go grey and why
+      //          the `grad` row is grey all live in `calculator_page_angle_sheet.dart`'s file head** —
+      //          the long note lives with the thing it describes, and this is only the signpost.
+      //
+      //          **One difference from the `MTRX` cell, written here**: that sheet hands over ids only
+      //          (four `ins:` ids), while this one hands over a pair of unit spellings and calls the
+      //          controller's `convertAngle` itself (what the dataset sheet's "add current result"
+      //          does). The reason is that 6×6 pairs have no enumerable keypad vocabulary — and **the
+      //          action id still has exactly one entrance**, the `DRG` key's SHIFT variant (the
+      //          `键的 id 全局唯一` invariant is about that one id).
+      case 'openAngleConvert':
+        _openAngleConvertSheet();
       case 'openConstants':
         _navigate('tools');
       // 中文：**四个进制胶囊从这一步起真的做进制换算**（它们此前只是切到工具箱）。理由与代价：

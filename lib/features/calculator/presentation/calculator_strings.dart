@@ -121,6 +121,13 @@ class CalculatorStrings {
     required this.matrixMenuRankNote,
     required this.matrixMenuTraceNote,
     required this.matrixMenuEchelonNote,
+    // —— `►DRG` 第二功能的角度单位换算菜单 ——
+    required this.angleConvertSourceLabel,
+    required this.angleConvertTargetLabel,
+    required this.angleConvertPickSource,
+    required this.angleConvertNoValue,
+    required this.angleConvertHint,
+    required this.angleConvertGradNote,
     // —— 多处共用的通用字 ——
     required this.close,
   });
@@ -220,6 +227,19 @@ class CalculatorStrings {
   final String matrixMenuTraceNote;
   final String matrixMenuEchelonNote;
 
+  // —— `►DRG` 第二功能的角度单位换算菜单 ——
+  /// 中文：两行灰格与两行小字的文案。判据（哪两种情况下那两行按不动）在 `_AngleConvertSheet`
+  ///       与 `_CalculatorAngleConvert` 上，这里只装字。
+  /// English: the text of the sheet's two inert states and its small lines. The judgements (the two
+  ///          situations that leave those rows unpressable) are on `_AngleConvertSheet` and
+  ///          `_CalculatorAngleConvert`; this holds words only.
+  final String angleConvertSourceLabel;
+  final String angleConvertTargetLabel;
+  final String angleConvertPickSource;
+  final String angleConvertNoValue;
+  final String angleConvertHint;
+  final String angleConvertGradNote;
+
   // —— 多处共用的通用字 ——
   final String close;
 
@@ -318,6 +338,16 @@ class CalculatorStrings {
         '而迹是 5',
     matrixMenuEchelonNote: '引擎里根本没有 echelon 这个名字（行阶梯形在引擎里叫 rref），它把词拆成了符号，'
         '印出来是一个带单位的量（实测 echelon(matrix(2,2,1,2,3,4)) = [(0.1486441637n B·m⁴)  …]）',
+    angleConvertSourceLabel: '源单位',
+    angleConvertTargetLabel: '目标单位',
+    angleConvertPickSource: '先选源单位：那个数是什么单位的，只有你知道（应用不替它猜）',
+    angleConvertNoValue: '当前没有可换算的数值结果（结果没有十进制形态，或者表达式出错了）',
+    angleConvertHint: '点目标单位就把当前值换成一条完整换算：<值> <源单位> to <目标单位>，'
+        '源单位永远写出来——只写目标单位时，源单位就成了当前角度模式（同一个数在 DEG 与 RAD 下'
+        '给出两个不同答案，实测）。整条表达式会被换掉，一次撤销可以拿回来。',
+    angleConvertGradNote: 'grad 在引擎里不是一个角（实测 1 grad = 1357.168026 s·rad），'
+        '90 grad to deg 印出来是 81 d·°——值对、单位坏了。百分度的干净拼法是 gon'
+        '（实测 1 gon to deg = 0.9°、90 deg to gon = 100 gra）',
     close: '关闭',
   );
 
@@ -425,6 +455,24 @@ class CalculatorStrings {
         'The engine has no echelon at all (row echelon form is called rref there), '
         'so it takes the word apart into symbols and prints a quantity carrying units (measured: '
         'echelon(matrix(2,2,1,2,3,4)) = [(0.1486441637n B·m⁴)  …])',
+    angleConvertSourceLabel: 'Source unit',
+    angleConvertTargetLabel: 'Target unit',
+    angleConvertPickSource:
+        'Pick the source unit first: only you know what unit that number is in (this app '
+        'will not guess it)',
+    angleConvertNoValue:
+        'Nothing convertible right now (the result has no decimal form, or the expression '
+        'is in an error state)',
+    angleConvertHint:
+        'Tap a target unit and the current value becomes one complete conversion: '
+        '<value> <source unit> to <target unit>, with the source unit always written out — naming '
+        'only the target makes the source the current angle mode (measured: the same number gives two '
+        'different answers under DEG and RAD). The whole expression is replaced; one undo brings it '
+        'back.',
+    angleConvertGradNote:
+        'grad is not an angle in the engine (measured: 1 grad = 1357.168026 s·rad) and '
+        '90 grad to deg prints 81 d·° — right value, corrupted unit. The gradian\'s clean spelling is '
+        'gon (measured: 1 gon to deg = 0.9°, 90 deg to gon = 100 gra)',
     close: 'Close',
   );
 }

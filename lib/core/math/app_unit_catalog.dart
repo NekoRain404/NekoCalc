@@ -260,3 +260,160 @@ const List<String> kAppUnitFamilies = <String>[
   '电学',
   '其他',
 ];
+
+/// 中文：**`►DRG` 那一次换算允许写在 `to` 两侧的拼法——第二张闭集，比 [kAppUnits] 窄。**
+///
+///       **两张表、两个用途，混用会开错门：**
+///       - [kAppUnits] 是**可以插进任何表达式**的单位（`5 km`、`2 s`），翻译层对其中每一个拼法
+///         一律放行；
+///       - 本表是**只在一次 `to` 换算的两侧**才成立的拼法。换句话说 `deg` 在 `5 deg` 或
+///         `deg + 1` 里仍旧到不了引擎（那正是文件头说的「同一个写法两侧含义不同」那一类错误），
+///         只有在 `<值> <单位> to <单位>` 这个形状里它才是一个单位。判据只有一处，在
+///         `engine_expression.dart` 的 `_angleConversion` 上；本表是它的**数据**，面板读的也是
+///         同一张表（一个词汇，没有第二份）。
+///
+///       **为什么 `deg` 必须在这一张表里，而不是加进 [kAppUnits]。** 应用自己的 `deg` 是一个
+///       **函数**——`deg(1.5707963268)` = 90，弧度换度（`expression_parser.dart:141`）——而它的
+///       **单位**含义只在一次换算里有意义。加进 [kAppUnits] 就等于让裸的 `deg` 在整个表达式语言里
+///       合法，那是本轮明确不开的门。`rad` 早在 [kAppUnits] 里（同一个字既是函数又是单位），所以
+///       本表里的 `rad` **不是**新的放行：`deg` 是本表唯一比 [kAppUnits] 宽的拼法。
+///
+///       **六个拼法逐个量过**（宿主 `qalc` 5.12.0，与打包进 AAR 的同版本；`-t`，也就是宿主默认的
+///       打印精度——桥自己问的是 16 位有效数字，所以屏幕上会多几位：同一句
+///       `-t -set "precision 16"` 给的是 `1.570796326794897 rad` 与 `0.08726646259971648 rad`）：
+///
+///       | 调用 | 引擎印出来的 |
+///       |---|---|
+///       | `90 deg to rad` | `1.570796327 rad` |
+///       | `1.570796326794897 rad to deg` | `90.00000000°` |
+///       | `90 deg to gon` | `100 gra` |
+///       | `90 deg to turn` | `0.25 tr` |
+///       | `90 deg to arcmin` | `5400 arcmin` |
+///       | `90 deg to arcsec` | `324000 arcsec` |
+///       | `0.25 turn to deg` | `90°` |
+///       | `1 gon to deg` | `0.9°` |
+///       | `1 arcmin to deg` | `0.01666666667°` |
+///       | `1 arcsec to deg` | `0.0002777777778°` |
+///
+///       **两侧都写出来时，答案与角度模式无关**（同一台宿主，`-set "angle unit deg|rad|gra"`
+///       三档各跑一遍）：`90 deg to rad` 三档都是 `1.570796327 rad`，`1 rad to deg` 三档都是
+///       `57.29577951°`。**只写目标单位就不成立**：`90 to rad` 在 DEG 下是 `1.570796327 rad`、
+///       在 RAD 下是 `90 rad`、在 GRA 下是 `1.413716694 rad`——那一步的源单位是**当前角度模式**，
+///       不是表达式里说出来的东西。（这一条与旧注释里那句「`90 to deg` 只是贴了个记号、值一个
+///       字节没变」不同：**贴记号只在 DEG 下成立**，RAD 下 `90 to deg` 实测 `5156.620156°`。
+///       本应用今天允许 `X to rad` 这类写法从 `CONV` 面板按出来，所以那条路上的答案随角度模式
+///       变——**这是本轮量到、但本轮没有改的一条**，理由写在 `engine_expression.dart` 的
+///       `_angleConversion` 上。）
+///
+///       **被拒绝的拼法（量过，写在这里免得下一轮重跑）**：`grad` **不是**百分度——
+///       `1 grad` = `1357.168026 s·rad`（根本不是一个角），`90 grad to deg` = `81 d·°`、
+///       `100 grad to deg` = `90 d·°`（**值对、单位坏了**：印出来是 `d·°` 而不是 `°`）。
+///       百分度在本应用里用 `gon`（[kAppUnits] 的角度族里本来就有这个拼法）：`1 gon to deg` =
+///       `0.9°`、`90 deg to gon` = `100 gra`、`400 gon to turn` = `1 tr`。`gradian`/`gra` 也对
+///       （`1 gradian to deg` = `0.9°`），但一个单位只留一个拼法，所以它们不进表。
+///       `degree(s)`/`radian(s)`/`arcminute` 引擎读得懂（实测 `90 degrees to rad` =
+///       `1.570796327 rad`），但它们**不在应用的单位表里**——与 `zorkmid` 那一类同一条路：
+///       不是引擎读不懂，是本应用没有给它们拼法。
+/// English: **the spellings `►DRG`'s conversion may write on either side of `to` — a second closed
+///          table, narrower than [kAppUnits].**
+///
+///          **Two tables, two uses; mixing them opens the wrong door:**
+///          - [kAppUnits] holds the units that may be inserted into **any** expression (`5 km`,
+///            `2 s`), and the translation lets every one of those spellings through;
+///          - this table holds the spellings that hold **only on the two sides of one `to`
+///            conversion**. So `deg` in `5 deg` or `deg + 1` still cannot reach the engine (that is
+///            exactly the "one spelling, two meanings" class this file's head exists to prevent);
+///            only in the shape `<value> <unit> to <unit>` is it a unit. There is exactly one
+///            judgement and it is `_angleConversion` in `engine_expression.dart`; this table is its
+///            **data**, and the sheet reads the same table (one vocabulary, no second copy).
+///
+///          **Why `deg` has to be in this table instead of being added to [kAppUnits].** This app's
+///          own `deg` is a **function** — `deg(1.5707963268)` = 90, radians to degrees
+///          (`expression_parser.dart:141`) — and its **unit** meaning only makes sense inside a
+///          conversion. Adding it to [kAppUnits] would make a bare `deg` legal across the whole
+///          expression language, which is the door this round deliberately does not open. `rad` has
+///          been in [kAppUnits] all along (the same word is both a function and a unit), so `rad`
+///          here is **not** a new admission: `deg` is this table's only spelling wider than
+///          [kAppUnits].
+///
+///          **All six spellings measured** (host `qalc` 5.12.0, the version this AAR bundles; `-t`,
+///          i.e. the host's default print precision — the bridge itself asks for 16 significant
+///          digits, so the screen carries a few more: the same sentence under
+///          `-t -set "precision 16"` gives `1.570796326794897 rad` and `0.08726646259971648 rad`) —
+///          see the table above.
+///
+///          **With both sides written out, the answer does not depend on the angle mode** (same host,
+///          `-set "angle unit deg|rad|gra"`, one run per mode): `90 deg to rad` gives
+///          `1.570796327 rad` in all three and `1 rad to deg` gives `57.29577951°` in all three.
+///          **Naming only the target does not hold**: `90 to rad` is `1.570796327 rad` under DEG,
+///          `90 rad` under RAD and `1.413716694 rad` under GRA — that conversion's source unit is the
+///          **current angle mode**, not something the expression said. (This differs from the old
+///          note's "`90 to deg` merely attaches a symbol and the value does not move a byte": **that
+///          holds only under DEG**; under RAD `90 to deg` measures `5156.620156°`. This app does allow
+///          `X to rad` and friends to be pressed out of the `CONV` sheet today, so on that path the
+///          answer moves with the angle mode — **measured this round and deliberately not changed**;
+///          the reason is on `_angleConversion` in `engine_expression.dart`.)
+///
+///          **Refused spellings (measured, recorded so the next round need not re-measure)**: `grad`
+///          is **not** the gradian — `1 grad` = `1357.168026 s·rad` (not an angle at all),
+///          `90 grad to deg` = `81 d·°` and `100 grad to deg` = `90 d·°` (**value right, unit
+///          corrupted**: it prints `d·°` rather than `°`). The gradian's spelling in this app is `gon`
+///          (it has been in [kAppUnits]' angle family all along): `1 gon to deg` = `0.9°`,
+///          `90 deg to gon` = `100 gra`, `400 gon to turn` = `1 tr`. `gradian`/`gra` work too
+///          (`1 gradian to deg` = `0.9°`), but one unit keeps one spelling, so they stay out.
+///          `degree(s)`/`radian(s)`/`arcminute` the engine does read (measured: `90 degrees to rad` =
+///          `1.570796327 rad`), but they are **not in this app's unit table** — the same road as
+///          `zorkmid`: not "the engine cannot read it" but "this app gives it no spelling".
+const List<String> kAngleUnits = <String>[
+  // 中文：顺序就是面板上的顺序：度最常用，其余按「一圈的几分之一」从大到小。
+  // English: the order is the sheet's order: degrees first, then by "what fraction of a turn" from
+  //          largest to smallest.
+  'deg',
+  'rad',
+  'gon',
+  'turn',
+  'arcmin',
+  'arcsec',
+];
+
+/// 中文：本表的拼法集合——**翻译层的判据与 `►DRG` 的面板读的是同一张表**（没有第二份清单）。
+///       按原样比较（大小写敏感），与 [kAppUnitSymbols] 同一条理由。
+/// English: the set of spellings in this table — **the translation's judgement and the `►DRG` sheet
+///          read the same table** (no second list). Compared verbatim (case-sensitive), the same
+///          reason [kAppUnitSymbols] has.
+final Set<String> kAngleUnitSymbols = <String>{
+  for (final unit in kAngleUnits) unit,
+};
+
+/// 中文：这个拼法是不是一次角度换算里可以写的单位（**大小写敏感**）。
+/// English: whether this spelling is a unit that may be written in an angle conversion
+///          (**case-sensitive**).
+bool isAngleUnit(String spelling) => kAngleUnitSymbols.contains(spelling);
+
+/// 中文：**一条角度换算写在表达式里的样子**：`<值> <源单位> to <目标单位>`——源单位**永远**写出来。
+///
+///       为什么源单位不能省：只写目标单位时，那一步的源单位是**当前角度模式**（实测见 [kAngleUnits]
+///       上那张表：`90 to rad` 在 DEG/RAD/GRA 三档下是三个不同的答案），而用户按下 `►DRG` 时手里
+///       那个数未必是当前模式的单位。写全了，答案与模式无关。
+///
+///       分隔符：值、源单位、`to`、目标单位之间各一个空格。`to` 两侧的空格不是排版——它是那个词
+///       **成为词**的条件（`engine_expression.dart` 的 `_wordOperator`：不留空格时引擎把
+///       `((5)*(km))to((mi))` 读成 `t`·`o` 的乘积，且**不报错**）。
+/// English: **what one angle conversion looks like written into the expression**:
+///          `<value> <source unit> to <target unit>` — the source unit is **always** written out.
+///
+///          Why the source cannot be dropped: with only the target named, the source unit of that
+///          conversion is the **current angle mode** (measured; the table on [kAngleUnits] shows
+///          `90 to rad` giving three different answers under DEG/RAD/GRA), while the number the user
+///          holds when pressing `►DRG` need not be in the current mode's unit. Written out, the
+///          answer does not depend on the mode.
+///
+///          Separators: one space between the value, the source unit, `to` and the target unit. The
+///          spaces around `to` are not typography — they are what makes that word **a word**
+///          (`_wordOperator` in `engine_expression.dart`: without them the engine reads
+///          `((5)*(km))to((mi))` as the product `t`·`o`, and **does not error**).
+String angleConversionCall(String value, String sourceUnit, String targetUnit) {
+  assert(isAngleUnit(sourceUnit), '角度换算的源单位不在表里：$sourceUnit');
+  assert(isAngleUnit(targetUnit), '角度换算的目标单位不在表里：$targetUnit');
+  return '$value $sourceUnit to $targetUnit';
+}
