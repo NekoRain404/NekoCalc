@@ -48,7 +48,7 @@ List<String> _errorLines(
   }
   final rangeLabels = results
       .where((result) => result.label.contains('范围'))
-      .map((result) => '${result.label} ${_resultValueWithUnit(result)}');
+      .map((result) => '${result.label} ${result.valueWithUnit}');
   if (rangeLabels.isNotEmpty) lines.add('范围 ${rangeLabels.join('；')}');
   return lines;
 }
@@ -98,29 +98,15 @@ List<String> _categoryLines(ToolCategory category) {
   };
 }
 
-String _resultValueWithUnit(ToolResult result) {
-  final value = result.value.trim();
-  final unit = result.unit.trim();
-  if (unit.isEmpty || _resultNeedsAttention(result)) return value;
-  return '$value$unit';
-}
-
-bool _resultNeedsAttention(ToolResult result) {
-  final value = result.value.trim().toLowerCase();
-  if (value.isEmpty) return true;
-  const exact = {
-    '无效',
-    '无唯一解',
-    '无效边长',
-    '不可逆',
-    'a 不能为 0',
-  };
-  if (exact.contains(value)) return true;
-  return value.contains('无效') ||
-      value.contains('不能') ||
-      value.contains('不可') ||
-      value.contains('错误') ||
-      value.contains('not finite') ||
-      value.contains('nan') ||
-      value.contains('infinity');
-}
+/// 中文：**旧判据的第二份拷贝就在这里**，本轮没了——它现在只读产出方写下的旗标。
+///       两份拷贝为什么必须一起改、为什么不能再漂开：判据现在只有一处，在
+///       [ToolResult.hasError]；`_resultValueWithUnit` 同样只剩一处，在 [ToolResult.valueWithUnit]。
+///       **本文件不 import 控制器**（`domain` 不依赖 `application`），所以"一份代码两处用"这件事
+///       只能靠把两样东西都放进 `domain/entities/tool_definition.dart` 来做。
+/// English: **The second copy of the old predicate lived right here** and is gone this round — it
+///          now reads only the flag the producer wrote. Why the two copies had to change together and
+///          why they cannot drift apart again: there is now one judgement, in [ToolResult.hasError],
+///          and one `_resultValueWithUnit`, in [ToolResult.valueWithUnit]. **This file does not
+///          import the controller** (`domain` does not depend on `application`), so "one
+///          implementation, two callers" could only be done by putting both on
+///          `domain/entities/tool_definition.dart`.

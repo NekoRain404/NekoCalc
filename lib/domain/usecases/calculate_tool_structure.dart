@@ -24,40 +24,33 @@ List<ToolResult> pressureForceResults(Map<String, double> valuesByKey) {
       ? null
       : targetForce / pressureMpa / 100;
   return [
-    ToolResult('作用力', formatNumber(force), 'N', primary: true),
-    ToolResult('作用力', formatNumber(force / 1000), 'kN'),
-    ToolResult('等效重量', formatNumber(force / 9.80665), 'kgf'),
-    ToolResult('压力', formatNumber(pressureMpa * 10), 'bar'),
-    ToolResult('面积', formatNumber(areaCm2 * 100), 'mm²'),
-    ToolResult('面积', formatNumber(area), 'm²'),
-    ToolResult('单位面积载荷', formatNumber(force / areaCm2), 'N/cm²'),
-    if (includeTarget) ToolResult('目标作用力', formatNumber(targetForce), 'N'),
-    if (includeTarget)
-      ToolResult(
-          '目标力所需压力',
-          requiredPressure == null ? '无效' : formatNumber(requiredPressure),
-          'MPa'),
-    if (includeTarget)
-      ToolResult('目标力所需面积',
-          requiredArea == null ? '无效' : formatNumber(requiredArea), 'cm²'),
-    if (includeTarget)
-      ToolResult('作用力差值', formatNumber(force - targetForce), 'N'),
+    ToolResult.number('作用力', force, 'N', primary: true),
+    ToolResult.number('作用力', force / 1000, 'kN'),
+    ToolResult.number('等效重量', force / 9.80665, 'kgf'),
+    ToolResult.number('压力', pressureMpa * 10, 'bar'),
+    ToolResult.number('面积', areaCm2 * 100, 'mm²'),
+    ToolResult.number('面积', area, 'm²'),
+    ToolResult.number('单位面积载荷', force / areaCm2, 'N/cm²'),
+    if (includeTarget) ToolResult.number('目标作用力', targetForce, 'N'),
+    if (includeTarget) ToolResult.number('目标力所需压力', requiredPressure, 'MPa'),
+    if (includeTarget) ToolResult.number('目标力所需面积', requiredArea, 'cm²'),
+    if (includeTarget) ToolResult.number('作用力差值', force - targetForce, 'N'),
   ];
 }
 
 List<ToolResult> _invalidPressureForceResults({required bool includeTarget}) {
   return [
-    const ToolResult('作用力', '无效', 'N', primary: true),
-    const ToolResult('作用力', '无效', 'kN'),
-    const ToolResult('等效重量', '无效', 'kgf'),
-    const ToolResult('压力', '无效', 'bar'),
-    const ToolResult('面积', '无效', 'mm²'),
-    const ToolResult('面积', '无效', 'm²'),
-    const ToolResult('单位面积载荷', '无效', 'N/cm²'),
-    if (includeTarget) const ToolResult('目标作用力', '无效', 'N'),
-    if (includeTarget) const ToolResult('目标力所需压力', '无效', 'MPa'),
-    if (includeTarget) const ToolResult('目标力所需面积', '无效', 'cm²'),
-    if (includeTarget) const ToolResult('作用力差值', '无效', 'N'),
+    const ToolResult.invalid('作用力', 'N', primary: true),
+    const ToolResult.invalid('作用力', 'kN'),
+    const ToolResult.invalid('等效重量', 'kgf'),
+    const ToolResult.invalid('压力', 'bar'),
+    const ToolResult.invalid('面积', 'mm²'),
+    const ToolResult.invalid('面积', 'm²'),
+    const ToolResult.invalid('单位面积载荷', 'N/cm²'),
+    if (includeTarget) const ToolResult.invalid('目标作用力', 'N'),
+    if (includeTarget) const ToolResult.invalid('目标力所需压力', 'MPa'),
+    if (includeTarget) const ToolResult.invalid('目标力所需面积', 'cm²'),
+    if (includeTarget) const ToolResult.invalid('作用力差值', 'N'),
   ];
 }
 
@@ -66,23 +59,23 @@ List<ToolResult> frictionResults(Map<String, double> valuesByKey) {
   final mu = valuesByKey['mu'] ?? 0;
   if (normal < 0 || mu < 0 || !normal.isFinite || !mu.isFinite) {
     return const [
-      ToolResult('摩擦力', '无效', 'N', primary: true),
-      ToolResult('摩擦系数', '无效', ''),
-      ToolResult('法向等效重量', '无效', 'kgf'),
-      ToolResult('摩擦角', '无效', 'deg'),
-      ToolResult('最大可平衡坡角', '无效', 'deg'),
-      ToolResult('等效坡度', '无效', '%'),
+      ToolResult.invalid('摩擦力', 'N', primary: true),
+      ToolResult.invalid('摩擦系数', ''),
+      ToolResult.invalid('法向等效重量', 'kgf'),
+      ToolResult.invalid('摩擦角', 'deg'),
+      ToolResult.invalid('最大可平衡坡角', 'deg'),
+      ToolResult.invalid('等效坡度', '%'),
     ];
   }
   final friction = normal * mu;
   final angle = math.atan(mu) * 180 / math.pi;
   return [
-    ToolResult('摩擦力', formatNumber(friction), 'N', primary: true),
-    ToolResult('摩擦系数', formatNumber(mu), ''),
-    ToolResult('法向等效重量', formatNumber(normal / 9.80665), 'kgf'),
-    ToolResult('摩擦角', formatNumber(angle), 'deg'),
-    ToolResult('最大可平衡坡角', formatNumber(angle), 'deg'),
-    ToolResult('等效坡度', formatNumber(mu * 100), '%'),
+    ToolResult.number('摩擦力', friction, 'N', primary: true),
+    ToolResult.number('摩擦系数', mu, ''),
+    ToolResult.number('法向等效重量', normal / 9.80665, 'kgf'),
+    ToolResult.number('摩擦角', angle, 'deg'),
+    ToolResult.number('最大可平衡坡角', angle, 'deg'),
+    ToolResult.number('等效坡度', mu * 100, '%'),
   ];
 }
 
@@ -97,14 +90,14 @@ List<ToolResult> inclinedPlaneResults(Map<String, double> valuesByKey) {
       !angleDeg.isFinite ||
       !mu.isFinite) {
     return const [
-      ToolResult('沿斜面分力', '无效', 'N', primary: true),
-      ToolResult('法向力', '无效', 'N'),
-      ToolResult('摩擦力', '无效', 'N'),
-      ToolResult('净下滑力', '无效', 'N'),
-      ToolResult('重力', '无效', 'N'),
-      ToolResult('坡度', '无效', '%'),
-      ToolResult('摩擦角', '无效', 'deg'),
-      ToolResult('滑动状态', '无效', ''),
+      ToolResult.invalid('沿斜面分力', 'N', primary: true),
+      ToolResult.invalid('法向力', 'N'),
+      ToolResult.invalid('摩擦力', 'N'),
+      ToolResult.invalid('净下滑力', 'N'),
+      ToolResult.invalid('重力', 'N'),
+      ToolResult.invalid('坡度', '%'),
+      ToolResult.invalid('摩擦角', 'deg'),
+      ToolResult.invalid('滑动状态', ''),
     ];
   }
   final angle = angleDeg * math.pi / 180;
@@ -122,13 +115,13 @@ List<ToolResult> inclinedPlaneResults(Map<String, double> valuesByKey) {
           ? '会下滑'
           : '摩擦可抵住';
   return [
-    ToolResult('沿斜面分力', formatNumber(parallel), 'N', primary: true),
-    ToolResult('法向力', formatNumber(normal), 'N'),
-    ToolResult('摩擦力', formatNumber(friction), 'N'),
-    ToolResult('净下滑力', formatNumber(netDownhill), 'N'),
-    ToolResult('重力', formatNumber(weight), 'N'),
+    ToolResult.number('沿斜面分力', parallel, 'N', primary: true),
+    ToolResult.number('法向力', normal, 'N'),
+    ToolResult.number('摩擦力', friction, 'N'),
+    ToolResult.number('净下滑力', netDownhill, 'N'),
+    ToolResult.number('重力', weight, 'N'),
     ToolResult('坡度', slopeGrade, '%'),
-    ToolResult('摩擦角', formatNumber(frictionAngle), 'deg'),
+    ToolResult.number('摩擦角', frictionAngle, 'deg'),
     ToolResult('滑动状态', state, ''),
   ];
 }
@@ -177,51 +170,52 @@ List<ToolResult> beamBendingResults(Map<String, double> valuesByKey) {
           ? '向下'
           : '向上/反向';
   return [
-    ToolResult('最大挠度', formatNumber(deflection * 1000), 'mm', primary: true),
-    ToolResult('挠度幅值', formatNumber(deflectionAbs * 1000), 'mm'),
-    ToolResult('最大弯矩', formatNumber(load * length / 4), 'N·m'),
-    ToolResult('支座反力', formatNumber(load / 2), 'N'),
-    ToolResult('刚度 F/δ', formatNumber(stiffness), 'N/m'),
-    ToolResult('跨度/挠度',
-        deflectionAbs == 0 ? '无穷大' : formatNumber(length / deflectionAbs), ''),
-    ToolResult('弯曲刚度 EI', formatNumber(elastic * inertia), 'N·m²'),
+    ToolResult.number('最大挠度', deflection * 1000, 'mm', primary: true),
+    ToolResult.number('挠度幅值', deflectionAbs * 1000, 'mm'),
+    ToolResult.number('最大弯矩', load * length / 4, 'N·m'),
+    ToolResult.number('支座反力', load / 2, 'N'),
+    ToolResult.number('刚度 F/δ', stiffness, 'N/m'),
+    // 中文：`无穷大` 今天不算错误（旧判据的词表里没有它），旗标照旧为假；另一支照旧由
+    //       那个商是不是有限数决定。
+    // English: `无穷大` is not an error today (it is not in the old predicate's word list) and the
+    //          flag stays false; the other branch is decided, as before, by whether the quotient is
+    //          finite.
+    // 中文：`deflectionAbs == 0` 时屏幕上是 `'无穷大'`——**那不是错误**（旧判据的词表里没有它）；
+    //       另一支交给 [ToolResult.number]，值就是那个商。
+    // English: when `deflectionAbs == 0` the screen shows `'无穷大'` — **that is not an error** (it is
+    //          not in the old predicate's word list); the other branch goes through
+    //          [ToolResult.number] and the value is the quotient.
+    if (deflectionAbs == 0)
+      const ToolResult('跨度/挠度', '无穷大', '')
+    else
+      ToolResult.number('跨度/挠度', length / deflectionAbs, ''),
+    ToolResult.number('弯曲刚度 EI', elastic * inertia, 'N·m²'),
     ToolResult('载荷方向', loadDirection, ''),
+    if (includeTarget) ToolResult.number('目标挠度', targetDeflectionMm, 'mm'),
+    if (includeTarget) ToolResult.number('目标挠度允许载荷', requiredLoad, 'N'),
+    if (includeTarget) ToolResult.number('目标挠度所需惯性矩', requiredInertia, 'cm⁴'),
+    if (includeTarget) ToolResult.number('目标挠度所需弹性模量', requiredElastic, 'GPa'),
     if (includeTarget)
-      ToolResult('目标挠度', formatNumber(targetDeflectionMm), 'mm'),
-    if (includeTarget)
-      ToolResult('目标挠度允许载荷',
-          requiredLoad == null ? '无效' : formatNumber(requiredLoad), 'N'),
-    if (includeTarget)
-      ToolResult(
-          '目标挠度所需惯性矩',
-          requiredInertia == null ? '无效' : formatNumber(requiredInertia),
-          'cm⁴'),
-    if (includeTarget)
-      ToolResult(
-          '目标挠度所需弹性模量',
-          requiredElastic == null ? '无效' : formatNumber(requiredElastic),
-          'GPa'),
-    if (includeTarget)
-      ToolResult('挠度差值',
-          formatNumber(deflectionAbs * 1000 - targetDeflectionMm), 'mm'),
+      ToolResult.number(
+          '挠度差值', deflectionAbs * 1000 - targetDeflectionMm, 'mm'),
   ];
 }
 
 List<ToolResult> _invalidBeamBendingResults({required bool includeTarget}) {
   return [
-    const ToolResult('最大挠度', '无效', 'mm', primary: true),
-    const ToolResult('挠度幅值', '无效', 'mm'),
-    const ToolResult('最大弯矩', '无效', 'N·m'),
-    const ToolResult('支座反力', '无效', 'N'),
-    const ToolResult('刚度 F/δ', '无效', 'N/m'),
-    const ToolResult('跨度/挠度', '无效', ''),
-    const ToolResult('弯曲刚度 EI', '无效', 'N·m²'),
-    const ToolResult('载荷方向', '无效', ''),
-    if (includeTarget) const ToolResult('目标挠度', '无效', 'mm'),
-    if (includeTarget) const ToolResult('目标挠度允许载荷', '无效', 'N'),
-    if (includeTarget) const ToolResult('目标挠度所需惯性矩', '无效', 'cm⁴'),
-    if (includeTarget) const ToolResult('目标挠度所需弹性模量', '无效', 'GPa'),
-    if (includeTarget) const ToolResult('挠度差值', '无效', 'mm'),
+    const ToolResult.invalid('最大挠度', 'mm', primary: true),
+    const ToolResult.invalid('挠度幅值', 'mm'),
+    const ToolResult.invalid('最大弯矩', 'N·m'),
+    const ToolResult.invalid('支座反力', 'N'),
+    const ToolResult.invalid('刚度 F/δ', 'N/m'),
+    const ToolResult.invalid('跨度/挠度', ''),
+    const ToolResult.invalid('弯曲刚度 EI', 'N·m²'),
+    const ToolResult.invalid('载荷方向', ''),
+    if (includeTarget) const ToolResult.invalid('目标挠度', 'mm'),
+    if (includeTarget) const ToolResult.invalid('目标挠度允许载荷', 'N'),
+    if (includeTarget) const ToolResult.invalid('目标挠度所需惯性矩', 'cm⁴'),
+    if (includeTarget) const ToolResult.invalid('目标挠度所需弹性模量', 'GPa'),
+    if (includeTarget) const ToolResult.invalid('挠度差值', 'mm'),
   ];
 }
 
@@ -235,13 +229,13 @@ List<ToolResult> stressStrainResults(Map<String, double> valuesByKey) {
       !area.isFinite ||
       !elastic.isFinite) {
     return const [
-      ToolResult('应力', '无效', 'MPa', primary: true),
-      ToolResult('应力幅值', '无效', 'MPa'),
-      ToolResult('应变', '无效', ''),
-      ToolResult('微应变', '无效', 'με'),
-      ToolResult('每米变形', '无效', 'mm/m'),
-      ToolResult('截面积', '无效', 'cm²'),
-      ToolResult('载荷类型', '无效', ''),
+      ToolResult.invalid('应力', 'MPa', primary: true),
+      ToolResult.invalid('应力幅值', 'MPa'),
+      ToolResult.invalid('应变', ''),
+      ToolResult.invalid('微应变', 'με'),
+      ToolResult.invalid('每米变形', 'mm/m'),
+      ToolResult.invalid('截面积', 'cm²'),
+      ToolResult.invalid('载荷类型', ''),
     ];
   }
   final stress = force / area;
@@ -252,12 +246,12 @@ List<ToolResult> stressStrainResults(Map<String, double> valuesByKey) {
           ? '拉伸'
           : '压缩';
   return [
-    ToolResult('应力', formatNumber(stress / 1e6), 'MPa', primary: true),
-    ToolResult('应力幅值', formatNumber(stress.abs() / 1e6), 'MPa'),
-    ToolResult('应变', formatNumber(strain), ''),
-    ToolResult('微应变', formatNumber(strain * 1000000), 'με'),
-    ToolResult('每米变形', formatNumber(strain * 1000), 'mm/m'),
-    ToolResult('截面积', formatNumber(area * 10000), 'cm²'),
+    ToolResult.number('应力', stress / 1e6, 'MPa', primary: true),
+    ToolResult.number('应力幅值', stress.abs() / 1e6, 'MPa'),
+    ToolResult.number('应变', strain, ''),
+    ToolResult.number('微应变', strain * 1000000, 'με'),
+    ToolResult.number('每米变形', strain * 1000, 'mm/m'),
+    ToolResult.number('截面积', area * 10000, 'cm²'),
     ToolResult('载荷类型', loadType, ''),
   ];
 }
@@ -304,25 +298,27 @@ List<ToolResult> sectionAreaResults(Map<String, double> valuesByKey) {
   final weakAxis = rectangleIx >= rectangleIy ? 'y轴' : 'x轴';
 
   return [
-    ToolResult('圆截面积', formatNumber(circleArea), 'mm²', primary: true),
-    ToolResult('圆惯性矩 I', formatNumber(circleInertia), 'mm⁴'),
-    ToolResult('圆截面模量 Z', formatNumber(circleModulus), 'mm³'),
-    ToolResult('圆回转半径', formatNumber(circleRadiusOfGyration), 'mm'),
-    ToolResult('圆周长', formatNumber(circlePerimeter), 'mm'),
-    ToolResult('管截面积', formatNumber(tubeArea), 'mm²'),
-    ToolResult('管惯性矩 I', formatNumber(tubeInertia), 'mm⁴'),
-    ToolResult('管截面模量 Z', formatNumber(tubeModulus), 'mm³'),
-    ToolResult('管回转半径', formatNumber(tubeRadiusOfGyration), 'mm'),
-    ToolResult('管壁厚', formatNumber(tubeWall), 'mm'),
-    ToolResult('管平均直径', formatNumber(tubeMeanDiameter), 'mm'),
-    ToolResult('空心率', formatNumber(hollowRatio), '%'),
-    ToolResult('矩形截面积', formatNumber(rectangleArea), 'mm²'),
-    ToolResult('矩形 Ix', formatNumber(rectangleIx), 'mm⁴'),
-    ToolResult('矩形 Iy', formatNumber(rectangleIy), 'mm⁴'),
+    ToolResult.number('圆截面积', circleArea, 'mm²', primary: true),
+    ToolResult.number('圆惯性矩 I', circleInertia, 'mm⁴'),
+    ToolResult.number('圆截面模量 Z', circleModulus, 'mm³'),
+    ToolResult.number('圆回转半径', circleRadiusOfGyration, 'mm'),
+    ToolResult.number('圆周长', circlePerimeter, 'mm'),
+    ToolResult.number('管截面积', tubeArea, 'mm²'),
+    ToolResult.number('管惯性矩 I', tubeInertia, 'mm⁴'),
+    ToolResult.number('管截面模量 Z', tubeModulus, 'mm³'),
+    ToolResult.number('管回转半径', tubeRadiusOfGyration, 'mm'),
+    ToolResult.number('管壁厚', tubeWall, 'mm'),
+    ToolResult.number('管平均直径', tubeMeanDiameter, 'mm'),
+    ToolResult.number('空心率', hollowRatio, '%'),
+    ToolResult.number('矩形截面积', rectangleArea, 'mm²'),
+    ToolResult.number('矩形 Ix', rectangleIx, 'mm⁴'),
+    ToolResult.number('矩形 Iy', rectangleIy, 'mm⁴'),
     ToolResult('矩形 Zx/Zy',
-        '${formatNumber(rectangleZx)} / ${formatNumber(rectangleZy)}', 'mm³'),
+        '${formatNumber(rectangleZx)} / ${formatNumber(rectangleZy)}', 'mm³',
+        hasError: !rectangleZx.isFinite || !rectangleZy.isFinite),
     ToolResult('矩形 rx/ry',
-        '${formatNumber(rectangleRx)} / ${formatNumber(rectangleRy)}', 'mm'),
+        '${formatNumber(rectangleRx)} / ${formatNumber(rectangleRy)}', 'mm',
+        hasError: !rectangleRx.isFinite || !rectangleRy.isFinite),
     ToolResult('强轴', strongAxis, ''),
     ToolResult('弱轴', weakAxis, ''),
   ];
@@ -330,25 +326,25 @@ List<ToolResult> sectionAreaResults(Map<String, double> valuesByKey) {
 
 List<ToolResult> _invalidSectionAreaResults() {
   return const [
-    ToolResult('圆截面积', '无效', 'mm²', primary: true),
-    ToolResult('圆惯性矩 I', '无效', 'mm⁴'),
-    ToolResult('圆截面模量 Z', '无效', 'mm³'),
-    ToolResult('圆回转半径', '无效', 'mm'),
-    ToolResult('圆周长', '无效', 'mm'),
-    ToolResult('管截面积', '无效', 'mm²'),
-    ToolResult('管惯性矩 I', '无效', 'mm⁴'),
-    ToolResult('管截面模量 Z', '无效', 'mm³'),
-    ToolResult('管回转半径', '无效', 'mm'),
-    ToolResult('管壁厚', '无效', 'mm'),
-    ToolResult('管平均直径', '无效', 'mm'),
-    ToolResult('空心率', '无效', '%'),
-    ToolResult('矩形截面积', '无效', 'mm²'),
-    ToolResult('矩形 Ix', '无效', 'mm⁴'),
-    ToolResult('矩形 Iy', '无效', 'mm⁴'),
-    ToolResult('矩形 Zx/Zy', '无效', 'mm³'),
-    ToolResult('矩形 rx/ry', '无效', 'mm'),
-    ToolResult('强轴', '无效', ''),
-    ToolResult('弱轴', '无效', ''),
+    ToolResult.invalid('圆截面积', 'mm²', primary: true),
+    ToolResult.invalid('圆惯性矩 I', 'mm⁴'),
+    ToolResult.invalid('圆截面模量 Z', 'mm³'),
+    ToolResult.invalid('圆回转半径', 'mm'),
+    ToolResult.invalid('圆周长', 'mm'),
+    ToolResult.invalid('管截面积', 'mm²'),
+    ToolResult.invalid('管惯性矩 I', 'mm⁴'),
+    ToolResult.invalid('管截面模量 Z', 'mm³'),
+    ToolResult.invalid('管回转半径', 'mm'),
+    ToolResult.invalid('管壁厚', 'mm'),
+    ToolResult.invalid('管平均直径', 'mm'),
+    ToolResult.invalid('空心率', '%'),
+    ToolResult.invalid('矩形截面积', 'mm²'),
+    ToolResult.invalid('矩形 Ix', 'mm⁴'),
+    ToolResult.invalid('矩形 Iy', 'mm⁴'),
+    ToolResult.invalid('矩形 Zx/Zy', 'mm³'),
+    ToolResult.invalid('矩形 rx/ry', 'mm'),
+    ToolResult.invalid('强轴', ''),
+    ToolResult.invalid('弱轴', ''),
   ];
 }
 
@@ -373,20 +369,20 @@ List<ToolResult> safetyFactorResults(Map<String, double> valuesByKey) {
     final allowableStress = strength / targetFactor;
     final stressReduction = stressAbs - allowableStress;
     targetResults.addAll([
-      ToolResult('目标安全系数', formatNumber(targetFactor), ''),
-      ToolResult('目标系数所需强度', formatNumber(requiredStrength), 'MPa'),
-      ToolResult('目标系数许用应力', formatNumber(allowableStress), 'MPa'),
-      ToolResult('需降低应力', formatNumber(stressReduction), 'MPa'),
+      ToolResult.number('目标安全系数', targetFactor, ''),
+      ToolResult.number('目标系数所需强度', requiredStrength, 'MPa'),
+      ToolResult.number('目标系数许用应力', allowableStress, 'MPa'),
+      ToolResult.number('需降低应力', stressReduction, 'MPa'),
       if (!factor.isInfinite)
-        ToolResult('安全系数差值', formatNumber(factor - targetFactor), ''),
+        ToolResult.number('安全系数差值', factor - targetFactor, ''),
     ]);
   }
   return [
     ToolResult('安全系数', factorText, '', primary: true),
-    ToolResult('余量', formatNumber(margin), 'MPa'),
-    ToolResult('余量比例', formatNumber(margin / strength * 100), '%'),
-    ToolResult('工作应力幅值', formatNumber(stressAbs), 'MPa'),
-    ToolResult('许用强度', formatNumber(strength), 'MPa'),
+    ToolResult.number('余量', margin, 'MPa'),
+    ToolResult.number('余量比例', margin / strength * 100, '%'),
+    ToolResult.number('工作应力幅值', stressAbs, 'MPa'),
+    ToolResult.number('许用强度', strength, 'MPa'),
     ToolResult(
         '判断',
         stressAbs == 0
@@ -403,17 +399,17 @@ List<ToolResult> safetyFactorResults(Map<String, double> valuesByKey) {
 
 List<ToolResult> _invalidSafetyFactorResults({required bool includeTarget}) {
   return [
-    const ToolResult('安全系数', '无效', '', primary: true),
-    const ToolResult('余量', '无效', 'MPa'),
-    const ToolResult('余量比例', '无效', '%'),
-    const ToolResult('工作应力幅值', '无效', 'MPa'),
-    const ToolResult('许用强度', '无效', 'MPa'),
-    const ToolResult('判断', '无效', ''),
-    if (includeTarget) const ToolResult('目标安全系数', '无效', ''),
-    if (includeTarget) const ToolResult('目标系数所需强度', '无效', 'MPa'),
-    if (includeTarget) const ToolResult('目标系数许用应力', '无效', 'MPa'),
-    if (includeTarget) const ToolResult('需降低应力', '无效', 'MPa'),
-    if (includeTarget) const ToolResult('安全系数差值', '无效', ''),
+    const ToolResult.invalid('安全系数', '', primary: true),
+    const ToolResult.invalid('余量', 'MPa'),
+    const ToolResult.invalid('余量比例', '%'),
+    const ToolResult.invalid('工作应力幅值', 'MPa'),
+    const ToolResult.invalid('许用强度', 'MPa'),
+    const ToolResult.invalid('判断', ''),
+    if (includeTarget) const ToolResult.invalid('目标安全系数', ''),
+    if (includeTarget) const ToolResult.invalid('目标系数所需强度', 'MPa'),
+    if (includeTarget) const ToolResult.invalid('目标系数许用应力', 'MPa'),
+    if (includeTarget) const ToolResult.invalid('需降低应力', 'MPa'),
+    if (includeTarget) const ToolResult.invalid('安全系数差值', ''),
   ];
 }
 
@@ -425,14 +421,14 @@ List<ToolResult> flowVelocityResults(Map<String, double> valuesByKey) {
       !flowLMin.isFinite ||
       !diameterMm.isFinite) {
     return const [
-      ToolResult('平均流速', '无效', 'm/s', primary: true),
-      ToolResult('截面积', '无效', 'mm²'),
-      ToolResult('流量', '无效', 'm³/h'),
-      ToolResult('流量', '无效', 'm³/s'),
-      ToolResult('管内径', '无效', 'm'),
-      ToolResult('水力直径', '无效', 'mm'),
-      ToolResult('雷诺数(水20℃)', '无效', ''),
-      ToolResult('流动状态(水)', '无效', ''),
+      ToolResult.invalid('平均流速', 'm/s', primary: true),
+      ToolResult.invalid('截面积', 'mm²'),
+      ToolResult.invalid('流量', 'm³/h'),
+      ToolResult.invalid('流量', 'm³/s'),
+      ToolResult.invalid('管内径', 'm'),
+      ToolResult.invalid('水力直径', 'mm'),
+      ToolResult.invalid('雷诺数(水20℃)', ''),
+      ToolResult.invalid('流动状态(水)', ''),
     ];
   }
   final flow = flowLMin / 1000 / 60;
@@ -446,13 +442,13 @@ List<ToolResult> flowVelocityResults(Map<String, double> valuesByKey) {
           ? '过渡'
           : '湍流';
   return [
-    ToolResult('平均流速', formatNumber(speed), 'm/s', primary: true),
-    ToolResult('截面积', formatNumber(area * 1000000), 'mm²'),
-    ToolResult('流量', formatNumber(flow * 3600), 'm³/h'),
-    ToolResult('流量', formatNumber(flow), 'm³/s'),
-    ToolResult('管内径', formatNumber(diameter), 'm'),
-    ToolResult('水力直径', formatNumber(diameterMm), 'mm'),
-    ToolResult('雷诺数(水20℃)', formatNumber(reynoldsWater), ''),
+    ToolResult.number('平均流速', speed, 'm/s', primary: true),
+    ToolResult.number('截面积', area * 1000000, 'mm²'),
+    ToolResult.number('流量', flow * 3600, 'm³/h'),
+    ToolResult.number('流量', flow, 'm³/s'),
+    ToolResult.number('管内径', diameter, 'm'),
+    ToolResult.number('水力直径', diameterMm, 'mm'),
+    ToolResult.number('雷诺数(水20℃)', reynoldsWater, ''),
     ToolResult('流动状态(水)', flowState, ''),
   ];
 }
@@ -471,14 +467,14 @@ List<ToolResult> materialWeightResults(Map<String, double> valuesByKey) {
       !thickness.isFinite ||
       !density.isFinite) {
     return const [
-      ToolResult('重量', '无效', 'kg', primary: true),
-      ToolResult('体积', '无效', 'cm³'),
-      ToolResult('重量', '无效', 'lb'),
-      ToolResult('重量', '无效', 'N'),
-      ToolResult('体积', '无效', 'L'),
-      ToolResult('体积', '无效', 'm³'),
-      ToolResult('表面积', '无效', 'm²'),
-      ToolResult('面密度', '无效', 'kg/m²'),
+      ToolResult.invalid('重量', 'kg', primary: true),
+      ToolResult.invalid('体积', 'cm³'),
+      ToolResult.invalid('重量', 'lb'),
+      ToolResult.invalid('重量', 'N'),
+      ToolResult.invalid('体积', 'L'),
+      ToolResult.invalid('体积', 'm³'),
+      ToolResult.invalid('表面积', 'm²'),
+      ToolResult.invalid('面密度', 'kg/m²'),
     ];
   }
   final volumeCm3 = length * width * thickness / 1000;
@@ -488,13 +484,13 @@ List<ToolResult> materialWeightResults(Map<String, double> valuesByKey) {
       2 * (length * width + length * thickness + width * thickness) / 1000000;
   final faceAreaM2 = length * width / 1000000;
   return [
-    ToolResult('重量', formatNumber(massKg), 'kg', primary: true),
-    ToolResult('体积', formatNumber(volumeCm3), 'cm³'),
-    ToolResult('重量', formatNumber(massKg * 2.20462), 'lb'),
-    ToolResult('重量', formatNumber(massKg * 9.80665), 'N'),
-    ToolResult('体积', formatNumber(volumeCm3 / 1000), 'L'),
-    ToolResult('体积', formatNumber(volumeM3), 'm³'),
-    ToolResult('表面积', formatNumber(surfaceAreaM2), 'm²'),
-    ToolResult('面密度', formatNumber(massKg / faceAreaM2), 'kg/m²'),
+    ToolResult.number('重量', massKg, 'kg', primary: true),
+    ToolResult.number('体积', volumeCm3, 'cm³'),
+    ToolResult.number('重量', massKg * 2.20462, 'lb'),
+    ToolResult.number('重量', massKg * 9.80665, 'N'),
+    ToolResult.number('体积', volumeCm3 / 1000, 'L'),
+    ToolResult.number('体积', volumeM3, 'm³'),
+    ToolResult.number('表面积', surfaceAreaM2, 'm²'),
+    ToolResult.number('面密度', massKg / faceAreaM2, 'kg/m²'),
   ];
 }

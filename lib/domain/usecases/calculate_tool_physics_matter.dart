@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> concentrationResults(Map<String, double> valuesByKey) {
@@ -101,40 +100,37 @@ List<ToolResult> concentrationResults(Map<String, double> valuesByKey) {
       ? null
       : molarMass - molarMassInput;
   return [
-    ToolResult('质量浓度', formatNumber(massConcentration), 'g/L', primary: true),
-    ToolResult('mg/mL', formatNumber(massConcentration), 'mg/mL'),
-    ToolResult('mg/L', formatNumber(massConcentration * 1000), 'mg/L'),
-    ToolResult(
-        '摩尔浓度', molarity == null ? '无效' : formatNumber(molarity), 'mol/L'),
-    ToolResult('溶质物质的量', amount == null ? '无效' : formatNumber(amount), 'mol'),
-    ToolResult('溶质量', mass == null ? '无效' : formatNumber(mass), 'g'),
-    ToolResult(
-        '溶液体积', volume == null ? '无效' : formatNumber(volume * 1000), 'mL'),
-    ToolResult('溶液体积 L', volume == null ? '无效' : formatNumber(volume), 'L'),
-    ToolResult(
-        '摩尔质量', molarMass == null ? '无效' : formatNumber(molarMass), 'g/mol'),
+    ToolResult.number('质量浓度', massConcentration, 'g/L', primary: true),
+    ToolResult.number('mg/mL', massConcentration, 'mg/mL'),
+    ToolResult.number('mg/L', massConcentration * 1000, 'mg/L'),
+    ToolResult.number('摩尔浓度', molarity, 'mol/L'),
+    ToolResult.number('溶质物质的量', amount, 'mol'),
+    ToolResult.number('溶质量', mass, 'g'),
+    ToolResult.number('溶液体积', volume == null ? null : volume * 1000, 'mL'),
+    ToolResult.number('溶液体积 L', volume, 'L'),
+    ToolResult.number('摩尔质量', molarMass, 'g/mol'),
     ToolResult('输入来源', source, ''),
     if (massConcentrationDelta != null)
-      ToolResult('质量浓度差值', formatNumber(massConcentrationDelta), 'g/L'),
+      ToolResult.number('质量浓度差值', massConcentrationDelta, 'g/L'),
     if (molarityDelta != null)
-      ToolResult('摩尔浓度差值', formatNumber(molarityDelta), 'mol/L'),
+      ToolResult.number('摩尔浓度差值', molarityDelta, 'mol/L'),
     if (molarMassDelta != null)
-      ToolResult('摩尔质量差值', formatNumber(molarMassDelta), 'g/mol'),
+      ToolResult.number('摩尔质量差值', molarMassDelta, 'g/mol'),
   ];
 }
 
 List<ToolResult> _invalidConcentrationResults() {
   return const [
-    ToolResult('质量浓度', '无效', 'g/L', primary: true),
-    ToolResult('mg/mL', '无效', 'mg/mL'),
-    ToolResult('mg/L', '无效', 'mg/L'),
-    ToolResult('摩尔浓度', '无效', 'mol/L'),
-    ToolResult('溶质物质的量', '无效', 'mol'),
-    ToolResult('溶质量', '无效', 'g'),
-    ToolResult('溶液体积', '无效', 'mL'),
-    ToolResult('溶液体积 L', '无效', 'L'),
-    ToolResult('摩尔质量', '无效', 'g/mol'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('质量浓度', 'g/L', primary: true),
+    ToolResult.invalid('mg/mL', 'mg/mL'),
+    ToolResult.invalid('mg/L', 'mg/L'),
+    ToolResult.invalid('摩尔浓度', 'mol/L'),
+    ToolResult.invalid('溶质物质的量', 'mol'),
+    ToolResult.invalid('溶质量', 'g'),
+    ToolResult.invalid('溶液体积', 'mL'),
+    ToolResult.invalid('溶液体积 L', 'L'),
+    ToolResult.invalid('摩尔质量', 'g/mol'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -212,35 +208,34 @@ List<ToolResult> idealGasResults(Map<String, double> valuesByKey) {
   final pressureDelta =
       pressureInput == null ? null : pressureKpa - pressureInput;
   return [
-    ToolResult('压力', formatNumber(pressureKpa), 'kPa', primary: true),
-    ToolResult('压力 atm', formatNumber(pressureKpa * 1000 / 101325), 'atm'),
-    ToolResult('压力 Pa', formatNumber(pressureKpa * 1000), 'Pa'),
-    ToolResult('体积', formatNumber(volumeL / 1000), 'm³'),
-    ToolResult('体积 L', formatNumber(volumeL), 'L'),
-    ToolResult('温度', formatNumber(temp - 273.15), '℃'),
-    ToolResult('温度 K', formatNumber(temp), 'K'),
-    ToolResult('物质的量', formatNumber(n), 'mol'),
-    ToolResult('摩尔体积', n == 0 ? '无效' : formatNumber(volumeL / n), 'L/mol'),
-    ToolResult('分子数', formatNumber(n * 6.02214076e23), ''),
+    ToolResult.number('压力', pressureKpa, 'kPa', primary: true),
+    ToolResult.number('压力 atm', pressureKpa * 1000 / 101325, 'atm'),
+    ToolResult.number('压力 Pa', pressureKpa * 1000, 'Pa'),
+    ToolResult.number('体积', volumeL / 1000, 'm³'),
+    ToolResult.number('体积 L', volumeL, 'L'),
+    ToolResult.number('温度', temp - 273.15, '℃'),
+    ToolResult.number('温度 K', temp, 'K'),
+    ToolResult.number('物质的量', n, 'mol'),
+    ToolResult.number('摩尔体积', n == 0 ? null : volumeL / n, 'L/mol'),
+    ToolResult.number('分子数', n * 6.02214076e23, ''),
     ToolResult('输入来源', source, ''),
-    if (pressureDelta != null)
-      ToolResult('压力差值', formatNumber(pressureDelta), 'kPa'),
+    if (pressureDelta != null) ToolResult.number('压力差值', pressureDelta, 'kPa'),
   ];
 }
 
 List<ToolResult> _invalidIdealGasResults() {
   return const [
-    ToolResult('压力', '无效', 'kPa', primary: true),
-    ToolResult('压力 atm', '无效', 'atm'),
-    ToolResult('压力 Pa', '无效', 'Pa'),
-    ToolResult('体积', '无效', 'm³'),
-    ToolResult('体积 L', '无效', 'L'),
-    ToolResult('温度', '无效', '℃'),
-    ToolResult('温度 K', '无效', 'K'),
-    ToolResult('物质的量', '无效', 'mol'),
-    ToolResult('摩尔体积', '无效', 'L/mol'),
-    ToolResult('分子数', '无效', ''),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('压力', 'kPa', primary: true),
+    ToolResult.invalid('压力 atm', 'atm'),
+    ToolResult.invalid('压力 Pa', 'Pa'),
+    ToolResult.invalid('体积', 'm³'),
+    ToolResult.invalid('体积 L', 'L'),
+    ToolResult.invalid('温度', '℃'),
+    ToolResult.invalid('温度 K', 'K'),
+    ToolResult.invalid('物质的量', 'mol'),
+    ToolResult.invalid('摩尔体积', 'L/mol'),
+    ToolResult.invalid('分子数', ''),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -304,30 +299,30 @@ List<ToolResult> heatResults(Map<String, double> valuesByKey) {
 
   final heatDelta = heatInput == null ? null : heat - heatInput;
   return [
-    ToolResult('热量', formatNumber(heat), 'J', primary: true),
-    ToolResult('kJ', formatNumber(heat / 1000), 'kJ'),
-    ToolResult('Wh', formatNumber(heat / 3600), 'Wh'),
-    ToolResult('kcal', formatNumber(heat / 4184), 'kcal'),
-    ToolResult('质量', formatNumber(mass), 'kg'),
-    ToolResult('比热容', formatNumber(specific), 'J/kg℃'),
-    ToolResult('温度变化', formatNumber(delta), '℃'),
+    ToolResult.number('热量', heat, 'J', primary: true),
+    ToolResult.number('kJ', heat / 1000, 'kJ'),
+    ToolResult.number('Wh', heat / 3600, 'Wh'),
+    ToolResult.number('kcal', heat / 4184, 'kcal'),
+    ToolResult.number('质量', mass, 'kg'),
+    ToolResult.number('比热容', specific, 'J/kg℃'),
+    ToolResult.number('温度变化', delta, '℃'),
     ToolResult('热过程', heat > 0 ? '吸热' : (heat < 0 ? '放热' : '无热量'), ''),
     ToolResult('输入来源', source, ''),
-    if (heatDelta != null) ToolResult('热量差值', formatNumber(heatDelta), 'J'),
+    if (heatDelta != null) ToolResult.number('热量差值', heatDelta, 'J'),
   ];
 }
 
 List<ToolResult> _invalidHeatResults() {
   return const [
-    ToolResult('热量', '无效', 'J', primary: true),
-    ToolResult('kJ', '无效', 'kJ'),
-    ToolResult('Wh', '无效', 'Wh'),
-    ToolResult('kcal', '无效', 'kcal'),
-    ToolResult('质量', '无效', 'kg'),
-    ToolResult('比热容', '无效', 'J/kg℃'),
-    ToolResult('温度变化', '无效', '℃'),
-    ToolResult('热过程', '无效', ''),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('热量', 'J', primary: true),
+    ToolResult.invalid('kJ', 'kJ'),
+    ToolResult.invalid('Wh', 'Wh'),
+    ToolResult.invalid('kcal', 'kcal'),
+    ToolResult.invalid('质量', 'kg'),
+    ToolResult.invalid('比热容', 'J/kg℃'),
+    ToolResult.invalid('温度变化', '℃'),
+    ToolResult.invalid('热过程', ''),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -380,32 +375,31 @@ List<ToolResult> phResults(Map<String, double> valuesByKey) {
           ? '碱性'
           : '近中性';
   return [
-    ToolResult('pH', formatNumber(ph), '', primary: true),
-    ToolResult('pOH', formatNumber(poh), ''),
-    ToolResult('[H+]', formatNumber(h), 'mol/L'),
-    ToolResult('[OH-]', formatNumber(oh), 'mol/L'),
-    ToolResult('[H+] nmol/L', formatNumber(hNm), 'nmol/L'),
-    ToolResult('[OH-] nmol/L', formatNumber(ohNm), 'nmol/L'),
+    ToolResult.number('pH', ph, '', primary: true),
+    ToolResult.number('pOH', poh, ''),
+    ToolResult.number('[H+]', h, 'mol/L'),
+    ToolResult.number('[OH-]', oh, 'mol/L'),
+    ToolResult.number('[H+] nmol/L', hNm, 'nmol/L'),
+    ToolResult.number('[OH-] nmol/L', ohNm, 'nmol/L'),
     ToolResult('酸碱性', type, ''),
     ToolResult('输入来源', source, ''),
-    if (includeTarget) ToolResult('目标pH', formatNumber(targetPh), ''),
-    if (targetH != null) ToolResult('目标[H+]', formatNumber(targetH), 'mol/L'),
-    if (targetOh != null)
-      ToolResult('目标[OH-]', formatNumber(targetOh), 'mol/L'),
-    if (includeTarget) ToolResult('pH差值', formatNumber(ph - targetPh), ''),
+    if (includeTarget) ToolResult.number('目标pH', targetPh, ''),
+    if (targetH != null) ToolResult.number('目标[H+]', targetH, 'mol/L'),
+    if (targetOh != null) ToolResult.number('目标[OH-]', targetOh, 'mol/L'),
+    if (includeTarget) ToolResult.number('pH差值', ph - targetPh, ''),
   ];
 }
 
 List<ToolResult> _invalidPhResults({required bool includeTarget}) {
   return [
-    const ToolResult('pH', '无效', '', primary: true),
-    const ToolResult('pOH', '无效', ''),
-    const ToolResult('[H+]', '无效', 'mol/L'),
-    const ToolResult('[OH-]', '无效', 'mol/L'),
-    const ToolResult('酸碱性', '无效', ''),
-    if (includeTarget) const ToolResult('目标pH', '无效', ''),
-    if (includeTarget) const ToolResult('目标[H+]', '无效', 'mol/L'),
-    if (includeTarget) const ToolResult('目标[OH-]', '无效', 'mol/L'),
-    if (includeTarget) const ToolResult('pH差值', '无效', ''),
+    const ToolResult.invalid('pH', '', primary: true),
+    const ToolResult.invalid('pOH', ''),
+    const ToolResult.invalid('[H+]', 'mol/L'),
+    const ToolResult.invalid('[OH-]', 'mol/L'),
+    const ToolResult.invalid('酸碱性', ''),
+    if (includeTarget) const ToolResult.invalid('目标pH', ''),
+    if (includeTarget) const ToolResult.invalid('目标[H+]', 'mol/L'),
+    if (includeTarget) const ToolResult.invalid('目标[OH-]', 'mol/L'),
+    if (includeTarget) const ToolResult.invalid('pH差值', ''),
   ];
 }

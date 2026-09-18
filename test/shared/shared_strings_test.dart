@@ -6,6 +6,8 @@ import 'package:nekocalc/l10n/app_language.dart';
 import 'package:nekocalc/shared/presentation/app_drawer.dart';
 import 'package:nekocalc/shared/presentation/shared_strings.dart';
 
+import 'source_scan.dart';
+
 /// 中文：外壳与抽屉文案表的三条护栏，形状与设置页 / 计算页那两张表的护栏相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
 ///          每一个字都得和接入多语言之前一模一样。
@@ -84,7 +86,7 @@ void main() {
       if (name == 'shared_strings.dart') continue;
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
-        if (!_containsCjk(literal)) continue;
+        if (!containsWideOrFullwidth(literal)) continue;
         if (_nonUiLiterals[name]?.contains(literal) ?? false) continue;
         offenders.add('${entity.path}: $literal');
       }

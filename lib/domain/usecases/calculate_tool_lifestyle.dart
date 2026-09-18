@@ -26,20 +26,23 @@ List<ToolResult> bmiResults(Map<String, double> valuesByKey) {
   final bsa = math.sqrt(heightCm * weight / 3600);
   final idealRange = _range(healthyWeightLow, healthyWeightHigh);
   final results = <ToolResult>[
-    ToolResult('BMI', formatNumber(bmi), '', primary: true),
+    ToolResult.number('BMI', bmi, '', primary: true),
     ToolResult('区间', _bmiLabel(bmi), ''),
-    ToolResult('健康体重范围', idealRange, 'kg'),
-    ToolResult('正常体重下限', formatNumber(healthyWeightLow), 'kg'),
-    ToolResult('正常体重上限', formatNumber(normalUpper), 'kg'),
+    ToolResult('健康体重范围', idealRange, 'kg',
+        hasError: !healthyWeightLow.isFinite || !healthyWeightHigh.isFinite),
+    ToolResult.number('正常体重下限', healthyWeightLow, 'kg'),
+    ToolResult.number('正常体重上限', normalUpper, 'kg'),
     ToolResult('距健康区间',
-        _weightRangeDelta(weight, healthyWeightLow, healthyWeightHigh), ''),
-    ToolResult('BMI 22 目标体重', formatNumber(targetWeight), 'kg'),
-    ToolResult('目标体重差', formatNumber(targetDelta), 'kg'),
-    ToolResult('体表面积', formatNumber(bsa), 'm²'),
+        _weightRangeDelta(weight, healthyWeightLow, healthyWeightHigh), '',
+        hasError: _weightDeltaNeedsAttention(
+            weight, healthyWeightLow, healthyWeightHigh)),
+    ToolResult.number('BMI 22 目标体重', targetWeight, 'kg'),
+    ToolResult.number('目标体重差', targetDelta, 'kg'),
+    ToolResult.number('体表面积', bsa, 'm²'),
   ];
   if (waistCm != null) {
     final waistHeightRatio = waistCm / heightCm;
-    results.add(ToolResult('腰高比', formatNumber(waistHeightRatio), ''));
+    results.add(ToolResult.number('腰高比', waistHeightRatio, ''));
     results.add(ToolResult('腰高比分级', _waistHeightLabel(waistHeightRatio), ''));
   }
   return results;
@@ -47,17 +50,17 @@ List<ToolResult> bmiResults(Map<String, double> valuesByKey) {
 
 List<ToolResult> _invalidBmiResults({required bool includeWaist}) {
   return [
-    const ToolResult('BMI', '无效', '', primary: true),
-    const ToolResult('区间', '无效', ''),
-    const ToolResult('健康体重范围', '无效', 'kg'),
-    const ToolResult('正常体重下限', '无效', 'kg'),
-    const ToolResult('正常体重上限', '无效', 'kg'),
-    const ToolResult('距健康区间', '无效', 'kg'),
-    const ToolResult('BMI 22 目标体重', '无效', 'kg'),
-    const ToolResult('目标体重差', '无效', 'kg'),
-    const ToolResult('体表面积', '无效', 'm²'),
-    if (includeWaist) const ToolResult('腰高比', '无效', ''),
-    if (includeWaist) const ToolResult('腰高比分级', '无效', ''),
+    const ToolResult.invalid('BMI', '', primary: true),
+    const ToolResult.invalid('区间', ''),
+    const ToolResult.invalid('健康体重范围', 'kg'),
+    const ToolResult.invalid('正常体重下限', 'kg'),
+    const ToolResult.invalid('正常体重上限', 'kg'),
+    const ToolResult.invalid('距健康区间', 'kg'),
+    const ToolResult.invalid('BMI 22 目标体重', 'kg'),
+    const ToolResult.invalid('目标体重差', 'kg'),
+    const ToolResult.invalid('体表面积', 'm²'),
+    if (includeWaist) const ToolResult.invalid('腰高比', ''),
+    if (includeWaist) const ToolResult.invalid('腰高比分级', ''),
   ];
 }
 
@@ -73,6 +76,17 @@ String _waistHeightLabel(double ratio) {
   if (ratio < 0.5) return '较低风险';
   if (ratio < 0.6) return '偏高风险';
   return '较高风险';
+}
+
+/// 中文：`'距健康区间'` 那条**要不要标成错误**。它与 [ _weightRangeDelta ] 走同一套分支：
+///       两支里拼进去的那个数不是有限数时，那句话里才会出现「无效」；`'在范围内'` 不是错误。
+/// English: Whether the `'距健康区间'` result **should be marked as an error**. It follows the same
+///          branches as [_weightRangeDelta]: the marker only appears when the number interpolated in
+///          one of the two branches is not finite; `'在范围内'` is not an error.
+bool _weightDeltaNeedsAttention(double weight, double low, double high) {
+  if (weight < low) return !(low - weight).isFinite;
+  if (weight > high) return !(weight - high).isFinite;
+  return false;
 }
 
 String _weightRangeDelta(double weight, double low, double high) {
@@ -148,39 +162,38 @@ List<ToolResult> fuelEconomyResults(Map<String, double> valuesByKey) {
   final costPerKm = totalCost / distance;
   final costPer100Km = costPerKm * 100;
   final results = <ToolResult>[
-    ToolResult('百公里油耗', formatNumber(litersPer100Km), 'L/100km', primary: true),
-    ToolResult('km/L', formatNumber(kmPerLiter), 'km/L'),
-    ToolResult('里程', formatNumber(distance), 'km'),
-    ToolResult('燃油', formatNumber(fuel), 'L'),
-    ToolResult('总费用', formatNumber(totalCost), '元'),
-    ToolResult('每公里成本', formatNumber(costPerKm), '元/km'),
-    ToolResult('百公里成本', formatNumber(costPer100Km), '元/100km'),
+    ToolResult.number('百公里油耗', litersPer100Km, 'L/100km', primary: true),
+    ToolResult.number('km/L', kmPerLiter, 'km/L'),
+    ToolResult.number('里程', distance, 'km'),
+    ToolResult.number('燃油', fuel, 'L'),
+    ToolResult.number('总费用', totalCost, '元'),
+    ToolResult.number('每公里成本', costPerKm, '元/km'),
+    ToolResult.number('百公里成本', costPer100Km, '元/100km'),
     ToolResult('输入来源', source, ''),
     if (consumptionDelta != null)
-      ToolResult('油耗差值', formatNumber(consumptionDelta), 'L/100km'),
+      ToolResult.number('油耗差值', consumptionDelta, 'L/100km'),
   ];
   if (tank != null) {
-    results.add(ToolResult('满箱续航', formatNumber(tank * kmPerLiter), 'km'));
-    results.add(ToolResult('满箱费用', formatNumber(tank * price), '元'));
+    results.add(ToolResult.number('满箱续航', tank * kmPerLiter, 'km'));
+    results.add(ToolResult.number('满箱费用', tank * price, '元'));
   }
   if (annualDistance != null) {
     final annualFuel = annualDistance / 100 * litersPer100Km;
     final annualCost = annualFuel * price;
-    results.add(ToolResult('年用油量', formatNumber(annualFuel), 'L'));
-    results.add(ToolResult('年燃油费用', formatNumber(annualCost), '元'));
+    results.add(ToolResult.number('年用油量', annualFuel, 'L'));
+    results.add(ToolResult.number('年燃油费用', annualCost, '元'));
     if (tank != null) {
-      results.add(ToolResult(
-          '年加油次数', formatNumber(tank == 0 ? 0 : annualFuel / tank), '次'));
+      results.add(
+          ToolResult.number('年加油次数', tank == 0 ? 0 : annualFuel / tank, '次'));
     }
     if (co2 != null) {
       final annualCo2 = annualFuel * co2;
-      results.add(ToolResult(
-          'CO2每公里', formatNumber(litersPer100Km * co2 * 10), 'g/km'));
-      results.add(ToolResult('年CO2排放', formatNumber(annualCo2), 'kg'));
+      results
+          .add(ToolResult.number('CO2每公里', litersPer100Km * co2 * 10, 'g/km'));
+      results.add(ToolResult.number('年CO2排放', annualCo2, 'kg'));
     }
   } else if (co2 != null) {
-    results.add(
-        ToolResult('CO2每公里', formatNumber(litersPer100Km * co2 * 10), 'g/km'));
+    results.add(ToolResult.number('CO2每公里', litersPer100Km * co2 * 10, 'g/km'));
   }
   return results;
 }
@@ -191,21 +204,21 @@ List<ToolResult> _invalidFuelEconomyResults({
   required bool includeCo2,
 }) {
   return [
-    const ToolResult('百公里油耗', '无效', 'L/100km', primary: true),
-    const ToolResult('km/L', '无效', 'km/L'),
-    const ToolResult('里程', '无效', 'km'),
-    const ToolResult('燃油', '无效', 'L'),
-    const ToolResult('总费用', '无效', '元'),
-    const ToolResult('每公里成本', '无效', '元/km'),
-    const ToolResult('百公里成本', '无效', '元/100km'),
-    const ToolResult('输入来源', '无效', ''),
-    if (includeTank) const ToolResult('满箱续航', '无效', 'km'),
-    if (includeTank) const ToolResult('满箱费用', '无效', '元'),
-    if (includeAnnual) const ToolResult('年用油量', '无效', 'L'),
-    if (includeAnnual) const ToolResult('年燃油费用', '无效', '元'),
-    if (includeTank && includeAnnual) const ToolResult('年加油次数', '无效', '次'),
-    if (includeCo2) const ToolResult('CO2每公里', '无效', 'g/km'),
-    if (includeAnnual && includeCo2) const ToolResult('年CO2排放', '无效', 'kg'),
+    const ToolResult.invalid('百公里油耗', 'L/100km', primary: true),
+    const ToolResult.invalid('km/L', 'km/L'),
+    const ToolResult.invalid('里程', 'km'),
+    const ToolResult.invalid('燃油', 'L'),
+    const ToolResult.invalid('总费用', '元'),
+    const ToolResult.invalid('每公里成本', '元/km'),
+    const ToolResult.invalid('百公里成本', '元/100km'),
+    const ToolResult.invalid('输入来源', ''),
+    if (includeTank) const ToolResult.invalid('满箱续航', 'km'),
+    if (includeTank) const ToolResult.invalid('满箱费用', '元'),
+    if (includeAnnual) const ToolResult.invalid('年用油量', 'L'),
+    if (includeAnnual) const ToolResult.invalid('年燃油费用', '元'),
+    if (includeTank && includeAnnual) const ToolResult.invalid('年加油次数', '次'),
+    if (includeCo2) const ToolResult.invalid('CO2每公里', 'g/km'),
+    if (includeAnnual && includeCo2) const ToolResult.invalid('年CO2排放', 'kg'),
   ];
 }
 

@@ -7,16 +7,25 @@ List<ToolResult> quadraticResults(Map<String, double> valuesByKey) {
   final a = valuesByKey['a'] ?? 0;
   final b = valuesByKey['b'] ?? 0;
   final c = valuesByKey['c'] ?? 0;
-  if (a == 0) return const [ToolResult('错误', 'a 不能为 0', '', primary: true)];
+  // 中文：**这句话是产出方写下的错误，旗标也由产出方写下。** 从前它靠 `contains('不能')`
+  //       被认出来——换成别的措辞就认不出了。
+  // English: **The producer writes this sentence, and the producer writes the flag.** It used to be
+  //          recognised by `contains('不能')` — any other wording would have slipped past.
+  if (a == 0) {
+    return const [
+      ToolResult('错误', 'a 不能为 0', '', primary: true, hasError: true),
+    ];
+  }
   final d = b * b - 4 * a * c;
   final xv = -b / (2 * a);
   final yv = a * xv * xv + b * xv + c;
   if (d < 0) {
     return [
-      ToolResult('判别式 Δ', formatNumber(d), '', primary: true),
+      ToolResult.number('判别式 Δ', d, '', primary: true),
       const ToolResult('实根', '无', ''),
-      ToolResult('顶点', '(${formatNumber(xv)}, ${formatNumber(yv)})', ''),
-      ToolResult('对称轴', 'x=${formatNumber(xv)}', ''),
+      ToolResult('顶点', '(${formatNumber(xv)}, ${formatNumber(yv)})', '',
+          hasError: !xv.isFinite || !yv.isFinite),
+      ToolResult('对称轴', 'x=${formatNumber(xv)}', '', hasError: !xv.isFinite),
     ];
   }
   final root = math.sqrt(d);
@@ -24,10 +33,11 @@ List<ToolResult> quadraticResults(Map<String, double> valuesByKey) {
   final x2 = (-b - root) / (2 * a);
   return [
     ToolResult('解 (x1, x2)', '${formatNumber(x1)}  ${formatNumber(x2)}', '',
-        primary: true),
-    ToolResult('判别式 Δ', formatNumber(d), ''),
-    ToolResult('顶点', '(${formatNumber(xv)}, ${formatNumber(yv)})', ''),
-    ToolResult('对称轴', 'x=${formatNumber(xv)}', ''),
+        primary: true, hasError: !x1.isFinite || !x2.isFinite),
+    ToolResult.number('判别式 Δ', d, ''),
+    ToolResult('顶点', '(${formatNumber(xv)}, ${formatNumber(yv)})', '',
+        hasError: !xv.isFinite || !yv.isFinite),
+    ToolResult('对称轴', 'x=${formatNumber(xv)}', '', hasError: !xv.isFinite),
   ];
 }
 
@@ -61,16 +71,16 @@ List<ToolResult> linearSystemResults(Map<String, double> valuesByKey) {
   if (determinant.abs() <= 1e-12) {
     return [
       ToolResult('解 (x, y)', relation, '', primary: true),
-      ToolResult('D', formatNumber(determinant), ''),
-      ToolResult('Dx', formatNumber(determinantX), ''),
-      ToolResult('Dy', formatNumber(determinantY), ''),
+      ToolResult.number('D', determinant, ''),
+      ToolResult.number('Dx', determinantX, ''),
+      ToolResult.number('Dy', determinantY, ''),
       ToolResult('系数矩阵秩', coefficientRank.toString(), ''),
       ToolResult('增广矩阵秩', augmentedRank.toString(), ''),
       ToolResult('方程关系', relation, ''),
-      const ToolResult('验证 1', '无效', ''),
-      const ToolResult('验证 2', '无效', ''),
-      const ToolResult('残差 1', '无效', ''),
-      const ToolResult('残差 2', '无效', ''),
+      const ToolResult.invalid('验证 1', ''),
+      const ToolResult.invalid('验证 2', ''),
+      const ToolResult.invalid('残差 1', ''),
+      const ToolResult.invalid('残差 2', ''),
     ];
   }
 
@@ -80,37 +90,37 @@ List<ToolResult> linearSystemResults(Map<String, double> valuesByKey) {
   final check2 = a2 * x + b2 * y;
   return [
     ToolResult('解 (x, y)', '${formatNumber(x)}  ${formatNumber(y)}', '',
-        primary: true),
-    ToolResult('x', formatNumber(x), ''),
-    ToolResult('y', formatNumber(y), ''),
-    ToolResult('D', formatNumber(determinant), ''),
-    ToolResult('Dx', formatNumber(determinantX), ''),
-    ToolResult('Dy', formatNumber(determinantY), ''),
+        primary: true, hasError: !x.isFinite || !y.isFinite),
+    ToolResult.number('x', x, ''),
+    ToolResult.number('y', y, ''),
+    ToolResult.number('D', determinant, ''),
+    ToolResult.number('Dx', determinantX, ''),
+    ToolResult.number('Dy', determinantY, ''),
     ToolResult('系数矩阵秩', coefficientRank.toString(), ''),
     ToolResult('增广矩阵秩', augmentedRank.toString(), ''),
     ToolResult('方程关系', relation, ''),
-    ToolResult('验证 1', formatNumber(check1), ''),
-    ToolResult('验证 2', formatNumber(check2), ''),
-    ToolResult('残差 1', formatNumber(check1 - c1), ''),
-    ToolResult('残差 2', formatNumber(check2 - c2), ''),
+    ToolResult.number('验证 1', check1, ''),
+    ToolResult.number('验证 2', check2, ''),
+    ToolResult.number('残差 1', check1 - c1, ''),
+    ToolResult.number('残差 2', check2 - c2, ''),
   ];
 }
 
 List<ToolResult> _invalidLinearSystemResults() {
   return const [
-    ToolResult('解 (x, y)', '无效', '', primary: true),
-    ToolResult('x', '无效', ''),
-    ToolResult('y', '无效', ''),
-    ToolResult('D', '无效', ''),
-    ToolResult('Dx', '无效', ''),
-    ToolResult('Dy', '无效', ''),
-    ToolResult('系数矩阵秩', '无效', ''),
-    ToolResult('增广矩阵秩', '无效', ''),
-    ToolResult('方程关系', '无效', ''),
-    ToolResult('验证 1', '无效', ''),
-    ToolResult('验证 2', '无效', ''),
-    ToolResult('残差 1', '无效', ''),
-    ToolResult('残差 2', '无效', ''),
+    ToolResult.invalid('解 (x, y)', '', primary: true),
+    ToolResult.invalid('x', ''),
+    ToolResult.invalid('y', ''),
+    ToolResult.invalid('D', ''),
+    ToolResult.invalid('Dx', ''),
+    ToolResult.invalid('Dy', ''),
+    ToolResult.invalid('系数矩阵秩', ''),
+    ToolResult.invalid('增广矩阵秩', ''),
+    ToolResult.invalid('方程关系', ''),
+    ToolResult.invalid('验证 1', ''),
+    ToolResult.invalid('验证 2', ''),
+    ToolResult.invalid('残差 1', ''),
+    ToolResult.invalid('残差 2', ''),
   ];
 }
 
@@ -140,35 +150,31 @@ List<ToolResult> exponentialLogResults(Map<String, double> valuesByKey) {
   final baseLog =
       x > 0 && y > 0 && y != 1 ? math.log(x) / math.log(y) : double.nan;
   return [
-    ToolResult('x^y', power.isFinite ? formatNumber(power) : '无效', '',
-        primary: true),
-    ToolResult(
-        'y^x', reversePower.isFinite ? formatNumber(reversePower) : '无效', ''),
-    ToolResult('ln(x)', x <= 0 ? '无效' : formatNumber(math.log(x)), ''),
-    ToolResult(
-        'log10(x)', x <= 0 ? '无效' : formatNumber(math.log(x) / math.ln10), ''),
-    ToolResult('log_y(x)', baseLog.isFinite ? formatNumber(baseLog) : '无效', ''),
-    ToolResult(
-        'e^x', math.exp(x).isFinite ? formatNumber(math.exp(x)) : '无效', ''),
-    ToolResult('sqrt(x)', x < 0 ? '无效' : formatNumber(math.sqrt(x)), ''),
-    ToolResult('y次根x', root.isFinite ? formatNumber(root) : '无效', ''),
-    ToolResult('1/x', x == 0 ? '无效' : formatNumber(1 / x), ''),
-    ToolResult('定义域', x > 0 ? '对数有效' : '对数无效', ''),
+    ToolResult.number('x^y', power.isFinite ? power : null, '', primary: true),
+    ToolResult.number('y^x', reversePower.isFinite ? reversePower : null, ''),
+    ToolResult.number('ln(x)', x <= 0 ? null : math.log(x), ''),
+    ToolResult.number('log10(x)', x <= 0 ? null : math.log(x) / math.ln10, ''),
+    ToolResult.number('log_y(x)', baseLog.isFinite ? baseLog : null, ''),
+    ToolResult.number('e^x', math.exp(x).isFinite ? math.exp(x) : null, ''),
+    ToolResult.number('sqrt(x)', x < 0 ? null : math.sqrt(x), ''),
+    ToolResult.number('y次根x', root.isFinite ? root : null, ''),
+    ToolResult.number('1/x', x == 0 ? null : 1 / x, ''),
+    ToolResult('定义域', x > 0 ? '对数有效' : '对数无效', '', hasError: !(x > 0)),
   ];
 }
 
 List<ToolResult> _invalidExponentialLogResults() {
   return const [
-    ToolResult('x^y', '无效', '', primary: true),
-    ToolResult('y^x', '无效', ''),
-    ToolResult('ln(x)', '无效', ''),
-    ToolResult('log10(x)', '无效', ''),
-    ToolResult('log_y(x)', '无效', ''),
-    ToolResult('e^x', '无效', ''),
-    ToolResult('sqrt(x)', '无效', ''),
-    ToolResult('y次根x', '无效', ''),
-    ToolResult('1/x', '无效', ''),
-    ToolResult('定义域', '无效', ''),
+    ToolResult.invalid('x^y', '', primary: true),
+    ToolResult.invalid('y^x', ''),
+    ToolResult.invalid('ln(x)', ''),
+    ToolResult.invalid('log10(x)', ''),
+    ToolResult.invalid('log_y(x)', ''),
+    ToolResult.invalid('e^x', ''),
+    ToolResult.invalid('sqrt(x)', ''),
+    ToolResult.invalid('y次根x', ''),
+    ToolResult.invalid('1/x', ''),
+    ToolResult.invalid('定义域', ''),
   ];
 }
 
@@ -180,36 +186,36 @@ List<ToolResult> linearEquationResults(Map<String, double> valuesByKey) {
   if (a == 0) {
     return [
       ToolResult('解 x', b == 0 ? '任意实数' : '无解', '', primary: true),
-      ToolResult('a', formatNumber(a), ''),
-      ToolResult('b', formatNumber(b), ''),
+      ToolResult.number('a', a, ''),
+      ToolResult.number('b', b, ''),
       ToolResult('方程关系', relation, ''),
       ToolResult('退化类型', relation, ''),
-      const ToolResult('验证 ax+b', '无效', ''),
+      const ToolResult.invalid('验证 ax+b', ''),
     ];
   }
   final x = -b / a;
   return [
-    ToolResult('解 x', formatNumber(x), '', primary: true),
-    ToolResult('a', formatNumber(a), ''),
-    ToolResult('b', formatNumber(b), ''),
-    ToolResult('斜率 a', formatNumber(a), ''),
-    ToolResult('截距 b', formatNumber(b), ''),
+    ToolResult.number('解 x', x, '', primary: true),
+    ToolResult.number('a', a, ''),
+    ToolResult.number('b', b, ''),
+    ToolResult.number('斜率 a', a, ''),
+    ToolResult.number('截距 b', b, ''),
     ToolResult('方程关系', relation, ''),
-    ToolResult('验证 ax+b', formatNumber(a * x + b), ''),
-    ToolResult('x 截距', formatNumber(x), ''),
+    ToolResult.number('验证 ax+b', a * x + b, ''),
+    ToolResult.number('x 截距', x, ''),
   ];
 }
 
 List<ToolResult> _invalidLinearEquationResults() {
   return const [
-    ToolResult('解 x', '无效', '', primary: true),
-    ToolResult('a', '无效', ''),
-    ToolResult('b', '无效', ''),
-    ToolResult('斜率 a', '无效', ''),
-    ToolResult('截距 b', '无效', ''),
-    ToolResult('方程关系', '无效', ''),
-    ToolResult('验证 ax+b', '无效', ''),
-    ToolResult('x 截距', '无效', ''),
+    ToolResult.invalid('解 x', '', primary: true),
+    ToolResult.invalid('a', ''),
+    ToolResult.invalid('b', ''),
+    ToolResult.invalid('斜率 a', ''),
+    ToolResult.invalid('截距 b', ''),
+    ToolResult.invalid('方程关系', ''),
+    ToolResult.invalid('验证 ax+b', ''),
+    ToolResult.invalid('x 截距', ''),
   ];
 }
 
@@ -227,34 +233,33 @@ List<ToolResult> combinationResults(Map<String, double> valuesByKey) {
   final permutations = _factorial(n) / _factorial(n - k);
   final repeatedPermutations = math.pow(n, k).toDouble();
   return [
-    ToolResult('组合 C(n,k)', formatNumber(combinations), '', primary: true),
-    ToolResult('排列 A(n,k)', formatNumber(permutations), ''),
-    ToolResult('n!', formatNumber(_factorial(n)), ''),
-    ToolResult('k!', formatNumber(_factorial(k)), ''),
-    ToolResult('(n-k)!', formatNumber(_factorial(n - k)), ''),
-    ToolResult(
-        '重复排列 n^k',
-        repeatedPermutations.isFinite
-            ? formatNumber(repeatedPermutations)
-            : '无效',
-        ''),
-    ToolResult('互补组合 C(n,n-k)', formatNumber(combinations), ''),
-    ToolResult('选择比例 k/n', n == 0 ? '无效' : formatNumber(k / n * 100), '%'),
-    ToolResult('整数校验', integers ? '已取整数' : '无效', ''),
+    ToolResult.number('组合 C(n,k)', combinations, '', primary: true),
+    ToolResult.number('排列 A(n,k)', permutations, ''),
+    ToolResult.number('n!', _factorial(n), ''),
+    ToolResult.number('k!', _factorial(k), ''),
+    ToolResult.number('(n-k)!', _factorial(n - k), ''),
+    ToolResult.number('重复排列 n^k',
+        repeatedPermutations.isFinite ? repeatedPermutations : null, ''),
+    ToolResult.number('互补组合 C(n,n-k)', combinations, ''),
+    ToolResult.number('选择比例 k/n', n == 0 ? null : k / n * 100, '%'),
+    // 中文：`'无效'` 那一支的值**就是那条记号本身**，两个旗标一起为真。
+    // English: the `'无效'` branch's value **is the marker itself**, so both flags are true.
+    ToolResult('整数校验', integers ? '已取整数' : invalidResultValue, '',
+        hasError: !integers, isInvalidMarker: !integers),
   ];
 }
 
 List<ToolResult> _invalidCombinationResults() {
   return const [
-    ToolResult('组合 C(n,k)', '无效', '', primary: true),
-    ToolResult('排列 A(n,k)', '无效', ''),
-    ToolResult('n!', '无效', ''),
-    ToolResult('k!', '无效', ''),
-    ToolResult('(n-k)!', '无效', ''),
-    ToolResult('重复排列 n^k', '无效', ''),
-    ToolResult('互补组合 C(n,n-k)', '无效', ''),
-    ToolResult('选择比例 k/n', '无效', '%'),
-    ToolResult('整数校验', '无效', ''),
+    ToolResult.invalid('组合 C(n,k)', '', primary: true),
+    ToolResult.invalid('排列 A(n,k)', ''),
+    ToolResult.invalid('n!', ''),
+    ToolResult.invalid('k!', ''),
+    ToolResult.invalid('(n-k)!', ''),
+    ToolResult.invalid('重复排列 n^k', ''),
+    ToolResult.invalid('互补组合 C(n,n-k)', ''),
+    ToolResult.invalid('选择比例 k/n', '%'),
+    ToolResult.invalid('整数校验', ''),
   ];
 }
 
@@ -281,31 +286,31 @@ List<ToolResult> probabilityResults(Map<String, double> valuesByKey) {
   final neither = (1 - p1) * (1 - p2);
   final atMostOne = 1 - both;
   return [
-    ToolResult('至少一个发生', formatNumber(either * 100), '%', primary: true),
-    ToolResult('同时发生', formatNumber(both * 100), '%'),
-    ToolResult('仅 A 发生', formatNumber(onlyA * 100), '%'),
-    ToolResult('仅 B 发生', formatNumber(onlyB * 100), '%'),
-    ToolResult('都不发生', formatNumber(neither * 100), '%'),
-    ToolResult('至多一个发生', formatNumber(atMostOne * 100), '%'),
-    ToolResult('A 不发生', formatNumber((1 - p1) * 100), '%'),
-    ToolResult('B 不发生', formatNumber((1 - p2) * 100), '%'),
-    ToolResult('事件 A', formatNumber(p1Input), '%'),
-    ToolResult('事件 B', formatNumber(p2Input), '%'),
+    ToolResult.number('至少一个发生', either * 100, '%', primary: true),
+    ToolResult.number('同时发生', both * 100, '%'),
+    ToolResult.number('仅 A 发生', onlyA * 100, '%'),
+    ToolResult.number('仅 B 发生', onlyB * 100, '%'),
+    ToolResult.number('都不发生', neither * 100, '%'),
+    ToolResult.number('至多一个发生', atMostOne * 100, '%'),
+    ToolResult.number('A 不发生', (1 - p1) * 100, '%'),
+    ToolResult.number('B 不发生', (1 - p2) * 100, '%'),
+    ToolResult.number('事件 A', p1Input, '%'),
+    ToolResult.number('事件 B', p2Input, '%'),
   ];
 }
 
 List<ToolResult> _invalidProbabilityResults() {
   return const [
-    ToolResult('至少一个发生', '无效', '%', primary: true),
-    ToolResult('同时发生', '无效', '%'),
-    ToolResult('仅 A 发生', '无效', '%'),
-    ToolResult('仅 B 发生', '无效', '%'),
-    ToolResult('都不发生', '无效', '%'),
-    ToolResult('至多一个发生', '无效', '%'),
-    ToolResult('A 不发生', '无效', '%'),
-    ToolResult('B 不发生', '无效', '%'),
-    ToolResult('事件 A', '无效', '%'),
-    ToolResult('事件 B', '无效', '%'),
+    ToolResult.invalid('至少一个发生', '%', primary: true),
+    ToolResult.invalid('同时发生', '%'),
+    ToolResult.invalid('仅 A 发生', '%'),
+    ToolResult.invalid('仅 B 发生', '%'),
+    ToolResult.invalid('都不发生', '%'),
+    ToolResult.invalid('至多一个发生', '%'),
+    ToolResult.invalid('A 不发生', '%'),
+    ToolResult.invalid('B 不发生', '%'),
+    ToolResult.invalid('事件 A', '%'),
+    ToolResult.invalid('事件 B', '%'),
   ];
 }
 
@@ -317,7 +322,7 @@ List<ToolResult> statisticsResults(Map<String, double> valuesByKey) {
   }
   if (values.isEmpty) {
     return const [
-      ToolResult('平均值', '无效', '', primary: true),
+      ToolResult.invalid('平均值', '', primary: true),
       ToolResult('样本数', '0', ''),
     ];
   }
@@ -342,21 +347,18 @@ List<ToolResult> statisticsResults(Map<String, double> valuesByKey) {
       mean == 0 ? double.nan : sampleStdDev / mean.abs() * 100;
 
   return [
-    ToolResult('平均值', formatNumber(mean), '', primary: true),
+    ToolResult.number('平均值', mean, '', primary: true),
     ToolResult('样本数', '$count', ''),
-    ToolResult('中位数', formatNumber(median), ''),
-    ToolResult('总和', formatNumber(sum), ''),
-    ToolResult('最小值', formatNumber(minValue), ''),
-    ToolResult('最大值', formatNumber(maxValue), ''),
-    ToolResult('极差', formatNumber(maxValue - minValue), ''),
-    ToolResult('样本标准差', count > 1 ? formatNumber(sampleStdDev) : '无效', ''),
-    ToolResult('样本方差', count > 1 ? formatNumber(sampleVariance) : '无效', ''),
-    ToolResult('总体标准差', formatNumber(populationStdDev), ''),
-    ToolResult('总体方差', formatNumber(populationVariance), ''),
-    ToolResult(
-      '变异系数',
-      count > 1 && mean != 0 ? formatNumber(coefficientOfVariation) : '无效',
-      '%',
-    ),
+    ToolResult.number('中位数', median, ''),
+    ToolResult.number('总和', sum, ''),
+    ToolResult.number('最小值', minValue, ''),
+    ToolResult.number('最大值', maxValue, ''),
+    ToolResult.number('极差', maxValue - minValue, ''),
+    ToolResult.number('样本标准差', count > 1 ? sampleStdDev : null, ''),
+    ToolResult.number('样本方差', count > 1 ? sampleVariance : null, ''),
+    ToolResult.number('总体标准差', populationStdDev, ''),
+    ToolResult.number('总体方差', populationVariance, ''),
+    ToolResult.number(
+        '变异系数', count > 1 && mean != 0 ? coefficientOfVariation : null, '%'),
   ];
 }

@@ -86,34 +86,30 @@ List<ToolResult> percentageResults(Map<String, double> valuesByKey) {
 
   final decreaseValue = base - value;
   return [
-    ToolResult('百分比结果', formatNumber(value), '', primary: true),
-    ToolResult('基准值', formatNumber(base), ''),
-    ToolResult('百分比', formatNumber(rate), '%'),
-    ToolResult('增加后', formatNumber(newValue), ''),
-    ToolResult('减少后', formatNumber(decreaseValue), ''),
-    ToolResult('变化率', formatNumber(rate), '%'),
-    ToolResult(
-      '结果占新值',
-      newValue == 0 ? '无效' : formatNumber(value / newValue * 100),
-      '%',
-    ),
+    ToolResult.number('百分比结果', value, '', primary: true),
+    ToolResult.number('基准值', base, ''),
+    ToolResult.number('百分比', rate, '%'),
+    ToolResult.number('增加后', newValue, ''),
+    ToolResult.number('减少后', decreaseValue, ''),
+    ToolResult.number('变化率', rate, '%'),
+    ToolResult.number(
+        '结果占新值', newValue == 0 ? null : value / newValue * 100, '%'),
     ToolResult('输入来源', source, ''),
-    if (valueDelta != null) ToolResult('结果差值', formatNumber(valueDelta), ''),
-    if (newValueDelta != null)
-      ToolResult('新值差值', formatNumber(newValueDelta), ''),
+    if (valueDelta != null) ToolResult.number('结果差值', valueDelta, ''),
+    if (newValueDelta != null) ToolResult.number('新值差值', newValueDelta, ''),
   ];
 }
 
 List<ToolResult> _invalidPercentageResults() {
   return const [
-    ToolResult('百分比结果', '无效', '', primary: true),
-    ToolResult('基准值', '无效', ''),
-    ToolResult('百分比', '无效', '%'),
-    ToolResult('增加后', '无效', ''),
-    ToolResult('减少后', '无效', ''),
-    ToolResult('变化率', '无效', '%'),
-    ToolResult('结果占新值', '无效', '%'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('百分比结果', '', primary: true),
+    ToolResult.invalid('基准值', ''),
+    ToolResult.invalid('百分比', '%'),
+    ToolResult.invalid('增加后', ''),
+    ToolResult.invalid('减少后', ''),
+    ToolResult.invalid('变化率', '%'),
+    ToolResult.invalid('结果占新值', '%'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -174,45 +170,38 @@ List<ToolResult> proportionResults(Map<String, double> valuesByKey) {
   final leftRatio = a == 0 ? double.nan : b / a;
   final rightRatio = c == 0 ? double.nan : x / c;
   return [
-    ToolResult('x', formatNumber(x), '', primary: true),
-    ToolResult('a', formatNumber(a), ''),
-    ToolResult('b', formatNumber(b), ''),
-    ToolResult('c', formatNumber(c), ''),
+    ToolResult.number('x', x, '', primary: true),
+    ToolResult.number('a', a, ''),
+    ToolResult.number('b', b, ''),
+    ToolResult.number('c', c, ''),
+    // 中文：四个数拼成一句「比例」——错误状态由这四个数决定，不由那句话的措辞决定。
+    // English: Four numbers joined into one "proportion" sentence — those four numbers decide the
+    //          error state, not the wording of the sentence.
     ToolResult(
-        '比例',
-        '${formatNumber(a)}:${formatNumber(b)} = ${formatNumber(c)}:${formatNumber(x)}',
-        ''),
-    ToolResult(
-      '比例系数',
-      leftRatio.isFinite ? formatNumber(leftRatio) : '无效',
-      'x',
-    ),
-    ToolResult(
-      '交叉乘积差',
-      formatNumber(a * x - b * c),
+      '比例',
+      '${formatNumber(a)}:${formatNumber(b)} = ${formatNumber(c)}:${formatNumber(x)}',
       '',
+      hasError: !a.isFinite || !b.isFinite || !c.isFinite || !x.isFinite,
     ),
-    ToolResult(
-      '右侧系数',
-      rightRatio.isFinite ? formatNumber(rightRatio) : '无效',
-      'x',
-    ),
+    ToolResult.number('比例系数', leftRatio.isFinite ? leftRatio : null, 'x'),
+    ToolResult.number('交叉乘积差', a * x - b * c, ''),
+    ToolResult.number('右侧系数', rightRatio.isFinite ? rightRatio : null, 'x'),
     ToolResult('输入来源', source, ''),
-    if (xDelta != null) ToolResult('x差值', formatNumber(xDelta), ''),
+    if (xDelta != null) ToolResult.number('x差值', xDelta, ''),
   ];
 }
 
 List<ToolResult> _invalidProportionResults() {
   return const [
-    ToolResult('x', '无效', '', primary: true),
-    ToolResult('a', '无效', ''),
-    ToolResult('b', '无效', ''),
-    ToolResult('c', '无效', ''),
-    ToolResult('比例', '无效', ''),
-    ToolResult('比例系数', '无效', 'x'),
-    ToolResult('交叉乘积差', '无效', ''),
-    ToolResult('右侧系数', '无效', 'x'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('x', '', primary: true),
+    ToolResult.invalid('a', ''),
+    ToolResult.invalid('b', ''),
+    ToolResult.invalid('c', ''),
+    ToolResult.invalid('比例', ''),
+    ToolResult.invalid('比例系数', 'x'),
+    ToolResult.invalid('交叉乘积差', ''),
+    ToolResult.invalid('右侧系数', 'x'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -276,27 +265,27 @@ List<ToolResult> scaleRatioResults(Map<String, double> valuesByKey) {
 
   final ratio = to / from;
   return [
-    ToolResult('缩放后', formatNumber(scaled), '', primary: true),
-    ToolResult('原始值', formatNumber(value), ''),
-    ToolResult('原比例', formatNumber(from), ''),
-    ToolResult('目标比例', formatNumber(to), ''),
-    ToolResult('缩放比例', formatNumber(ratio), 'x'),
-    ToolResult('面积比例', formatNumber(math.pow(ratio, 2).toDouble()), 'x'),
-    ToolResult('体积比例', formatNumber(math.pow(ratio, 3).toDouble()), 'x'),
+    ToolResult.number('缩放后', scaled, '', primary: true),
+    ToolResult.number('原始值', value, ''),
+    ToolResult.number('原比例', from, ''),
+    ToolResult.number('目标比例', to, ''),
+    ToolResult.number('缩放比例', ratio, 'x'),
+    ToolResult.number('面积比例', math.pow(ratio, 2).toDouble(), 'x'),
+    ToolResult.number('体积比例', math.pow(ratio, 3).toDouble(), 'x'),
     ToolResult('输入来源', source, ''),
-    if (scaledDelta != null) ToolResult('缩放值差值', formatNumber(scaledDelta), ''),
+    if (scaledDelta != null) ToolResult.number('缩放值差值', scaledDelta, ''),
   ];
 }
 
 List<ToolResult> _invalidScaleRatioResults() {
   return const [
-    ToolResult('缩放后', '无效', '', primary: true),
-    ToolResult('原始值', '无效', ''),
-    ToolResult('原比例', '无效', ''),
-    ToolResult('目标比例', '无效', ''),
-    ToolResult('缩放比例', '无效', 'x'),
-    ToolResult('面积比例', '无效', 'x'),
-    ToolResult('体积比例', '无效', 'x'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('缩放后', '', primary: true),
+    ToolResult.invalid('原始值', ''),
+    ToolResult.invalid('原比例', ''),
+    ToolResult.invalid('目标比例', ''),
+    ToolResult.invalid('缩放比例', 'x'),
+    ToolResult.invalid('面积比例', 'x'),
+    ToolResult.invalid('体积比例', 'x'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }

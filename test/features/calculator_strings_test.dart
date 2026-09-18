@@ -8,6 +8,8 @@ import 'package:nekocalc/features/calculator/presentation/widgets/unit_picker_sh
 import 'package:nekocalc/features/calculator/presentation/widgets/variable_picker_sheet.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：计算页文案表的三条护栏，形状与设置页那张表的护栏（`settings_strings_test.dart`）相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
 ///          每一个字都得和接入多语言之前一模一样。逐条写出来而不是抽查几条：这一份就是"默认态
@@ -331,7 +333,7 @@ void main() {
       if (name == 'inline_expression_editor.dart') continue;
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
-        if (!_containsCjk(literal)) continue;
+        if (!containsWideOrFullwidth(literal)) continue;
         if (_nonUiLiterals.contains(literal)) continue;
         offenders.add('${entity.path}: $literal');
       }
@@ -417,6 +419,29 @@ String? _noNullable() => null;
 ///          convenience.
 const Set<String> _nonUiLiterals = <String>{
   r'未派发的按键 id / undispatched key id: $key',
+  // 中文：**下面三条是判据放宽到"含宽/全角字符或中文排版标点"（`test/shared/source_scan.dart`）
+  //       之后新露出来的，没有一条是句子。**
+  //       - 两个是**禁用键帽上那个记号**：`dis:camera` 的 `📷` 与 `dis:compare` 的 `=,＜＞`。
+  //         它们与同排的 `sin⁻¹`、`x²`、`∠` 一样是排版记号，不是词——全角那对尖括号是
+  //         "比较键"的写法，两种语言里同一个字。
+  //       - 一条是 **DMS 输入文法**：`^([+-]?)(\d+)°(\d+)′(\d+(?:\.\d+)?)″$`，
+  //         判的是用户粘进来的度分秒写法，`′` 与 `″` 是那个文法的记号。
+  //       **别把界面文案加进这个表**：入选条件是上面这些理由，不是方便。
+  // English: **the three below are what the ruler "contains a Wide/Fullwidth character or Chinese
+  //          typographic punctuation" (`test/shared/source_scan.dart`) newly exposes; not one is a
+  //          sentence.**
+  //          - two are **the mark on a disabled key cap**: `dis:camera`'s `📷` and `dis:compare`'s
+  //            `=,＜＞`. Like `sin⁻¹`, `x²` and `∠` on the same rows they are typesetting marks
+  //            rather than words — the fullwidth angle brackets are how a "compare" key is written,
+  //            the same character either way.
+  //          - one is the **DMS input grammar**: `^([+-]?)(\d+)°(\d+)′(\d+(?:\.\d+)?)″$`,
+  //            which parses the degrees-minutes-seconds notation a user pastes; `′` and `″` are the
+  //            grammar's marks.
+  //          **Do not add interface copy to this set**: the reasons above are what qualifies an
+  //          entry, not convenience.
+  '📷',
+  '=,＜＞',
+  r'^([+-]?)(\d+)°(\d+)′(\d+(?:\.\d+)?)″$',
 };
 
 /// 中文：CJK 统一表意文字区（含扩展 A）。够用了：本项目的界面文案都落在这里。

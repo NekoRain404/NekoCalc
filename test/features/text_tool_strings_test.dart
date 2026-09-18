@@ -10,6 +10,8 @@ import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
 import 'package:nekocalc/features/tools/presentation/text_tool_detail_screen.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：文本工具那一族四条护栏里的前三条，外加两条屏幕用例；形状与设置页 / 计算页 / 工具子树
 ///       那几套护栏相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
@@ -441,8 +443,7 @@ void main() {
           '时间戳：从带中文标签的文本里抠出 RFC 风格日期时间的输入文法',
       r'(?:timestamp|time|date|datetime|created_at|updated_at|expires_at|过期时间|时间|日期)\s*[:=]\s*["“”]?([^",，\n\r]+)':
           '时间戳：同上，宽的那一支',
-      r'(?:北京时间|中国标准时间|东八区)':
-          '时间戳：把用户输入里的中文时区标签改写成 +08:00',
+      r'(?:北京时间|中国标准时间|东八区)': '时间戳：把用户输入里的中文时区标签改写成 +08:00',
       r'^([+-]?\d+(?:\.\d+)?)\s*(ns|纳秒|us|µs|μs|微秒|ms|毫秒|s|sec|秒)$':
           '时间戳：解析 `100 毫秒` 这类带中文单位词的时间戳',
       r'^(\d{4})[年/-](\d{1,2})[月/-](\d{1,2})(?:日)?(?:\s+(\d{1,2})(?:[时:：](\d{1,2})(?:[分:：](\d{1,2}))?)?(?:秒)?)?$':
@@ -455,6 +456,20 @@ void main() {
       '纳秒': '时间戳：`unit == \'纳秒\'`，比的是用户输入里的单位词（不是要显示的句子）',
       '微秒': '时间戳：`unit == \'微秒\'`，同上',
       '毫秒': '时间戳：`unit == \'毫秒\'`，同上',
+      // —— 本轮把扫描判据从"含表意文字"放宽到"含宽/全角字符或中文排版标点"之后新露出来的
+      //    九条：**全是输入文法**（解析用户敲进来的全角分隔符），与上一批同一类。放宽的理由
+      //    与代价写在 `test/shared/source_scan.dart` 的开头。 ——
+      r'[\s,;:，；：_\-]+': '进制/位运算：解析用户敲进来的分隔符（全角逗号、全角分号、全角冒号）',
+      r'[\s,;:，；：_\-]': '进制/位运算：同上，单个分隔符的那一支',
+      r'[^,\s;，；\[\]{}()]': '进制/位运算：同上，取"不是分隔符"的那一类',
+      r'[\s,;，；\[\]{}()]': '进制/位运算：同上，取分隔符的那一类',
+      r'[\s,;/，；]+': '颜色：解析用户敲进来的多值分隔符',
+      r'(?:^|[\s,;，；])([abc])\s*[:：=]\s*([^\s,;，；]+)':
+          '自定义公式：解析 `a: 1, b: 2` 这类赋值行，分隔符与冒号都收全角',
+      r'[\s;；，]+': '进制：解析用户敲进来的多值分隔符',
+      r'[\s,;，；]+': '统计：同上',
+      r"[A-Za-z]+(?:[’'\-][A-Za-z]+)*":
+          '统计：词形切分用的正则，那里面一个 `’` 是把英文撇号也算成词内字符，不是界面文案',
     };
 
     // 中文：**这一族现在整族都在名单上。** 名单从"已迁移"改成"全部"，是因为本轮把最后六个文件
@@ -504,18 +519,41 @@ void main() {
       seen.add(name);
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
-        if (!_containsCjk(literal)) continue;
+        if (!containsWideOrFullwidth(literal)) continue;
         if (exemptions.containsKey(literal)) continue;
+        if (_htmlEntityValues.contains(literal)) continue;
         offenders.add('${entity.path}: $literal');
       }
     }
 
     expect(offenders, isEmpty,
         reason: '这些界面字面量还没走 TextToolStrings 那七张表：\n${offenders.join('\n')}');
-    expect(exemptions.length, 25, reason: '豁免表变短或变长都要在这里说一声');
+    expect(exemptions.length, 34, reason: '豁免表变短或变长都要在这里说一声');
     expect(seen, migrated,
         reason: '本族文件多了或少了：目录里是 $seen，名单里是 $migrated——'
             '新加一个 `text_tool_*.dart` 时这里会红，那时请把它也搬进文案表');
+  });
+
+  test('实体值那份豁免每一条都真的是实体表里的一个字面量', () {
+    // 中文：**豁免不能是空头支票。** 上面放行的每一个字符都必须**真的**出现在
+    //       `text_tool_html_entities.dart` 的字符串字面量里——否则它就是一条凭空开的口子。
+    //       这条测试把"豁免"钉成"那张表里确有其字"。
+    // English: **an exemption must not be a blank cheque.** Every character allowed through above
+    //          must **really** occur as a string literal in `text_tool_html_entities.dart`;
+    //          otherwise it is a hole with nothing behind it. This pins "exempt" to "that table
+    //          really holds this character".
+    final file =
+        File('lib/application/controllers/text_tool_html_entities.dart');
+    expect(file.existsSync(), isTrue, reason: '测试的工作目录应当是包的根目录');
+    final literals =
+        _stringLiterals(_stripComments(file.readAsStringSync())).toSet();
+    for (final value in _htmlEntityValues) {
+      expect(value.runes.length, 1, reason: '「$value」不是一个字符');
+      expect(literals.contains(value), isTrue,
+          reason: '「$value」不在这张实体表的任何字面量里——这条豁免没有依据');
+    }
+    expect(_htmlEntityValues.length, 10,
+        reason: '豁免数变了：上一轮点名六条，本轮实测同一类是十条，变长变短都要在这里说一声');
   });
 
   testWidgets('没有装作用域时文本工具页仍渲染中文（默认态不变）', (tester) async {
@@ -622,6 +660,38 @@ class _EmptyDatabase implements AppDatabase {
 /// 中文：CJK 统一表意文字区（含扩展 A）。够用了：本项目的界面文案都落在这里。
 /// English: The CJK Unified Ideographs block (plus Extension A) — enough, since this project's UI
 ///          copy lives there.
+/// 中文：**HTML 实体表里那些解码结果——它们是数据，不是文案。** `'hellip': '…'` 右边那个 `…`
+///       是 `&hellip;` **解码出来的字符**：实体表的全部意义就是"这个字符长什么样"，谁把它"翻"了
+///       谁就把工具改坏了。**上一轮点名六条**（`… “ ” ‘ ’ ·`），本轮同一把尺子实测是**十条**
+///       ——另外四条 `— – ′ ″` 是 `mdash` / `ndash` / `prime` / `Prime` 的解码结果，形状相同。
+///       **这不是"整张表都不用看"**：下面每一条都必须是那张表里真实出现过的字面量，由紧随其后的
+///       一条断言逐条钉住；表里其余的实体值（`Æ Δ € ∞ √`）根本不在这把尺子的范围内。
+///       另记一笔：按字面上的"非 ASCII 可见字符"放宽，这张表会一次多出 **239** 个解码结果
+///       （整张表），理由见 `test/shared/source_scan.dart` 开头。
+/// English: **the decoded values in the HTML entity table — data, not copy.** The `…` on the right of
+///          `'hellip': '…'` is the **character `&hellip;` decodes to**: the table exists to say what
+///          the character looks like, so translating it corrupts the tool. **The previous round
+///          named six** (`… “ ” ‘ ’ ·`); the same ruler measures **ten** this round, the four more
+///          (`— – ′ ″`) being the decoded `mdash` / `ndash` / `prime` / `Prime`, identical in shape.
+///          **This is not "the whole table goes unchecked"**: every entry below must really occur as
+///          a literal in that table and is pinned one by one by the assertion right after; the
+///          table's other values (`Æ Δ € ∞ √`) are outside this ruler altogether. One more note:
+///          under the literal "non-ASCII visible character" ruler the table would gain **239** values
+///          at once — see the head of `test/shared/source_scan.dart`.
+
+const Set<String> _htmlEntityValues = <String>{
+  '…', // &hellip;
+  '“', // &ldquo;
+  '”', // &rdquo;
+  '‘', // &lsquo;
+  '’', // &rsquo;
+  '·', // &middot;
+  '—', // &mdash;
+  '–', // &ndash;
+  '′', // &prime;
+  '″', // &Prime;
+};
+
 bool _containsCjk(String text) {
   for (final rune in text.runes) {
     if ((rune >= 0x4E00 && rune <= 0x9FFF) ||

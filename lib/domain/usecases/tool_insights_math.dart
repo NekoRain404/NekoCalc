@@ -60,11 +60,10 @@ List<String> buildMathToolInsights(
             '代回残差为 ${formatNumber(residual1)}、${formatNumber(residual2)}，越接近 0 校验越好');
       }
     case ToolKind.exponentialLog:
-      final powerText = toolResultText(results, 'x^y');
       final domain = toolResultText(results, '定义域') ?? '';
       final x = v['x'] ?? 0;
       final y = v['y'] ?? 0;
-      if (powerText == '无效') {
+      if (toolResultUnavailable(results, 'x^y')) {
         lines.add('指数或对数结果无效，通常来自非有限输入、溢出或实数域不支持的幂运算');
       }
       if (domain == '对数无效') {
@@ -86,10 +85,9 @@ List<String> buildMathToolInsights(
         lines.add('a 不为 0，存在唯一 x 截距，代回 ax+b 应接近 0');
       }
     case ToolKind.combination:
-      final combinationText = toolResultText(results, '组合 C(n,k)');
       final n = v['n'];
       final k = v['k'];
-      if (combinationText == '无效') {
+      if (toolResultUnavailable(results, '组合 C(n,k)')) {
         lines.add('n 和 k 必须是有限非负整数，且 k 不能大于 n');
       }
       if (n != null && k != null && n.isFinite && k.isFinite) {
@@ -102,11 +100,10 @@ List<String> buildMathToolInsights(
       }
       lines.add('C(n,k) 表示不计顺序抽取，A(n,k) 表示计顺序且不放回抽取，n^k 表示可重复有序抽取');
     case ToolKind.percentage:
-      final resultText = toolResultText(results, '百分比结果');
       final resultDelta = toolResultNumber(results, '结果差值');
       final newValueDelta = toolResultNumber(results, '新值差值');
       final rate = toolResultNumber(results, '百分比');
-      if (resultText == '无效') {
+      if (toolResultUnavailable(results, '百分比结果')) {
         lines.add('基准值、百分比、百分比结果和新值至少填写两项；反推百分比时基准值不能为 0');
       }
       if (resultDelta != null) {
@@ -119,10 +116,9 @@ List<String> buildMathToolInsights(
         lines.add('百分比绝对值超过 100%，请确认这是倍数变化而不是折扣/占比输入');
       }
     case ToolKind.proportion:
-      final xText = toolResultText(results, 'x');
       final crossDelta = toolResultNumber(results, '交叉乘积差');
       final xDelta = toolResultNumber(results, 'x差值');
-      if (xText == '无效') {
+      if (toolResultUnavailable(results, 'x')) {
         lines.add('a、b、c、x 至少填写三项；作为分母使用的量不能为 0');
       }
       if (crossDelta != null && crossDelta.abs() > 1e-9) {
@@ -132,10 +128,13 @@ List<String> buildMathToolInsights(
         lines.add('x 参考值与当前计算相差 ${formatNumber(xDelta)}');
       }
     case ToolKind.probability:
-      final eitherText = toolResultText(results, '至少一个发生');
       final p1 = toolResultNumber(results, '事件 A') ?? v['p1'] ?? 0;
       final p2 = toolResultNumber(results, '事件 B') ?? v['p2'] ?? 0;
-      if (eitherText == '无效' || p1 < 0 || p1 > 100 || p2 < 0 || p2 > 100) {
+      if (toolResultUnavailable(results, '至少一个发生') ||
+          p1 < 0 ||
+          p1 > 100 ||
+          p2 < 0 ||
+          p2 > 100) {
         lines.add('概率应落在 0% 到 100%');
       }
       lines.add('按独立事件计算；相关事件要改用条件概率');
@@ -152,14 +151,17 @@ List<String> buildMathToolInsights(
         lines.add('变异系数超过 30%，数据离散程度较高，均值代表性需要谨慎判断');
       }
     case ToolKind.matrix:
-      final detText = toolResultText(results, '行列式 det');
       final determinant = toolResultNumber(results, '行列式 det');
       final rank = toolResultNumber(results, '秩');
-      final state = toolResultText(results, '可逆状态');
-      if (detText == '无效') {
+      if (toolResultUnavailable(results, '行列式 det')) {
         lines.add('矩阵元素必须是有限数值');
       }
-      if (state == '不可逆') {
+      // 中文：**这里问的是「产出方给了 `不可逆` 这个结论吗」，不是「那条结果出错了吗」。**
+      //       元素不是有限数时那条状态是「无效」（记号），按 `hasError` 问会多冒一条提示。
+      // English: **this asks "did the producer reach the `不可逆` conclusion?", not "did that result
+      //          go wrong?"** When the entries are not finite the state reads the marker, and asking
+      //          `hasError` would add one hint too many.
+      if (toolResultConcludedError(results, '可逆状态')) {
         lines.add('行列式为 0 或接近 0，矩阵不可逆，线性方程解可能不存在或不唯一');
       } else if (determinant != null && determinant.abs() < 1e-6) {
         lines.add('行列式很接近 0，逆矩阵和求解结果会对输入误差非常敏感');
@@ -168,13 +170,11 @@ List<String> buildMathToolInsights(
         lines.add('秩小于 2，矩阵的两行或两列存在线性相关');
       }
     case ToolKind.complex:
-      final divisionText = toolResultText(results, 'z1 ÷ z2');
-      final arg1 = toolResultText(results, 'arg(z1)');
-      final arg2 = toolResultText(results, 'arg(z2)');
-      if (divisionText == '无效') {
+      if (toolResultUnavailable(results, 'z1 ÷ z2')) {
         lines.add('z2 为 0 时复数除法无定义');
       }
-      if (arg1 == '无效' || arg2 == '无效') {
+      if (toolResultUnavailable(results, 'arg(z1)') ||
+          toolResultUnavailable(results, 'arg(z2)')) {
         lines.add('零复数没有确定幅角');
       }
     case ToolKind.vector:
@@ -189,7 +189,6 @@ List<String> buildMathToolInsights(
       }
     case ToolKind.triangle:
       final a = v['a'] ?? 0, b = v['b'] ?? 0, c = v['c'] ?? 0;
-      final areaText = toolResultText(results, '面积');
       final type = toolResultText(results, '边长类型');
       if (a <= 0 ||
           b <= 0 ||
@@ -199,20 +198,21 @@ List<String> buildMathToolInsights(
           b + c <= a) {
         lines.add('三边必须为正，且任意两边之和大于第三边');
       }
-      if (areaText != '无效' && type != null) {
+      if (!toolResultUnavailable(results, '面积') && type != null) {
         lines.add('当前三角形类型为$type，角度按余弦定理计算');
       }
       final longest = math.max(a, math.max(b, c));
       final perimeter = a + b + c;
-      if (areaText != '无效' && perimeter > 0 && longest / perimeter > 0.49) {
+      if (!toolResultUnavailable(results, '面积') &&
+          perimeter > 0 &&
+          longest / perimeter > 0.49) {
         lines.add('最长边接近另外两边之和，三角形接近退化，面积和角度对输入误差敏感');
       }
     case ToolKind.circle:
-      final areaText = toolResultText(results, '面积');
       final diameterDelta = toolResultNumber(results, '直径差值');
       final circumferenceDelta = toolResultNumber(results, '周长差值');
       final areaDelta = toolResultNumber(results, '面积差值');
-      if (areaText == '无效') {
+      if (toolResultUnavailable(results, '面积')) {
         lines.add('半径、直径、周长或面积至少填写一项，且不能为负');
       }
       if (diameterDelta != null) {
@@ -226,10 +226,9 @@ List<String> buildMathToolInsights(
       }
       lines.add('圆形计算按理想圆估算，测量直径、周长和面积互相校验时会受到取样和圆度误差影响');
     case ToolKind.scaleRatio:
-      final scaledText = toolResultText(results, '缩放后');
       final ratio = toolResultNumber(results, '缩放比例');
       final scaledDelta = toolResultNumber(results, '缩放值差值');
-      if (scaledText == '无效') {
+      if (toolResultUnavailable(results, '缩放后')) {
         lines.add('原始值、原比例、目标比例和缩放后至少填写三项；原比例不能为 0');
       }
       if (scaledDelta != null) {

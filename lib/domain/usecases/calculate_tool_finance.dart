@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 export 'calculate_tool_finance_business.dart';
@@ -89,41 +88,45 @@ List<ToolResult> loanResults(Map<String, double> valuesByKey) {
   final firstInterest = principal * monthlyRate;
   final firstPrincipal = monthlyPayment - firstInterest;
   return [
-    ToolResult('每月还款额', formatNumber(monthlyPayment), '元', primary: true),
-    ToolResult('贷款金额', formatNumber(amount), '万元'),
-    ToolResult('年利率', formatNumber(rate), '%'),
-    ToolResult('贷款年限', formatNumber(years), '年'),
-    ToolResult('总利息', formatNumber(totalInterest), '元'),
-    ToolResult('总还款额', formatNumber(totalRepayment), '元'),
+    ToolResult.number('每月还款额', monthlyPayment, '元', primary: true),
+    ToolResult.number('贷款金额', amount, '万元'),
+    ToolResult.number('年利率', rate, '%'),
+    ToolResult.number('贷款年限', years, '年'),
+    ToolResult.number('总利息', totalInterest, '元'),
+    ToolResult.number('总还款额', totalRepayment, '元'),
     ToolResult('还款期数', months.toString(), '期'),
-    ToolResult('首月利息', formatNumber(firstInterest), '元'),
-    ToolResult('首月本金', formatNumber(firstPrincipal), '元'),
-    ToolResult(
+    ToolResult.number('首月利息', firstInterest, '元'),
+    ToolResult.number('首月本金', firstPrincipal, '元'),
+    // 中文：`principal == 0` 那一支写的是 `'0'`——**它不是错误**，旗标照旧为假；另一支照旧
+    //       由那个百分比是不是有限数决定。产出方给的仍然是数值。
+    // English: the `principal == 0` branch writes `'0'` — **that is not an error** and the flag
+    //          stays false; the other branch is decided, as before, by whether the percentage is
+    //          finite. The producer still hands over a number.
+    ToolResult.number(
       '利息占本金',
-      principal == 0 ? '0' : formatNumber(totalInterest / principal * 100),
+      principal == 0 ? 0 : totalInterest / principal * 100,
       '%',
     ),
-    ToolResult('年还款额', formatNumber(monthlyPayment * 12), '元'),
+    ToolResult.number('年还款额', monthlyPayment * 12, '元'),
     ToolResult('输入来源', source, ''),
-    if (paymentDelta != null)
-      ToolResult('月供差值', formatNumber(paymentDelta), '元'),
+    if (paymentDelta != null) ToolResult.number('月供差值', paymentDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidLoanResults() {
   return const [
-    ToolResult('每月还款额', '无效', '元', primary: true),
-    ToolResult('贷款金额', '无效', '万元'),
-    ToolResult('年利率', '无效', '%'),
-    ToolResult('贷款年限', '无效', '年'),
-    ToolResult('总利息', '无效', '元'),
-    ToolResult('总还款额', '无效', '元'),
-    ToolResult('还款期数', '无效', '期'),
-    ToolResult('首月利息', '无效', '元'),
-    ToolResult('首月本金', '无效', '元'),
-    ToolResult('利息占本金', '无效', '%'),
-    ToolResult('年还款额', '无效', '元'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('每月还款额', '元', primary: true),
+    ToolResult.invalid('贷款金额', '万元'),
+    ToolResult.invalid('年利率', '%'),
+    ToolResult.invalid('贷款年限', '年'),
+    ToolResult.invalid('总利息', '元'),
+    ToolResult.invalid('总还款额', '元'),
+    ToolResult.invalid('还款期数', '期'),
+    ToolResult.invalid('首月利息', '元'),
+    ToolResult.invalid('首月本金', '元'),
+    ToolResult.invalid('利息占本金', '%'),
+    ToolResult.invalid('年还款额', '元'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -242,38 +245,38 @@ List<ToolResult> annuityResults(Map<String, double> valuesByKey) {
   final invested = payment * periods;
   final gain = target - invested;
   return [
-    ToolResult('终值', formatNumber(target), '元', primary: true),
-    ToolResult('每期投入', formatNumber(payment), '元'),
-    ToolResult('年化收益', formatNumber(rawRate), '%'),
-    ToolResult('年限', formatNumber(years), '年'),
+    ToolResult.number('终值', target, '元', primary: true),
+    ToolResult.number('每期投入', payment, '元'),
+    ToolResult.number('年化收益', rawRate, '%'),
+    ToolResult.number('年限', years, '年'),
     ToolResult('每年期数', perYear.toString(), '期'),
-    ToolResult('累计投入', formatNumber(invested), '元'),
-    ToolResult('收益', formatNumber(gain), '元'),
+    ToolResult.number('累计投入', invested, '元'),
+    ToolResult.number('收益', gain, '元'),
     ToolResult('期数', periods.toString(), '期'),
-    ToolResult('每期收益率', formatNumber(ratePerPeriod * 100), '%'),
-    ToolResult(
+    ToolResult.number('每期收益率', ratePerPeriod * 100, '%'),
+    ToolResult.number(
       '收益/投入',
-      invested == 0 ? '0' : formatNumber(gain / invested * 100),
+      invested == 0 ? 0 : gain / invested * 100,
       '%',
     ),
     ToolResult('输入来源', source, ''),
-    if (targetDelta != null) ToolResult('终值差值', formatNumber(targetDelta), '元'),
+    if (targetDelta != null) ToolResult.number('终值差值', targetDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidAnnuityResults() {
   return const [
-    ToolResult('终值', '无效', '元', primary: true),
-    ToolResult('每期投入', '无效', '元'),
-    ToolResult('年化收益', '无效', '%'),
-    ToolResult('年限', '无效', '年'),
-    ToolResult('每年期数', '无效', '期'),
-    ToolResult('累计投入', '无效', '元'),
-    ToolResult('收益', '无效', '元'),
-    ToolResult('期数', '无效', '期'),
-    ToolResult('每期收益率', '无效', '%'),
-    ToolResult('收益/投入', '无效', '%'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('终值', '元', primary: true),
+    ToolResult.invalid('每期投入', '元'),
+    ToolResult.invalid('年化收益', '%'),
+    ToolResult.invalid('年限', '年'),
+    ToolResult.invalid('每年期数', '期'),
+    ToolResult.invalid('累计投入', '元'),
+    ToolResult.invalid('收益', '元'),
+    ToolResult.invalid('期数', '期'),
+    ToolResult.invalid('每期收益率', '%'),
+    ToolResult.invalid('收益/投入', '%'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -386,32 +389,31 @@ List<ToolResult> installmentResults(Map<String, double> valuesByKey) {
   final feeAmount = price * fee;
   final total = price + feeAmount;
   return [
-    ToolResult('每期付款', formatNumber(payment), '元', primary: true),
-    ToolResult('商品价格', formatNumber(price), '元'),
-    ToolResult('总手续费率', formatNumber(rawFee), '%'),
-    ToolResult('手续费', formatNumber(feeAmount), '元'),
-    ToolResult('总支付', formatNumber(total), '元'),
+    ToolResult.number('每期付款', payment, '元', primary: true),
+    ToolResult.number('商品价格', price, '元'),
+    ToolResult.number('总手续费率', rawFee, '%'),
+    ToolResult.number('手续费', feeAmount, '元'),
+    ToolResult.number('总支付', total, '元'),
     ToolResult('期数', months.toString(), '期'),
-    ToolResult('每期本金', formatNumber(price / months), '元'),
-    ToolResult('每期手续费', formatNumber(feeAmount / months), '元'),
-    ToolResult('等效每期费率', formatNumber(rawFee / months), '%'),
+    ToolResult.number('每期本金', price / months, '元'),
+    ToolResult.number('每期手续费', feeAmount / months, '元'),
+    ToolResult.number('等效每期费率', rawFee / months, '%'),
     ToolResult('输入来源', source, ''),
-    if (paymentDelta != null)
-      ToolResult('每期差值', formatNumber(paymentDelta), '元'),
+    if (paymentDelta != null) ToolResult.number('每期差值', paymentDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidInstallmentResults() {
   return const [
-    ToolResult('每期付款', '无效', '元', primary: true),
-    ToolResult('商品价格', '无效', '元'),
-    ToolResult('总手续费率', '无效', '%'),
-    ToolResult('手续费', '无效', '元'),
-    ToolResult('总支付', '无效', '元'),
-    ToolResult('期数', '无效', '期'),
-    ToolResult('每期本金', '无效', '元'),
-    ToolResult('每期手续费', '无效', '元'),
-    ToolResult('等效每期费率', '无效', '%'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('每期付款', '元', primary: true),
+    ToolResult.invalid('商品价格', '元'),
+    ToolResult.invalid('总手续费率', '%'),
+    ToolResult.invalid('手续费', '元'),
+    ToolResult.invalid('总支付', '元'),
+    ToolResult.invalid('期数', '期'),
+    ToolResult.invalid('每期本金', '元'),
+    ToolResult.invalid('每期手续费', '元'),
+    ToolResult.invalid('等效每期费率', '%'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }

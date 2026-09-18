@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> gearRatioResults(Map<String, double> valuesByKey) {
@@ -40,56 +39,41 @@ List<ToolResult> gearRatioResults(Map<String, double> valuesByKey) {
   final targetOutputTorque =
       targetRatio == null ? null : torque * targetRatio * eta;
   return [
-    ToolResult('传动比 i', formatNumber(ratio), '', primary: true),
-    ToolResult('输出转速', formatNumber(outputRpm), 'rpm'),
-    ToolResult('输出扭矩', formatNumber(outputTorque), 'N·m'),
-    ToolResult('输入功率', formatNumber(inputPower), 'kW'),
-    ToolResult('输出功率', formatNumber(outputPower), 'kW'),
-    ToolResult('损耗功率', formatNumber(lossPower), 'kW'),
-    ToolResult('输入角速度', formatNumber(rpm * 2 * math.pi / 60), 'rad/s'),
-    ToolResult('输出角速度', formatNumber(outputRpm * 2 * math.pi / 60), 'rad/s'),
-    ToolResult('速度比 n1/n2', formatNumber(ratio), ''),
+    ToolResult.number('传动比 i', ratio, '', primary: true),
+    ToolResult.number('输出转速', outputRpm, 'rpm'),
+    ToolResult.number('输出扭矩', outputTorque, 'N·m'),
+    ToolResult.number('输入功率', inputPower, 'kW'),
+    ToolResult.number('输出功率', outputPower, 'kW'),
+    ToolResult.number('损耗功率', lossPower, 'kW'),
+    ToolResult.number('输入角速度', rpm * 2 * math.pi / 60, 'rad/s'),
+    ToolResult.number('输出角速度', outputRpm * 2 * math.pi / 60, 'rad/s'),
+    ToolResult.number('速度比 n1/n2', ratio, ''),
     const ToolResult('旋转方向', '相反', ''),
-    if (includeTarget)
-      ToolResult('目标输出转速', formatNumber(targetOutputRpm), 'rpm'),
-    if (includeTarget)
-      ToolResult(
-          '目标传动比', targetRatio == null ? '无效' : formatNumber(targetRatio), ''),
-    if (includeTarget)
-      ToolResult(
-          '保留Z1所需Z2',
-          targetDrivenTeeth == null ? '无效' : formatNumber(targetDrivenTeeth),
-          '齿'),
-    if (includeTarget)
-      ToolResult(
-          '保留Z2所需Z1',
-          targetDriverTeeth == null ? '无效' : formatNumber(targetDriverTeeth),
-          '齿'),
-    if (includeTarget)
-      ToolResult(
-          '目标输出扭矩',
-          targetOutputTorque == null ? '无效' : formatNumber(targetOutputTorque),
-          'N·m'),
+    if (includeTarget) ToolResult.number('目标输出转速', targetOutputRpm, 'rpm'),
+    if (includeTarget) ToolResult.number('目标传动比', targetRatio, ''),
+    if (includeTarget) ToolResult.number('保留Z1所需Z2', targetDrivenTeeth, '齿'),
+    if (includeTarget) ToolResult.number('保留Z2所需Z1', targetDriverTeeth, '齿'),
+    if (includeTarget) ToolResult.number('目标输出扭矩', targetOutputTorque, 'N·m'),
   ];
 }
 
 List<ToolResult> _invalidGearRatioResults({required bool includeTarget}) {
   return [
-    const ToolResult('传动比 i', '无效', '', primary: true),
-    const ToolResult('输出转速', '无效', 'rpm'),
-    const ToolResult('输出扭矩', '无效', 'N·m'),
-    const ToolResult('输入功率', '无效', 'kW'),
-    const ToolResult('输出功率', '无效', 'kW'),
-    const ToolResult('损耗功率', '无效', 'kW'),
-    const ToolResult('输入角速度', '无效', 'rad/s'),
-    const ToolResult('输出角速度', '无效', 'rad/s'),
-    const ToolResult('速度比 n1/n2', '无效', ''),
-    const ToolResult('旋转方向', '无效', ''),
-    if (includeTarget) const ToolResult('目标输出转速', '无效', 'rpm'),
-    if (includeTarget) const ToolResult('目标传动比', '无效', ''),
-    if (includeTarget) const ToolResult('保留Z1所需Z2', '无效', '齿'),
-    if (includeTarget) const ToolResult('保留Z2所需Z1', '无效', '齿'),
-    if (includeTarget) const ToolResult('目标输出扭矩', '无效', 'N·m'),
+    const ToolResult.invalid('传动比 i', '', primary: true),
+    const ToolResult.invalid('输出转速', 'rpm'),
+    const ToolResult.invalid('输出扭矩', 'N·m'),
+    const ToolResult.invalid('输入功率', 'kW'),
+    const ToolResult.invalid('输出功率', 'kW'),
+    const ToolResult.invalid('损耗功率', 'kW'),
+    const ToolResult.invalid('输入角速度', 'rad/s'),
+    const ToolResult.invalid('输出角速度', 'rad/s'),
+    const ToolResult.invalid('速度比 n1/n2', ''),
+    const ToolResult.invalid('旋转方向', ''),
+    if (includeTarget) const ToolResult.invalid('目标输出转速', 'rpm'),
+    if (includeTarget) const ToolResult.invalid('目标传动比', ''),
+    if (includeTarget) const ToolResult.invalid('保留Z1所需Z2', '齿'),
+    if (includeTarget) const ToolResult.invalid('保留Z2所需Z1', '齿'),
+    if (includeTarget) const ToolResult.invalid('目标输出扭矩', 'N·m'),
   ];
 }
 
@@ -111,43 +95,42 @@ List<ToolResult> torquePowerResults(Map<String, double> valuesByKey) {
       : kw > 0
           ? '驱动'
           : '制动/回馈';
-  final torquePerKw = rpm == 0 ? '无效' : formatNumber(9550 / rpm);
+  // 中文：**先算成数。** `rpm == 0` 那一支产出方明确说算不出来（值就是那条记号）。
+  // English: **computed as a number first.** The `rpm == 0` branch is the producer saying plainly
+  //          that it cannot be produced (the value is the marker itself).
+  final torquePerKw = rpm == 0 ? null : 9550 / rpm;
   final targetTorque =
       targetPower == null || rpm == 0 ? null : targetPower * 9550 / rpm;
   final targetRpm =
       targetPower == null || torque == 0 ? null : targetPower * 9550 / torque;
   return [
-    ToolResult('功率', formatNumber(kw), 'kW', primary: true),
-    ToolResult('瓦特', formatNumber(kw * 1000), 'W'),
-    ToolResult('机械马力', formatNumber(kw * 1.34102), 'hp'),
-    ToolResult('公制马力', formatNumber(kw * 1.35962), 'PS'),
-    ToolResult('角速度', formatNumber(omega), 'rad/s'),
-    ToolResult('转速', formatNumber(rpm / 60), 'rps'),
+    ToolResult.number('功率', kw, 'kW', primary: true),
+    ToolResult.number('瓦特', kw * 1000, 'W'),
+    ToolResult.number('机械马力', kw * 1.34102, 'hp'),
+    ToolResult.number('公制马力', kw * 1.35962, 'PS'),
+    ToolResult.number('角速度', omega, 'rad/s'),
+    ToolResult.number('转速', rpm / 60, 'rps'),
     ToolResult('功率方向', direction, ''),
-    ToolResult('1kW所需扭矩', torquePerKw, 'N·m'),
-    if (includeTarget) ToolResult('目标功率', formatNumber(targetPower), 'kW'),
-    if (includeTarget)
-      ToolResult('目标功率所需扭矩',
-          targetTorque == null ? '无效' : formatNumber(targetTorque), 'N·m'),
-    if (includeTarget)
-      ToolResult('目标功率所需转速', targetRpm == null ? '无效' : formatNumber(targetRpm),
-          'rpm'),
+    ToolResult.number('1kW所需扭矩', torquePerKw, 'N·m'),
+    if (includeTarget) ToolResult.number('目标功率', targetPower, 'kW'),
+    if (includeTarget) ToolResult.number('目标功率所需扭矩', targetTorque, 'N·m'),
+    if (includeTarget) ToolResult.number('目标功率所需转速', targetRpm, 'rpm'),
   ];
 }
 
 List<ToolResult> _invalidTorquePowerResults({required bool includeTarget}) {
   return [
-    const ToolResult('功率', '无效', 'kW', primary: true),
-    const ToolResult('瓦特', '无效', 'W'),
-    const ToolResult('机械马力', '无效', 'hp'),
-    const ToolResult('公制马力', '无效', 'PS'),
-    const ToolResult('角速度', '无效', 'rad/s'),
-    const ToolResult('转速', '无效', 'rps'),
-    const ToolResult('功率方向', '无效', ''),
-    const ToolResult('1kW所需扭矩', '无效', 'N·m'),
-    if (includeTarget) const ToolResult('目标功率', '无效', 'kW'),
-    if (includeTarget) const ToolResult('目标功率所需扭矩', '无效', 'N·m'),
-    if (includeTarget) const ToolResult('目标功率所需转速', '无效', 'rpm'),
+    const ToolResult.invalid('功率', 'kW', primary: true),
+    const ToolResult.invalid('瓦特', 'W'),
+    const ToolResult.invalid('机械马力', 'hp'),
+    const ToolResult.invalid('公制马力', 'PS'),
+    const ToolResult.invalid('角速度', 'rad/s'),
+    const ToolResult.invalid('转速', 'rps'),
+    const ToolResult.invalid('功率方向', ''),
+    const ToolResult.invalid('1kW所需扭矩', 'N·m'),
+    if (includeTarget) const ToolResult.invalid('目标功率', 'kW'),
+    if (includeTarget) const ToolResult.invalid('目标功率所需扭矩', 'N·m'),
+    if (includeTarget) const ToolResult.invalid('目标功率所需转速', 'rpm'),
   ];
 }
 
@@ -182,20 +165,19 @@ List<ToolResult> springResults(Map<String, double> valuesByKey) {
       ? null
       : math.sqrt(2 * targetEnergy * 1000 / stiffness);
   return [
-    ToolResult('弹簧力', formatNumber(force), 'N', primary: true),
-    ToolResult('弹簧力幅值', formatNumber(force.abs()), 'N'),
-    ToolResult('储能', formatNumber(energy), 'J'),
-    ToolResult('刚度', formatNumber(stiffness * 1000), 'N/m'),
-    ToolResult('柔度', formatNumber(1 / stiffness), 'mm/N'),
-    ToolResult('等效重量', formatNumber(force.abs() / 9.80665), 'kgf'),
+    ToolResult.number('弹簧力', force, 'N', primary: true),
+    ToolResult.number('弹簧力幅值', force.abs(), 'N'),
+    ToolResult.number('储能', energy, 'J'),
+    ToolResult.number('刚度', stiffness * 1000, 'N/m'),
+    ToolResult.number('柔度', 1 / stiffness, 'mm/N'),
+    ToolResult.number('等效重量', force.abs() / 9.80665, 'kgf'),
     ToolResult('变形方向', direction, ''),
-    if (includeForceTarget) ToolResult('目标弹簧力', formatNumber(targetForce), 'N'),
+    if (includeForceTarget) ToolResult.number('目标弹簧力', targetForce, 'N'),
     if (targetForceTravel != null)
-      ToolResult('目标力所需变形', formatNumber(targetForceTravel), 'mm'),
-    if (includeEnergyTarget)
-      ToolResult('目标储能', formatNumber(targetEnergy), 'J'),
+      ToolResult.number('目标力所需变形', targetForceTravel, 'mm'),
+    if (includeEnergyTarget) ToolResult.number('目标储能', targetEnergy, 'J'),
     if (targetEnergyTravel != null)
-      ToolResult('目标储能所需变形', formatNumber(targetEnergyTravel), 'mm'),
+      ToolResult.number('目标储能所需变形', targetEnergyTravel, 'mm'),
   ];
 }
 
@@ -204,17 +186,17 @@ List<ToolResult> _invalidSpringResults({
   required bool includeEnergyTarget,
 }) {
   return [
-    const ToolResult('弹簧力', '无效', 'N', primary: true),
-    const ToolResult('弹簧力幅值', '无效', 'N'),
-    const ToolResult('储能', '无效', 'J'),
-    const ToolResult('刚度', '无效', 'N/m'),
-    const ToolResult('柔度', '无效', 'mm/N'),
-    const ToolResult('等效重量', '无效', 'kgf'),
-    const ToolResult('变形方向', '无效', ''),
-    if (includeForceTarget) const ToolResult('目标弹簧力', '无效', 'N'),
-    if (includeForceTarget) const ToolResult('目标力所需变形', '无效', 'mm'),
-    if (includeEnergyTarget) const ToolResult('目标储能', '无效', 'J'),
-    if (includeEnergyTarget) const ToolResult('目标储能所需变形', '无效', 'mm'),
+    const ToolResult.invalid('弹簧力', 'N', primary: true),
+    const ToolResult.invalid('弹簧力幅值', 'N'),
+    const ToolResult.invalid('储能', 'J'),
+    const ToolResult.invalid('刚度', 'N/m'),
+    const ToolResult.invalid('柔度', 'mm/N'),
+    const ToolResult.invalid('等效重量', 'kgf'),
+    const ToolResult.invalid('变形方向', ''),
+    if (includeForceTarget) const ToolResult.invalid('目标弹簧力', 'N'),
+    if (includeForceTarget) const ToolResult.invalid('目标力所需变形', 'mm'),
+    if (includeEnergyTarget) const ToolResult.invalid('目标储能', 'J'),
+    if (includeEnergyTarget) const ToolResult.invalid('目标储能所需变形', 'mm'),
   ];
 }
 
@@ -248,40 +230,36 @@ List<ToolResult> cylinderResults(Map<String, double> valuesByKey) {
       ? null
       : math.sqrt(4 * targetForce / pressure / math.pi) * 1000;
   return [
-    ToolResult('推出力', formatNumber(extendForce), 'N', primary: true),
-    ToolResult('拉回力', formatNumber(retractForce), 'N'),
-    ToolResult('推出等效重量', formatNumber(extendForce / 9.80665), 'kgf'),
-    ToolResult('拉回等效重量', formatNumber(retractForce / 9.80665), 'kgf'),
-    ToolResult('活塞面积', formatNumber(area * 1e6), 'mm²'),
-    ToolResult('杆侧有效面积', formatNumber(retractArea * 1e6), 'mm²'),
-    ToolResult('杆截面积', formatNumber(rodArea * 1e6), 'mm²'),
-    ToolResult('拉力比例', formatNumber(retractArea / area * 100), '%'),
-    if (includeTarget) ToolResult('目标推出力', formatNumber(targetForce), 'N'),
+    ToolResult.number('推出力', extendForce, 'N', primary: true),
+    ToolResult.number('拉回力', retractForce, 'N'),
+    ToolResult.number('推出等效重量', extendForce / 9.80665, 'kgf'),
+    ToolResult.number('拉回等效重量', retractForce / 9.80665, 'kgf'),
+    ToolResult.number('活塞面积', area * 1e6, 'mm²'),
+    ToolResult.number('杆侧有效面积', retractArea * 1e6, 'mm²'),
+    ToolResult.number('杆截面积', rodArea * 1e6, 'mm²'),
+    ToolResult.number('拉力比例', retractArea / area * 100, '%'),
+    if (includeTarget) ToolResult.number('目标推出力', targetForce, 'N'),
+    if (includeTarget) ToolResult.number('目标力所需气压', targetPressure, 'MPa'),
+    if (includeTarget) ToolResult.number('目标力所需缸径', targetBore, 'mm'),
     if (includeTarget)
-      ToolResult('目标力所需气压',
-          targetPressure == null ? '无效' : formatNumber(targetPressure), 'MPa'),
-    if (includeTarget)
-      ToolResult('目标力所需缸径',
-          targetBore == null ? '无效' : formatNumber(targetBore), 'mm'),
-    if (includeTarget)
-      ToolResult('推出力余量', formatNumber(extendForce - targetForce), 'N'),
+      ToolResult.number('推出力余量', extendForce - targetForce, 'N'),
   ];
 }
 
 List<ToolResult> _invalidCylinderResults({required bool includeTarget}) {
   return [
-    const ToolResult('推出力', '无效', 'N', primary: true),
-    const ToolResult('拉回力', '无效', 'N'),
-    const ToolResult('推出等效重量', '无效', 'kgf'),
-    const ToolResult('拉回等效重量', '无效', 'kgf'),
-    const ToolResult('活塞面积', '无效', 'mm²'),
-    const ToolResult('杆侧有效面积', '无效', 'mm²'),
-    const ToolResult('杆截面积', '无效', 'mm²'),
-    const ToolResult('拉力比例', '无效', '%'),
-    if (includeTarget) const ToolResult('目标推出力', '无效', 'N'),
-    if (includeTarget) const ToolResult('目标力所需气压', '无效', 'MPa'),
-    if (includeTarget) const ToolResult('目标力所需缸径', '无效', 'mm'),
-    if (includeTarget) const ToolResult('推出力余量', '无效', 'N'),
+    const ToolResult.invalid('推出力', 'N', primary: true),
+    const ToolResult.invalid('拉回力', 'N'),
+    const ToolResult.invalid('推出等效重量', 'kgf'),
+    const ToolResult.invalid('拉回等效重量', 'kgf'),
+    const ToolResult.invalid('活塞面积', 'mm²'),
+    const ToolResult.invalid('杆侧有效面积', 'mm²'),
+    const ToolResult.invalid('杆截面积', 'mm²'),
+    const ToolResult.invalid('拉力比例', '%'),
+    if (includeTarget) const ToolResult.invalid('目标推出力', 'N'),
+    if (includeTarget) const ToolResult.invalid('目标力所需气压', 'MPa'),
+    if (includeTarget) const ToolResult.invalid('目标力所需缸径', 'mm'),
+    if (includeTarget) const ToolResult.invalid('推出力余量', 'N'),
   ];
 }
 
@@ -306,39 +284,32 @@ List<ToolResult> forceResults(Map<String, double> valuesByKey) {
       targetForce == null || mass == 0 ? null : targetForce / mass;
   final targetMass = targetForce == null || acc == 0 ? null : targetForce / acc;
   return [
-    ToolResult('力', formatNumber(force), 'N', primary: true),
-    ToolResult('力幅值', formatNumber(force.abs()), 'N'),
-    ToolResult('等效重量', formatNumber(force.abs() / 9.80665), 'kgf'),
-    ToolResult('加速度', formatNumber(acc / 9.80665), 'g'),
-    ToolResult('质量重量', formatNumber(mass * 9.80665), 'N'),
+    ToolResult.number('力', force, 'N', primary: true),
+    ToolResult.number('力幅值', force.abs(), 'N'),
+    ToolResult.number('等效重量', force.abs() / 9.80665, 'kgf'),
+    ToolResult.number('加速度', acc / 9.80665, 'g'),
+    ToolResult.number('质量重量', mass * 9.80665, 'N'),
     ToolResult('运动方向', direction, ''),
-    if (includeTarget) ToolResult('目标力', formatNumber(targetForce), 'N'),
+    if (includeTarget) ToolResult.number('目标力', targetForce, 'N'),
     if (includeTarget)
-      ToolResult(
-          '目标力所需加速度',
-          targetAcceleration == null ? '无效' : formatNumber(targetAcceleration),
-          'm/s²'),
+      ToolResult.number('目标力所需加速度', targetAcceleration, 'm/s²'),
     if (includeTarget)
-      ToolResult(
-          '目标力所需质量',
-          targetMass == null || targetMass < 0
-              ? '无效'
-              : formatNumber(targetMass),
-          'kg'),
+      ToolResult.number('目标力所需质量',
+          targetMass == null || targetMass < 0 ? null : targetMass, 'kg'),
   ];
 }
 
 List<ToolResult> _invalidForceResults({required bool includeTarget}) {
   return [
-    const ToolResult('力', '无效', 'N', primary: true),
-    const ToolResult('力幅值', '无效', 'N'),
-    const ToolResult('等效重量', '无效', 'kgf'),
-    const ToolResult('加速度', '无效', 'g'),
-    const ToolResult('质量重量', '无效', 'N'),
-    const ToolResult('运动方向', '无效', ''),
-    if (includeTarget) const ToolResult('目标力', '无效', 'N'),
-    if (includeTarget) const ToolResult('目标力所需加速度', '无效', 'm/s²'),
-    if (includeTarget) const ToolResult('目标力所需质量', '无效', 'kg'),
+    const ToolResult.invalid('力', 'N', primary: true),
+    const ToolResult.invalid('力幅值', 'N'),
+    const ToolResult.invalid('等效重量', 'kgf'),
+    const ToolResult.invalid('加速度', 'g'),
+    const ToolResult.invalid('质量重量', 'N'),
+    const ToolResult.invalid('运动方向', ''),
+    if (includeTarget) const ToolResult.invalid('目标力', 'N'),
+    if (includeTarget) const ToolResult.invalid('目标力所需加速度', 'm/s²'),
+    if (includeTarget) const ToolResult.invalid('目标力所需质量', 'kg'),
   ];
 }
 
@@ -366,46 +337,33 @@ List<ToolResult> pulleyRatioResults(Map<String, double> valuesByKey) {
   final targetDrivenDiameter = targetRatio == null ? null : d1 / targetRatio;
   final targetDriverDiameter = targetRatio == null ? null : d2 * targetRatio;
   return [
-    ToolResult('输出转速', formatNumber(outputRpm), 'rpm', primary: true),
-    ToolResult('速度比 n2/n1', formatNumber(ratio), ''),
-    ToolResult('传动比 i', formatNumber(d2 / d1), ''),
-    ToolResult('输出角速度', formatNumber(outputRpm * 2 * math.pi / 60), 'rad/s'),
-    ToolResult('皮带线速度', formatNumber(beltSpeed), 'm/s'),
+    ToolResult.number('输出转速', outputRpm, 'rpm', primary: true),
+    ToolResult.number('速度比 n2/n1', ratio, ''),
+    ToolResult.number('传动比 i', d2 / d1, ''),
+    ToolResult.number('输出角速度', outputRpm * 2 * math.pi / 60, 'rad/s'),
+    ToolResult.number('皮带线速度', beltSpeed, 'm/s'),
     ToolResult('转向', direction, ''),
+    if (includeTarget) ToolResult.number('目标输出转速', targetOutputRpm, 'rpm'),
+    if (includeTarget) ToolResult.number('目标速度比', targetRatio, ''),
     if (includeTarget)
-      ToolResult('目标输出转速', formatNumber(targetOutputRpm), 'rpm'),
+      ToolResult.number('保留主动轮所需从动轮直径', targetDrivenDiameter, 'mm'),
     if (includeTarget)
-      ToolResult(
-          '目标速度比', targetRatio == null ? '无效' : formatNumber(targetRatio), ''),
-    if (includeTarget)
-      ToolResult(
-          '保留主动轮所需从动轮直径',
-          targetDrivenDiameter == null
-              ? '无效'
-              : formatNumber(targetDrivenDiameter),
-          'mm'),
-    if (includeTarget)
-      ToolResult(
-          '保留从动轮所需主动轮直径',
-          targetDriverDiameter == null
-              ? '无效'
-              : formatNumber(targetDriverDiameter),
-          'mm'),
+      ToolResult.number('保留从动轮所需主动轮直径', targetDriverDiameter, 'mm'),
   ];
 }
 
 List<ToolResult> _invalidPulleyRatioResults({required bool includeTarget}) {
   return [
-    const ToolResult('输出转速', '无效', 'rpm', primary: true),
-    const ToolResult('速度比 n2/n1', '无效', ''),
-    const ToolResult('传动比 i', '无效', ''),
-    const ToolResult('输出角速度', '无效', 'rad/s'),
-    const ToolResult('皮带线速度', '无效', 'm/s'),
-    const ToolResult('转向', '无效', ''),
-    if (includeTarget) const ToolResult('目标输出转速', '无效', 'rpm'),
-    if (includeTarget) const ToolResult('目标速度比', '无效', ''),
-    if (includeTarget) const ToolResult('保留主动轮所需从动轮直径', '无效', 'mm'),
-    if (includeTarget) const ToolResult('保留从动轮所需主动轮直径', '无效', 'mm'),
+    const ToolResult.invalid('输出转速', 'rpm', primary: true),
+    const ToolResult.invalid('速度比 n2/n1', ''),
+    const ToolResult.invalid('传动比 i', ''),
+    const ToolResult.invalid('输出角速度', 'rad/s'),
+    const ToolResult.invalid('皮带线速度', 'm/s'),
+    const ToolResult.invalid('转向', ''),
+    if (includeTarget) const ToolResult.invalid('目标输出转速', 'rpm'),
+    if (includeTarget) const ToolResult.invalid('目标速度比', ''),
+    if (includeTarget) const ToolResult.invalid('保留主动轮所需从动轮直径', 'mm'),
+    if (includeTarget) const ToolResult.invalid('保留从动轮所需主动轮直径', 'mm'),
   ];
 }
 
@@ -429,33 +387,30 @@ List<ToolResult> screwLeadResults(Map<String, double> valuesByKey) {
   final targetRpm = targetSpeed == null ? null : targetSpeed / lead;
   final targetLead = targetSpeed == null || rpm == 0 ? null : targetSpeed / rpm;
   return [
-    ToolResult('线速度', formatNumber(mmMin), 'mm/min', primary: true),
-    ToolResult('每秒位移', formatNumber(mmMin / 60), 'mm/s'),
-    ToolResult('每转位移', formatNumber(lead), 'mm/rev'),
-    ToolResult('每毫米转数', formatNumber(1 / lead), 'rev/mm'),
-    ToolResult('转速', formatNumber(rpm / 60), 'rps'),
-    ToolResult('小时行程', formatNumber(mmMin * 60 / 1000), 'm/h'),
+    ToolResult.number('线速度', mmMin, 'mm/min', primary: true),
+    ToolResult.number('每秒位移', mmMin / 60, 'mm/s'),
+    ToolResult.number('每转位移', lead, 'mm/rev'),
+    ToolResult.number('每毫米转数', 1 / lead, 'rev/mm'),
+    ToolResult.number('转速', rpm / 60, 'rps'),
+    ToolResult.number('小时行程', mmMin * 60 / 1000, 'm/h'),
     ToolResult('运动方向', direction, ''),
-    if (includeTarget) ToolResult('目标线速度', formatNumber(targetSpeed), 'mm/min'),
-    if (targetRpm != null)
-      ToolResult('目标线速度所需转速', formatNumber(targetRpm), 'rpm'),
-    if (includeTarget)
-      ToolResult('目标线速度所需导程',
-          targetLead == null ? '无效' : formatNumber(targetLead), 'mm/rev'),
+    if (includeTarget) ToolResult.number('目标线速度', targetSpeed, 'mm/min'),
+    if (targetRpm != null) ToolResult.number('目标线速度所需转速', targetRpm, 'rpm'),
+    if (includeTarget) ToolResult.number('目标线速度所需导程', targetLead, 'mm/rev'),
   ];
 }
 
 List<ToolResult> _invalidScrewLeadResults({required bool includeTarget}) {
   return [
-    const ToolResult('线速度', '无效', 'mm/min', primary: true),
-    const ToolResult('每秒位移', '无效', 'mm/s'),
-    const ToolResult('每转位移', '无效', 'mm/rev'),
-    const ToolResult('每毫米转数', '无效', 'rev/mm'),
-    const ToolResult('转速', '无效', 'rps'),
-    const ToolResult('小时行程', '无效', 'm/h'),
-    const ToolResult('运动方向', '无效', ''),
-    if (includeTarget) const ToolResult('目标线速度', '无效', 'mm/min'),
-    if (includeTarget) const ToolResult('目标线速度所需转速', '无效', 'rpm'),
-    if (includeTarget) const ToolResult('目标线速度所需导程', '无效', 'mm/rev'),
+    const ToolResult.invalid('线速度', 'mm/min', primary: true),
+    const ToolResult.invalid('每秒位移', 'mm/s'),
+    const ToolResult.invalid('每转位移', 'mm/rev'),
+    const ToolResult.invalid('每毫米转数', 'rev/mm'),
+    const ToolResult.invalid('转速', 'rps'),
+    const ToolResult.invalid('小时行程', 'm/h'),
+    const ToolResult.invalid('运动方向', ''),
+    if (includeTarget) const ToolResult.invalid('目标线速度', 'mm/min'),
+    if (includeTarget) const ToolResult.invalid('目标线速度所需转速', 'rpm'),
+    if (includeTarget) const ToolResult.invalid('目标线速度所需导程', 'mm/rev'),
   ];
 }

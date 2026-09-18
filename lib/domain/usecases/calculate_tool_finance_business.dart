@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> roiResults(Map<String, double> valuesByKey) {
@@ -52,15 +51,15 @@ List<ToolResult> roiResults(Map<String, double> valuesByKey) {
   final net = gain - cost;
   final multiple = gain / cost;
   final results = <ToolResult>[
-    ToolResult('ROI', formatNumber(roi), '%', primary: true),
-    ToolResult('收益', formatNumber(gain), '元'),
-    ToolResult('投入', formatNumber(cost), '元'),
-    ToolResult('净收益', formatNumber(net), '元'),
-    ToolResult('回报倍数', formatNumber(multiple), 'x'),
-    ToolResult('回本率', formatNumber(multiple * 100), '%'),
-    ToolResult('盈亏平衡差额', formatNumber(net), '元'),
+    ToolResult.number('ROI', roi, '%', primary: true),
+    ToolResult.number('收益', gain, '元'),
+    ToolResult.number('投入', cost, '元'),
+    ToolResult.number('净收益', net, '元'),
+    ToolResult.number('回报倍数', multiple, 'x'),
+    ToolResult.number('回本率', multiple * 100, '%'),
+    ToolResult.number('盈亏平衡差额', net, '元'),
     ToolResult('输入来源', source, ''),
-    if (roiDelta != null) ToolResult('ROI差值', formatNumber(roiDelta), '%'),
+    if (roiDelta != null) ToolResult.number('ROI差值', roiDelta, '%'),
   ];
   if (years != null) {
     final annualMultiple =
@@ -69,12 +68,17 @@ List<ToolResult> roiResults(Map<String, double> valuesByKey) {
     final monthlyNet = net / (years * 12);
     final paybackYears = net <= 0 ? double.nan : cost / (net / years);
     results.addAll([
-      ToolResult('持有年限', formatNumber(years), '年'),
-      ToolResult('年化ROI', formatNumber(annualRoi), '%'),
-      ToolResult('年化回报倍数', formatNumber(annualMultiple), 'x'),
-      ToolResult('月均净收益', formatNumber(monthlyNet), '元/月'),
-      ToolResult('简单回收期',
-          paybackYears.isFinite ? formatNumber(paybackYears) : '未回收', '年'),
+      ToolResult.number('持有年限', years, '年'),
+      ToolResult.number('年化ROI', annualRoi, '%'),
+      ToolResult.number('年化回报倍数', annualMultiple, 'x'),
+      ToolResult.number('月均净收益', monthlyNet, '元/月'),
+      // 中文：算不出有限数时屏幕上是 `'未回收'`——**那不是错误**。
+      // English: when no finite number comes out the screen shows `'未回收'` — **that is not an
+      //          error**.
+      if (!paybackYears.isFinite)
+        const ToolResult('简单回收期', '未回收', '年')
+      else
+        ToolResult.number('简单回收期', paybackYears, '年'),
     ]);
   }
   return results;
@@ -82,19 +86,19 @@ List<ToolResult> roiResults(Map<String, double> valuesByKey) {
 
 List<ToolResult> _invalidRoiResults({required bool includeYears}) {
   return [
-    const ToolResult('ROI', '无效', '%', primary: true),
-    const ToolResult('收益', '无效', '元'),
-    const ToolResult('投入', '无效', '元'),
-    const ToolResult('净收益', '无效', '元'),
-    const ToolResult('回报倍数', '无效', 'x'),
-    const ToolResult('回本率', '无效', '%'),
-    const ToolResult('盈亏平衡差额', '无效', '元'),
-    const ToolResult('输入来源', '无效', ''),
-    if (includeYears) const ToolResult('持有年限', '无效', '年'),
-    if (includeYears) const ToolResult('年化ROI', '无效', '%'),
-    if (includeYears) const ToolResult('年化回报倍数', '无效', 'x'),
-    if (includeYears) const ToolResult('月均净收益', '无效', '元/月'),
-    if (includeYears) const ToolResult('简单回收期', '无效', '年'),
+    const ToolResult.invalid('ROI', '%', primary: true),
+    const ToolResult.invalid('收益', '元'),
+    const ToolResult.invalid('投入', '元'),
+    const ToolResult.invalid('净收益', '元'),
+    const ToolResult.invalid('回报倍数', 'x'),
+    const ToolResult.invalid('回本率', '%'),
+    const ToolResult.invalid('盈亏平衡差额', '元'),
+    const ToolResult.invalid('输入来源', ''),
+    if (includeYears) const ToolResult.invalid('持有年限', '年'),
+    if (includeYears) const ToolResult.invalid('年化ROI', '%'),
+    if (includeYears) const ToolResult.invalid('年化回报倍数', 'x'),
+    if (includeYears) const ToolResult.invalid('月均净收益', '元/月'),
+    if (includeYears) const ToolResult.invalid('简单回收期', '年'),
   ];
 }
 
@@ -175,33 +179,31 @@ List<ToolResult> profitMarginResults(Map<String, double> valuesByKey) {
   }
 
   return [
-    ToolResult('利润', formatNumber(profit), '元', primary: true),
-    ToolResult('成本', formatNumber(cost), '元'),
-    ToolResult('售价', formatNumber(price), '元'),
-    ToolResult('毛利率', formatNumber(margin), '%'),
-    ToolResult(
-        '加价率', cost == 0 ? '无效' : formatNumber(profit / cost * 100), '%'),
-    ToolResult('成本占比', formatNumber(cost / price * 100), '%'),
-    ToolResult('保本售价', formatNumber(cost), '元'),
+    ToolResult.number('利润', profit, '元', primary: true),
+    ToolResult.number('成本', cost, '元'),
+    ToolResult.number('售价', price, '元'),
+    ToolResult.number('毛利率', margin, '%'),
+    ToolResult.number('加价率', cost == 0 ? null : profit / cost * 100, '%'),
+    ToolResult.number('成本占比', cost / price * 100, '%'),
+    ToolResult.number('保本售价', cost, '元'),
     ToolResult('利润状态', profit > 0 ? '盈利' : (profit < 0 ? '亏损' : '持平'), ''),
     ToolResult('输入来源', source, ''),
-    if (profitDelta != null) ToolResult('利润差值', formatNumber(profitDelta), '元'),
-    if (marginDelta != null)
-      ToolResult('毛利率差值', formatNumber(marginDelta), '%'),
+    if (profitDelta != null) ToolResult.number('利润差值', profitDelta, '元'),
+    if (marginDelta != null) ToolResult.number('毛利率差值', marginDelta, '%'),
   ];
 }
 
 List<ToolResult> _invalidProfitMarginResults() {
   return const [
-    ToolResult('利润', '无效', '元', primary: true),
-    ToolResult('成本', '无效', '元'),
-    ToolResult('售价', '无效', '元'),
-    ToolResult('毛利率', '无效', '%'),
-    ToolResult('加价率', '无效', '%'),
-    ToolResult('成本占比', '无效', '%'),
-    ToolResult('保本售价', '无效', '元'),
-    ToolResult('利润状态', '无效', ''),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('利润', '元', primary: true),
+    ToolResult.invalid('成本', '元'),
+    ToolResult.invalid('售价', '元'),
+    ToolResult.invalid('毛利率', '%'),
+    ToolResult.invalid('加价率', '%'),
+    ToolResult.invalid('成本占比', '%'),
+    ToolResult.invalid('保本售价', '元'),
+    ToolResult.invalid('利润状态', ''),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -306,34 +308,34 @@ List<ToolResult> electricityCostResults(Map<String, double> valuesByKey) {
   final dailyEnergy = powerKw * hours;
   final dailyCost = days == 0 ? 0.0 : cost / days;
   return [
-    ToolResult('费用', formatNumber(cost), '元', primary: true),
-    ToolResult('用电量', formatNumber(energy), 'kWh'),
-    ToolResult('功率', formatNumber(powerW), 'W'),
-    ToolResult('每日使用', formatNumber(hours), 'h'),
-    ToolResult('天数', formatNumber(days), '天'),
-    ToolResult('电价', formatNumber(price), '元/kWh'),
-    ToolResult('日均费用', formatNumber(dailyCost), '元/天'),
-    ToolResult('日均用电', formatNumber(dailyEnergy), 'kWh/天'),
-    ToolResult('月化费用', formatNumber(dailyCost * 30), '元/月'),
-    ToolResult('年化费用', formatNumber(dailyCost * 365), '元/年'),
+    ToolResult.number('费用', cost, '元', primary: true),
+    ToolResult.number('用电量', energy, 'kWh'),
+    ToolResult.number('功率', powerW, 'W'),
+    ToolResult.number('每日使用', hours, 'h'),
+    ToolResult.number('天数', days, '天'),
+    ToolResult.number('电价', price, '元/kWh'),
+    ToolResult.number('日均费用', dailyCost, '元/天'),
+    ToolResult.number('日均用电', dailyEnergy, 'kWh/天'),
+    ToolResult.number('月化费用', dailyCost * 30, '元/月'),
+    ToolResult.number('年化费用', dailyCost * 365, '元/年'),
     ToolResult('输入来源', source, ''),
-    if (costDelta != null) ToolResult('费用差值', formatNumber(costDelta), '元'),
+    if (costDelta != null) ToolResult.number('费用差值', costDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidElectricityCostResults() {
   return const [
-    ToolResult('费用', '无效', '元', primary: true),
-    ToolResult('用电量', '无效', 'kWh'),
-    ToolResult('功率', '无效', 'W'),
-    ToolResult('每日使用', '无效', 'h'),
-    ToolResult('天数', '无效', '天'),
-    ToolResult('电价', '无效', '元/kWh'),
-    ToolResult('日均费用', '无效', '元/天'),
-    ToolResult('日均用电', '无效', 'kWh/天'),
-    ToolResult('月化费用', '无效', '元/月'),
-    ToolResult('年化费用', '无效', '元/年'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('费用', '元', primary: true),
+    ToolResult.invalid('用电量', 'kWh'),
+    ToolResult.invalid('功率', 'W'),
+    ToolResult.invalid('每日使用', 'h'),
+    ToolResult.invalid('天数', '天'),
+    ToolResult.invalid('电价', '元/kWh'),
+    ToolResult.invalid('日均费用', '元/天'),
+    ToolResult.invalid('日均用电', 'kWh/天'),
+    ToolResult.invalid('月化费用', '元/月'),
+    ToolResult.invalid('年化费用', '元/年'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -417,38 +419,36 @@ List<ToolResult> breakEvenResults(Map<String, double> valuesByKey) {
     return _invalidBreakEvenResults(margin: margin, price: price);
   }
   return [
-    ToolResult('平衡销量', formatNumber(quantity), '件', primary: true),
+    ToolResult.number('平衡销量', quantity, '件', primary: true),
     ToolResult('向上取整销量', quantity.ceil().toString(), '件'),
-    ToolResult('固定成本', formatNumber(fixed), '元'),
-    ToolResult('单价', formatNumber(price), '元'),
-    ToolResult('单位变动成本', formatNumber(variable), '元'),
-    ToolResult('边际贡献', formatNumber(margin), '元/件'),
-    ToolResult('边际率', formatNumber(margin / price * 100), '%'),
-    ToolResult('平衡销售额', formatNumber(quantity * price), '元'),
-    ToolResult('平衡变动成本', formatNumber(quantity * variable), '元'),
+    ToolResult.number('固定成本', fixed, '元'),
+    ToolResult.number('单价', price, '元'),
+    ToolResult.number('单位变动成本', variable, '元'),
+    ToolResult.number('边际贡献', margin, '元/件'),
+    ToolResult.number('边际率', margin / price * 100, '%'),
+    ToolResult.number('平衡销售额', quantity * price, '元'),
+    ToolResult.number('平衡变动成本', quantity * variable, '元'),
     ToolResult('输入来源', source, ''),
-    if (quantityDelta != null)
-      ToolResult('销量差值', formatNumber(quantityDelta), '件'),
+    if (quantityDelta != null) ToolResult.number('销量差值', quantityDelta, '件'),
   ];
 }
 
 List<ToolResult> _invalidBreakEvenResults({double? margin, double? price}) {
   return [
-    const ToolResult('平衡销量', '无效', '件', primary: true),
-    const ToolResult('向上取整销量', '无效', '件'),
-    const ToolResult('固定成本', '无效', '元'),
-    const ToolResult('单价', '无效', '元'),
-    const ToolResult('单位变动成本', '无效', '元'),
-    ToolResult('边际贡献', margin == null ? '无效' : formatNumber(margin), '元/件'),
-    ToolResult(
-      '边际率',
-      margin == null || price == null || price == 0
-          ? '无效'
-          : formatNumber(margin / price * 100),
-      '%',
-    ),
-    const ToolResult('平衡销售额', '无效', '元'),
-    const ToolResult('平衡变动成本', '无效', '元'),
-    const ToolResult('输入来源', '无效', ''),
+    const ToolResult.invalid('平衡销量', '件', primary: true),
+    const ToolResult.invalid('向上取整销量', '件'),
+    const ToolResult.invalid('固定成本', '元'),
+    const ToolResult.invalid('单价', '元'),
+    const ToolResult.invalid('单位变动成本', '元'),
+    ToolResult.number('边际贡献', margin, '元/件'),
+    ToolResult.number(
+        '边际率',
+        margin == null || price == null || price == 0
+            ? null
+            : margin / price * 100,
+        '%'),
+    const ToolResult.invalid('平衡销售额', '元'),
+    const ToolResult.invalid('平衡变动成本', '元'),
+    const ToolResult.invalid('输入来源', ''),
   ];
 }

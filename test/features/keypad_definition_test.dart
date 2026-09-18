@@ -376,7 +376,9 @@ void main() {
       final modifierIds = <String>{};
       for (final row in hiperKeypad.rows) {
         for (final key in _realKeys(row)) {
-          if (key.category == KeyCategory.modifier) modifierIds.add(key.base.id);
+          if (key.category == KeyCategory.modifier) {
+            modifierIds.add(key.base.id);
+          }
         }
       }
       expect(modifierIds, <String>{

@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
@@ -85,29 +84,28 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
   final gain = target - principal;
   final multiple = principal == 0 ? 0.0 : target / principal;
   return [
-    ToolResult('终值', formatNumber(target), '元', primary: true),
-    ToolResult('收益', formatNumber(gain), '元'),
-    ToolResult(
-        '收益率', formatNumber(principal == 0 ? 0 : gain / principal * 100), '%'),
-    ToolResult('本金', formatNumber(principal), '元'),
-    ToolResult('增长倍数', formatNumber(multiple), 'x'),
-    ToolResult('年化收益率', formatNumber(rawRate), '%'),
-    ToolResult('年限', formatNumber(years), '年'),
+    ToolResult.number('终值', target, '元', primary: true),
+    ToolResult.number('收益', gain, '元'),
+    ToolResult.number('收益率', principal == 0 ? 0 : gain / principal * 100, '%'),
+    ToolResult.number('本金', principal, '元'),
+    ToolResult.number('增长倍数', multiple, 'x'),
+    ToolResult.number('年化收益率', rawRate, '%'),
+    ToolResult.number('年限', years, '年'),
     ToolResult('输入来源', source, ''),
-    if (targetDelta != null) ToolResult('终值差值', formatNumber(targetDelta), '元'),
+    if (targetDelta != null) ToolResult.number('终值差值', targetDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidCompoundResults() {
   return const [
-    ToolResult('终值', '无效', '元', primary: true),
-    ToolResult('收益', '无效', '元'),
-    ToolResult('收益率', '无效', '%'),
-    ToolResult('本金', '无效', '元'),
-    ToolResult('增长倍数', '无效', 'x'),
-    ToolResult('年化收益率', '无效', '%'),
-    ToolResult('年限', '无效', '年'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('终值', '元', primary: true),
+    ToolResult.invalid('收益', '元'),
+    ToolResult.invalid('收益率', '%'),
+    ToolResult.invalid('本金', '元'),
+    ToolResult.invalid('增长倍数', 'x'),
+    ToolResult.invalid('年化收益率', '%'),
+    ToolResult.invalid('年限', '年'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -161,27 +159,27 @@ List<ToolResult> discountResults(Map<String, double> valuesByKey) {
   }
 
   return [
-    ToolResult('到手价', formatNumber(finalPrice), '元', primary: true),
-    ToolResult('原价', formatNumber(price), '元'),
-    ToolResult('节省', formatNumber(price - finalPrice), '元'),
-    ToolResult('折扣率', formatNumber(discount), '%'),
-    ToolResult('优惠比例', formatNumber(100 - discount), '%'),
-    ToolResult('每百元支付', formatNumber(discount), '元'),
+    ToolResult.number('到手价', finalPrice, '元', primary: true),
+    ToolResult.number('原价', price, '元'),
+    ToolResult.number('节省', price - finalPrice, '元'),
+    ToolResult.number('折扣率', discount, '%'),
+    ToolResult.number('优惠比例', 100 - discount, '%'),
+    ToolResult.number('每百元支付', discount, '元'),
     ToolResult('输入来源', source, ''),
     if (finalPriceDelta != null)
-      ToolResult('到手价差值', formatNumber(finalPriceDelta), '元'),
+      ToolResult.number('到手价差值', finalPriceDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidDiscountResults() {
   return const [
-    ToolResult('到手价', '无效', '元', primary: true),
-    ToolResult('原价', '无效', '元'),
-    ToolResult('节省', '无效', '元'),
-    ToolResult('折扣率', '无效', '%'),
-    ToolResult('优惠比例', '无效', '%'),
-    ToolResult('每百元支付', '无效', '元'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('到手价', '元', primary: true),
+    ToolResult.invalid('原价', '元'),
+    ToolResult.invalid('节省', '元'),
+    ToolResult.invalid('折扣率', '%'),
+    ToolResult.invalid('优惠比例', '%'),
+    ToolResult.invalid('每百元支付', '元'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -232,26 +230,26 @@ List<ToolResult> taxResults(Map<String, double> valuesByKey) {
 
   final tax = gross - net;
   return [
-    ToolResult('含税金额', formatNumber(gross), '元', primary: true),
-    ToolResult('税额', formatNumber(tax), '元'),
-    ToolResult('不含税反推', formatNumber(net), '元'),
-    ToolResult('税率', formatNumber(rawRate), '%'),
-    ToolResult('税负率', gross == 0 ? '0' : formatNumber(tax / gross * 100), '%'),
-    ToolResult('价税合计倍率', formatNumber(1 + rawRate / 100), 'x'),
+    ToolResult.number('含税金额', gross, '元', primary: true),
+    ToolResult.number('税额', tax, '元'),
+    ToolResult.number('不含税反推', net, '元'),
+    ToolResult.number('税率', rawRate, '%'),
+    ToolResult.number('税负率', gross == 0 ? 0 : tax / gross * 100, '%'),
+    ToolResult.number('价税合计倍率', 1 + rawRate / 100, 'x'),
     ToolResult('输入来源', source, ''),
-    if (grossDelta != null) ToolResult('含税金额差值', formatNumber(grossDelta), '元'),
+    if (grossDelta != null) ToolResult.number('含税金额差值', grossDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidTaxResults() {
   return const [
-    ToolResult('含税金额', '无效', '元', primary: true),
-    ToolResult('税额', '无效', '元'),
-    ToolResult('不含税反推', '无效', '元'),
-    ToolResult('税率', '无效', '%'),
-    ToolResult('税负率', '无效', '%'),
-    ToolResult('价税合计倍率', '无效', 'x'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('含税金额', '元', primary: true),
+    ToolResult.invalid('税额', '元'),
+    ToolResult.invalid('不含税反推', '元'),
+    ToolResult.invalid('税率', '%'),
+    ToolResult.invalid('税负率', '%'),
+    ToolResult.invalid('价税合计倍率', 'x'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -334,31 +332,30 @@ List<ToolResult> inflationResults(Map<String, double> valuesByKey) {
   }
   final presentPower = amount / multiplier;
   return [
-    ToolResult('未来等值', formatNumber(future), '元', primary: true),
-    ToolResult('当前金额', formatNumber(amount), '元'),
-    ToolResult('年通胀率', formatNumber(rawRate), '%'),
-    ToolResult('年数', formatNumber(years), '年'),
-    ToolResult('购买力折现', formatNumber(presentPower), '元'),
-    ToolResult('累计涨幅', formatNumber((multiplier - 1) * 100), '%'),
-    ToolResult('购买力损失', formatNumber(amount - presentPower), '元'),
-    ToolResult('等值倍率', formatNumber(multiplier), 'x'),
+    ToolResult.number('未来等值', future, '元', primary: true),
+    ToolResult.number('当前金额', amount, '元'),
+    ToolResult.number('年通胀率', rawRate, '%'),
+    ToolResult.number('年数', years, '年'),
+    ToolResult.number('购买力折现', presentPower, '元'),
+    ToolResult.number('累计涨幅', (multiplier - 1) * 100, '%'),
+    ToolResult.number('购买力损失', amount - presentPower, '元'),
+    ToolResult.number('等值倍率', multiplier, 'x'),
     ToolResult('输入来源', source, ''),
-    if (futureDelta != null)
-      ToolResult('未来等值差值', formatNumber(futureDelta), '元'),
+    if (futureDelta != null) ToolResult.number('未来等值差值', futureDelta, '元'),
   ];
 }
 
 List<ToolResult> _invalidInflationResults() {
   return const [
-    ToolResult('未来等值', '无效', '元', primary: true),
-    ToolResult('当前金额', '无效', '元'),
-    ToolResult('年通胀率', '无效', '%'),
-    ToolResult('年数', '无效', '年'),
-    ToolResult('购买力折现', '无效', '元'),
-    ToolResult('累计涨幅', '无效', '%'),
-    ToolResult('购买力损失', '无效', '元'),
-    ToolResult('等值倍率', '无效', 'x'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('未来等值', '元', primary: true),
+    ToolResult.invalid('当前金额', '元'),
+    ToolResult.invalid('年通胀率', '%'),
+    ToolResult.invalid('年数', '年'),
+    ToolResult.invalid('购买力折现', '元'),
+    ToolResult.invalid('累计涨幅', '%'),
+    ToolResult.invalid('购买力损失', '元'),
+    ToolResult.invalid('等值倍率', 'x'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -404,38 +401,43 @@ List<ToolResult> npvResults(Map<String, double> valuesByKey) {
               100;
 
   return [
-    ToolResult('NPV', formatNumber(npv), '元', primary: true),
+    ToolResult.number('NPV', npv, '元', primary: true),
     ToolResult('期数', '${cashFlows.length}', '期'),
-    ToolResult('总现金流', formatNumber(totalCashFlow), '元'),
-    ToolResult('折现现金流', formatNumber(discountedCashFlow), '元'),
-    ToolResult(
-      '盈利指数',
-      initial == 0 ? '无效' : formatNumber(discountedCashFlow / initial),
-      'x',
-    ),
-    ToolResult('回收差额', formatNumber(totalCashFlow - initial), '元'),
-    ToolResult('折现回收期', _formatPayback(discountedBalance), '期'),
-    ToolResult('简单回收期', _formatPayback(simpleBalance), '期'),
-    ToolResult('折现率-2% NPV', formatNumber(npvLow), '元'),
-    ToolResult('折现率+2% NPV', formatNumber(npvHigh), '元'),
-    ToolResult(
-      '等效年化收益',
-      averageAnnualReturn.isFinite ? formatNumber(averageAnnualReturn) : '无效',
-      '%',
-    ),
+    ToolResult.number('总现金流', totalCashFlow, '元'),
+    ToolResult.number('折现现金流', discountedCashFlow, '元'),
+    ToolResult.number(
+        '盈利指数', initial == 0 ? null : discountedCashFlow / initial, 'x'),
+    ToolResult.number('回收差额', totalCashFlow - initial, '元'),
+    // 中文：`null`（算不出来）时屏幕上是 `'未回收'`——**那不是错误**；有数时值就是数值本身，
+    //       不是有限数时才会变成那条记号。两支分开写，省得把两个问题搅在一起。
+    // English: when `null` (cannot be computed) the screen shows `'未回收'` — **that is not an
+    //          error**; with a number the value is that number, and only a non-finite one turns into
+    //          the marker. Written as two branches so the two questions do not get mixed up.
+    if (discountedBalance == null)
+      const ToolResult('折现回收期', '未回收', '期')
+    else
+      ToolResult.number('折现回收期', discountedBalance, '期'),
+    if (simpleBalance == null)
+      const ToolResult('简单回收期', '未回收', '期')
+    else
+      ToolResult.number('简单回收期', simpleBalance, '期'),
+    ToolResult.number('折现率-2% NPV', npvLow, '元'),
+    ToolResult.number('折现率+2% NPV', npvHigh, '元'),
+    ToolResult.number('等效年化收益',
+        averageAnnualReturn.isFinite ? averageAnnualReturn : null, '%'),
   ];
 }
 
 List<ToolResult> _invalidNpvResults() {
   return const [
-    ToolResult('NPV', '无效', '元', primary: true),
-    ToolResult('期数', '无效', '期'),
-    ToolResult('总现金流', '无效', '元'),
-    ToolResult('折现现金流', '无效', '元'),
-    ToolResult('盈利指数', '无效', 'x'),
-    ToolResult('回收差额', '无效', '元'),
-    ToolResult('折现回收期', '无效', '期'),
-    ToolResult('简单回收期', '无效', '期'),
+    ToolResult.invalid('NPV', '元', primary: true),
+    ToolResult.invalid('期数', '期'),
+    ToolResult.invalid('总现金流', '元'),
+    ToolResult.invalid('折现现金流', '元'),
+    ToolResult.invalid('盈利指数', 'x'),
+    ToolResult.invalid('回收差额', '元'),
+    ToolResult.invalid('折现回收期', '期'),
+    ToolResult.invalid('简单回收期', '期'),
   ];
 }
 
@@ -460,8 +462,4 @@ double? _paybackPeriod(double initial, List<double> cashFlows) {
     recovered = next;
   }
   return null;
-}
-
-String _formatPayback(double? value) {
-  return value == null ? '未回收' : formatNumber(value);
 }

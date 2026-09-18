@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import '../../core/units/unit_converter.dart';
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> lengthResults(Map<String, double> valuesByKey) {
@@ -99,10 +98,10 @@ List<ToolResult> speedResults(Map<String, double> valuesByKey) {
 List<ToolResult> temperatureResults(Map<String, double> valuesByKey) {
   final celsius = valuesByKey['value'] ?? 0;
   return [
-    ToolResult('℃', formatNumber(celsius), '℃', primary: true),
-    ToolResult('℉', formatNumber(celsius * 9 / 5 + 32), '℉'),
-    ToolResult('K', formatNumber(celsius + 273.15), 'K'),
-    ToolResult('°R', formatNumber((celsius + 273.15) * 9 / 5), '°R'),
+    ToolResult.number('℃', celsius, '℃', primary: true),
+    ToolResult.number('℉', celsius * 9 / 5 + 32, '℉'),
+    ToolResult.number('K', celsius + 273.15, 'K'),
+    ToolResult.number('°R', (celsius + 273.15) * 9 / 5, '°R'),
   ];
 }
 
@@ -183,21 +182,15 @@ List<ToolResult> forceUnitResults(Map<String, double> valuesByKey) {
 List<ToolResult> powerUnitResults(Map<String, double> valuesByKey) {
   final watts = valuesByKey['value'] ?? 0;
   return [
-    ToolResult('W', formatNumber(watts), 'W', primary: true),
-    ToolResult('mW', formatNumber(watts * 1000), 'mW'),
-    ToolResult('kW', formatNumber(watts * 0.001), 'kW'),
-    ToolResult('MW', formatNumber(watts * 0.000001), 'MW'),
-    ToolResult('hp', formatNumber(watts * 0.00134102), 'hp'),
-    ToolResult(
-      'dBm',
-      watts <= 0 ? '无效' : formatNumber(10 * math.log(watts * 1000) / math.ln10),
-      'dBm',
-    ),
-    ToolResult(
-      'dBW',
-      watts <= 0 ? '无效' : formatNumber(10 * math.log(watts) / math.ln10),
-      'dBW',
-    ),
+    ToolResult.number('W', watts, 'W', primary: true),
+    ToolResult.number('mW', watts * 1000, 'mW'),
+    ToolResult.number('kW', watts * 0.001, 'kW'),
+    ToolResult.number('MW', watts * 0.000001, 'MW'),
+    ToolResult.number('hp', watts * 0.00134102, 'hp'),
+    ToolResult.number('dBm',
+        watts <= 0 ? null : 10 * math.log(watts * 1000) / math.ln10, 'dBm'),
+    ToolResult.number(
+        'dBW', watts <= 0 ? null : 10 * math.log(watts) / math.ln10, 'dBW'),
   ];
 }
 
@@ -304,9 +297,9 @@ List<ToolResult> flowUnitResults(Map<String, double> valuesByKey) {
 List<ToolResult> _unitResults(double value, Map<String, double> factors) {
   return UnitConverter(factors)
       .convert(value)
-      .map((conversion) => ToolResult(
+      .map((conversion) => ToolResult.number(
             conversion.unit,
-            formatNumber(conversion.value),
+            conversion.value,
             conversion.unit,
             primary: conversion.unit == factors.keys.first,
           ))

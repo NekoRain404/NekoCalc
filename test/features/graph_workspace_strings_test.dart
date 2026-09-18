@@ -7,6 +7,8 @@ import 'package:nekocalc/features/graph/presentation/graph_workspace_paste.dart'
 import 'package:nekocalc/features/graph/presentation/graph_workspace_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：图形工作区粘贴表的三条护栏，形状与设置页 / 计算页 / 工具子树 / 文本工具那几套相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**。
 ///       2) 英文表里不许出现汉字、也不许出现空串，而且要真的与中文不同。
@@ -85,6 +87,23 @@ void main() {
       r'^(?:表达式|函数|function|expr|expression)\s*[:：]\s*(.+)$',
       r'^(?:表达式|expression)\s*[:：]\s*(.+)$',
       '隐藏',
+      // 中文：**判据放宽到"含宽/全角字符或中文排版标点"（`test/shared/source_scan.dart`）
+      //       之后新露出来的三条，没有一条是句子。**
+      //       - ` · ` 是**分隔符**（排在插值之间，把一个函数名和一个计数分开）。
+      //       - 另外两条是**剥列表符号的输入文法**：`^\s*(?:[-*•]|\d+[.)、])\s*` 与
+      //         `^\d+[.)]、`——`、` 是那个文法里"中文顿号也算编号符号"的一个记号，
+      //         判的是用户粘进来的形状。
+      // English: **the three the ruler "contains a Wide/Fullwidth character or Chinese typographic
+      //          punctuation" (`test/shared/source_scan.dart`) newly exposes; none is a sentence.**
+      //          - ` · ` is a **separator** (standing between interpolations, splitting a function
+      //            name from a count).
+      //          - the other two are the **input grammar that strips list markers**:
+      //            `^\s*(?:[-*•]|\d+[.)、])\s*` and `^\d+[.)]、` — `、` is one of that grammar's
+      //            marks ("a Chinese enumeration comma counts as a numbering mark too"), parsing the
+      //            shape of what the user pasted.
+      ' · ',
+      r'^\s*(?:[-*•]|\d+[.)、])\s*',
+      r'^\d+[.)、]',
     };
     const grammarPatterns = <String>{
       r'^(?:表达式|函数|function|expr|expression)\s*[:：]\s*(.+)$',
@@ -94,7 +113,7 @@ void main() {
     final offenders = <String>[];
     for (final literal
         in _stringLiterals(_stripComments(file.readAsStringSync()))) {
-      if (!_containsCjk(literal)) continue;
+      if (!containsWideOrFullwidth(literal)) continue;
       if (exemptions.contains(literal)) continue;
       // 中文：视窗范围那一条整串太长，按"是不是正则"放行——它里面那几个中文是 `~ | 至 | 到`
       //       的别名，判的同样是输入的形状。

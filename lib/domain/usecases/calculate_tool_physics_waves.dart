@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 List<ToolResult> wavelengthResults(Map<String, double> valuesByKey) {
@@ -47,31 +46,31 @@ List<ToolResult> wavelengthResults(Map<String, double> valuesByKey) {
   final wavelengthDelta =
       wavelengthInput == null ? null : wavelength - wavelengthInput;
   return [
-    ToolResult('波长', formatNumber(wavelength), 'm', primary: true),
-    ToolResult('周期', formatNumber(1 / frequency), 's'),
-    ToolResult('频率', formatNumber(frequency), 'Hz'),
-    ToolResult('频率 kHz', formatNumber(frequency / 1000), 'kHz'),
-    ToolResult('波速', formatNumber(speed), 'm/s'),
-    ToolResult('波速 km/h', formatNumber(speed * 3.6), 'km/h'),
-    ToolResult('波数', formatNumber(1 / wavelength), '1/m'),
-    ToolResult('角频率', formatNumber(2 * math.pi * frequency), 'rad/s'),
+    ToolResult.number('波长', wavelength, 'm', primary: true),
+    ToolResult.number('周期', 1 / frequency, 's'),
+    ToolResult.number('频率', frequency, 'Hz'),
+    ToolResult.number('频率 kHz', frequency / 1000, 'kHz'),
+    ToolResult.number('波速', speed, 'm/s'),
+    ToolResult.number('波速 km/h', speed * 3.6, 'km/h'),
+    ToolResult.number('波数', 1 / wavelength, '1/m'),
+    ToolResult.number('角频率', 2 * math.pi * frequency, 'rad/s'),
     ToolResult('输入来源', source, ''),
     if (wavelengthDelta != null)
-      ToolResult('波长差值', formatNumber(wavelengthDelta), 'm'),
+      ToolResult.number('波长差值', wavelengthDelta, 'm'),
   ];
 }
 
 List<ToolResult> _invalidWavelengthResults() {
   return const [
-    ToolResult('波长', '无效', 'm', primary: true),
-    ToolResult('周期', '无效', 's'),
-    ToolResult('频率', '无效', 'Hz'),
-    ToolResult('频率 kHz', '无效', 'kHz'),
-    ToolResult('波速', '无效', 'm/s'),
-    ToolResult('波速 km/h', '无效', 'km/h'),
-    ToolResult('波数', '无效', '1/m'),
-    ToolResult('角频率', '无效', 'rad/s'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('波长', 'm', primary: true),
+    ToolResult.invalid('周期', 's'),
+    ToolResult.invalid('频率', 'Hz'),
+    ToolResult.invalid('频率 kHz', 'kHz'),
+    ToolResult.invalid('波速', 'm/s'),
+    ToolResult.invalid('波速 km/h', 'km/h'),
+    ToolResult.invalid('波数', '1/m'),
+    ToolResult.invalid('角频率', 'rad/s'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -167,20 +166,19 @@ List<ToolResult> halfLifeResults(Map<String, double> valuesByKey) {
   final remainingRatioDelta =
       remainingRatioInput == null ? null : remainingRatio - remainingRatioInput;
   return [
-    ToolResult('剩余量', formatNumber(remaining), '', primary: true),
-    ToolResult('剩余比例', formatNumber(remainingRatio), '%'),
-    ToolResult('衰减量', formatNumber(initial - remaining), ''),
-    ToolResult('衰减比例', formatNumber(100 - remainingRatio), '%'),
-    ToolResult('初始量', formatNumber(initial), ''),
-    ToolResult('半衰期', formatNumber(half), 'h'),
-    ToolResult('经过时间', formatNumber(time), 'h'),
-    ToolResult('经历半衰期', formatNumber(periods), '个'),
-    ToolResult('衰变常数', formatNumber(math.ln2 / half), '1/h'),
+    ToolResult.number('剩余量', remaining, '', primary: true),
+    ToolResult.number('剩余比例', remainingRatio, '%'),
+    ToolResult.number('衰减量', initial - remaining, ''),
+    ToolResult.number('衰减比例', 100 - remainingRatio, '%'),
+    ToolResult.number('初始量', initial, ''),
+    ToolResult.number('半衰期', half, 'h'),
+    ToolResult.number('经过时间', time, 'h'),
+    ToolResult.number('经历半衰期', periods, '个'),
+    ToolResult.number('衰变常数', math.ln2 / half, '1/h'),
     ToolResult('输入来源', source, ''),
-    if (remainingDelta != null)
-      ToolResult('剩余量差值', formatNumber(remainingDelta), ''),
+    if (remainingDelta != null) ToolResult.number('剩余量差值', remainingDelta, ''),
     if (remainingRatioDelta != null)
-      ToolResult('剩余比例差值', formatNumber(remainingRatioDelta), '%'),
+      ToolResult.number('剩余比例差值', remainingRatioDelta, '%'),
   ];
 }
 
@@ -212,15 +210,15 @@ String _halfLifeSource(
 
 List<ToolResult> _invalidHalfLifeResults() {
   return const [
-    ToolResult('剩余量', '无效', '', primary: true),
-    ToolResult('剩余比例', '无效', '%'),
-    ToolResult('衰减量', '无效', ''),
-    ToolResult('衰减比例', '无效', '%'),
-    ToolResult('初始量', '无效', ''),
-    ToolResult('半衰期', '无效', 'h'),
-    ToolResult('经过时间', '无效', 'h'),
-    ToolResult('经历半衰期', '无效', '个'),
-    ToolResult('衰变常数', '无效', '1/h'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('剩余量', '', primary: true),
+    ToolResult.invalid('剩余比例', '%'),
+    ToolResult.invalid('衰减量', ''),
+    ToolResult.invalid('衰减比例', '%'),
+    ToolResult.invalid('初始量', ''),
+    ToolResult.invalid('半衰期', 'h'),
+    ToolResult.invalid('经过时间', 'h'),
+    ToolResult.invalid('经历半衰期', '个'),
+    ToolResult.invalid('衰变常数', '1/h'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }

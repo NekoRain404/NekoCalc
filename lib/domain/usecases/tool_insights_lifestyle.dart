@@ -20,12 +20,11 @@ List<String> buildLifestyleToolInsights(
   final lines = <String>[];
   switch (kind) {
     case ToolKind.bmi:
-      final bmiText = toolResultText(results, 'BMI');
       final bmi = toolResultNumber(results, 'BMI');
       final range = toolResultText(results, '健康体重范围');
       final delta = toolResultText(results, '距健康区间');
       final waistHeightRatio = toolResultNumber(results, '腰高比');
-      if (bmiText == '无效') {
+      if (toolResultUnavailable(results, 'BMI')) {
         lines.add('身高和体重必须大于 0；填写腰围时腰围也必须大于 0');
       } else if (bmi != null) {
         if (bmi < 18.5) {
@@ -38,10 +37,12 @@ List<String> buildLifestyleToolInsights(
           lines.add('BMI 位于常见健康区间');
         }
       }
-      if (range != null && range != '无效') {
+      if (range != null && !toolResultUnavailable(results, '健康体重范围')) {
         lines.add('按当前身高估算的健康体重范围约为 $range kg');
       }
-      if (delta != null && delta != '无效' && delta != '在范围内') {
+      if (delta != null &&
+          !toolResultUnavailable(results, '距健康区间') &&
+          delta != '在范围内') {
         lines.add('距健康体重区间还差 $delta，正号表示需要增重，负号表示需要减重');
       }
       if (waistHeightRatio != null && waistHeightRatio >= 0.5) {
@@ -49,7 +50,6 @@ List<String> buildLifestyleToolInsights(
       }
       lines.add('BMI 不能区分肌肉和脂肪，只能做筛查参考');
     case ToolKind.fuelEconomy:
-      final consumptionText = toolResultText(results, '百公里油耗');
       final litersPer100Km = toolResultNumber(results, '百公里油耗');
       final costPer100Km = toolResultNumber(results, '百公里成本');
       final tankRange = toolResultNumber(results, '满箱续航');
@@ -57,7 +57,7 @@ List<String> buildLifestyleToolInsights(
       final annualCo2 = toolResultNumber(results, '年CO2排放');
       final source = toolResultText(results, '输入来源') ?? '';
       final consumptionDelta = toolResultNumber(results, '油耗差值');
-      if (consumptionText == '无效') {
+      if (toolResultUnavailable(results, '百公里油耗')) {
         lines.add('里程、燃油量和百公里油耗至少填写两项且必须大于 0；油价不能为负；可选油箱、年里程和 CO2 系数需为有效数值');
       } else if (litersPer100Km != null) {
         if (litersPer100Km < 4) {
@@ -78,7 +78,7 @@ List<String> buildLifestyleToolInsights(
       if (annualCo2 != null && annualCo2 > 3000) {
         lines.add('年 CO2 粗估超过 3 吨，排放取决于燃油类型、实际油耗和统计口径');
       }
-      if (source.isNotEmpty && source != '无效') {
+      if (source.isNotEmpty && !toolResultUnavailable(results, '输入来源')) {
         lines.add('当前按 $source 计算，其余输出由 fuel=distance×L/100km/100 换算');
       }
       if (consumptionDelta != null && consumptionDelta.abs() > 1e-12) {

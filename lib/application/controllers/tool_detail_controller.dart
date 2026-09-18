@@ -587,7 +587,7 @@ class ToolDetailController extends ChangeNotifier {
   }
 
   String _resultReportLine(ToolResult result) {
-    return '${result.label}: ${_resultValueWithUnit(result)}';
+    return '${result.label}: ${result.valueWithUnit}';
   }
 
   void _recalculate() {
@@ -607,34 +607,15 @@ class ToolDetailController extends ChangeNotifier {
     return tool.inputs.any((input) => input.key == key && input.optional);
   }
 
+  /// 中文：**旧判据（`value.contains('无效'/'不能'/'不可'/'错误')` 那一份）就在这里**，本轮没了。
+  ///       它现在只读产出方写下的旗标。这里留一个薄壳而不是把它删掉：它是这个控制器的公开面，
+  ///       契约不变、实现改向。真正的判据只有一份，在 [ToolResult.hasError]。
+  /// English: **The old predicate (the `value.contains('无效'/'不能'/'不可'/'错误')` copy) lived
+  ///          right here** and is gone this round. It now reads the flag the producer wrote. A thin
+  ///          shell is kept rather than the method deleted: this is the controller's public surface,
+  ///          so the contract stays and only the implementation is redirected. There is exactly one
+  ///          judgement, in [ToolResult.hasError].
   bool resultNeedsAttention(ToolResult result) {
-    return _resultNeedsAttention(result);
+    return result.hasError;
   }
-
-  static String _resultValueWithUnit(ToolResult result) {
-    final value = result.value.trim();
-    final unit = result.unit.trim();
-    if (unit.isEmpty || _resultNeedsAttention(result)) return value;
-    return '$value$unit';
-  }
-
-  static bool _resultNeedsAttention(ToolResult result) {
-    final value = result.value.trim().toLowerCase();
-    if (value.isEmpty) return true;
-    const exact = {
-      '无效',
-      '无唯一解',
-      '无效边长',
-      '不可逆',
-      'a 不能为 0',
-    };
-    if (exact.contains(value)) return true;
-    return value.contains('无效') ||
-        value.contains('不能') ||
-        value.contains('不可') ||
-        value.contains('错误') ||
-        value.contains('not finite') ||
-        value.contains('nan') ||
-        value.contains('infinity');
-}
 }

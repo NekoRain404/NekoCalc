@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
+
+import '../shared/source_scan.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 /// 中文：设置页文案表的三条护栏。
@@ -281,7 +283,7 @@ void main() {
       if (entity.uri.pathSegments.last == 'settings_strings.dart') continue;
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
-        if (_containsCjk(literal)) {
+        if (containsWideOrFullwidth(literal)) {
           offenders.add('${entity.path}: $literal');
         }
       }

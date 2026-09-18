@@ -77,8 +77,7 @@ void main() {
       controller.setExpression('2^-2000');
       await controller.submit();
 
-      expect(controller.storableDatasetValue, isNull,
-          reason: '下溢的值连「可加」都不该是');
+      expect(controller.storableDatasetValue, isNull, reason: '下溢的值连「可加」都不该是');
       final sentence = controller.addDatasetValue();
       expect(sentence, isNotNull, reason: '被拒了却什么都不说，用户看到的就是一颗失灵键');
       expect(sentence, contains('数据集未改动'));
@@ -91,8 +90,7 @@ void main() {
       for (final reply in <EngineReply>[
         const _Reply('2x', tex: '2x', kind: EngineResultKind.symbolic).reply,
         const _Reply('2i', tex: '2i', kind: EngineResultKind.number).reply,
-        const _Reply('1.5 m', tex: '', kind: EngineResultKind.quantity)
-            .reply,
+        const _Reply('1.5 m', tex: '', kind: EngineResultKind.quantity).reply,
       ]) {
         final controller =
             _controller(_FakeDatabase(), engine: _FakeMathEngine(reply));
@@ -120,8 +118,7 @@ void main() {
       controller.addListener(() => notifications++);
 
       expect(controller.addDatasetValue(), isNotNull);
-      expect(notifications, 0,
-          reason: '被拒的一下是空操作：不通知界面，屏幕上什么都不该动');
+      expect(notifications, 0, reason: '被拒的一下是空操作：不通知界面，屏幕上什么都不该动');
       expect(controller.datasetValues, isEmpty);
 
       controller.dispose();
@@ -377,8 +374,7 @@ void main() {
       await controller.restoreIfEnabled();
 
       expect(controller.datasetValues, <String>['5', '12']);
-      expect(controller.result, '0',
-          reason: '恢复一份数据集不该让屏幕上出现任何一个值');
+      expect(controller.result, '0', reason: '恢复一份数据集不该让屏幕上出现任何一个值');
 
       controller.dispose();
     });
@@ -418,9 +414,7 @@ void main() {
       //          different number from the one stored in the dataset — 1/3 would become 0.333333 and
       //          the engine's arithmetic would fork away from what is on screen.
       final engine = _FakeMathEngine(
-        const _Reply('0.3333333333333333',
-                kind: EngineResultKind.number)
-            .reply,
+        const _Reply('0.3333333333333333', kind: EngineResultKind.number).reply,
       );
       final controller = _controller(_FakeDatabase(), engine: engine);
 
@@ -460,8 +454,8 @@ void main() {
       // 中文：四格那一边**一个字符都没变**——两种读法读的是同一串值，切法不同而已。
       // English: the four cells' side is **not one character different** — both readings read the same
       //          run of values, only the cut differs.
-      expect(controller.statisticsCall('mean'),
-          'mean(1,100,2,200,3,300,4,400)');
+      expect(
+          controller.statisticsCall('mean'), 'mean(1,100,2,200,3,300,4,400)');
 
       controller.dispose();
     });
@@ -474,7 +468,12 @@ void main() {
       //          `pearson(matrix(2,1,1,2))` returns the unevaluated `0 / 0` (an expression, not a
       //          number) and `covar(matrix(2,1,1,2))` returns an uninformative `0`. Neither is the
       //          answer the user wants, so it is refused here rather than putting a `0` on screen.
-      for (final stored in <String>['[]', '["5"]', '["5","12"]', '["5","12","13"]']) {
+      for (final stored in <String>[
+        '[]',
+        '["5"]',
+        '["5","12"]',
+        '["5","12","13"]'
+      ]) {
         final controller = _controller(
           _FakeDatabase(),
           engine: _FakeMathEngine(_failure),
@@ -564,7 +563,8 @@ void main() {
         );
         expect(translated, isA<TranslatedExpression>(),
             reason: '`$name` 本该翻译得了');
-        expect(AppEngineVocabulary.canRead('$name(matrix(2,2,1,3,2,4))'), isTrue);
+        expect(
+            AppEngineVocabulary.canRead('$name(matrix(2,2,1,3,2,4))'), isTrue);
       }
     });
 
@@ -590,7 +590,8 @@ void main() {
       const fit = 'linearfit(matrix(1,5,1,2,3,4,5),matrix(1,5,2,4,6,8,10))';
       for (final name in <String>['linearfit', 'quadraticfit', 'cubicfit']) {
         expect(AppEngineVocabulary.identifiers, contains(name));
-        expect(AppEngineVocabulary.identifiers[name]!.oneSeriesPerArgument, isTrue,
+        expect(
+            AppEngineVocabulary.identifiers[name]!.oneSeriesPerArgument, isTrue,
             reason: '`$name` 的实参形状要按格判，所以这一列必须为真');
       }
       expect(AppEngineVocabulary.canRead(fit), isTrue);
@@ -656,8 +657,7 @@ void main() {
       expect(controller.expression, 'mean(5,12)');
       await controller.submit();
 
-      expect(controller.hasError, isTrue,
-          reason: '旧解析器读不懂 `mean`，这一条只能是一句错误');
+      expect(controller.hasError, isTrue, reason: '旧解析器读不懂 `mean`，这一条只能是一句错误');
       expect(controller.result, isNot(contains('10')));
 
       controller.dispose();
@@ -669,7 +669,8 @@ void main() {
 /// English: one receipt shaped like a measurement (the decimal is written only when it **is** a finite
 ///          number, the same rule `QalculateMathEngine` follows).
 class _Reply {
-  const _Reply(this.displayText, {this.tex = '', this.kind = EngineResultKind.number});
+  const _Reply(this.displayText,
+      {this.tex = '', this.kind = EngineResultKind.number});
 
   final String displayText;
   final String tex;
@@ -709,7 +710,9 @@ CalculatorController _controller(
   bool restoreState = false,
   String? storedDataset,
 }) {
-  if (storedDataset != null) db.savedSettings['calculator_dataset'] = storedDataset;
+  if (storedDataset != null) {
+    db.savedSettings['calculator_dataset'] = storedDataset;
+  }
   return CalculatorController(
     historyRepository: HistoryRepository(db),
     notesRepository: NotesRepository(db),

@@ -61,13 +61,16 @@ void main() {
       if (call.method != 'evaluate') return null;
       final expression = (call.arguments as Map)['expression'] as String;
       calls.add(expression);
-      final body = RegExp(r'^replace\((.+),x,([-0-9.]+)\)$').firstMatch(expression);
+      final body =
+          RegExp(r'^replace\((.+),x,([-0-9.]+)\)$').firstMatch(expression);
       if (body != null) {
         if (failCurve) {
           return <String, String>{'ok': 'false', 'error': 'engine_no_decimal'};
         }
         final x = double.tryParse(body.group(2)!);
-        if (x == null) return <String, String>{'ok': 'false', 'error': 'bad_literal'};
+        if (x == null) {
+          return <String, String>{'ok': 'false', 'error': 'bad_literal'};
+        }
         return <String, String>{
           'ok': 'true',
           'decimal': (slope * x).toStringAsFixed(6),
@@ -170,8 +173,8 @@ void main() {
     expect(_painter(tester).drawsCurve, isFalse,
         reason: '对数不够时**一根线都不画**——画一条看起来权威的错曲线比没有线坏得多');
     expect(_painter(tester).points.length, 2, reason: '点照旧——那是数据里的事实');
-    expect(find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 2 对（4 个值）'),
-        findsOneWidget);
+    expect(
+        find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 2 对（4 个值）'), findsOneWidget);
     expect(calls.where((c) => c.contains('cubicfit')), isEmpty,
         reason: '对数不够时引擎**一发都不发**（判据在 fitCall 上，与那一格插不插东西是同一条）');
   });
@@ -214,7 +217,8 @@ void main() {
               'kind': 'number',
             });
       }
-      final body = RegExp(r'^replace\((.+),x,([-0-9.]+)\)$').firstMatch(expression);
+      final body =
+          RegExp(r'^replace\((.+),x,([-0-9.]+)\)$').firstMatch(expression);
       if (body != null) {
         final x = double.tryParse(body.group(2)!) ?? 0;
         return <String, String>{
@@ -242,8 +246,8 @@ void main() {
     await tester.tap(find.text('cubicfit'));
     await tester.pumpAndSettle();
 
-    expect(find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 3 对（6 个值）'),
-        findsOneWidget);
+    expect(
+        find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 3 对（6 个值）'), findsOneWidget);
     expect(_painter(tester).drawsCurve, isFalse);
 
     // 中文：放行那一发**先发的**——它回来时已经过期了，屏幕上一个字符都不该动。
@@ -254,8 +258,8 @@ void main() {
 
     expect(_painter(tester).drawsCurve, isFalse,
         reason: '后到的那一发属于一个已经被换掉的选择，它不许上屏');
-    expect(find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 3 对（6 个值）'),
-        findsOneWidget);
+    expect(
+        find.text('cubicfit 的曲线没画：它要 4 对值，数据集现在有 3 对（6 个值）'), findsOneWidget);
   });
 
   group('两条窗口的算式（纯函数，图上那一片由它们定）', () {
@@ -284,8 +288,8 @@ void main() {
 
     test('y 窗口里的非有限值被跳过，不会把窗口变成 NaN', () {
       const points = <({double x, double y})>[(x: 1, y: 10), (x: 2, y: 20)];
-      final window =
-          regressionGraphYWindow(points, const <double>[double.nan, 15, double.infinity]);
+      final window = regressionGraphYWindow(
+          points, const <double>[double.nan, 15, double.infinity]);
       expect(window.yMin.isFinite, isTrue);
       expect(window.yMax.isFinite, isTrue);
       expect(window.yMin, lessThan(10));
@@ -298,9 +302,10 @@ void main() {
 /// English: the painter of the plot's one `CustomPaint` — every assertion is on it (what is painted,
 ///          not whether some widget exists).
 RegressionGraphPainter _painter(WidgetTester tester) {
-  final paint = tester.widgetList<CustomPaint>(find.byType(CustomPaint)).firstWhere(
-        (widget) => widget.painter is RegressionGraphPainter,
-      );
+  final paint =
+      tester.widgetList<CustomPaint>(find.byType(CustomPaint)).firstWhere(
+            (widget) => widget.painter is RegressionGraphPainter,
+          );
   return paint.painter! as RegressionGraphPainter;
 }
 

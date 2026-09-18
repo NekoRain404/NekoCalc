@@ -9,15 +9,15 @@ List<ToolResult> dbmResults(Map<String, double> valuesByKey) {
   final dbm = valuesByKey['dbm'] ?? 0;
   if (!dbm.isFinite) {
     return const [
-      ToolResult('功率', '无效', 'mW', primary: true),
-      ToolResult('微瓦', '无效', 'μW'),
-      ToolResult('瓦特', '无效', 'W'),
-      ToolResult('dBW', '无效', 'dBW'),
-      ToolResult('50Ω Vrms', '无效', 'V'),
-      ToolResult('50Ω Vpeak', '无效', 'V'),
-      ToolResult('50Ω Vpp', '无效', 'V'),
-      ToolResult('50Ω dBV', '无效', 'dBV'),
-      ToolResult('50Ω dBu', '无效', 'dBu'),
+      ToolResult.invalid('功率', 'mW', primary: true),
+      ToolResult.invalid('微瓦', 'μW'),
+      ToolResult.invalid('瓦特', 'W'),
+      ToolResult.invalid('dBW', 'dBW'),
+      ToolResult.invalid('50Ω Vrms', 'V'),
+      ToolResult.invalid('50Ω Vpeak', 'V'),
+      ToolResult.invalid('50Ω Vpp', 'V'),
+      ToolResult.invalid('50Ω dBV', 'dBV'),
+      ToolResult.invalid('50Ω dBu', 'dBu'),
     ];
   }
 
@@ -25,21 +25,21 @@ List<ToolResult> dbmResults(Map<String, double> valuesByKey) {
   final watts = mw / 1000;
   final vrms50 = math.sqrt(watts * 50);
   final vpeak50 = vrms50 * math.sqrt2;
-  final dbv =
-      vrms50 > 0 ? formatNumber(20 * math.log(vrms50) / math.ln10) : '无效';
-  final dbu = vrms50 > 0
-      ? formatNumber(20 * math.log(vrms50 / 0.775) / math.ln10)
-      : '无效';
+  // 中文：**两个分贝值先算成数。** 条件不成立那一支产出方明确说算不出来（`null`）。
+  // English: **both decibel figures are computed as numbers first.** The branch where the condition
+  //          fails is the producer saying plainly that it cannot be produced (`null`).
+  final dbv = vrms50 > 0 ? 20 * math.log(vrms50) / math.ln10 : null;
+  final dbu = vrms50 > 0 ? 20 * math.log(vrms50 / 0.775) / math.ln10 : null;
   return [
-    ToolResult('功率', formatNumber(mw), 'mW', primary: true),
-    ToolResult('微瓦', formatNumber(mw * 1000), 'μW'),
-    ToolResult('瓦特', formatNumber(watts), 'W'),
-    ToolResult('dBW', formatNumber(dbm - 30), 'dBW'),
-    ToolResult('50Ω Vrms', formatNumber(vrms50), 'V'),
-    ToolResult('50Ω Vpeak', formatNumber(vpeak50), 'V'),
-    ToolResult('50Ω Vpp', formatNumber(vpeak50 * 2), 'V'),
-    ToolResult('50Ω dBV', dbv, 'dBV'),
-    ToolResult('50Ω dBu', dbu, 'dBu'),
+    ToolResult.number('功率', mw, 'mW', primary: true),
+    ToolResult.number('微瓦', mw * 1000, 'μW'),
+    ToolResult.number('瓦特', watts, 'W'),
+    ToolResult.number('dBW', dbm - 30, 'dBW'),
+    ToolResult.number('50Ω Vrms', vrms50, 'V'),
+    ToolResult.number('50Ω Vpeak', vpeak50, 'V'),
+    ToolResult.number('50Ω Vpp', vpeak50 * 2, 'V'),
+    ToolResult.number('50Ω dBV', dbv, 'dBV'),
+    ToolResult.number('50Ω dBu', dbu, 'dBu'),
   ];
 }
 
@@ -83,42 +83,50 @@ List<ToolResult> rcFilterResults(Map<String, double> valuesByKey) {
       targetCutoff == null ? null : 1 / (2 * math.pi * targetCutoff);
 
   return [
-    ToolResult('截止频率 fc', formatNumber(cutoff), 'Hz', primary: true),
-    ToolResult('截止频率', formatNumber(cutoff / 1000), 'kHz'),
-    ToolResult('时间常数 τ', formatNumber(tau * 1000), 'ms'),
-    ToolResult('等效周期', formatNumber(1 / cutoff * 1000), 'ms'),
-    ToolResult('0.1fc', formatNumber(cutoff / 10), 'Hz'),
-    ToolResult('10fc', formatNumber(cutoff * 10), 'Hz'),
-    ToolResult('100fc', formatNumber(cutoff * 100), 'Hz'),
-    ToolResult('fc范围', _formatRange(low, high), 'Hz'),
-    if (includeTarget) ToolResult('目标截止频率', formatNumber(targetCutoff), 'Hz'),
-    if (includeTarget)
-      ToolResult('频率偏差', formatNumber(cutoff - targetCutoff), 'Hz'),
+    ToolResult.number('截止频率 fc', cutoff, 'Hz', primary: true),
+    ToolResult.number('截止频率', cutoff / 1000, 'kHz'),
+    ToolResult.number('时间常数 τ', tau * 1000, 'ms'),
+    ToolResult.number('等效周期', 1 / cutoff * 1000, 'ms'),
+    ToolResult.number('0.1fc', cutoff / 10, 'Hz'),
+    ToolResult.number('10fc', cutoff * 10, 'Hz'),
+    ToolResult.number('100fc', cutoff * 100, 'Hz'),
+    _rangeResult('fc范围', low, high, 'Hz'),
+    if (includeTarget) ToolResult.number('目标截止频率', targetCutoff, 'Hz'),
+    if (includeTarget) ToolResult.number('频率偏差', cutoff - targetCutoff, 'Hz'),
     if (targetResistance != null)
-      ToolResult('保留C所需R', formatNumber(targetResistance / 1000), 'kΩ'),
+      ToolResult.number('保留C所需R', targetResistance / 1000, 'kΩ'),
     if (targetCapacitance != null)
-      ToolResult('保留R所需C', formatNumber(targetCapacitance * 1e9), 'nF'),
+      ToolResult.number('保留R所需C', targetCapacitance * 1e9, 'nF'),
     if (targetTau != null)
-      ToolResult('目标时间常数 τ', formatNumber(targetTau * 1000), 'ms'),
+      ToolResult.number('目标时间常数 τ', targetTau * 1000, 'ms'),
   ];
 }
 
 List<ToolResult> _invalidRcFilterResults({required bool includeTarget}) {
   return [
-    const ToolResult('截止频率 fc', '无效', 'Hz', primary: true),
-    const ToolResult('截止频率', '无效', 'kHz'),
-    const ToolResult('时间常数 τ', '无效', 'ms'),
-    const ToolResult('等效周期', '无效', 'ms'),
-    const ToolResult('0.1fc', '无效', 'Hz'),
-    const ToolResult('10fc', '无效', 'Hz'),
-    const ToolResult('100fc', '无效', 'Hz'),
-    const ToolResult('fc范围', '无效', 'Hz'),
-    if (includeTarget) const ToolResult('目标截止频率', '无效', 'Hz'),
-    if (includeTarget) const ToolResult('频率偏差', '无效', 'Hz'),
-    if (includeTarget) const ToolResult('保留C所需R', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('保留R所需C', '无效', 'nF'),
-    if (includeTarget) const ToolResult('目标时间常数 τ', '无效', 'ms'),
+    const ToolResult.invalid('截止频率 fc', 'Hz', primary: true),
+    const ToolResult.invalid('截止频率', 'kHz'),
+    const ToolResult.invalid('时间常数 τ', 'ms'),
+    const ToolResult.invalid('等效周期', 'ms'),
+    const ToolResult.invalid('0.1fc', 'Hz'),
+    const ToolResult.invalid('10fc', 'Hz'),
+    const ToolResult.invalid('100fc', 'Hz'),
+    const ToolResult.invalid('fc范围', 'Hz'),
+    if (includeTarget) const ToolResult.invalid('目标截止频率', 'Hz'),
+    if (includeTarget) const ToolResult.invalid('频率偏差', 'Hz'),
+    if (includeTarget) const ToolResult.invalid('保留C所需R', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('保留R所需C', 'nF'),
+    if (includeTarget) const ToolResult.invalid('目标时间常数 τ', 'ms'),
   ];
+}
+
+/// 中文：**一条「范围」结果。** 错误状态由两个端点本身决定，不由 [ _formatRange ] 那句话决定。
+/// English: **One "range" result.** The error state is decided by the two endpoints themselves, not
+///          by the sentence [_formatRange] builds.
+ToolResult _rangeResult(String label, double a, double b, String unit,
+    {bool primary = false}) {
+  return ToolResult(label, _formatRange(a, b), unit,
+      primary: primary, hasError: !a.isFinite || !b.isFinite);
 }
 
 String _formatRange(double a, double b) {
@@ -170,43 +178,37 @@ List<ToolResult> opAmpGainResults(Map<String, double> valuesByKey) {
       ? null
       : 2 * math.pi * fullPowerFrequency * outputSwing / 1000000;
   return [
-    ToolResult('同相增益', formatNumber(nonInvertingGain), '倍', primary: true),
-    ToolResult('反相增益', formatNumber(invertingGain), '倍'),
-    ToolResult('同相增益 dB',
-        formatNumber(20 * math.log(nonInvertingGain) / math.ln10), 'dB'),
-    ToolResult(
-        '反相增益 dB',
-        ratio == 0 ? '无效' : formatNumber(20 * math.log(ratio) / math.ln10),
-        'dB'),
-    ToolResult('同相输出', formatNumber(vin * nonInvertingGain), 'V'),
-    ToolResult('反相输出', formatNumber(vin * invertingGain), 'V'),
-    ToolResult('电阻比 Rf/Rin', formatNumber(ratio), ''),
-    ToolResult('反馈系数 β', formatNumber(feedbackFactor), ''),
-    ToolResult('反相输入阻抗', formatNumber(rin), 'kΩ'),
-    ToolResult('反馈总阻值', formatNumber(feedbackTotal), 'kΩ'),
-    if (includeTarget) ToolResult('目标同相增益', formatNumber(targetGain), '倍'),
+    ToolResult.number('同相增益', nonInvertingGain, '倍', primary: true),
+    ToolResult.number('反相增益', invertingGain, '倍'),
+    ToolResult.number(
+        '同相增益 dB', 20 * math.log(nonInvertingGain) / math.ln10, 'dB'),
+    ToolResult.number(
+        '反相增益 dB', ratio == 0 ? null : 20 * math.log(ratio) / math.ln10, 'dB'),
+    ToolResult.number('同相输出', vin * nonInvertingGain, 'V'),
+    ToolResult.number('反相输出', vin * invertingGain, 'V'),
+    ToolResult.number('电阻比 Rf/Rin', ratio, ''),
+    ToolResult.number('反馈系数 β', feedbackFactor, ''),
+    ToolResult.number('反相输入阻抗', rin, 'kΩ'),
+    ToolResult.number('反馈总阻值', feedbackTotal, 'kΩ'),
+    if (includeTarget) ToolResult.number('目标同相增益', targetGain, '倍'),
     if (includeTarget)
-      ToolResult(
-          '目标所需Rf',
-          targetRf != null && targetRf >= 0 ? formatNumber(targetRf) : '无效',
-          'kΩ'),
+      ToolResult.number(
+          '目标所需Rf', targetRf != null && targetRf >= 0 ? targetRf : null, 'kΩ'),
     if (includeTarget)
-      ToolResult(
-          '保留Rf所需Rin',
-          targetRin != null && targetRin > 0 ? formatNumber(targetRin) : '无效',
-          'kΩ'),
+      ToolResult.number('保留Rf所需Rin',
+          targetRin != null && targetRin > 0 ? targetRin : null, 'kΩ'),
     if (includeTarget)
-      ToolResult(
+      ToolResult.number(
           '反相目标所需Rf',
           targetInvertingRf != null && targetInvertingRf >= 0
-              ? formatNumber(targetInvertingRf)
-              : '无效',
+              ? targetInvertingRf
+              : null,
           'kΩ'),
     if (closedLoopBandwidth != null)
-      ToolResult('同相闭环带宽', formatNumber(closedLoopBandwidth), 'Hz'),
+      ToolResult.number('同相闭环带宽', closedLoopBandwidth, 'Hz'),
     if (invertingBandwidth != null)
-      ToolResult('反相闭环带宽', formatNumber(invertingBandwidth), 'Hz'),
-    if (slewRate != null) ToolResult('所需压摆率', formatNumber(slewRate), 'V/μs'),
+      ToolResult.number('反相闭环带宽', invertingBandwidth, 'Hz'),
+    if (slewRate != null) ToolResult.number('所需压摆率', slewRate, 'V/μs'),
   ];
 }
 
@@ -216,23 +218,23 @@ List<ToolResult> _invalidOpAmpGainResults({
   required bool includeSlewRate,
 }) {
   return [
-    const ToolResult('同相增益', '无效', '倍', primary: true),
-    const ToolResult('反相增益', '无效', '倍'),
-    const ToolResult('同相增益 dB', '无效', 'dB'),
-    const ToolResult('反相增益 dB', '无效', 'dB'),
-    const ToolResult('同相输出', '无效', 'V'),
-    const ToolResult('反相输出', '无效', 'V'),
-    const ToolResult('电阻比 Rf/Rin', '无效', ''),
-    const ToolResult('反馈系数 β', '无效', ''),
-    const ToolResult('反相输入阻抗', '无效', 'kΩ'),
-    const ToolResult('反馈总阻值', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('目标同相增益', '无效', '倍'),
-    if (includeTarget) const ToolResult('目标所需Rf', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('保留Rf所需Rin', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('反相目标所需Rf', '无效', 'kΩ'),
-    if (includeBandwidth) const ToolResult('同相闭环带宽', '无效', 'Hz'),
-    if (includeBandwidth) const ToolResult('反相闭环带宽', '无效', 'Hz'),
-    if (includeSlewRate) const ToolResult('所需压摆率', '无效', 'V/μs'),
+    const ToolResult.invalid('同相增益', '倍', primary: true),
+    const ToolResult.invalid('反相增益', '倍'),
+    const ToolResult.invalid('同相增益 dB', 'dB'),
+    const ToolResult.invalid('反相增益 dB', 'dB'),
+    const ToolResult.invalid('同相输出', 'V'),
+    const ToolResult.invalid('反相输出', 'V'),
+    const ToolResult.invalid('电阻比 Rf/Rin', ''),
+    const ToolResult.invalid('反馈系数 β', ''),
+    const ToolResult.invalid('反相输入阻抗', 'kΩ'),
+    const ToolResult.invalid('反馈总阻值', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('目标同相增益', '倍'),
+    if (includeTarget) const ToolResult.invalid('目标所需Rf', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('保留Rf所需Rin', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('反相目标所需Rf', 'kΩ'),
+    if (includeBandwidth) const ToolResult.invalid('同相闭环带宽', 'Hz'),
+    if (includeBandwidth) const ToolResult.invalid('反相闭环带宽', 'Hz'),
+    if (includeSlewRate) const ToolResult.invalid('所需压摆率', 'V/μs'),
   ];
 }
 
@@ -269,28 +271,25 @@ List<ToolResult> adcResolutionResults(Map<String, double> valuesByKey) {
   final enobCodes = enob == null ? null : math.pow(2, enob).toDouble();
   final enobLsb = enobCodes == null ? null : vref / (enobCodes - 1);
   return [
-    ToolResult('LSB', formatNumber(lsb * 1000), 'mV', primary: true),
-    ToolResult('LSB', formatNumber(lsb * 1000000), 'μV'),
-    ToolResult('量化误差', formatNumber(lsb * 500), 'mV'),
-    ToolResult('码数', formatNumber(codes), ''),
-    ToolResult('最大码值', formatNumber(maxCode), ''),
-    ToolResult('动态范围', formatNumber(dynamicRange), 'dB'),
-    ToolResult('满量程', formatNumber(vref), 'V'),
-    if (inputVoltage != null)
-      ToolResult('输入电压', formatNumber(inputVoltage), 'V'),
-    if (roundedCode != null) ToolResult('理想码值', formatNumber(roundedCode), ''),
+    ToolResult.number('LSB', lsb * 1000, 'mV', primary: true),
+    ToolResult.number('LSB', lsb * 1000000, 'μV'),
+    ToolResult.number('量化误差', lsb * 500, 'mV'),
+    ToolResult.number('码数', codes, ''),
+    ToolResult.number('最大码值', maxCode, ''),
+    ToolResult.number('动态范围', dynamicRange, 'dB'),
+    ToolResult.number('满量程', vref, 'V'),
+    if (inputVoltage != null) ToolResult.number('输入电压', inputVoltage, 'V'),
+    if (roundedCode != null) ToolResult.number('理想码值', roundedCode, ''),
     if (reconstructedVoltage != null)
-      ToolResult('码值对应电压', formatNumber(reconstructedVoltage), 'V'),
+      ToolResult.number('码值对应电压', reconstructedVoltage, 'V'),
     if (quantizationError != null)
-      ToolResult('输入量化误差', formatNumber(quantizationError * 1000), 'mV'),
+      ToolResult.number('输入量化误差', quantizationError * 1000, 'mV'),
     if (inputVoltage != null)
       ToolResult(
           '输入状态', inputVoltage < 0 || inputVoltage > vref ? '超量程' : '有效', ''),
-    if (enob != null) ToolResult('ENOB', formatNumber(enob), 'bit'),
-    if (enobLsb != null)
-      ToolResult('ENOB LSB', formatNumber(enobLsb * 1000), 'mV'),
-    if (enob != null)
-      ToolResult('ENOB动态范围', formatNumber(enob * 6.02 + 1.76), 'dB'),
+    if (enob != null) ToolResult.number('ENOB', enob, 'bit'),
+    if (enobLsb != null) ToolResult.number('ENOB LSB', enobLsb * 1000, 'mV'),
+    if (enob != null) ToolResult.number('ENOB动态范围', enob * 6.02 + 1.76, 'dB'),
   ];
 }
 
@@ -299,21 +298,21 @@ List<ToolResult> _invalidAdcResolutionResults({
   required bool includeEnob,
 }) {
   return [
-    const ToolResult('LSB', '无效', 'mV', primary: true),
-    const ToolResult('LSB', '无效', 'μV'),
-    const ToolResult('量化误差', '无效', 'mV'),
-    const ToolResult('码数', '无效', ''),
-    const ToolResult('最大码值', '无效', ''),
-    const ToolResult('动态范围', '无效', 'dB'),
-    const ToolResult('满量程', '无效', 'V'),
-    if (includeInput) const ToolResult('输入电压', '无效', 'V'),
-    if (includeInput) const ToolResult('理想码值', '无效', ''),
-    if (includeInput) const ToolResult('码值对应电压', '无效', 'V'),
-    if (includeInput) const ToolResult('输入量化误差', '无效', 'mV'),
-    if (includeInput) const ToolResult('输入状态', '无效', ''),
-    if (includeEnob) const ToolResult('ENOB', '无效', 'bit'),
-    if (includeEnob) const ToolResult('ENOB LSB', '无效', 'mV'),
-    if (includeEnob) const ToolResult('ENOB动态范围', '无效', 'dB'),
+    const ToolResult.invalid('LSB', 'mV', primary: true),
+    const ToolResult.invalid('LSB', 'μV'),
+    const ToolResult.invalid('量化误差', 'mV'),
+    const ToolResult.invalid('码数', ''),
+    const ToolResult.invalid('最大码值', ''),
+    const ToolResult.invalid('动态范围', 'dB'),
+    const ToolResult.invalid('满量程', 'V'),
+    if (includeInput) const ToolResult.invalid('输入电压', 'V'),
+    if (includeInput) const ToolResult.invalid('理想码值', ''),
+    if (includeInput) const ToolResult.invalid('码值对应电压', 'V'),
+    if (includeInput) const ToolResult.invalid('输入量化误差', 'mV'),
+    if (includeInput) const ToolResult.invalid('输入状态', ''),
+    if (includeEnob) const ToolResult.invalid('ENOB', 'bit'),
+    if (includeEnob) const ToolResult.invalid('ENOB LSB', 'mV'),
+    if (includeEnob) const ToolResult.invalid('ENOB动态范围', 'dB'),
   ];
 }
 
@@ -362,46 +361,56 @@ List<ToolResult> rmsPeakResults(Map<String, double> valuesByKey) {
   final averageRectified = 2 * vpeak / math.pi;
   final power50W = vrms * vrms / 50;
   final power50Mw = power50W * 1000;
-  final dbv = vrms > 0 ? formatNumber(20 * math.log(vrms) / math.ln10) : '无效';
-  final dbu =
-      vrms > 0 ? formatNumber(20 * math.log(vrms / 0.775) / math.ln10) : '无效';
-  final dbm50 =
-      power50Mw > 0 ? formatNumber(10 * math.log(power50Mw) / math.ln10) : '无效';
+  // 中文：**三个分贝值先算成数。** 条件不成立那一支产出方明确说算不出来（`null`）。
+  // English: **the three decibel figures are computed as numbers first.** The branch where the
+  //          condition fails is the producer saying plainly that it cannot be produced (`null`).
+  final dbv = vrms > 0 ? 20 * math.log(vrms) / math.ln10 : null;
+  final dbu = vrms > 0 ? 20 * math.log(vrms / 0.775) / math.ln10 : null;
+  final dbm50 = power50Mw > 0 ? 10 * math.log(power50Mw) / math.ln10 : null;
   return [
-    ToolResult('Vpeak', formatNumber(vpeak), 'V', primary: true),
-    ToolResult('Vpp', formatNumber(vpp), 'V'),
-    ToolResult('Vrms', formatNumber(vrms), 'V'),
-    ToolResult('Vp-p/2', formatNumber(vpeak), 'V'),
+    ToolResult.number('Vpeak', vpeak, 'V', primary: true),
+    ToolResult.number('Vpp', vpp, 'V'),
+    ToolResult.number('Vrms', vrms, 'V'),
+    ToolResult.number('Vp-p/2', vpeak, 'V'),
     const ToolResult('峰值系数', '1.414214', ''),
-    ToolResult('平均整流值', formatNumber(averageRectified), 'V'),
-    ToolResult('50Ω 功率', formatNumber(power50Mw), 'mW'),
-    ToolResult('50Ω dBm', dbm50, 'dBm'),
-    ToolResult('dBV', dbv, 'dBV'),
-    ToolResult('dBu', dbu, 'dBu'),
+    ToolResult.number('平均整流值', averageRectified, 'V'),
+    ToolResult.number('50Ω 功率', power50Mw, 'mW'),
+    ToolResult.number('50Ω dBm', dbm50, 'dBm'),
+    ToolResult.number('dBV', dbv, 'dBV'),
+    ToolResult.number('dBu', dbu, 'dBu'),
     ToolResult('输入来源', source, ''),
     if (vpeakInput != null)
-      ToolResult('Vpeak差值', formatNumber(vpeak - vpeakInput), 'V'),
-    if (vppInput != null)
-      ToolResult('Vpp差值', formatNumber(vpp - vppInput), 'V'),
-    if (dbmInput != null && dbm50 != '无效')
-      ToolResult(
-          '50Ω dBm差值', formatNumber(double.parse(dbm50) - dbmInput), 'dB'),
+      ToolResult.number('Vpeak差值', vpeak - vpeakInput, 'V'),
+    if (vppInput != null) ToolResult.number('Vpp差值', vpp - vppInput, 'V'),
+    // 中文：**这里从前比的是那句话。** `dbm50 != '无效'` 外加 `double.parse(dbm50)`——
+    //       判据与取值都从用户看得见的那句话里回读。现在看的是数本身。
+    // English: **this used to compare the sentence.** `dbm50 != '无效'` plus `double.parse(dbm50)` —
+    //          both the condition and the value were read back out of what the user sees. It now
+    //          looks at the number itself.
+    // 中文：**保留那次格式化往返**——旧代码是 `double.parse(dbm50)`，而 `dbm50` 当初是
+    //       `formatNumber(...)` 出来的六位有效数字。直接相减会差一个舍入，屏幕上的数会变。
+    // English: **the formatting round-trip is kept** — the old code was `double.parse(dbm50)`, and
+    //          `dbm50` was the six-significant-digit output of `formatNumber(...)`. Subtracting
+    //          directly would differ by one rounding step and the figure on screen would move.
+    if (dbmInput != null && dbm50 != null && dbm50.isFinite)
+      ToolResult.number(
+          '50Ω dBm差值', double.parse(formatNumber(dbm50)) - dbmInput, 'dB'),
   ];
 }
 
 List<ToolResult> _invalidRmsPeakResults() {
   return const [
-    ToolResult('Vpeak', '无效', 'V', primary: true),
-    ToolResult('Vpp', '无效', 'V'),
-    ToolResult('Vrms', '无效', 'V'),
-    ToolResult('Vp-p/2', '无效', 'V'),
-    ToolResult('峰值系数', '无效', ''),
-    ToolResult('平均整流值', '无效', 'V'),
-    ToolResult('50Ω 功率', '无效', 'mW'),
-    ToolResult('50Ω dBm', '无效', 'dBm'),
-    ToolResult('dBV', '无效', 'dBV'),
-    ToolResult('dBu', '无效', 'dBu'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('Vpeak', 'V', primary: true),
+    ToolResult.invalid('Vpp', 'V'),
+    ToolResult.invalid('Vrms', 'V'),
+    ToolResult.invalid('Vp-p/2', 'V'),
+    ToolResult.invalid('峰值系数', ''),
+    ToolResult.invalid('平均整流值', 'V'),
+    ToolResult.invalid('50Ω 功率', 'mW'),
+    ToolResult.invalid('50Ω dBm', 'dBm'),
+    ToolResult.invalid('dBV', 'dBV'),
+    ToolResult.invalid('dBu', 'dBu'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -427,38 +436,40 @@ List<ToolResult> lcResonanceResults(Map<String, double> valuesByKey) {
   final lowerHalfPower = bandwidth.isFinite ? f - bandwidth / 2 : double.nan;
   final upperHalfPower = bandwidth.isFinite ? f + bandwidth / 2 : double.nan;
   return [
-    ToolResult('谐振频率', formatNumber(f), 'Hz', primary: true),
-    ToolResult('谐振频率', formatNumber(f / 1000), 'kHz'),
-    ToolResult('谐振频率', formatNumber(f / 1000000), 'MHz'),
-    ToolResult('角频率 ω0', formatNumber(omega), 'rad/s'),
-    ToolResult('周期', formatNumber(1 / f * 1000000), 'μs'),
-    ToolResult('谐振感抗 XL', formatNumber(reactance), 'Ω'),
-    ToolResult('谐振容抗 XC', formatNumber(reactance), 'Ω'),
-    ToolResult('ESR', formatNumber(esr), 'Ω'),
+    ToolResult.number('谐振频率', f, 'Hz', primary: true),
+    ToolResult.number('谐振频率', f / 1000, 'kHz'),
+    ToolResult.number('谐振频率', f / 1000000, 'MHz'),
+    ToolResult.number('角频率 ω0', omega, 'rad/s'),
+    ToolResult.number('周期', 1 / f * 1000000, 'μs'),
+    ToolResult.number('谐振感抗 XL', reactance, 'Ω'),
+    ToolResult.number('谐振容抗 XC', reactance, 'Ω'),
+    ToolResult.number('ESR', esr, 'Ω'),
+    // 中文：`无穷大` 今天不算错误（旧判据的词表里没有它），旗标照旧为假。
+    // English: `无穷大` is not an error today (it is not in the old predicate's word list) and the
+    //          flag stays false.
     ToolResult('Q值(串联)', q.isInfinite ? '无穷大' : formatNumber(q), ''),
-    ToolResult(
-        '3dB带宽', bandwidth.isInfinite ? '无效' : formatNumber(bandwidth), 'Hz'),
-    ToolResult('下半功率点',
-        lowerHalfPower.isFinite ? formatNumber(lowerHalfPower) : '无效', 'Hz'),
-    ToolResult('上半功率点',
-        upperHalfPower.isFinite ? formatNumber(upperHalfPower) : '无效', 'Hz'),
+    ToolResult.number('3dB带宽', bandwidth.isInfinite ? null : bandwidth, 'Hz'),
+    ToolResult.number(
+        '下半功率点', lowerHalfPower.isFinite ? lowerHalfPower : null, 'Hz'),
+    ToolResult.number(
+        '上半功率点', upperHalfPower.isFinite ? upperHalfPower : null, 'Hz'),
   ];
 }
 
 List<ToolResult> _invalidLcResonanceResults() {
   return const [
-    ToolResult('谐振频率', '无效', 'Hz', primary: true),
-    ToolResult('谐振频率', '无效', 'kHz'),
-    ToolResult('谐振频率', '无效', 'MHz'),
-    ToolResult('角频率 ω0', '无效', 'rad/s'),
-    ToolResult('周期', '无效', 'μs'),
-    ToolResult('谐振感抗 XL', '无效', 'Ω'),
-    ToolResult('谐振容抗 XC', '无效', 'Ω'),
-    ToolResult('ESR', '无效', 'Ω'),
-    ToolResult('Q值(串联)', '无效', ''),
-    ToolResult('3dB带宽', '无效', 'Hz'),
-    ToolResult('下半功率点', '无效', 'Hz'),
-    ToolResult('上半功率点', '无效', 'Hz'),
+    ToolResult.invalid('谐振频率', 'Hz', primary: true),
+    ToolResult.invalid('谐振频率', 'kHz'),
+    ToolResult.invalid('谐振频率', 'MHz'),
+    ToolResult.invalid('角频率 ω0', 'rad/s'),
+    ToolResult.invalid('周期', 'μs'),
+    ToolResult.invalid('谐振感抗 XL', 'Ω'),
+    ToolResult.invalid('谐振容抗 XC', 'Ω'),
+    ToolResult.invalid('ESR', 'Ω'),
+    ToolResult.invalid('Q值(串联)', ''),
+    ToolResult.invalid('3dB带宽', 'Hz'),
+    ToolResult.invalid('下半功率点', 'Hz'),
+    ToolResult.invalid('上半功率点', 'Hz'),
   ];
 }
 
@@ -506,71 +517,63 @@ List<ToolResult> timer555Results(Map<String, double> valuesByKey) {
       targetScale == null ? null : targetScale * (2 * targetDutyRatio - 1);
 
   return [
-    ToolResult('频率', formatNumber(frequency), 'Hz', primary: true),
-    ToolResult('频率', formatNumber(frequency / 1000), 'kHz'),
-    ToolResult('周期', formatNumber(period * 1000), 'ms'),
-    ToolResult('高电平时间', formatNumber(high * 1000), 'ms'),
-    ToolResult('低电平时间', formatNumber(low * 1000), 'ms'),
-    ToolResult('占空比', formatNumber(duty), '%'),
+    ToolResult.number('频率', frequency, 'Hz', primary: true),
+    ToolResult.number('频率', frequency / 1000, 'kHz'),
+    ToolResult.number('周期', period * 1000, 'ms'),
+    ToolResult.number('高电平时间', high * 1000, 'ms'),
+    ToolResult.number('低电平时间', low * 1000, 'ms'),
+    ToolResult.number('占空比', duty, '%'),
     if (includeTarget)
-      ToolResult('目标频率',
-          targetIsValid ? formatNumber(targetFrequencyValue) : '无效', 'Hz'),
+      ToolResult.number(
+          '目标频率', targetIsValid ? targetFrequencyValue : null, 'Hz'),
     if (includeTarget)
-      ToolResult(
-          '目标周期',
-          targetPeriod == null ? '无效' : formatNumber(targetPeriod * 1000),
-          'ms'),
+      ToolResult.number(
+          '目标周期', targetPeriod == null ? null : targetPeriod * 1000, 'ms'),
     if (includeTarget)
-      ToolResult(
-          '目标占空比', targetIsValid ? formatNumber(targetDutyValue) : '无效', '%'),
+      ToolResult.number('目标占空比', targetIsValid ? targetDutyValue : null, '%'),
     if (targetFrequency != null)
-      ToolResult(
-          '频率偏差',
-          targetIsValid ? formatNumber(frequency - targetFrequency) : '无效',
-          'Hz'),
+      ToolResult.number(
+          '频率偏差', targetIsValid ? frequency - targetFrequency : null, 'Hz'),
     if (targetDuty != null)
-      ToolResult(
-          '占空比偏差', targetIsValid ? formatNumber(duty - targetDuty) : '无效', '%'),
+      ToolResult.number('占空比偏差', targetIsValid ? duty - targetDuty : null, '%'),
     if (includeTarget)
-      ToolResult('目标RA',
-          targetRa == null ? '无效' : formatNumber(targetRa / 1000), 'kΩ'),
+      ToolResult.number(
+          '目标RA', targetRa == null ? null : targetRa / 1000, 'kΩ'),
     if (includeTarget)
-      ToolResult('目标RB',
-          targetRb == null ? '无效' : formatNumber(targetRb / 1000), 'kΩ'),
+      ToolResult.number(
+          '目标RB', targetRb == null ? null : targetRb / 1000, 'kΩ'),
     if (includeTarget)
-      ToolResult(
+      ToolResult.number(
           '目标高电平时间',
-          targetPeriod == null
-              ? '无效'
-              : formatNumber(targetPeriod * targetDutyRatio * 1000),
+          targetPeriod == null ? null : targetPeriod * targetDutyRatio * 1000,
           'ms'),
     if (includeTarget)
-      ToolResult(
+      ToolResult.number(
           '目标低电平时间',
           targetPeriod == null
-              ? '无效'
-              : formatNumber(targetPeriod * (1 - targetDutyRatio) * 1000),
+              ? null
+              : targetPeriod * (1 - targetDutyRatio) * 1000,
           'ms'),
   ];
 }
 
 List<ToolResult> _invalidTimer555Results({required bool includeTarget}) {
   return [
-    const ToolResult('频率', '无效', 'Hz', primary: true),
-    const ToolResult('频率', '无效', 'kHz'),
-    const ToolResult('周期', '无效', 'ms'),
-    const ToolResult('高电平时间', '无效', 'ms'),
-    const ToolResult('低电平时间', '无效', 'ms'),
-    const ToolResult('占空比', '无效', '%'),
-    if (includeTarget) const ToolResult('目标频率', '无效', 'Hz'),
-    if (includeTarget) const ToolResult('目标周期', '无效', 'ms'),
-    if (includeTarget) const ToolResult('目标占空比', '无效', '%'),
-    if (includeTarget) const ToolResult('频率偏差', '无效', 'Hz'),
-    if (includeTarget) const ToolResult('占空比偏差', '无效', '%'),
-    if (includeTarget) const ToolResult('目标RA', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('目标RB', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('目标高电平时间', '无效', 'ms'),
-    if (includeTarget) const ToolResult('目标低电平时间', '无效', 'ms'),
+    const ToolResult.invalid('频率', 'Hz', primary: true),
+    const ToolResult.invalid('频率', 'kHz'),
+    const ToolResult.invalid('周期', 'ms'),
+    const ToolResult.invalid('高电平时间', 'ms'),
+    const ToolResult.invalid('低电平时间', 'ms'),
+    const ToolResult.invalid('占空比', '%'),
+    if (includeTarget) const ToolResult.invalid('目标频率', 'Hz'),
+    if (includeTarget) const ToolResult.invalid('目标周期', 'ms'),
+    if (includeTarget) const ToolResult.invalid('目标占空比', '%'),
+    if (includeTarget) const ToolResult.invalid('频率偏差', 'Hz'),
+    if (includeTarget) const ToolResult.invalid('占空比偏差', '%'),
+    if (includeTarget) const ToolResult.invalid('目标RA', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('目标RB', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('目标高电平时间', 'ms'),
+    if (includeTarget) const ToolResult.invalid('目标低电平时间', 'ms'),
   ];
 }
 
@@ -637,32 +640,32 @@ List<ToolResult> capacitorChargeResults(Map<String, double> valuesByKey) {
         );
 
   return [
-    ToolResult('电容电压', formatNumber(voltage), 'V', primary: true),
-    ToolResult('充电比例', formatNumber(chargeRatio), '%'),
-    ToolResult('放电电压', formatNumber(dischargeVoltage), 'V'),
-    ToolResult('理想充电电压', formatNumber(idealChargeVoltage), 'V'),
-    ToolResult('剩余压差', formatNumber(remainingDelta), 'V'),
-    ToolResult('初始电压', formatNumber(initialVoltage), 'V'),
-    ToolResult('时间常数 τ', formatNumber(tau), 's'),
-    ToolResult('半充时间', formatNumber(tau * math.ln2), 's'),
-    ToolResult('90% 时间', formatNumber(tau * math.ln10), 's'),
-    ToolResult('约 99% 时间', formatNumber(tau * 5), 's'),
-    ToolResult('初始电流', formatNumber(initialCurrent * 1000), 'mA'),
-    ToolResult('当前电流', formatNumber(current * 1000), 'mA'),
-    ToolResult('电荷', formatNumber(charge * 1000), 'mC'),
-    ToolResult('储能', formatNumber(energy * 1000), 'mJ'),
-    if (targetVoltage != null)
-      ToolResult('目标电压', formatNumber(targetVoltage), 'V'),
+    ToolResult.number('电容电压', voltage, 'V', primary: true),
+    ToolResult.number('充电比例', chargeRatio, '%'),
+    ToolResult.number('放电电压', dischargeVoltage, 'V'),
+    ToolResult.number('理想充电电压', idealChargeVoltage, 'V'),
+    ToolResult.number('剩余压差', remainingDelta, 'V'),
+    ToolResult.number('初始电压', initialVoltage, 'V'),
+    ToolResult.number('时间常数 τ', tau, 's'),
+    ToolResult.number('半充时间', tau * math.ln2, 's'),
+    ToolResult.number('90% 时间', tau * math.ln10, 's'),
+    ToolResult.number('约 99% 时间', tau * 5, 's'),
+    ToolResult.number('初始电流', initialCurrent * 1000, 'mA'),
+    ToolResult.number('当前电流', current * 1000, 'mA'),
+    ToolResult.number('电荷', charge * 1000, 'mC'),
+    ToolResult.number('储能', energy * 1000, 'mJ'),
+    if (targetVoltage != null) ToolResult.number('目标电压', targetVoltage, 'V'),
     if (targetVoltageTime != null)
-      ToolResult('目标电压时间', _formatOptionalTime(targetVoltageTime), 's'),
+      ToolResult('目标电压时间', _formatOptionalTime(targetVoltageTime), 's',
+          hasError: !targetVoltageTime.isFinite),
     if (targetVoltage != null)
-      ToolResult('目标电压差', formatNumber(voltage - targetVoltage), 'V'),
-    if (targetRatio != null)
-      ToolResult('目标充电比例', formatNumber(targetRatio), '%'),
+      ToolResult.number('目标电压差', voltage - targetVoltage, 'V'),
+    if (targetRatio != null) ToolResult.number('目标充电比例', targetRatio, '%'),
     if (targetRatioVoltage != null)
-      ToolResult('目标比例电压', formatNumber(targetRatioVoltage), 'V'),
+      ToolResult.number('目标比例电压', targetRatioVoltage, 'V'),
     if (targetRatioTime != null)
-      ToolResult('目标比例时间', _formatOptionalTime(targetRatioTime), 's'),
+      ToolResult('目标比例时间', _formatOptionalTime(targetRatioTime), 's',
+          hasError: !targetRatioTime.isFinite),
   ];
 }
 
@@ -698,25 +701,25 @@ List<ToolResult> _invalidCapacitorChargeResults({
   required bool includeTargetRatio,
 }) {
   return [
-    const ToolResult('电容电压', '无效', 'V', primary: true),
-    const ToolResult('充电比例', '无效', '%'),
-    const ToolResult('放电电压', '无效', 'V'),
-    const ToolResult('理想充电电压', '无效', 'V'),
-    const ToolResult('剩余压差', '无效', 'V'),
-    const ToolResult('初始电压', '无效', 'V'),
-    const ToolResult('时间常数 τ', '无效', 's'),
-    const ToolResult('半充时间', '无效', 's'),
-    const ToolResult('90% 时间', '无效', 's'),
-    const ToolResult('约 99% 时间', '无效', 's'),
-    const ToolResult('初始电流', '无效', 'mA'),
-    const ToolResult('当前电流', '无效', 'mA'),
-    const ToolResult('电荷', '无效', 'mC'),
-    const ToolResult('储能', '无效', 'mJ'),
-    if (includeTargetVoltage) const ToolResult('目标电压', '无效', 'V'),
-    if (includeTargetVoltage) const ToolResult('目标电压时间', '无效', 's'),
-    if (includeTargetVoltage) const ToolResult('目标电压差', '无效', 'V'),
-    if (includeTargetRatio) const ToolResult('目标充电比例', '无效', '%'),
-    if (includeTargetRatio) const ToolResult('目标比例电压', '无效', 'V'),
-    if (includeTargetRatio) const ToolResult('目标比例时间', '无效', 's'),
+    const ToolResult.invalid('电容电压', 'V', primary: true),
+    const ToolResult.invalid('充电比例', '%'),
+    const ToolResult.invalid('放电电压', 'V'),
+    const ToolResult.invalid('理想充电电压', 'V'),
+    const ToolResult.invalid('剩余压差', 'V'),
+    const ToolResult.invalid('初始电压', 'V'),
+    const ToolResult.invalid('时间常数 τ', 's'),
+    const ToolResult.invalid('半充时间', 's'),
+    const ToolResult.invalid('90% 时间', 's'),
+    const ToolResult.invalid('约 99% 时间', 's'),
+    const ToolResult.invalid('初始电流', 'mA'),
+    const ToolResult.invalid('当前电流', 'mA'),
+    const ToolResult.invalid('电荷', 'mC'),
+    const ToolResult.invalid('储能', 'mJ'),
+    if (includeTargetVoltage) const ToolResult.invalid('目标电压', 'V'),
+    if (includeTargetVoltage) const ToolResult.invalid('目标电压时间', 's'),
+    if (includeTargetVoltage) const ToolResult.invalid('目标电压差', 'V'),
+    if (includeTargetRatio) const ToolResult.invalid('目标充电比例', '%'),
+    if (includeTargetRatio) const ToolResult.invalid('目标比例电压', 'V'),
+    if (includeTargetRatio) const ToolResult.invalid('目标比例时间', 's'),
   ];
 }

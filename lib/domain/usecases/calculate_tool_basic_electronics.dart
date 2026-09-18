@@ -22,35 +22,32 @@ List<ToolResult> ohmsLawResults(Map<String, double> valuesByKey) {
   final minPower = solved.current * solved.current * minResistance;
   final maxPower = solved.current * solved.current * maxResistance;
   return [
-    ToolResult('电压 V', formatNumber(solved.voltage), 'V', primary: true),
-    ToolResult('电压幅值', formatNumber(solved.voltage.abs()), 'V'),
-    ToolResult('功率 P', formatNumber(solved.power), 'W'),
-    ToolResult('电流', formatNumber(solved.current * 1000), 'mA'),
-    ToolResult('电阻', formatNumber(solved.resistance / 1000), 'kΩ'),
-    ToolResult('电导', formatNumber(1000 / solved.resistance), 'mS'),
-    ToolResult('推荐功率', _resistorPowerRating(solved.power), ''),
-    ToolResult(
-        '电压范围',
-        _formatRange(
-            solved.current * minResistance, solved.current * maxResistance),
-        'V'),
-    ToolResult('功率范围', _formatRange(minPower, maxPower), 'W'),
+    ToolResult.number('电压 V', solved.voltage, 'V', primary: true),
+    ToolResult.number('电压幅值', solved.voltage.abs(), 'V'),
+    ToolResult.number('功率 P', solved.power, 'W'),
+    ToolResult.number('电流', solved.current * 1000, 'mA'),
+    ToolResult.number('电阻', solved.resistance / 1000, 'kΩ'),
+    ToolResult.number('电导', 1000 / solved.resistance, 'mS'),
+    _powerRatingResult('推荐功率', solved.power, ''),
+    _rangeResult('电压范围', solved.current * minResistance,
+        solved.current * maxResistance, 'V'),
+    _rangeResult('功率范围', minPower, maxPower, 'W'),
     ToolResult('输入来源', solved.source, ''),
   ];
 }
 
 List<ToolResult> _invalidOhmsLawResults() {
   return const [
-    ToolResult('电压 V', '无效', 'V', primary: true),
-    ToolResult('电压幅值', '无效', 'V'),
-    ToolResult('功率 P', '无效', 'W'),
-    ToolResult('电流', '无效', 'mA'),
-    ToolResult('电阻', '无效', 'kΩ'),
-    ToolResult('电导', '无效', 'mS'),
-    ToolResult('推荐功率', '无效', ''),
-    ToolResult('电压范围', '无效', 'V'),
-    ToolResult('功率范围', '无效', 'W'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('电压 V', 'V', primary: true),
+    ToolResult.invalid('电压幅值', 'V'),
+    ToolResult.invalid('功率 P', 'W'),
+    ToolResult.invalid('电流', 'mA'),
+    ToolResult.invalid('电阻', 'kΩ'),
+    ToolResult.invalid('电导', 'mS'),
+    ToolResult.invalid('推荐功率', ''),
+    ToolResult.invalid('电压范围', 'V'),
+    ToolResult.invalid('功率范围', 'W'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -234,30 +231,25 @@ List<ToolResult> ledResistorResults(Map<String, double> valuesByKey) {
       : availableVoltage * availableVoltage / selectedResistance;
 
   return [
-    ToolResult('限流电阻', formatNumber(resistance), 'Ω', primary: true),
-    ToolResult('可用压差', formatNumber(availableVoltage), 'V'),
-    ToolResult('最小压差', formatNumber(minAvailableVoltage), 'V'),
-    ToolResult('功耗', formatNumber(power * 1000), 'mW'),
-    ToolResult('推荐功率', _resistorPowerRating(power), ''),
-    ToolResult(
-        '电阻范围',
-        minAvailableVoltage <= 0
-            ? '无效'
-            : _formatRange(minResistance, maxResistance),
-        'Ω'),
-    if (includeSelected)
-      ToolResult('选用电阻', formatNumber(selectedResistance), 'Ω'),
+    ToolResult.number('限流电阻', resistance, 'Ω', primary: true),
+    ToolResult.number('可用压差', availableVoltage, 'V'),
+    ToolResult.number('最小压差', minAvailableVoltage, 'V'),
+    ToolResult.number('功耗', power * 1000, 'mW'),
+    _powerRatingResult('推荐功率', power, ''),
+    if (minAvailableVoltage <= 0)
+      const ToolResult.invalid('电阻范围', 'Ω')
+    else
+      _rangeResult('电阻范围', minResistance, maxResistance, 'Ω'),
+    if (includeSelected) ToolResult.number('选用电阻', selectedResistance, 'Ω'),
     if (selectedCurrent != null)
-      ToolResult('实际电流', formatNumber(selectedCurrent), 'mA'),
+      ToolResult.number('实际电流', selectedCurrent, 'mA'),
     if (selectedPower != null)
-      ToolResult('实际功耗', formatNumber(selectedPower * 1000), 'mW'),
-    if (selectedPower != null)
-      ToolResult('实际推荐功率', _resistorPowerRating(selectedPower), ''),
+      ToolResult.number('实际功耗', selectedPower * 1000, 'mW'),
+    if (selectedPower != null) _powerRatingResult('实际推荐功率', selectedPower, ''),
     if (selectedCurrent != null)
-      ToolResult('电流偏差', formatNumber(selectedCurrent - currentMa), 'mA'),
+      ToolResult.number('电流偏差', selectedCurrent - currentMa, 'mA'),
     if (selectedMinCurrent != null && selectedMaxCurrent != null)
-      ToolResult(
-          '实际电流范围', _formatRange(selectedMinCurrent, selectedMaxCurrent), 'mA'),
+      _rangeResult('实际电流范围', selectedMinCurrent, selectedMaxCurrent, 'mA'),
   ];
 }
 
@@ -267,18 +259,18 @@ List<ToolResult> _invalidLedResistorResults({
   required bool includeSelected,
 }) {
   return [
-    const ToolResult('限流电阻', '无效', 'Ω', primary: true),
-    ToolResult('可用压差', formatNumber(availableVoltage), 'V'),
-    ToolResult('最小压差', formatNumber(minAvailableVoltage), 'V'),
-    const ToolResult('功耗', '无效', 'mW'),
-    const ToolResult('推荐功率', '无效', ''),
-    const ToolResult('电阻范围', '无效', 'Ω'),
-    if (includeSelected) const ToolResult('选用电阻', '无效', 'Ω'),
-    if (includeSelected) const ToolResult('实际电流', '无效', 'mA'),
-    if (includeSelected) const ToolResult('实际功耗', '无效', 'mW'),
-    if (includeSelected) const ToolResult('实际推荐功率', '无效', ''),
-    if (includeSelected) const ToolResult('电流偏差', '无效', 'mA'),
-    if (includeSelected) const ToolResult('实际电流范围', '无效', 'mA'),
+    const ToolResult.invalid('限流电阻', 'Ω', primary: true),
+    ToolResult.number('可用压差', availableVoltage, 'V'),
+    ToolResult.number('最小压差', minAvailableVoltage, 'V'),
+    const ToolResult.invalid('功耗', 'mW'),
+    const ToolResult.invalid('推荐功率', ''),
+    const ToolResult.invalid('电阻范围', 'Ω'),
+    if (includeSelected) const ToolResult.invalid('选用电阻', 'Ω'),
+    if (includeSelected) const ToolResult.invalid('实际电流', 'mA'),
+    if (includeSelected) const ToolResult.invalid('实际功耗', 'mW'),
+    if (includeSelected) const ToolResult.invalid('实际推荐功率', ''),
+    if (includeSelected) const ToolResult.invalid('电流偏差', 'mA'),
+    if (includeSelected) const ToolResult.invalid('实际电流范围', 'mA'),
   ];
 }
 
@@ -304,32 +296,24 @@ List<ToolResult> resistorNetworkResults(Map<String, double> valuesByKey) {
   final targetParallelR2 =
       targetParallel == null ? null : _requiredParallelMate(r1, targetParallel);
   return [
-    ToolResult('串联等效', formatNumber(series), 'Ω', primary: true),
-    ToolResult('并联等效', formatNumber(parallel), 'Ω'),
-    ToolResult('总电导', formatNumber(conductance), 'mS'),
-    ToolResult('元件比值', _componentRatio(r1, r2), ''),
-    ToolResult('串联范围',
-        _formatRange(series * (1 - tolerance), series * (1 + tolerance)), 'Ω'),
-    ToolResult(
-        '并联范围',
-        _formatRange(parallel * (1 - tolerance), parallel * (1 + tolerance)),
-        'Ω'),
+    ToolResult.number('串联等效', series, 'Ω', primary: true),
+    ToolResult.number('并联等效', parallel, 'Ω'),
+    ToolResult.number('总电导', conductance, 'mS'),
+    ToolResult.number('元件比值', _componentRatio(r1, r2), ''),
+    _rangeResult(
+        '串联范围', series * (1 - tolerance), series * (1 + tolerance), 'Ω'),
+    _rangeResult(
+        '并联范围', parallel * (1 - tolerance), parallel * (1 + tolerance), 'Ω'),
+    if (targetSeries != null) ToolResult.number('目标串联等效', targetSeries, 'Ω'),
     if (targetSeries != null)
-      ToolResult('目标串联等效', formatNumber(targetSeries), 'Ω'),
-    if (targetSeries != null)
-      ToolResult(
+      ToolResult.number(
           '串联目标所需R2',
-          targetSeriesR2 != null && targetSeriesR2 > 0
-              ? formatNumber(targetSeriesR2)
-              : '无效',
+          targetSeriesR2 != null && targetSeriesR2 > 0 ? targetSeriesR2 : null,
           'Ω'),
     if (targetParallel != null)
-      ToolResult('目标并联等效', formatNumber(targetParallel), 'Ω'),
+      ToolResult.number('目标并联等效', targetParallel, 'Ω'),
     if (targetParallel != null)
-      ToolResult(
-          '并联目标所需R2',
-          targetParallelR2 == null ? '无效' : formatNumber(targetParallelR2),
-          'Ω'),
+      ToolResult.number('并联目标所需R2', targetParallelR2, 'Ω'),
   ];
 }
 
@@ -338,16 +322,16 @@ List<ToolResult> _invalidResistorNetworkResults({
   required bool includeTargetParallel,
 }) {
   return [
-    const ToolResult('串联等效', '无效', 'Ω', primary: true),
-    const ToolResult('并联等效', '无效', 'Ω'),
-    const ToolResult('总电导', '无效', 'mS'),
-    const ToolResult('元件比值', '无效', ''),
-    const ToolResult('串联范围', '无效', 'Ω'),
-    const ToolResult('并联范围', '无效', 'Ω'),
-    if (includeTargetSeries) const ToolResult('目标串联等效', '无效', 'Ω'),
-    if (includeTargetSeries) const ToolResult('串联目标所需R2', '无效', 'Ω'),
-    if (includeTargetParallel) const ToolResult('目标并联等效', '无效', 'Ω'),
-    if (includeTargetParallel) const ToolResult('并联目标所需R2', '无效', 'Ω'),
+    const ToolResult.invalid('串联等效', 'Ω', primary: true),
+    const ToolResult.invalid('并联等效', 'Ω'),
+    const ToolResult.invalid('总电导', 'mS'),
+    const ToolResult.invalid('元件比值', ''),
+    const ToolResult.invalid('串联范围', 'Ω'),
+    const ToolResult.invalid('并联范围', 'Ω'),
+    if (includeTargetSeries) const ToolResult.invalid('目标串联等效', 'Ω'),
+    if (includeTargetSeries) const ToolResult.invalid('串联目标所需R2', 'Ω'),
+    if (includeTargetParallel) const ToolResult.invalid('目标并联等效', 'Ω'),
+    if (includeTargetParallel) const ToolResult.invalid('并联目标所需R2', 'Ω'),
   ];
 }
 
@@ -372,29 +356,25 @@ List<ToolResult> capacitorNetworkResults(Map<String, double> valuesByKey) {
   final targetSeriesC2 =
       targetSeries == null ? null : _requiredParallelMate(c1, targetSeries);
   return [
-    ToolResult('并联等效', formatNumber(parallel), 'nF', primary: true),
-    ToolResult('串联等效', formatNumber(series), 'nF'),
-    ToolResult('元件比值', _componentRatio(c1, c2), ''),
-    ToolResult(
-        '并联范围',
-        _formatRange(parallel * (1 - tolerance), parallel * (1 + tolerance)),
-        'nF'),
-    ToolResult('串联范围',
-        _formatRange(series * (1 - tolerance), series * (1 + tolerance)), 'nF'),
+    ToolResult.number('并联等效', parallel, 'nF', primary: true),
+    ToolResult.number('串联等效', series, 'nF'),
+    ToolResult.number('元件比值', _componentRatio(c1, c2), ''),
+    _rangeResult(
+        '并联范围', parallel * (1 - tolerance), parallel * (1 + tolerance), 'nF'),
+    _rangeResult(
+        '串联范围', series * (1 - tolerance), series * (1 + tolerance), 'nF'),
     if (targetParallel != null)
-      ToolResult('目标并联等效', formatNumber(targetParallel), 'nF'),
+      ToolResult.number('目标并联等效', targetParallel, 'nF'),
     if (targetParallel != null)
-      ToolResult(
+      ToolResult.number(
           '并联目标所需C2',
           targetParallelC2 != null && targetParallelC2 > 0
-              ? formatNumber(targetParallelC2)
-              : '无效',
+              ? targetParallelC2
+              : null,
           'nF'),
+    if (targetSeries != null) ToolResult.number('目标串联等效', targetSeries, 'nF'),
     if (targetSeries != null)
-      ToolResult('目标串联等效', formatNumber(targetSeries), 'nF'),
-    if (targetSeries != null)
-      ToolResult('串联目标所需C2',
-          targetSeriesC2 == null ? '无效' : formatNumber(targetSeriesC2), 'nF'),
+      ToolResult.number('串联目标所需C2', targetSeriesC2, 'nF'),
   ];
 }
 
@@ -403,15 +383,15 @@ List<ToolResult> _invalidCapacitorNetworkResults({
   required bool includeTargetSeries,
 }) {
   return [
-    const ToolResult('并联等效', '无效', 'nF', primary: true),
-    const ToolResult('串联等效', '无效', 'nF'),
-    const ToolResult('元件比值', '无效', ''),
-    const ToolResult('并联范围', '无效', 'nF'),
-    const ToolResult('串联范围', '无效', 'nF'),
-    if (includeTargetParallel) const ToolResult('目标并联等效', '无效', 'nF'),
-    if (includeTargetParallel) const ToolResult('并联目标所需C2', '无效', 'nF'),
-    if (includeTargetSeries) const ToolResult('目标串联等效', '无效', 'nF'),
-    if (includeTargetSeries) const ToolResult('串联目标所需C2', '无效', 'nF'),
+    const ToolResult.invalid('并联等效', 'nF', primary: true),
+    const ToolResult.invalid('串联等效', 'nF'),
+    const ToolResult.invalid('元件比值', ''),
+    const ToolResult.invalid('并联范围', 'nF'),
+    const ToolResult.invalid('串联范围', 'nF'),
+    if (includeTargetParallel) const ToolResult.invalid('目标并联等效', 'nF'),
+    if (includeTargetParallel) const ToolResult.invalid('并联目标所需C2', 'nF'),
+    if (includeTargetSeries) const ToolResult.invalid('目标串联等效', 'nF'),
+    if (includeTargetSeries) const ToolResult.invalid('串联目标所需C2', 'nF'),
   ];
 }
 
@@ -436,31 +416,23 @@ List<ToolResult> inductorNetworkResults(Map<String, double> valuesByKey) {
   final targetParallelL2 =
       targetParallel == null ? null : _requiredParallelMate(l1, targetParallel);
   return [
-    ToolResult('串联等效', formatNumber(series), 'mH', primary: true),
-    ToolResult('并联等效', formatNumber(parallel), 'mH'),
-    ToolResult('元件比值', _componentRatio(l1, l2), ''),
-    ToolResult('串联范围',
-        _formatRange(series * (1 - tolerance), series * (1 + tolerance)), 'mH'),
-    ToolResult(
-        '并联范围',
-        _formatRange(parallel * (1 - tolerance), parallel * (1 + tolerance)),
-        'mH'),
+    ToolResult.number('串联等效', series, 'mH', primary: true),
+    ToolResult.number('并联等效', parallel, 'mH'),
+    ToolResult.number('元件比值', _componentRatio(l1, l2), ''),
+    _rangeResult(
+        '串联范围', series * (1 - tolerance), series * (1 + tolerance), 'mH'),
+    _rangeResult(
+        '并联范围', parallel * (1 - tolerance), parallel * (1 + tolerance), 'mH'),
+    if (targetSeries != null) ToolResult.number('目标串联等效', targetSeries, 'mH'),
     if (targetSeries != null)
-      ToolResult('目标串联等效', formatNumber(targetSeries), 'mH'),
-    if (targetSeries != null)
-      ToolResult(
+      ToolResult.number(
           '串联目标所需L2',
-          targetSeriesL2 != null && targetSeriesL2 > 0
-              ? formatNumber(targetSeriesL2)
-              : '无效',
+          targetSeriesL2 != null && targetSeriesL2 > 0 ? targetSeriesL2 : null,
           'mH'),
     if (targetParallel != null)
-      ToolResult('目标并联等效', formatNumber(targetParallel), 'mH'),
+      ToolResult.number('目标并联等效', targetParallel, 'mH'),
     if (targetParallel != null)
-      ToolResult(
-          '并联目标所需L2',
-          targetParallelL2 == null ? '无效' : formatNumber(targetParallelL2),
-          'mH'),
+      ToolResult.number('并联目标所需L2', targetParallelL2, 'mH'),
   ];
 }
 
@@ -469,15 +441,15 @@ List<ToolResult> _invalidInductorNetworkResults({
   required bool includeTargetParallel,
 }) {
   return [
-    const ToolResult('串联等效', '无效', 'mH', primary: true),
-    const ToolResult('并联等效', '无效', 'mH'),
-    const ToolResult('元件比值', '无效', ''),
-    const ToolResult('串联范围', '无效', 'mH'),
-    const ToolResult('并联范围', '无效', 'mH'),
-    if (includeTargetSeries) const ToolResult('目标串联等效', '无效', 'mH'),
-    if (includeTargetSeries) const ToolResult('串联目标所需L2', '无效', 'mH'),
-    if (includeTargetParallel) const ToolResult('目标并联等效', '无效', 'mH'),
-    if (includeTargetParallel) const ToolResult('并联目标所需L2', '无效', 'mH'),
+    const ToolResult.invalid('串联等效', 'mH', primary: true),
+    const ToolResult.invalid('并联等效', 'mH'),
+    const ToolResult.invalid('元件比值', ''),
+    const ToolResult.invalid('串联范围', 'mH'),
+    const ToolResult.invalid('并联范围', 'mH'),
+    if (includeTargetSeries) const ToolResult.invalid('目标串联等效', 'mH'),
+    if (includeTargetSeries) const ToolResult.invalid('串联目标所需L2', 'mH'),
+    if (includeTargetParallel) const ToolResult.invalid('目标并联等效', 'mH'),
+    if (includeTargetParallel) const ToolResult.invalid('并联目标所需L2', 'mH'),
   ];
 }
 
@@ -519,66 +491,64 @@ List<ToolResult> voltageDividerResults(Map<String, double> valuesByKey) {
         );
 
   return [
-    ToolResult('输出电压 Vout', formatNumber(vout, precision: 4), 'V',
-        primary: true),
-    ToolResult('空载输出', formatNumber(unloadedVout, precision: 4), 'V'),
-    ToolResult('下臂等效', formatNumber(lower / 1000), 'kΩ'),
-    ToolResult('分压电流', formatNumber(current * 1000), 'mA'),
-    ToolResult('负载电流', formatNumber(loadCurrent * 1000), 'mA'),
-    ToolResult('总功耗', formatNumber(vin * current * 1000), 'mW'),
-    ToolResult('上臂功耗', formatNumber(upperPower * 1000), 'mW'),
-    ToolResult('下臂功耗', formatNumber(lowerPower * 1000), 'mW'),
+    ToolResult.number('输出电压 Vout', vout, 'V', precision: 4, primary: true),
+    ToolResult.number('空载输出', unloadedVout, 'V', precision: 4),
+    ToolResult.number('下臂等效', lower / 1000, 'kΩ'),
+    ToolResult.number('分压电流', current * 1000, 'mA'),
+    ToolResult.number('负载电流', loadCurrent * 1000, 'mA'),
+    ToolResult.number('总功耗', vin * current * 1000, 'mW'),
+    ToolResult.number('上臂功耗', upperPower * 1000, 'mW'),
+    ToolResult.number('下臂功耗', lowerPower * 1000, 'mW'),
+    // 中文：**两个端点先算成数值，错误状态由它们决定。** 从前这是把两个 `formatNumber`
+    //       拼进一句话里，判据再回读那句话里有没有「无效」——两个端点是不是有限数才是真原因。
+    // English: **Both endpoints are computed as numbers first, and they decide the error state.**
+    //          This used to interpolate two `formatNumber` calls into one sentence and let the
+    //          predicate read that sentence back — whether the two endpoints are finite is the real
+    //          reason.
     ToolResult(
-        '误差范围',
-        '${formatNumber(vout * (1 - tolerance / 100))}~'
-            '${formatNumber(vout * (1 + tolerance / 100))}',
-        'V'),
+      '误差范围',
+      '${formatNumber(vout * (1 - tolerance / 100))}~'
+          '${formatNumber(vout * (1 + tolerance / 100))}',
+      'V',
+      hasError: !(vout * (1 - tolerance / 100)).isFinite ||
+          !(vout * (1 + tolerance / 100)).isFinite,
+    ),
     if (includeTarget)
-      ToolResult('目标输出电压',
-          target?.valid ?? false ? formatNumber(targetVout) : '无效', 'V'),
+      ToolResult.number(
+          '目标输出电压', target?.valid ?? false ? targetVout : null, 'V'),
     if (includeTarget)
-      ToolResult('输出偏差',
-          target?.valid ?? false ? formatNumber(vout - targetVout) : '无效', 'V'),
+      ToolResult.number(
+          '输出偏差', target?.valid ?? false ? vout - targetVout : null, 'V'),
     if (includeTarget)
-      ToolResult(
-          '保留R2所需R1',
-          target?.requiredR1 == null
-              ? '无效'
-              : formatNumber(target!.requiredR1! / 1000),
-          'kΩ'),
+      ToolResult.number('保留R2所需R1',
+          target?.requiredR1 == null ? null : target!.requiredR1! / 1000, 'kΩ'),
     if (includeTarget)
-      ToolResult(
-          '保留R1所需R2',
-          target?.requiredR2 == null
-              ? '无效'
-              : formatNumber(target!.requiredR2! / 1000),
-          'kΩ'),
+      ToolResult.number('保留R1所需R2',
+          target?.requiredR2 == null ? null : target!.requiredR2! / 1000, 'kΩ'),
     if (includeTarget)
-      ToolResult(
+      ToolResult.number(
           '目标下臂等效',
-          target?.requiredLower == null
-              ? '无效'
-              : formatNumber(target!.requiredLower! / 1000),
+          target?.requiredLower == null ? null : target!.requiredLower! / 1000,
           'kΩ'),
   ];
 }
 
 List<ToolResult> _invalidVoltageDividerResults({required bool includeTarget}) {
   return [
-    const ToolResult('输出电压 Vout', '无效', 'V', primary: true),
-    const ToolResult('空载输出', '无效', 'V'),
-    const ToolResult('下臂等效', '无效', 'kΩ'),
-    const ToolResult('分压电流', '无效', 'mA'),
-    const ToolResult('负载电流', '无效', 'mA'),
-    const ToolResult('总功耗', '无效', 'mW'),
-    const ToolResult('上臂功耗', '无效', 'mW'),
-    const ToolResult('下臂功耗', '无效', 'mW'),
-    const ToolResult('误差范围', '无效', 'V'),
-    if (includeTarget) const ToolResult('目标输出电压', '无效', 'V'),
-    if (includeTarget) const ToolResult('输出偏差', '无效', 'V'),
-    if (includeTarget) const ToolResult('保留R2所需R1', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('保留R1所需R2', '无效', 'kΩ'),
-    if (includeTarget) const ToolResult('目标下臂等效', '无效', 'kΩ'),
+    const ToolResult.invalid('输出电压 Vout', 'V', primary: true),
+    const ToolResult.invalid('空载输出', 'V'),
+    const ToolResult.invalid('下臂等效', 'kΩ'),
+    const ToolResult.invalid('分压电流', 'mA'),
+    const ToolResult.invalid('负载电流', 'mA'),
+    const ToolResult.invalid('总功耗', 'mW'),
+    const ToolResult.invalid('上臂功耗', 'mW'),
+    const ToolResult.invalid('下臂功耗', 'mW'),
+    const ToolResult.invalid('误差范围', 'V'),
+    if (includeTarget) const ToolResult.invalid('目标输出电压', 'V'),
+    if (includeTarget) const ToolResult.invalid('输出偏差', 'V'),
+    if (includeTarget) const ToolResult.invalid('保留R2所需R1', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('保留R1所需R2', 'kΩ'),
+    if (includeTarget) const ToolResult.invalid('目标下臂等效', 'kΩ'),
   ];
 }
 
@@ -619,6 +589,32 @@ _TargetDivider? _solveTargetDivider({
   );
 }
 
+/// 中文：**一条「范围」结果。** 错误状态由两个端点本身决定，不由 [ _formatRange ] 那句话决定——
+///       「这句话里有没有『无效』」只在端点不是有限数时为真，与它怎么措辞无关。
+/// English: **One "range" result.** The error state is decided by the two endpoints themselves, not
+///          by the sentence [_formatRange] builds — "does that sentence contain 无效" is true exactly
+///          when an endpoint is not finite, whatever the wording.
+ToolResult _rangeResult(String label, double a, double b, String unit,
+    {bool primary = false}) {
+  return ToolResult(label, _formatRange(a, b), unit,
+      primary: primary, hasError: !a.isFinite || !b.isFinite);
+}
+
+/// 中文：**一条「推荐功率」结果。** `dissipatedPowerW` 不是正有限数时 [ _resistorPowerRating ]
+///       回的就是那条记号——产出方知道的是这个条件，不是那句话。
+/// English: **One "recommended rating" result.** When `dissipatedPowerW` is not a positive finite
+///          number [_resistorPowerRating] hands back the marker — the condition is what the producer
+///          knows, not the sentence.
+ToolResult _powerRatingResult(
+    String label, double dissipatedPowerW, String unit) {
+  // 中文：那个条件成立时 [_resistorPowerRating] 回的就是**那条记号本身**，所以两个旗标一起写。
+  // English: when that condition holds [_resistorPowerRating] hands back **the marker itself**, so
+  //          both flags are written together.
+  final unavailable = dissipatedPowerW <= 0 || !dissipatedPowerW.isFinite;
+  return ToolResult(label, _resistorPowerRating(dissipatedPowerW), unit,
+      hasError: unavailable, isInvalidMarker: unavailable);
+}
+
 String _formatRange(double a, double b) {
   final low = a < b ? a : b;
   final high = a < b ? b : a;
@@ -633,8 +629,13 @@ bool _validOptionalPositive(double? value) {
   return value == null || (value > 0 && value.isFinite);
 }
 
-String _componentRatio(double first, double second) {
-  return formatNumber(math.max(first, second) / math.min(first, second));
+/// 中文：元件比值这个**数值**。它从前直接返回一句话，调用方只好回读那句话判断「算出来了没有」；
+///       现在它交数值，错误状态归 [ToolResult.number] 管。
+/// English: The **number** that is the component ratio. It used to return a sentence outright,
+///          leaving the caller to read that sentence back to decide "did this compute?"; it now
+///          hands over the number and [ToolResult.number] owns the error state.
+double _componentRatio(double first, double second) {
+  return math.max(first, second) / math.min(first, second);
 }
 
 double? _requiredParallelMate(double knownComponent, double targetEquivalent) {

@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import '../../core/utils/number_formatter.dart';
 import '../entities/tool_definition.dart';
 
 export 'calculate_tool_physics_matter.dart';
@@ -50,36 +49,35 @@ List<ToolResult> motionResults(Map<String, double> valuesByKey) {
 
   final referenceDelta = distanceInput == null ? 0.0 : distance - distanceInput;
   return [
-    ToolResult('距离', formatNumber(distance), 'm', primary: true),
-    ToolResult('距离 km', formatNumber(distance / 1000), 'km'),
-    ToolResult('速度', formatNumber(speed * 3.6), 'km/h'),
-    ToolResult('速度 m/s', formatNumber(speed), 'm/s'),
-    ToolResult('速度 mph', formatNumber(speed * 2.2369362921), 'mph'),
-    ToolResult('时间', formatNumber(time), 's'),
-    ToolResult('时间 min', formatNumber(time / 60), 'min'),
-    ToolResult('时间 h', formatNumber(time / 3600), 'h'),
-    ToolResult(
-        '配速', speed <= 0 ? '无效' : formatNumber(1000 / speed / 60), 'min/km'),
-    ToolResult('往返时间', formatNumber(time * 2), 's'),
+    ToolResult.number('距离', distance, 'm', primary: true),
+    ToolResult.number('距离 km', distance / 1000, 'km'),
+    ToolResult.number('速度', speed * 3.6, 'km/h'),
+    ToolResult.number('速度 m/s', speed, 'm/s'),
+    ToolResult.number('速度 mph', speed * 2.2369362921, 'mph'),
+    ToolResult.number('时间', time, 's'),
+    ToolResult.number('时间 min', time / 60, 'min'),
+    ToolResult.number('时间 h', time / 3600, 'h'),
+    ToolResult.number('配速', speed <= 0 ? null : 1000 / speed / 60, 'min/km'),
+    ToolResult.number('往返时间', time * 2, 's'),
     ToolResult('输入来源', source, ''),
     if (distanceInput != null && speedInput != null && timeInput != null)
-      ToolResult('距离差值', formatNumber(referenceDelta), 'm'),
+      ToolResult.number('距离差值', referenceDelta, 'm'),
   ];
 }
 
 List<ToolResult> _invalidMotionResults() {
   return const [
-    ToolResult('距离', '无效', 'm', primary: true),
-    ToolResult('距离 km', '无效', 'km'),
-    ToolResult('速度', '无效', 'km/h'),
-    ToolResult('速度 m/s', '无效', 'm/s'),
-    ToolResult('速度 mph', '无效', 'mph'),
-    ToolResult('时间', '无效', 's'),
-    ToolResult('时间 min', '无效', 'min'),
-    ToolResult('时间 h', '无效', 'h'),
-    ToolResult('配速', '无效', 'min/km'),
-    ToolResult('往返时间', '无效', 's'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('距离', 'm', primary: true),
+    ToolResult.invalid('距离 km', 'km'),
+    ToolResult.invalid('速度', 'km/h'),
+    ToolResult.invalid('速度 m/s', 'm/s'),
+    ToolResult.invalid('速度 mph', 'mph'),
+    ToolResult.invalid('时间', 's'),
+    ToolResult.invalid('时间 min', 'min'),
+    ToolResult.invalid('时间 h', 'h'),
+    ToolResult.invalid('配速', 'min/km'),
+    ToolResult.invalid('往返时间', 's'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -112,14 +110,14 @@ List<ToolResult> freeFallResults(Map<String, double> valuesByKey) {
   final speedDelta = endSpeed - initialSpeed;
   final direction = initialSpeed < 0 ? '先上抛后下落' : '向下';
   final results = <ToolResult>[
-    ToolResult('落地时间', formatNumber(time), 's', primary: true),
-    ToolResult('末速度', formatNumber(endSpeed), 'm/s'),
-    ToolResult('末速度 km/h', formatNumber(endSpeed * 3.6), 'km/h'),
-    ToolResult('平均速度', formatNumber(averageSpeed), 'm/s'),
-    ToolResult('初速度', formatNumber(initialSpeed), 'm/s'),
-    ToolResult('速度增量', formatNumber(speedDelta), 'm/s'),
-    ToolResult('高度', formatNumber(height), 'm'),
-    ToolResult('重力加速度', formatNumber(g), 'm/s²'),
+    ToolResult.number('落地时间', time, 's', primary: true),
+    ToolResult.number('末速度', endSpeed, 'm/s'),
+    ToolResult.number('末速度 km/h', endSpeed * 3.6, 'km/h'),
+    ToolResult.number('平均速度', averageSpeed, 'm/s'),
+    ToolResult.number('初速度', initialSpeed, 'm/s'),
+    ToolResult.number('速度增量', speedDelta, 'm/s'),
+    ToolResult.number('高度', height, 'm'),
+    ToolResult.number('重力加速度', g, 'm/s²'),
     ToolResult('运动方向', direction, ''),
   ];
   if (mass != null) {
@@ -127,38 +125,32 @@ List<ToolResult> freeFallResults(Map<String, double> valuesByKey) {
     final initialKinetic = 0.5 * mass * initialSpeed * initialSpeed;
     final impactEnergy = 0.5 * mass * endSpeed * endSpeed;
     results.addAll([
-      ToolResult('势能变化', formatNumber(potentialChange), 'J'),
-      ToolResult('初始动能', formatNumber(initialKinetic), 'J'),
-      ToolResult('末端动能', formatNumber(impactEnergy), 'J'),
-      ToolResult('冲击能量', formatNumber(impactEnergy), 'J'),
+      ToolResult.number('势能变化', potentialChange, 'J'),
+      ToolResult.number('初始动能', initialKinetic, 'J'),
+      ToolResult.number('末端动能', impactEnergy, 'J'),
+      ToolResult.number('冲击能量', impactEnergy, 'J'),
     ]);
     if (bufferDistance != null) {
       final averageImpactForce = impactEnergy / bufferDistance;
       final averageDeceleration =
           mass == 0 ? double.nan : averageImpactForce / mass;
       results.addAll([
-        ToolResult('缓冲距离', formatNumber(bufferDistance), 'm'),
-        ToolResult('缓冲平均力', formatNumber(averageImpactForce), 'N'),
-        ToolResult(
-            '缓冲平均减速度',
-            averageDeceleration.isFinite
-                ? formatNumber(averageDeceleration)
-                : '无效',
-            'm/s²'),
-        ToolResult(
+        ToolResult.number('缓冲距离', bufferDistance, 'm'),
+        ToolResult.number('缓冲平均力', averageImpactForce, 'N'),
+        ToolResult.number('缓冲平均减速度',
+            averageDeceleration.isFinite ? averageDeceleration : null, 'm/s²'),
+        ToolResult.number(
             '缓冲减速度',
-            averageDeceleration.isFinite
-                ? formatNumber(averageDeceleration / 9.80665)
-                : '无效',
+            averageDeceleration.isFinite ? averageDeceleration / 9.80665 : null,
             'g'),
       ]);
     }
   } else if (bufferDistance != null) {
     results.addAll([
-      ToolResult('缓冲距离', formatNumber(bufferDistance), 'm'),
-      const ToolResult('缓冲平均力', '无效', 'N'),
-      const ToolResult('缓冲平均减速度', '无效', 'm/s²'),
-      const ToolResult('缓冲减速度', '无效', 'g'),
+      ToolResult.number('缓冲距离', bufferDistance, 'm'),
+      const ToolResult.invalid('缓冲平均力', 'N'),
+      const ToolResult.invalid('缓冲平均减速度', 'm/s²'),
+      const ToolResult.invalid('缓冲减速度', 'g'),
     ]);
   }
   return results;
@@ -169,23 +161,23 @@ List<ToolResult> _invalidFreeFallResults({
   required bool includeBuffer,
 }) {
   return [
-    const ToolResult('落地时间', '无效', 's', primary: true),
-    const ToolResult('末速度', '无效', 'm/s'),
-    const ToolResult('末速度 km/h', '无效', 'km/h'),
-    const ToolResult('平均速度', '无效', 'm/s'),
-    const ToolResult('初速度', '无效', 'm/s'),
-    const ToolResult('速度增量', '无效', 'm/s'),
-    const ToolResult('高度', '无效', 'm'),
-    const ToolResult('重力加速度', '无效', 'm/s²'),
-    const ToolResult('运动方向', '无效', ''),
-    if (includeMass) const ToolResult('势能变化', '无效', 'J'),
-    if (includeMass) const ToolResult('初始动能', '无效', 'J'),
-    if (includeMass) const ToolResult('末端动能', '无效', 'J'),
-    if (includeMass) const ToolResult('冲击能量', '无效', 'J'),
-    if (includeBuffer) const ToolResult('缓冲距离', '无效', 'm'),
-    if (includeBuffer) const ToolResult('缓冲平均力', '无效', 'N'),
-    if (includeBuffer) const ToolResult('缓冲平均减速度', '无效', 'm/s²'),
-    if (includeBuffer) const ToolResult('缓冲减速度', '无效', 'g'),
+    const ToolResult.invalid('落地时间', 's', primary: true),
+    const ToolResult.invalid('末速度', 'm/s'),
+    const ToolResult.invalid('末速度 km/h', 'km/h'),
+    const ToolResult.invalid('平均速度', 'm/s'),
+    const ToolResult.invalid('初速度', 'm/s'),
+    const ToolResult.invalid('速度增量', 'm/s'),
+    const ToolResult.invalid('高度', 'm'),
+    const ToolResult.invalid('重力加速度', 'm/s²'),
+    const ToolResult.invalid('运动方向', ''),
+    if (includeMass) const ToolResult.invalid('势能变化', 'J'),
+    if (includeMass) const ToolResult.invalid('初始动能', 'J'),
+    if (includeMass) const ToolResult.invalid('末端动能', 'J'),
+    if (includeMass) const ToolResult.invalid('冲击能量', 'J'),
+    if (includeBuffer) const ToolResult.invalid('缓冲距离', 'm'),
+    if (includeBuffer) const ToolResult.invalid('缓冲平均力', 'N'),
+    if (includeBuffer) const ToolResult.invalid('缓冲平均减速度', 'm/s²'),
+    if (includeBuffer) const ToolResult.invalid('缓冲减速度', 'g'),
   ];
 }
 
@@ -225,58 +217,52 @@ List<ToolResult> workPowerResults(Map<String, double> valuesByKey) {
           ? null
           : targetPower * time / (distance * cosTheta);
   return [
-    ToolResult('功', formatNumber(work), 'J', primary: true),
-    ToolResult('平均功率', formatNumber(outputPower), 'W'),
-    ToolResult('功率 kW', formatNumber(outputPower / 1000), 'kW'),
-    ToolResult('输入功率', formatNumber(inputPower), 'W'),
-    ToolResult('损耗功率', formatNumber(lossPower), 'W'),
-    ToolResult('表观功', formatNumber(apparentWork), 'J'),
-    ToolResult('输入能量', formatNumber(inputEnergy), 'J'),
-    ToolResult('损耗能量', formatNumber(lossEnergy), 'J'),
-    ToolResult('Wh', formatNumber(work / 3600), 'Wh'),
-    ToolResult('kWh', formatNumber(work / 3600000), 'kWh'),
-    ToolResult('机械马力', formatNumber(outputPower / 745.699872), 'hp'),
-    ToolResult('公制马力', formatNumber(outputPower / 735.49875), 'PS'),
-    ToolResult('力-位移夹角', formatNumber(angle), 'deg'),
-    ToolResult('效率', formatNumber(efficiencyPercent), '%'),
+    ToolResult.number('功', work, 'J', primary: true),
+    ToolResult.number('平均功率', outputPower, 'W'),
+    ToolResult.number('功率 kW', outputPower / 1000, 'kW'),
+    ToolResult.number('输入功率', inputPower, 'W'),
+    ToolResult.number('损耗功率', lossPower, 'W'),
+    ToolResult.number('表观功', apparentWork, 'J'),
+    ToolResult.number('输入能量', inputEnergy, 'J'),
+    ToolResult.number('损耗能量', lossEnergy, 'J'),
+    ToolResult.number('Wh', work / 3600, 'Wh'),
+    ToolResult.number('kWh', work / 3600000, 'kWh'),
+    ToolResult.number('机械马力', outputPower / 745.699872, 'hp'),
+    ToolResult.number('公制马力', outputPower / 735.49875, 'PS'),
+    ToolResult.number('力-位移夹角', angle, 'deg'),
+    ToolResult.number('效率', efficiencyPercent, '%'),
     ToolResult('做功方向', work > 0 ? '正功' : (work < 0 ? '负功' : '无功'), ''),
-    if (includeTarget) ToolResult('目标功率', formatNumber(targetPower), 'W'),
+    if (includeTarget) ToolResult.number('目标功率', targetPower, 'W'),
     if (includeTarget)
-      ToolResult(
-          '目标功率所需时间',
-          targetTime == null || targetTime <= 0
-              ? '无效'
-              : formatNumber(targetTime),
-          's'),
+      ToolResult.number('目标功率所需时间',
+          targetTime == null || targetTime <= 0 ? null : targetTime, 's'),
+    if (includeTarget) ToolResult.number('目标功率所需力', targetForce, 'N'),
     if (includeTarget)
-      ToolResult('目标功率所需力',
-          targetForce == null ? '无效' : formatNumber(targetForce), 'N'),
-    if (includeTarget)
-      ToolResult('目标功率偏差', formatNumber(outputPower - targetPower), 'W'),
+      ToolResult.number('目标功率偏差', outputPower - targetPower, 'W'),
   ];
 }
 
 List<ToolResult> _invalidWorkPowerResults({required bool includeTarget}) {
   return [
-    const ToolResult('功', '无效', 'J', primary: true),
-    const ToolResult('平均功率', '无效', 'W'),
-    const ToolResult('功率 kW', '无效', 'kW'),
-    const ToolResult('输入功率', '无效', 'W'),
-    const ToolResult('损耗功率', '无效', 'W'),
-    const ToolResult('表观功', '无效', 'J'),
-    const ToolResult('输入能量', '无效', 'J'),
-    const ToolResult('损耗能量', '无效', 'J'),
-    const ToolResult('Wh', '无效', 'Wh'),
-    const ToolResult('kWh', '无效', 'kWh'),
-    const ToolResult('机械马力', '无效', 'hp'),
-    const ToolResult('公制马力', '无效', 'PS'),
-    const ToolResult('力-位移夹角', '无效', 'deg'),
-    const ToolResult('效率', '无效', '%'),
-    const ToolResult('做功方向', '无效', ''),
-    if (includeTarget) const ToolResult('目标功率', '无效', 'W'),
-    if (includeTarget) const ToolResult('目标功率所需时间', '无效', 's'),
-    if (includeTarget) const ToolResult('目标功率所需力', '无效', 'N'),
-    if (includeTarget) const ToolResult('目标功率偏差', '无效', 'W'),
+    const ToolResult.invalid('功', 'J', primary: true),
+    const ToolResult.invalid('平均功率', 'W'),
+    const ToolResult.invalid('功率 kW', 'kW'),
+    const ToolResult.invalid('输入功率', 'W'),
+    const ToolResult.invalid('损耗功率', 'W'),
+    const ToolResult.invalid('表观功', 'J'),
+    const ToolResult.invalid('输入能量', 'J'),
+    const ToolResult.invalid('损耗能量', 'J'),
+    const ToolResult.invalid('Wh', 'Wh'),
+    const ToolResult.invalid('kWh', 'kWh'),
+    const ToolResult.invalid('机械马力', 'hp'),
+    const ToolResult.invalid('公制马力', 'PS'),
+    const ToolResult.invalid('力-位移夹角', 'deg'),
+    const ToolResult.invalid('效率', '%'),
+    const ToolResult.invalid('做功方向', ''),
+    if (includeTarget) const ToolResult.invalid('目标功率', 'W'),
+    if (includeTarget) const ToolResult.invalid('目标功率所需时间', 's'),
+    if (includeTarget) const ToolResult.invalid('目标功率所需力', 'N'),
+    if (includeTarget) const ToolResult.invalid('目标功率偏差', 'W'),
   ];
 }
 
@@ -321,29 +307,29 @@ List<ToolResult> densityResults(Map<String, double> valuesByKey) {
 
   final densityDelta = densityInput == null ? 0.0 : density - densityInput;
   return [
-    ToolResult('密度', formatNumber(density), 'kg/m³', primary: true),
-    ToolResult('g/cm³', formatNumber(density / 1000), 'g/cm³'),
-    ToolResult('kg/L', formatNumber(density / 1000), 'kg/L'),
-    ToolResult('比容', density <= 0 ? '无效' : formatNumber(1 / density), 'm³/kg'),
-    ToolResult('质量', formatNumber(mass), 'kg'),
-    ToolResult('体积', formatNumber(volume * 1000), 'L'),
-    ToolResult('体积 m³', formatNumber(volume), 'm³'),
+    ToolResult.number('密度', density, 'kg/m³', primary: true),
+    ToolResult.number('g/cm³', density / 1000, 'g/cm³'),
+    ToolResult.number('kg/L', density / 1000, 'kg/L'),
+    ToolResult.number('比容', density <= 0 ? null : 1 / density, 'm³/kg'),
+    ToolResult.number('质量', mass, 'kg'),
+    ToolResult.number('体积', volume * 1000, 'L'),
+    ToolResult.number('体积 m³', volume, 'm³'),
     ToolResult('输入来源', source, ''),
     if (massInput != null && volumeInput != null && densityInput != null)
-      ToolResult('密度差值', formatNumber(densityDelta), 'kg/m³'),
+      ToolResult.number('密度差值', densityDelta, 'kg/m³'),
   ];
 }
 
 List<ToolResult> _invalidDensityResults() {
   return const [
-    ToolResult('密度', '无效', 'kg/m³', primary: true),
-    ToolResult('g/cm³', '无效', 'g/cm³'),
-    ToolResult('kg/L', '无效', 'kg/L'),
-    ToolResult('比容', '无效', 'm³/kg'),
-    ToolResult('质量', '无效', 'kg'),
-    ToolResult('体积', '无效', 'L'),
-    ToolResult('体积 m³', '无效', 'm³'),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('密度', 'kg/m³', primary: true),
+    ToolResult.invalid('g/cm³', 'g/cm³'),
+    ToolResult.invalid('kg/L', 'kg/L'),
+    ToolResult.invalid('比容', 'm³/kg'),
+    ToolResult.invalid('质量', 'kg'),
+    ToolResult.invalid('体积', 'L'),
+    ToolResult.invalid('体积 m³', 'm³'),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 
@@ -371,29 +357,22 @@ List<ToolResult> kineticEnergyResults(Map<String, double> valuesByKey) {
       ? null
       : (targetTotalEnergy - kinetic) / (mass * 9.80665);
   return [
-    ToolResult('总能量', formatNumber(total), 'J', primary: true),
-    ToolResult('动能', formatNumber(kinetic), 'J'),
-    ToolResult('势能', formatNumber(potential), 'J'),
-    ToolResult('速度幅值', formatNumber(speed.abs()), 'm/s'),
-    ToolResult('速度', formatNumber(speed.abs() * 3.6), 'km/h'),
-    ToolResult(
-        '单位质量动能', mass == 0 ? '无效' : formatNumber(kinetic / mass), 'J/kg'),
-    ToolResult(
-        '等效高度', mass == 0 ? '无效' : formatNumber(total / (mass * 9.80665)), 'm'),
+    ToolResult.number('总能量', total, 'J', primary: true),
+    ToolResult.number('动能', kinetic, 'J'),
+    ToolResult.number('势能', potential, 'J'),
+    ToolResult.number('速度幅值', speed.abs(), 'm/s'),
+    ToolResult.number('速度', speed.abs() * 3.6, 'km/h'),
+    ToolResult.number('单位质量动能', mass == 0 ? null : kinetic / mass, 'J/kg'),
+    ToolResult.number('等效高度', mass == 0 ? null : total / (mass * 9.80665), 'm'),
+    if (includeTarget) ToolResult.number('目标总能量', targetTotalEnergy, 'J'),
     if (includeTarget)
-      ToolResult('目标总能量', formatNumber(targetTotalEnergy), 'J'),
-    if (includeTarget)
-      ToolResult(
+      ToolResult.number(
           '目标能量所需速度',
-          targetSpeed == null || !targetSpeed.isFinite
-              ? '无效'
-              : formatNumber(targetSpeed),
+          targetSpeed == null || !targetSpeed.isFinite ? null : targetSpeed,
           'm/s'),
+    if (includeTarget) ToolResult.number('目标能量所需高度', targetHeight, 'm'),
     if (includeTarget)
-      ToolResult('目标能量所需高度',
-          targetHeight == null ? '无效' : formatNumber(targetHeight), 'm'),
-    if (includeTarget)
-      ToolResult('目标能量差值', formatNumber(total - targetTotalEnergy), 'J'),
+      ToolResult.number('目标能量差值', total - targetTotalEnergy, 'J'),
   ];
 }
 
@@ -401,16 +380,16 @@ List<ToolResult> _invalidKineticEnergyResults({
   required bool includeTarget,
 }) {
   return [
-    const ToolResult('总能量', '无效', 'J', primary: true),
-    const ToolResult('动能', '无效', 'J'),
-    const ToolResult('势能', '无效', 'J'),
-    const ToolResult('速度幅值', '无效', 'm/s'),
-    const ToolResult('速度', '无效', 'km/h'),
-    const ToolResult('单位质量动能', '无效', 'J/kg'),
-    const ToolResult('等效高度', '无效', 'm'),
-    if (includeTarget) const ToolResult('目标总能量', '无效', 'J'),
-    if (includeTarget) const ToolResult('目标能量所需速度', '无效', 'm/s'),
-    if (includeTarget) const ToolResult('目标能量所需高度', '无效', 'm'),
-    if (includeTarget) const ToolResult('目标能量差值', '无效', 'J'),
+    const ToolResult.invalid('总能量', 'J', primary: true),
+    const ToolResult.invalid('动能', 'J'),
+    const ToolResult.invalid('势能', 'J'),
+    const ToolResult.invalid('速度幅值', 'm/s'),
+    const ToolResult.invalid('速度', 'km/h'),
+    const ToolResult.invalid('单位质量动能', 'J/kg'),
+    const ToolResult.invalid('等效高度', 'm'),
+    if (includeTarget) const ToolResult.invalid('目标总能量', 'J'),
+    if (includeTarget) const ToolResult.invalid('目标能量所需速度', 'm/s'),
+    if (includeTarget) const ToolResult.invalid('目标能量所需高度', 'm'),
+    if (includeTarget) const ToolResult.invalid('目标能量差值', 'J'),
   ];
 }

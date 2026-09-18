@@ -13,6 +13,8 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：工具子树两张文案表（`ToolsStrings` + `DataFitStrings`）的三条护栏，形状与设置页 /
 ///       计算页那两张表的护栏相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
@@ -21,9 +23,10 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///       2) 英文表里不许出现汉字、也不许出现空串，而且要真的与中文不同。
 ///       3) `lib/features/tools/presentation` 里（除了这两张表）不许再留中文字符串字面量。
 ///
-///       **第 3 条没有例外。** 工具子树里那些成百上千条中文（工具名、描述、公式、参数标签、
-///       单位、分类名、诊断行）全都不在这个目录里，它们住在 `lib/domain/usecases` 与
-///       `lib/application/controllers`——那是内容数据，本轮一条都没动，见两张表的文件头。
+///       **第 3 条本轮多出四处例外，都在 `_punctuationOnlyLiterals` 上、逐条带理由**：判据
+///       放宽之后本目录新露出来的只有四条，没有一条是句子。工具子树里那些成百上千条中文
+///       （工具名、描述、公式、参数标签、单位、分类名、诊断行）全都不在这个目录里，它们住在
+///       `lib/domain/usecases` 与 `lib/application/controllers`——那是内容数据，本轮一条都没动。
 /// English: Three guard rails for the tools subtree's two copy tables (`ToolsStrings` +
 ///          `DataFitStrings`), the same shape as the settings and calculator tables'. (1) Every
 ///          Chinese entry must be **byte-identical** to the sentence in the source before
@@ -34,11 +37,12 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          string literal may remain in `lib/features/tools/presentation` other than those two
 ///          tables.
 ///
-///          **Clause 3 has no exceptions.** The hundreds of Chinese entries in this subtree — tool
-///          names, descriptions, formulas, parameter labels, units, category names, diagnostic lines —
-///          are all outside this directory: they live in `lib/domain/usecases` and
-///          `lib/application/controllers` as content data, untouched this round. See the two tables'
-///          file heads.
+///          **Clause 3 gained four exceptions this round, all on `_punctuationOnlyLiterals` with
+///          their reasons beside them**: the widened ruler exposes exactly four literals in this
+///          directory and not one is a sentence. The hundreds of Chinese entries in this subtree —
+///          tool names, descriptions, formulas, parameter labels, units, category names, diagnostic
+///          lines — are all outside this directory: they live in `lib/domain/usecases` and
+///          `lib/application/controllers` as content data, untouched this round.
 void main() {
   final zh = ToolsStrings.forLanguage(AppLanguage.zh);
   final en = ToolsStrings.forLanguage(AppLanguage.en);
@@ -506,7 +510,8 @@ void main() {
       }
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
-        if (!_containsCjk(literal)) continue;
+        if (!containsWideOrFullwidth(literal)) continue;
+        if (_punctuationOnlyLiterals.contains(literal)) continue;
         offenders.add('${entity.path}: $literal');
       }
     }
@@ -674,6 +679,27 @@ class _EmptyDatabase implements AppDatabase {
 /// 中文：CJK 统一表意文字区（含扩展 A）。够用了：本项目的界面文案都落在这里。
 /// English: The CJK Unified Ideographs block (plus Extension A) — enough, since this project's UI
 ///          copy lives there.
+/// 中文：**放宽判据之后新露出来的四条，逐条带理由**（判据见 `test/shared/source_scan.dart`）。
+///       没有一条是句子：一条是 `data_fit_tool_screen.dart` 里那张"粘贴全角数字也能认"的
+///       **示例数据**，另外三条是三处 `·`——**分隔符**，两处夹在插值之间，一处自成一条。
+///       **别把界面文案加进这个表**：入选条件是上面这些理由，不是方便。
+/// English: **the four literals the widened ruler newly exposes, each with its reason** (the ruler is
+///          in `test/shared/source_scan.dart`). Not one is a sentence: one is the **sample data** of
+///          `data_fit_tool_screen.dart`'s "full-width digits are recognised too" example, the other
+///          three are the separator `·` — two between interpolations, one standing alone. **Do not
+///          add interface copy to this set**: the reasons above qualify an entry, not convenience.
+
+const Set<String> _punctuationOnlyLiterals = <String>{
+  // 中文：**照抄源码里那两个字面量的原文**——`\n` 与 `$` 都得原样留着（扫描器取的就是
+  //       引号之间的原文），所以这三条是 raw 字符串。
+  // English: **spelled exactly as they stand in the source** — the `\n` and the `$` have to stay
+  //          literal (the scanner yields the raw text between the quotes), hence raw strings.
+  r'x,y\n１,５０％\n２,１００％\n３,１.５\n４,２.０',
+  r'${tool.description} · $matchLabel',
+  r'${category.title} · $count',
+  ' · ',
+};
+
 bool _containsCjk(String text) {
   for (final rune in text.runes) {
     if ((rune >= 0x4E00 && rune <= 0x9FFF) ||

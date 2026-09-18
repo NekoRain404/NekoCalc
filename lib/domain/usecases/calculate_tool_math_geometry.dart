@@ -27,50 +27,72 @@ List<ToolResult> matrixResults(Map<String, double> valuesByKey) {
               d.abs() > 1e-12)
           ? 1
           : 0;
-  final inverse = determinant.abs() <= 1e-12
-      ? '不可逆'
-      : '[${formatNumber(d / determinant)}, ${formatNumber(-b / determinant)}; ${formatNumber(-c / determinant)}, ${formatNumber(a / determinant)}]';
+  // 中文：**逆矩阵的四个数先算出来，错误状态由它们决定**；`不可逆` 那一支是产出方写下的结论，
+  //       也被产出方标成错误。
+  // English: **the four inverse entries are computed as numbers first and they decide the error
+  //          state**; the `不可逆` branch is a conclusion the producer wrote and marks as an error.
+  // 中文：判据与旧代码**逐字反过来**，而不是写成 `abs() > 1e-12`——行列式是 NaN 时两个比较
+  //       都为假，反写会把 `不可逆` 那一支错当成「可逆」。
+  // English: the condition is the **literal negation of the old one** rather than `abs() > 1e-12`:
+  //          when the determinant is NaN both comparisons are false, and writing it the other way
+  //          round would take the `不可逆` branch as "invertible".
+  final inverseUnavailable = determinant.abs() <= 1e-12;
+  final inverseEntries = <double>[
+    d / determinant,
+    -b / determinant,
+    -c / determinant,
+    a / determinant,
+  ];
+  final inverse = !inverseUnavailable
+      ? '[${formatNumber(inverseEntries[0])}, ${formatNumber(inverseEntries[1])}; '
+          '${formatNumber(inverseEntries[2])}, ${formatNumber(inverseEntries[3])}]'
+      : '不可逆';
+  // 中文：特征值也**先算成数**，那句话只是它们的排版。
+  // English: the eigenvalues are computed as numbers first too; the sentence is only their layout.
+  final eigenvalueValues = discriminant < 0
+      ? <double>[trace / 2, math.sqrt(-discriminant) / 2]
+      : <double>[
+          (trace + math.sqrt(discriminant)) / 2,
+          (trace - math.sqrt(discriminant)) / 2,
+        ];
   final eigenText = discriminant < 0
-      ? _complexEigenvalues(trace, discriminant)
-      : _realEigenvalues(trace, discriminant);
+      ? '${formatNumber(eigenvalueValues[0])} + '
+          '${formatNumber(eigenvalueValues[1])}i / '
+          '${formatNumber(eigenvalueValues[0])} - '
+          '${formatNumber(eigenvalueValues[1])}i'
+      : '${formatNumber(eigenvalueValues[0])} / '
+          '${formatNumber(eigenvalueValues[1])}';
   return [
-    ToolResult('行列式 det', formatNumber(determinant), '', primary: true),
-    ToolResult('迹 tr', formatNumber(trace), ''),
-    ToolResult('判别项', formatNumber(discriminant), ''),
-    ToolResult('逆矩阵', inverse, ''),
+    ToolResult.number('行列式 det', determinant, '', primary: true),
+    ToolResult.number('迹 tr', trace, ''),
+    ToolResult.number('判别项', discriminant, ''),
+    ToolResult('逆矩阵', inverse, '',
+        hasError: inverseUnavailable ||
+            inverseEntries.any((value) => !value.isFinite)),
     ToolResult('秩', rank.toString(), ''),
-    ToolResult('特征值', eigenText, ''),
-    ToolResult('Frobenius范数', formatNumber(frobenius), ''),
-    ToolResult('行和范数', formatNumber(math.max(row1Norm, row2Norm)), ''),
-    ToolResult('列和范数', formatNumber(math.max(col1Norm, col2Norm)), ''),
-    ToolResult('可逆状态', determinant.abs() <= 1e-12 ? '不可逆' : '可逆', ''),
+    ToolResult('特征值', eigenText, '',
+        hasError: eigenvalueValues.any((value) => !value.isFinite)),
+    ToolResult.number('Frobenius范数', frobenius, ''),
+    ToolResult.number('行和范数', math.max(row1Norm, row2Norm), ''),
+    ToolResult.number('列和范数', math.max(col1Norm, col2Norm), ''),
+    ToolResult('可逆状态', determinant.abs() <= 1e-12 ? '不可逆' : '可逆', '',
+        hasError: determinant.abs() <= 1e-12),
   ];
 }
 
 List<ToolResult> _invalidMatrixResults() {
   return const [
-    ToolResult('行列式 det', '无效', '', primary: true),
-    ToolResult('迹 tr', '无效', ''),
-    ToolResult('判别项', '无效', ''),
-    ToolResult('逆矩阵', '无效', ''),
-    ToolResult('秩', '无效', ''),
-    ToolResult('特征值', '无效', ''),
-    ToolResult('Frobenius范数', '无效', ''),
-    ToolResult('行和范数', '无效', ''),
-    ToolResult('列和范数', '无效', ''),
-    ToolResult('可逆状态', '无效', ''),
+    ToolResult.invalid('行列式 det', '', primary: true),
+    ToolResult.invalid('迹 tr', ''),
+    ToolResult.invalid('判别项', ''),
+    ToolResult.invalid('逆矩阵', ''),
+    ToolResult.invalid('秩', ''),
+    ToolResult.invalid('特征值', ''),
+    ToolResult.invalid('Frobenius范数', ''),
+    ToolResult.invalid('行和范数', ''),
+    ToolResult.invalid('列和范数', ''),
+    ToolResult.invalid('可逆状态', ''),
   ];
-}
-
-String _realEigenvalues(double trace, double discriminant) {
-  final root = math.sqrt(discriminant);
-  return '${formatNumber((trace + root) / 2)} / ${formatNumber((trace - root) / 2)}';
-}
-
-String _complexEigenvalues(double trace, double discriminant) {
-  final real = trace / 2;
-  final imaginary = math.sqrt(-discriminant) / 2;
-  return '${formatNumber(real)} + ${formatNumber(imaginary)}i / ${formatNumber(real)} - ${formatNumber(imaginary)}i';
 }
 
 List<ToolResult> complexResults(Map<String, double> valuesByKey) {
@@ -87,43 +109,51 @@ List<ToolResult> complexResults(Map<String, double> valuesByKey) {
   final argument = math.atan2(b, a) * 180 / math.pi;
   final z2Argument = math.atan2(d, c) * 180 / math.pi;
   return [
-    ToolResult('z1 + z2', _complexText(a + c, b + d), '', primary: true),
-    ToolResult('z1 - z2', _complexText(a - c, b - d), ''),
-    ToolResult('z1 × z2', _complexText(a * c - b * d, a * d + b * c), ''),
-    ToolResult(
-      'z1 ÷ z2',
-      denominator == 0
-          ? '无效'
-          : _complexText(
-              (a * c + b * d) / denominator,
-              (b * c - a * d) / denominator,
-            ),
-      '',
-    ),
-    ToolResult('|z1|', formatNumber(z1Magnitude), ''),
-    ToolResult('|z2|', formatNumber(z2Magnitude), ''),
-    ToolResult(
-        'arg(z1)', z1Magnitude == 0 ? '无效' : formatNumber(argument), 'deg'),
-    ToolResult(
-        'arg(z2)', z2Magnitude == 0 ? '无效' : formatNumber(z2Argument), 'deg'),
-    ToolResult('conj(z1)', _complexText(a, -b), ''),
-    ToolResult('conj(z2)', _complexText(c, -d), ''),
+    _complexResult('z1 + z2', a + c, b + d, '', primary: true),
+    _complexResult('z1 - z2', a - c, b - d, ''),
+    _complexResult('z1 × z2', a * c - b * d, a * d + b * c, ''),
+    if (denominator == 0)
+      const ToolResult.invalid('z1 ÷ z2', '')
+    else
+      _complexResult(
+        'z1 ÷ z2',
+        (a * c + b * d) / denominator,
+        (b * c - a * d) / denominator,
+        '',
+      ),
+    ToolResult.number('|z1|', z1Magnitude, ''),
+    ToolResult.number('|z2|', z2Magnitude, ''),
+    ToolResult.number('arg(z1)', z1Magnitude == 0 ? null : argument, 'deg'),
+    ToolResult.number('arg(z2)', z2Magnitude == 0 ? null : z2Argument, 'deg'),
+    _complexResult('conj(z1)', a, -b, ''),
+    _complexResult('conj(z2)', c, -d, ''),
   ];
 }
 
 List<ToolResult> _invalidComplexResults() {
   return const [
-    ToolResult('z1 + z2', '无效', '', primary: true),
-    ToolResult('z1 - z2', '无效', ''),
-    ToolResult('z1 × z2', '无效', ''),
-    ToolResult('z1 ÷ z2', '无效', ''),
-    ToolResult('|z1|', '无效', ''),
-    ToolResult('|z2|', '无效', ''),
-    ToolResult('arg(z1)', '无效', 'deg'),
-    ToolResult('arg(z2)', '无效', 'deg'),
-    ToolResult('conj(z1)', '无效', ''),
-    ToolResult('conj(z2)', '无效', ''),
+    ToolResult.invalid('z1 + z2', '', primary: true),
+    ToolResult.invalid('z1 - z2', ''),
+    ToolResult.invalid('z1 × z2', ''),
+    ToolResult.invalid('z1 ÷ z2', ''),
+    ToolResult.invalid('|z1|', ''),
+    ToolResult.invalid('|z2|', ''),
+    ToolResult.invalid('arg(z1)', 'deg'),
+    ToolResult.invalid('arg(z2)', 'deg'),
+    ToolResult.invalid('conj(z1)', ''),
+    ToolResult.invalid('conj(z2)', ''),
   ];
+}
+
+/// 中文：**一条复数结果。** 错误状态由两个分量本身决定——那两个分量是不是有限数，才是
+///       `_complexText` 那句话里出不出现「无效」的原因。
+/// English: **One complex-number result.** The error state is decided by the two parts themselves —
+///          whether those parts are finite is what makes `_complexText` mention the marker.
+ToolResult _complexResult(
+    String label, double real, double imaginary, String unit,
+    {bool primary = false}) {
+  return ToolResult(label, _complexText(real, imaginary), unit,
+      primary: primary, hasError: !real.isFinite || !imaginary.isFinite);
 }
 
 String _complexText(double real, double imaginary) {
@@ -148,45 +178,62 @@ List<ToolResult> vectorResults(Map<String, double> valuesByKey) {
   final angle = cos.isFinite ? math.acos(cos) * 180 / math.pi : double.nan;
   final distance = math.sqrt(math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2));
   final projectionOnB = len2 == 0 ? double.nan : dot / len2;
-  final projectionVectorOnB = len2 == 0
-      ? '无效'
-      : '(${formatNumber(dot / (len2 * len2) * x2)}, ${formatNumber(dot / (len2 * len2) * y2)})';
+  // 中文：投影向量**先算成数**。`len2 == 0` 那一支值就是那条记号，也是错误。
+  // English: the projection vector is computed as numbers first. The `len2 == 0` branch's value is
+  //          the marker itself, and it is an error.
+  final projectionVectorAvailable = len2 != 0;
+  final projectionVectorValues = <double>[
+    dot / (len2 * len2) * x2,
+    dot / (len2 * len2) * y2,
+  ];
+  final projectionVectorOnB = projectionVectorAvailable
+      ? '(${formatNumber(projectionVectorValues[0])}, '
+          '${formatNumber(projectionVectorValues[1])})'
+      : '无效';
   final directionA =
       len1 == 0 ? double.nan : math.atan2(y1, x1) * 180 / math.pi;
   final directionB =
       len2 == 0 ? double.nan : math.atan2(y2, x2) * 180 / math.pi;
   return [
-    ToolResult('点积', formatNumber(dot), '', primary: true),
-    ToolResult('叉积 z', formatNumber(cross), ''),
-    ToolResult('夹角', angle.isFinite ? formatNumber(angle) : '无效', 'deg'),
+    ToolResult.number('点积', dot, '', primary: true),
+    ToolResult.number('叉积 z', cross, ''),
+    ToolResult.number('夹角', angle.isFinite ? angle : null, 'deg'),
+    // 中文：两个长度拼成一句「比」——错误状态由这两个数决定，不由这句话里的措辞决定。
+    // English: Two lengths joined into one "ratio" sentence — the two numbers decide the error
+    //          state, not the wording inside the sentence.
     ToolResult(
-        '|A| / |B|', '${formatNumber(len1)} / ${formatNumber(len2)}', ''),
-    ToolResult('距离 |A-B|', formatNumber(distance), ''),
-    ToolResult('cosθ', cos.isFinite ? formatNumber(cos) : '无效', ''),
-    ToolResult('A在B方向投影',
-        projectionOnB.isFinite ? formatNumber(projectionOnB) : '无效', ''),
-    ToolResult('A到B投影向量', projectionVectorOnB, ''),
-    ToolResult(
-        '方向角 A', directionA.isFinite ? formatNumber(directionA) : '无效', 'deg'),
-    ToolResult(
-        '方向角 B', directionB.isFinite ? formatNumber(directionB) : '无效', 'deg'),
+      '|A| / |B|',
+      '${formatNumber(len1)} / ${formatNumber(len2)}',
+      '',
+      hasError: !len1.isFinite || !len2.isFinite,
+    ),
+    ToolResult.number('距离 |A-B|', distance, ''),
+    ToolResult.number('cosθ', cos.isFinite ? cos : null, ''),
+    ToolResult.number(
+        'A在B方向投影', projectionOnB.isFinite ? projectionOnB : null, ''),
+    ToolResult('A到B投影向量', projectionVectorOnB, '',
+        hasError: !projectionVectorAvailable ||
+            projectionVectorValues.any((value) => !value.isFinite),
+        isInvalidMarker: !projectionVectorAvailable),
+    ToolResult.number('方向角 A', directionA.isFinite ? directionA : null, 'deg'),
+    ToolResult.number('方向角 B', directionB.isFinite ? directionB : null, 'deg'),
     ToolResult('关系', _vectorRelation(dot, cross, len1, len2), ''),
   ];
 }
 
 List<ToolResult> _invalidVectorResults() {
   return const [
-    ToolResult('点积', '无效', '', primary: true),
-    ToolResult('叉积 z', '无效', ''),
-    ToolResult('夹角', '无效', 'deg'),
-    ToolResult('|A| / |B|', '无效', ''),
-    ToolResult('距离 |A-B|', '无效', ''),
-    ToolResult('cosθ', '无效', ''),
-    ToolResult('A在B方向投影', '无效', ''),
-    ToolResult('A到B投影向量', '无效', ''),
-    ToolResult('方向角 A', '无效', 'deg'),
-    ToolResult('方向角 B', '无效', 'deg'),
-    ToolResult('关系', '无效', ''),
+    ToolResult.invalid('点积', '', primary: true),
+    ToolResult.invalid('叉积 z', ''),
+    ToolResult.invalid('夹角', 'deg'),
+    ToolResult.invalid('|A| / |B|', ''),
+    ToolResult.invalid('距离 |A-B|', ''),
+    ToolResult.invalid('cosθ', ''),
+    ToolResult.invalid('A在B方向投影', ''),
+    ToolResult.invalid('A到B投影向量', ''),
+    ToolResult.invalid('方向角 A', 'deg'),
+    ToolResult.invalid('方向角 B', 'deg'),
+    ToolResult.invalid('关系', ''),
   ];
 }
 
@@ -232,38 +279,41 @@ List<ToolResult> triangleResults(Map<String, double> valuesByKey) {
   final heightC = 2 * area / c;
   final type = _triangleType(a, b, c);
   return [
-    ToolResult('面积', formatNumber(area), '', primary: true),
-    ToolResult('周长', formatNumber(perimeter), ''),
-    ToolResult('半周长', formatNumber(s), ''),
+    ToolResult.number('面积', area, '', primary: true),
+    ToolResult.number('周长', perimeter, ''),
+    ToolResult.number('半周长', s, ''),
     ToolResult(
       '角 A/B/C',
       '${formatNumber(angleA)} / ${formatNumber(angleB)} / ${formatNumber(angleC)}',
       'deg',
+      hasError: !angleA.isFinite || !angleB.isFinite || !angleC.isFinite,
     ),
     ToolResult('边长类型', type, ''),
-    ToolResult('最长边', formatNumber(longest), ''),
-    ToolResult('最短边', formatNumber(shortest), ''),
+    ToolResult.number('最长边', longest, ''),
+    ToolResult.number('最短边', shortest, ''),
     ToolResult(
-        '高 ha/hb/hc',
-        '${formatNumber(heightA)} / ${formatNumber(heightB)} / ${formatNumber(heightC)}',
-        ''),
-    ToolResult('内切圆半径', formatNumber(inradius), ''),
-    ToolResult('外接圆半径', formatNumber(circumradius), ''),
+      '高 ha/hb/hc',
+      '${formatNumber(heightA)} / ${formatNumber(heightB)} / ${formatNumber(heightC)}',
+      '',
+      hasError: !heightA.isFinite || !heightB.isFinite || !heightC.isFinite,
+    ),
+    ToolResult.number('内切圆半径', inradius, ''),
+    ToolResult.number('外接圆半径', circumradius, ''),
   ];
 }
 
 List<ToolResult> _invalidTriangleResults() {
   return const [
-    ToolResult('面积', '无效', '', primary: true),
-    ToolResult('周长', '无效', ''),
-    ToolResult('半周长', '无效', ''),
-    ToolResult('角 A/B/C', '无效', 'deg'),
-    ToolResult('边长类型', '无效', ''),
-    ToolResult('最长边', '无效', ''),
-    ToolResult('最短边', '无效', ''),
-    ToolResult('高 ha/hb/hc', '无效', ''),
-    ToolResult('内切圆半径', '无效', ''),
-    ToolResult('外接圆半径', '无效', ''),
+    ToolResult.invalid('面积', '', primary: true),
+    ToolResult.invalid('周长', ''),
+    ToolResult.invalid('半周长', ''),
+    ToolResult.invalid('角 A/B/C', 'deg'),
+    ToolResult.invalid('边长类型', ''),
+    ToolResult.invalid('最长边', ''),
+    ToolResult.invalid('最短边', ''),
+    ToolResult.invalid('高 ha/hb/hc', ''),
+    ToolResult.invalid('内切圆半径', ''),
+    ToolResult.invalid('外接圆半径', ''),
   ];
 }
 
@@ -342,35 +392,35 @@ List<ToolResult> circleResults(Map<String, double> valuesByKey) {
   final circumference = 2 * math.pi * radius;
   final area = math.pi * radius * radius;
   return [
-    ToolResult('面积', formatNumber(area), '', primary: true),
-    ToolResult('半径', formatNumber(radius), ''),
-    ToolResult('直径', formatNumber(diameter), ''),
-    ToolResult('周长', formatNumber(circumference), ''),
-    ToolResult('半周长', formatNumber(circumference / 2), ''),
-    ToolResult('单位半径面积', formatNumber(radius == 0 ? 0 : area / radius), ''),
+    ToolResult.number('面积', area, '', primary: true),
+    ToolResult.number('半径', radius, ''),
+    ToolResult.number('直径', diameter, ''),
+    ToolResult.number('周长', circumference, ''),
+    ToolResult.number('半周长', circumference / 2, ''),
+    ToolResult.number('单位半径面积', radius == 0 ? 0 : area / radius, ''),
     ToolResult('输入来源', source, ''),
     if (diameterInput != null && radiusInput != null)
-      ToolResult('直径差值', formatNumber(diameter - diameterInput), ''),
+      ToolResult.number('直径差值', diameter - diameterInput, ''),
     if (circumferenceInput != null &&
         (radiusInput != null || diameterInput != null))
-      ToolResult('周长差值', formatNumber(circumference - circumferenceInput), ''),
+      ToolResult.number('周长差值', circumference - circumferenceInput, ''),
     if (areaInput != null &&
         (radiusInput != null ||
             diameterInput != null ||
             circumferenceInput != null))
-      ToolResult('面积差值', formatNumber(area - areaInput), ''),
+      ToolResult.number('面积差值', area - areaInput, ''),
   ];
 }
 
 List<ToolResult> _invalidCircleResults() {
   return const [
-    ToolResult('面积', '无效', '', primary: true),
-    ToolResult('半径', '无效', ''),
-    ToolResult('直径', '无效', ''),
-    ToolResult('周长', '无效', ''),
-    ToolResult('半周长', '无效', ''),
-    ToolResult('单位半径面积', '无效', ''),
-    ToolResult('输入来源', '无效', ''),
+    ToolResult.invalid('面积', '', primary: true),
+    ToolResult.invalid('半径', ''),
+    ToolResult.invalid('直径', ''),
+    ToolResult.invalid('周长', ''),
+    ToolResult.invalid('半周长', ''),
+    ToolResult.invalid('单位半径面积', ''),
+    ToolResult.invalid('输入来源', ''),
   ];
 }
 

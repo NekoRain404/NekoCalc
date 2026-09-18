@@ -355,6 +355,19 @@ void main() {
 ///          classification, not copy. **Do not add UI copy to this map.**
 const Map<String, Set<String>> _nonUiLiterals = <String, Set<String>>{
   'notes_page_sections.dart': <String>{'公式', '公式：', '工具'},
+  // 中文：**判据放宽到"含宽/全角字符或中文排版标点"（`test/shared/source_scan.dart`）之后，
+  //       本目录新露出来的只有这一条，而且它不是句子**：`notes_page_dialogs.dart` 里那个
+  //       `[,，\n]` 是**切分剪贴板文本的正则**——它认得的是"英文逗号、中文逗号、换行"三种
+  //       分隔符，`，` 是那个文法的一个记号。
+  //       **别把界面文案加进这个表**：入选条件是上面这条理由，不是方便。
+  // English: **after widening the ruler to "contains a Wide/Fullwidth character or Chinese
+  //          typographic punctuation" (`test/shared/source_scan.dart`) this directory yields exactly
+  //          one more literal, and it is not a sentence**: `[,，\n]` in `notes_page_dialogs.dart` is
+  //          the **regular expression that splits clipboard text** — it recognises three separators
+  //          (ASCII comma, Chinese comma, newline) and `，` is one of that grammar's marks.
+  //          **Do not add interface copy to this set**: the reason above is what qualifies an entry,
+  //          not convenience.
+  'notes_page_dialogs.dart': <String>{r'[,，\n]'},
 };
 
 /// 中文：一份什么都答"空"的库；护栏测试只关心首帧那几个字，不关心记录。

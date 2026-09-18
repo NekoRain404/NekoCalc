@@ -38,12 +38,11 @@ List<String> buildElectronicsToolInsights(
   final lines = <String>[];
   switch (kind) {
     case ToolKind.ohmsLaw:
-      final voltageText = toolResultText(results, '电压 V');
       final power = toolResultNumber(results, '功率 P');
       final resistance = v['resistance'] ?? 0;
       final current = v['current'] ?? 0;
       final source = toolResultText(results, '输入来源');
-      if (voltageText == '无效') {
+      if (toolResultUnavailable(results, '电压 V')) {
         lines.add('电压、电流、电阻、功率至少填写两项；电阻必须大于 0，功率不能为负');
       }
       if (current < 0) {
@@ -55,21 +54,19 @@ List<String> buildElectronicsToolInsights(
       if (resistance > 0 && resistance < 1) {
         lines.add('电阻低于 1Ω 时，导线、接触电阻和电流表压降会明显影响结果');
       }
-      if (source != null && source != '无效') {
+      if (source != null && !toolResultUnavailable(results, '输入来源')) {
         lines.add('当前按 $source 反推欧姆定律其它量');
       }
       lines.add('结果按理想电阻计算，实际还要看容差、温漂、脉冲功率和耐压');
     case ToolKind.voltageDivider:
-      final voutText = toolResultText(results, '输出电压');
       final unloaded = toolResultNumber(results, '空载输出');
       final loaded = toolResultNumber(results, '输出电压');
       final dividerCurrent = toolResultNumber(results, '分压电流');
-      final targetText = toolResultText(results, '目标输出电压');
       final outputDelta = toolResultNumber(results, '输出偏差');
-      if (voutText == '无效') {
+      if (toolResultUnavailable(results, '输出电压')) {
         lines.add('R1、R2 必须大于 0，负载电阻不能为负，目标输出必须在 Vin 可达范围内');
       }
-      if (targetText == '无效') {
+      if (toolResultUnavailable(results, '目标输出电压')) {
         lines.add('目标输出需要与 Vin 同极性，且绝对值必须低于 Vin');
       }
       lines.add(
@@ -93,10 +90,9 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('分压电流太小会让负载和 ADC 采样电流明显影响结果');
     case ToolKind.rcFilter:
-      final fcText = toolResultText(results, '截止频率 fc');
       final frequencyDelta = toolResultNumber(results, '频率偏差');
       final tol = (v['tol'] ?? 0).abs();
-      if (fcText == '无效') {
+      if (toolResultUnavailable(results, '截止频率 fc')) {
         lines.add('R、C 和目标截止频率都必须大于 0，才能计算 RC 截止频率');
       }
       if (tol > 20) lines.add('元件公差超过 20%，fc 范围只能作为粗略边界');
@@ -109,10 +105,9 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('低通和高通共用同一个 fc，取样节点不同');
     case ToolKind.dbm:
-      final powerText = toolResultText(results, '功率');
       final mw = toolResultNumber(results, '功率');
       final dbm = v['dbm'] ?? 0;
-      if (powerText == '无效') {
+      if (toolResultUnavailable(results, '功率')) {
         lines.add('dBm 输入必须是有限数值');
       }
       if (mw != null && mw > 1000) {
@@ -123,38 +118,35 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('50Ω 电压按正弦波和匹配负载估算；开路电压、峰值和调制信号要另行校核');
     case ToolKind.resistorNetwork:
-      final seriesText = toolResultText(results, '串联等效');
-      if (seriesText == '无效') {
+      if (toolResultUnavailable(results, '串联等效')) {
         lines.add('R1、R2 和目标等效值都必须大于 0，才能计算串并联或反推元件值');
       }
-      if (toolResultText(results, '串联目标所需R2') == '无效') {
+      if (toolResultUnavailable(results, '串联目标所需R2')) {
         lines.add('目标串联等效必须大于 R1，才有正的 R2 解');
       }
-      if (toolResultText(results, '并联目标所需R2') == '无效') {
+      if (toolResultUnavailable(results, '并联目标所需R2')) {
         lines.add('目标并联等效必须小于 R1，才有正的 R2 解');
       }
       lines.add('电阻串并联还要分别核对单个电阻的功耗、耐压和温漂');
     case ToolKind.capacitorNetwork:
-      final parallelText = toolResultText(results, '并联等效');
-      if (parallelText == '无效') {
+      if (toolResultUnavailable(results, '并联等效')) {
         lines.add('C1、C2 和目标等效值都必须大于 0，才能计算串并联或反推元件值');
       }
-      if (toolResultText(results, '并联目标所需C2') == '无效') {
+      if (toolResultUnavailable(results, '并联目标所需C2')) {
         lines.add('目标并联等效必须大于 C1，才有正的 C2 解');
       }
-      if (toolResultText(results, '串联目标所需C2') == '无效') {
+      if (toolResultUnavailable(results, '串联目标所需C2')) {
         lines.add('目标串联等效必须小于 C1，才有正的 C2 解');
       }
       lines.add('电容串联等效小于最小电容，耐压可分摊但漏电差异会影响均压');
     case ToolKind.inductorNetwork:
-      final inductorSeriesText = toolResultText(results, '串联等效');
-      if (inductorSeriesText == '无效') {
+      if (toolResultUnavailable(results, '串联等效')) {
         lines.add('L1、L2 和目标等效值都必须大于 0，才能计算串并联或反推元件值');
       }
-      if (toolResultText(results, '串联目标所需L2') == '无效') {
+      if (toolResultUnavailable(results, '串联目标所需L2')) {
         lines.add('目标串联等效必须大于 L1，才有正的 L2 解');
       }
-      if (toolResultText(results, '并联目标所需L2') == '无效') {
+      if (toolResultUnavailable(results, '并联目标所需L2')) {
         lines.add('目标并联等效必须小于 L1，才有正的 L2 解');
       }
       lines.add('电感并联忽略互感、DCR 和饱和电流差异，只适合快速估算');
@@ -180,13 +172,12 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('电阻功率建议留至少 2 倍余量');
     case ToolKind.opAmpGain:
-      final gainText = toolResultText(results, '同相增益');
       final nonInvertingGain = toolResultNumber(results, '同相增益');
       final ratio = toolResultNumber(results, '电阻比');
       final feedbackTotal = toolResultNumber(results, '反馈总阻值');
       final closedLoopBandwidth = toolResultNumber(results, '同相闭环带宽');
       final slewRate = toolResultNumber(results, '所需压摆率');
-      if (gainText == '无效') {
+      if (toolResultUnavailable(results, '同相增益')) {
         lines.add('Rin 必须大于 0，Rf 不能为负；目标同相增益必须大于 1，GBW 和频率参数不能为负');
       }
       if (ratio == 0) {
@@ -211,11 +202,10 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('结果是理想增益，实际还受供电轨、输入范围、带宽和压摆率限制');
     case ToolKind.adcResolution:
-      final lsbText = toolResultText(results, 'LSB');
       final bits = (v['bits'] ?? 0).round();
       final inputState = toolResultText(results, '输入状态');
       final enob = toolResultNumber(results, 'ENOB');
-      if (lsbText == '无效') {
+      if (toolResultUnavailable(results, 'LSB')) {
         lines.add('参考电压必须大于 0，位数建议在 1 到 32 bit');
         if (v['enob'] != null) {
           lines.add('ENOB 必须大于 0 且不能大于标称位数');
@@ -235,23 +225,22 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('LSB 是理论步进，ENOB 会被噪声、参考源和前端阻抗拉低');
     case ToolKind.rmsPeak:
-      final peakText = toolResultText(results, 'Vpeak');
-      final dbvText = toolResultText(results, 'dBV');
       final power50 = toolResultNumber(results, '50Ω 功率');
       final source = toolResultText(results, '输入来源') ?? '';
       final vpeakDelta = toolResultNumber(results, 'Vpeak差值');
       final vppDelta = toolResultNumber(results, 'Vpp差值');
       final dbmDelta = toolResultNumber(results, '50Ω dBm差值');
-      if (peakText == '无效') {
+      if (toolResultUnavailable(results, 'Vpeak')) {
         lines.add('Vrms、Vpeak、Vpp 不能为负，50Ω dBm 必须是有限数值');
       }
-      if (dbvText == '无效' && peakText != '无效') {
+      if (toolResultUnavailable(results, 'dBV') &&
+          !toolResultUnavailable(results, 'Vpeak')) {
         lines.add('0V 信号没有可定义的 dBV、dBu 或 dBm 对数值');
       }
       if (power50 != null && power50 > 1000) {
         lines.add('50Ω 功率超过 1W，需确认负载额定功率、端接和信号源驱动能力');
       }
-      if (source.isNotEmpty && source != '无效') {
+      if (source.isNotEmpty && !toolResultUnavailable(results, '输入来源')) {
         lines.add('当前按 $source 反推其它正弦波幅值');
       }
       if (vpeakDelta != null && vpeakDelta.abs() > 1e-9) {
@@ -265,11 +254,10 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('这些换算只适用于纯正弦波；方波、脉冲和任意波形的 RMS/峰值关系不同');
     case ToolKind.lcResonance:
-      final resonanceText = toolResultText(results, '谐振频率');
       final resonanceHz = toolResultNumber(results, '谐振频率');
       final q = toolResultNumber(results, 'Q值(串联)');
       final bandwidth = toolResultNumber(results, '3dB带宽');
-      if (resonanceText == '无效') {
+      if (toolResultUnavailable(results, '谐振频率')) {
         lines.add('L 和 C 必须大于 0，ESR 不能为负，才能计算 LC 谐振频率');
       }
       if (resonanceHz != null && resonanceHz > 10000000) {
@@ -287,13 +275,12 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('DCR、ESR 和寄生参数会降低 Q 值并移动峰值频率；并联谐振还需按等效并联损耗换算');
     case ToolKind.dcdcFeedback:
-      final outputText = toolResultText(results, '输出电压');
       final feedbackCurrent = toolResultNumber(results, '反馈电流');
       final outputError = toolResultNumber(results, '输出偏差比例');
       final currentDelta = toolResultNumber(results, '反馈电流偏差');
       final targetVout = v['targetVout'];
       final targetCurrent = v['targetCurrent'];
-      if (outputText == '无效') {
+      if (toolResultUnavailable(results, '输出电压')) {
         lines.add('Vref 必须大于 0，Rbottom 必须大于 0，Rtop 不能为负，目标输出不能低于 Vref');
       }
       if (outputError != null && outputError.abs() > 1) {
@@ -320,13 +307,12 @@ List<String> buildElectronicsToolInsights(
       final vin = v['vin'] ?? 0;
       final vout = v['vout'] ?? 0;
       final loadCurrent = v['current'] ?? 0;
-      final powerText = toolResultText(results, '功耗');
       final stateText = toolResultText(results, '调节状态');
       final dropoutMargin = toolResultNumber(results, '压差余量');
       final thermalMargin = toolResultNumber(results, '热余量');
       final efficiency = toolResultNumber(results, '效率');
       final iq = toolResultNumber(results, '静态电流');
-      if (powerText == '无效') {
+      if (toolResultUnavailable(results, '功耗')) {
         lines.add('Vin 必须大于 0，Vout 不能为负，负载电流、Iq 和 dropout 不能为负，θJA 必须大于 0');
       }
       if (stateText == '压差不足' || vin <= vout) {
@@ -349,12 +335,9 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('热判断看 Tj = Ta + Pd × θJA；这里只给快速估算');
     case ToolKind.capacitorCharge:
-      final voltageText = toolResultText(results, '电容电压');
       final chargeRatio = toolResultNumber(results, '充电比例');
       final initialCurrent = toolResultNumber(results, '初始电流');
-      final targetVoltageTimeText = toolResultText(results, '目标电压时间');
-      final targetRatioTimeText = toolResultText(results, '目标比例时间');
-      if (voltageText == '无效') {
+      if (toolResultUnavailable(results, '电容电压')) {
         lines.add('R 和 C 必须大于 0，时间不能为负，目标充电比例需在 0% 到 100%');
       }
       if (chargeRatio != null && chargeRatio < 90) {
@@ -363,15 +346,14 @@ List<String> buildElectronicsToolInsights(
       if (initialCurrent != null && initialCurrent > 100) {
         lines.add('初始电流超过 100mA，需确认电源限流、电阻功耗和开关冲击');
       }
-      if (targetVoltageTimeText == '无效') {
+      if (toolResultUnavailable(results, '目标电压时间')) {
         lines.add('目标电压不在初始电压到电源电压之间，理想 RC 模型无法达到该目标');
       }
-      if (targetRatioTimeText == '无效') {
+      if (toolResultUnavailable(results, '目标比例时间')) {
         lines.add('目标充电比例对应时间无效，请检查初始电压、电源电压和目标比例');
       }
       lines.add('RC 模型假设理想电阻电容，实际漏电、ESR 和输入源内阻会改变曲线');
     case ToolKind.batteryLife:
-      final lifeText = toolResultText(results, '续航时间');
       final cRate = toolResultNumber(results, 'C倍率');
       final hours = toolResultNumber(results, '续航时间');
       final usableHours = toolResultNumber(results, '余量后续航');
@@ -380,7 +362,7 @@ List<String> buildElectronicsToolInsights(
       final allowedAverageCurrent = toolResultNumber(results, '目标允许电流');
       final reserve = v['reserve'] ?? 20;
       final efficiency = v['efficiency'] ?? 100;
-      if (lifeText == '无效') {
+      if (toolResultUnavailable(results, '续航时间')) {
         lines.add('容量、平均电流和标称电压必须大于 0，效率需在 0% 到 100%，保留余量需小于 100%');
       }
       if (targetHours != null &&
@@ -412,7 +394,6 @@ List<String> buildElectronicsToolInsights(
       lines.add('容量会随温度、倍率、截止电压和老化下降，结果适合做预算');
       lines.add('Wh/W 模式按标称电压折算，升降压效率和峰值电流仍需单独校核');
     case ToolKind.pcbCurrent:
-      final currentText = toolResultText(results, '估算电流');
       final current = toolResultNumber(results, '估算电流');
       final deratedCurrent = toolResultNumber(results, '保守 70%');
       final targetCurrent = v['targetCurrent'];
@@ -424,7 +405,7 @@ List<String> buildElectronicsToolInsights(
       final copper = v['copper'] ?? 0;
       final rise = v['rise'] ?? 0;
       final layerFactor = v['layerFactor'] ?? 1;
-      if (currentText == '无效') {
+      if (toolResultUnavailable(results, '估算电流')) {
         lines.add('线宽、铜厚、允许温升和层位置系数都必须大于 0，目标电流也必须大于 0');
       }
       if (targetCurrent != null && targetWidth != null && targetWidth > width) {
@@ -454,7 +435,6 @@ List<String> buildElectronicsToolInsights(
       lines.add('IPC-2221 适合预估；高电流走线应按 IPC-2152 或热仿真复核');
       lines.add('铺铜、过孔、内外层和风速都会改变载流能力');
     case ToolKind.wireVoltageDrop:
-      final dropText = toolResultText(results, '压降');
       final ratio = toolResultNumber(results, '压降比例');
       final loadVoltage = toolResultNumber(results, '负载端电压');
       final requiredArea = toolResultNumber(results, '目标所需截面积');
@@ -466,7 +446,7 @@ List<String> buildElectronicsToolInsights(
       final dropLimit = v['dropLimit'] ?? 3;
       final resistivity = v['resistivity'] ?? 0.0175;
       final parallel = v['parallel'] ?? 1;
-      if (dropText == '无效') {
+      if (toolResultUnavailable(results, '压降')) {
         lines.add('电流不能为负，单程长度、线芯截面积、目标压降、电阻率和并联根数必须有效');
       }
       if (ratio != null && ratio > dropLimit) {
@@ -497,15 +477,13 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('线阻按往返回路算，铜线温度升高后压降还会变大');
     case ToolKind.timer555:
-      final frequencyText = toolResultText(results, '频率');
       final duty = toolResultNumber(results, '占空比');
-      final targetFrequencyText = toolResultText(results, '目标频率');
       final frequencyDelta = toolResultNumber(results, '频率偏差');
       final dutyDelta = toolResultNumber(results, '占空比偏差');
-      if (frequencyText == '无效') {
+      if (toolResultUnavailable(results, '频率')) {
         lines.add('RA、RB 和 C 都必须大于 0，才能形成无稳态振荡');
       }
-      if (targetFrequencyText == '无效') {
+      if (toolResultUnavailable(results, '目标频率')) {
         lines.add('目标频率必须大于 0，标准无稳态目标占空比必须大于 50% 且小于 100%');
       }
       if (frequencyDelta != null && frequencyDelta.abs() > 0) {
@@ -521,7 +499,6 @@ List<String> buildElectronicsToolInsights(
       }
       lines.add('普通 555 的电容漏电和阈值误差会让频率偏离标称值');
     case ToolKind.thermalRise:
-      final junctionText = toolResultText(results, '结温估算');
       final thermalMargin = toolResultNumber(results, '热余量');
       final marginRatio = toolResultNumber(results, '热余量比例');
       final power = v['power'] ?? 0;
@@ -529,7 +506,7 @@ List<String> buildElectronicsToolInsights(
       final deratedPower = toolResultNumber(results, '降额功耗');
       final targetJunctionPower = toolResultNumber(results, '目标结温允许功耗');
       final targetMarginPower = toolResultNumber(results, '目标余量允许功耗');
-      if (junctionText == '无效') {
+      if (toolResultUnavailable(results, '结温估算')) {
         lines.add('功耗不能为负，热阻和降额比例必须大于 0，最高结温必须高于环境温度，目标结温需落在环境温度和最高结温之间');
       }
       if (thermalMargin != null && thermalMargin < 0) {
