@@ -242,15 +242,19 @@ void main() {
       expect(AppEngineVocabulary.canRead('fact 171'), isFalse);
       expect(AppEngineVocabulary.canRead('ｆａｃｔ(171)'), isFalse);
       expect(AppEngineVocabulary.canRead('ｌｇ(8,2)'), isFalse);
-      // 中文：`1.5° to arcmin` **归一化之后**是 `rad(1.5) to arcmin`（`°` 被写成 `rad(…)`），里面因此
-      //       有一个 `rad` 调用，而 `rad` 在「不可用」那一列——修复轮 9 之前它读原文、判真。
-      //       **屏幕上没有变化**：翻译器在名字层之前就拒了 `rad`，引擎一次都没被问
+      // 中文：`1.5° to arcmin` **归一化之后**是 `degangle(1.5) to arcmin`（`°` 被写成内部名字
+      //       `degangle(…)`，见 `expression_parser.dart` 的 `_replaceDegreeSign`），里面因此
+      //       有一个 `degangle` 调用，而它在「不可用」那一列（引擎没有这个拼法）——修复轮 9 之前
+      //       它读原文、判真；`°` 修好之前那一列里是 `rad`，判的同样是假。
+      //       **屏幕上没有变化**：翻译器在名字层之前就拒了 `degangle`，引擎一次都没被问
       //       （实测与那条端到端断言同在 `calculator_engine_translation_test.dart`）。
-      // English: `1.5° to arcmin` **normalises** to `rad(1.5) to arcmin` (`°` is written `rad(…)`), so
-      //          it does contain a `rad` call, and `rad` is in the unusable column — before fix round
-      //          9 this read the raw source and said true. **Nothing changes on screen**: the
-      //          translator refuses `rad` ahead of the name layer, so the engine is never asked (the
-      //          measurement lives with the end-to-end assertion in
+      // English: `1.5° to arcmin` **normalises** to `degangle(1.5) to arcmin` (`°` is written as the
+      //          internal name `degangle(…)`; see `_replaceDegreeSign` in `expression_parser.dart`), so
+      //          it does contain a `degangle` call, and that name is in the unusable column (the engine
+      //          has no such spelling) — before fix round 9 this read the raw source and said true, and
+      //          before the `°` fix the same column entry was `rad`, which also said false. **Nothing
+      //          changes on screen**: the translator refuses `degangle` ahead of the name layer, so the
+      //          engine is never asked (the measurement lives with the end-to-end assertion in
       //          `calculator_engine_translation_test.dart`).
       expect(AppEngineVocabulary.canRead('1.5° to arcmin'), isFalse);
       // 中文：`i(2)`/`e(2)`/`pi(2)` 里的名字**不是函数**（`i`/`e`/`pi` 是引擎的变量、应用里的常量），

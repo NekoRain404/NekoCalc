@@ -255,8 +255,171 @@ void main() {
     expect(parse('1/tan(0)').isFinite, isFalse);
   });
 
-  test('a function alias reads its comma the same way its canonical name does', () {
-    // 中文：**别名与规范名必须读成同一个东西，逗号也一样。** 实参个数表写的是**归一化之后**的
+  group('度数记号 `°`：值是「当前角度单位下的这个角度」，两种模式都不再被换算两次', () {
+    // 中文：**修复前的错值（设备 `d87f1aa3`，DEG）：** `sin(30°)` = 0.009138395397176044、
+    //       `sin(90°)` = 0.02741213359204429、`tan(45°)` = 0.013708642534394055。归一化无条件把
+    //       `30°` 写成 `rad(30)`（`rad` 是「度 → 弧度」换算、与模式无关，恒为 0.5235987755982988），
+    //       而 DEG 的三角函数**再乘一次 π/180**——同一个角度被换算两次。RAD 只换算一次，所以
+    //       RAD 一直是对的：那正是这条错值只在 DEG 下出现的原因。
+    //
+    //       **参考实现**（宿主 `qalc` 5.12.0，`-set "angle deg"` 与 `-set "angle rad"` 各测一遍）：
+    //       `sin(30°)`/`sin(90°)`/`tan(45°)` 两种角度模式下都是 0.5 / 1 / 1——`°` 是一个显式单位，
+    //       与模式无关。下面这六条因此**两种模式断同一个数**。
+    //
+    //       **判据的形状**：`°` 是「这个数是若干度」这句话本身，而本应用把角度数值写在当前角度
+    //       单位下（DEG 下 `sin(30)` = 0.5、`asin(0.5)` = 30；RAD 下分别是 −0.988… 与
+    //       0.5235987755982988）。于是 `30°` 在 DEG 下是 **30**（三角函数随后按度读它）、
+    //       RAD 下是 **0.5235987755982988**（那边不再换算）——两条路上的 `sin(30°)` 都是 0.5。
+    // English: **the wrong value before the fix (device `d87f1aa3`, DEG):** `sin(30°)` =
+    //          0.009138395397176044, `sin(90°)` = 0.02741213359204429, `tan(45°)` =
+    //          0.013708642534394055. Normalisation wrote `30°` as `rad(30)` unconditionally (`rad` is
+    //          a degrees → radians conversion independent of the mode, always 0.5235987755982988) and
+    //          DEG's trig multiplied **again** by π/180 — one angle converted twice. RAD converts once,
+    //          which is exactly why that wrong value only ever appeared under DEG.
+    //
+    //          **The reference** (host `qalc` 5.12.0, measured with `-set "angle deg"` and again with
+    //          `-set "angle rad"`): `sin(30°)`/`sin(90°)`/`tan(45°)` are 0.5 / 1 / 1 in **both** angle
+    //          modes — `°` is an explicit unit and does not care about the mode. The six assertions
+    //          below therefore assert one number in both modes.
+    //
+    //          **The shape of the judgement**: `°` is the sentence "this number is so many degrees",
+    //          and this app writes an angle's value in the current angle unit (under DEG `sin(30)` =
+    //          0.5 and `asin(0.5)` = 30; under RAD those are −0.988… and 0.5235987755982988). So `30°`
+    //          is **30** under DEG (trig then reads it in degrees) and **0.5235987755982988** under RAD
+    //          (that side does not convert again) — and `sin(30°)` is 0.5 on both roads.
+    test('正弦、余弦、正切上的 `°`：两种模式给同一个数（参考实现的两个模式也一样）', () {
+      for (final degreeMode in <bool>[false, true]) {
+        final where = degreeMode ? 'DEG' : 'RAD';
+        expect(parse('sin(30°)', degreeMode: degreeMode), closeTo(0.5, 1e-12),
+            reason: '$where：`sin(30°)` 是 0.5——任何定义下都是（参考实现两个模式都是 0.5）');
+        expect(parse('sin(90°)', degreeMode: degreeMode), closeTo(1, 1e-12),
+            reason: '$where：`sin(90°)` = 1');
+        expect(parse('tan(45°)', degreeMode: degreeMode), closeTo(1, 1e-12),
+            reason: '$where：`tan(45°)` = 1（修复前 DEG 下是 0.013708642534394055）');
+        expect(parse('cos(0°)', degreeMode: degreeMode), closeTo(1, 1e-12));
+        expect(parse('sin(0°)', degreeMode: degreeMode), closeTo(0, 1e-12));
+        // 中文：**嵌套同样成立**，这是「值按模式给」而不是「只在顶层做特判」的证据：
+        //       `2*30°` 是 60 度这个角度，两种模式下的 sin 都是 sin(60°) = 0.8660254037844386。
+        // English: **nesting holds too**, and that is the evidence that this is "the value belongs to
+        //          the mode" rather than a special case at the top level: `2*30°` is the angle 60
+        //          degrees, and `sin` of it is sin(60°) = 0.8660254037844386 in both modes.
+        expect(parse('sin(2*30°)', degreeMode: degreeMode),
+            closeTo(0.8660254037844386, 1e-12),
+            reason: '$where：`2*30°` 是 60 度这个角度，不是两个数各自换算');
+        expect(parse('sin(30°+15°)', degreeMode: degreeMode),
+            closeTo(0.7071067811865476, 1e-12),
+            reason: '$where：两个带 `°` 的角度相加，仍然是一个角度');
+      }
+    });
+
+    test('`30°` 单用：DEG 下是 30，RAD 下是它的弧度值', () {
+      // 中文：**这一条是上面那一组的另一半，也是它成立的原因。** 角度数值写在当前单位下，
+      //       所以 `30°` 在 DEG 下就是 30——这正是 DEG 下三角函数「按度读实参」的反面。
+      //       RAD 下它是 1.5707963267948966/3 = 0.5235987755982988，与修复前逐字相同。
+      //       参考实现在两种模式下的 `30°` 都印成 `0.5235987756 rad`——它**带着单位印**，
+      //       所以那两行说的是同一个角度，而不是同一个数；本应用印不了单位，只能印当前单位下的数。
+      // English: **this is the other half of the group above, and the reason it holds.** An angle's
+      //          value is written in the current unit, so `30°` is 30 under DEG — the mirror image of
+      //          "trig reads its argument in degrees" there. Under RAD it is
+      //          1.5707963267948966/3 = 0.5235987755982988, byte for byte what it was before the fix.
+      //          The reference prints `30°` as `0.5235987756 rad` in both modes — it prints **with the
+      //          unit**, so those two lines name one angle rather than one number; this app cannot print
+      //          a unit and can only print the number in the current unit.
+      expect(parse('30°', degreeMode: true), closeTo(30, 1e-12));
+      expect(parse('30°', degreeMode: false), closeTo(0.5235987755982988, 1e-12));
+      expect(parse('30°+30°', degreeMode: true), closeTo(60, 1e-12),
+          reason: 'DEG 下两个 30 度的角相加是 60 度');
+      expect(parse('30°+30°', degreeMode: false),
+          closeTo(1.0471975511965976, 1e-12),
+          reason: 'RAD 下同一个角度是 1.0471975511965976 弧度（修复前就是这个数）');
+      // 中文：**`20％ + 90°` 在 RAD 下与修复前逐字相同**（0.2 + π/2）——这条式子原来是
+      //       `normalizeExpressionInput` 那一组里的期望值，这里留住它，并在 DEG 下补上另一半。
+      // English: **`20%+90°` under RAD is byte for byte what it was** (0.2 + π/2) — this expression
+      //          already had an expectation in the normalisation group, kept here, with the DEG half
+      //          added.
+      expect(parse('20%+90°', degreeMode: false),
+          closeTo(0.2 + math.pi / 2, 1e-12));
+      expect(parse('20%+90°', degreeMode: true), closeTo(90.2, 1e-12));
+    });
+
+    test('归一化的文本不随角度模式变化：`30°` 一律写成 `degangle(30)`', () {
+      // 中文：**这一条钉的是「为什么写成一个名字」那半个判据。** 按模式改写文本（DEG 写成 `30`、
+      //       RAD 写成 `rad(30)`）会让归一化带上角度模式，而它有七个消费者，看到的必须是**同一个
+      //       字符串**（修复轮 8、9）；引擎那条路更危险——RAD 文本含 `rad`（翻译器拒绝，引擎一次
+      //       都不被问）而 DEG 文本是 `sin(30)`（翻译得过去），同一句输入会按模式走两个权威。
+      //       写成一个名字之后文本与模式无关，模式只出现在求值那一处（`ExpressionParser.degreeMode`）。
+      //       `degangle` 是**应用自己语言里的名字**：不在键位/面板能插的名单里，引擎没有它的写法
+      //       （词表那一行 `engineKnowsThisName: false`），所以含 `°` 的表达式照旧一次都不送去
+      //       让引擎猜——与修复前那条路逐字相同。
+      // English: **this pins the other half of "why one name".** Rewriting the text by mode (`30`
+      //          under DEG, `rad(30)` under RAD) would put the angle mode inside normalisation, and
+      //          its seven consumers must see **one string** (fix rounds 8 and 9). The engine route is
+      //          the sharper hazard: the RAD text contains `rad` (the translator refuses it, so the
+      //          engine is never asked) while the DEG text is `sin(30)` (which translates) — one input
+      //          would reach two different authorities depending on a setting. With one name the text
+      //          is mode-independent and the mode appears only where evaluation happens
+      //          (`ExpressionParser.degreeMode`). `degangle` is **a name in this app's own language**:
+      //          no key or sheet inserts it, the engine has no spelling for it (its vocabulary row is
+      //          `engineKnowsThisName: false`), so an expression containing `°` is still never sent to
+      //          the engine to guess at — byte for byte the route it took before the fix.
+      for (final source in <String>[
+        '30°',
+        'sin(30°)',
+        'sin 90°',
+        '2 30°',
+        '(30°+15°)*2',
+      ]) {
+        final rad = ExpressionParser(source, degreeMode: false);
+        final deg = ExpressionParser(source, degreeMode: true);
+        expect(deg.text, rad.text,
+            reason: '`$source`：归一化的文本只由输入决定，不由角度模式决定');
+        expect(rad.text, contains('degangle('),
+            reason: '`$source`：`°` 一律写成内部名字 `degangle(N)`');
+      }
+      expect(ExpressionParser('sin(30°)', degreeMode: true).text,
+          'sin(degangle(30))');
+      expect(ExpressionParser('30°', degreeMode: true).text, 'degangle(30)');
+      // 中文：**幂等**——把归一化之后的文本再喂一次，结果不变（`degangle` 在函数名表里，
+      //       所以第二遍的隐式乘法/别名那几步认得它）。
+      // English: **idempotent** — feeding the normalised text back in changes nothing (`degangle` is
+      //          in the function-name table, so the second pass's implicit-multiplication and alias
+      //          steps recognise it).
+      final once = ExpressionParser('2 30°+sin(45°)', degreeMode: true).text;
+      expect(ExpressionParser(once, degreeMode: true).text, once);
+    });
+
+    test('用户自己写的 `rad(...)`/`deg(...)` 一个字节都没变', () {
+      // 中文：**`°` 走的是内部名字，不是 `rad`。** 这两个函数是应用自己的换算器（HiPER 的
+      //       `►RAD`/`►DEG`）：`rad(x)` 是「x 度，换成弧度」，`deg(x)` 是「x 弧度，换成度」，
+      //       两者都与角度模式无关。所以 DEG 下 `sin(rad(30))` 是「把一个**弧度值**交给按度读实参的
+      //       三角函数」——实参 0.5235987755982988 被当作度，0.009138395397176044。这一条**不是**
+      //       被修掉的那个错值的残留：错值在 `30°` 那条路上（`°` 曾经被改写成 `rad(...)`，
+      //       于是两者在文本上无法区分），而现在两者是不同的名字、各有各的定义。要让一个弧度值
+      //       进 DEG 的三角函数，应用自己的写法是先换算：`sin(deg(0.5235987755982988))` = 0.5。
+      // English: **`°` travels under an internal name, not under `rad`.** Those two functions are this
+      //          app's own converters (HiPER's `►RAD`/`►DEG`): `rad(x)` is "x degrees, in radians" and
+      //          `deg(x)` is "x radians, in degrees", both independent of the angle mode. So under DEG
+      //          `sin(rad(30))` hands a **radian value** to a trig function that reads its argument in
+      //          degrees — 0.5235987755982988 read as degrees, 0.009138395397176044. That is **not** a
+      //          leftover of the bug that was fixed: the bug lived on the `°` road (`°` used to be
+      //          rewritten to `rad(...)`, which made the two indistinguishable as text), and the two
+      //          are now different names with different definitions. To feed a radian value into DEG's
+      //          trig, this app's own spelling is to convert first:
+      //          `sin(deg(0.5235987755982988))` = 0.5.
+      expect(parse('rad(30)', degreeMode: true), closeTo(0.5235987755982988, 1e-12));
+      expect(parse('rad(30)', degreeMode: false), closeTo(0.5235987755982988, 1e-12));
+      expect(parse('deg(0.5235987755982988)', degreeMode: true), closeTo(30, 1e-9));
+      expect(parse('sin(rad(30))', degreeMode: true),
+          closeTo(0.009138395397176044, 1e-15),
+          reason: 'DEG 下把弧度值交给按度读实参的 sin：应用自己的 `rad` 定义没变，这一条也是');
+      expect(parse('sin(rad(30))', degreeMode: false), closeTo(0.5, 1e-12));
+      expect(parse('sin(deg(0.5235987755982988))', degreeMode: true),
+          closeTo(0.5, 1e-12),
+          reason: '要按 DEG 的读法喂一个弧度值，应用自己的写法是先用 `deg(...)` 换成度');
+    });
+  });
+
+  test('a function alias reads its comma the same way its canonical name does', () {    // 中文：**别名与规范名必须读成同一个东西，逗号也一样。** 实参个数表写的是**归一化之后**的
     //       名字（`ncr`/`npr`/`log`），而 [_startsFunctionArgument] 读的是**归一化之前**的文本
     //       ——别名替换跑在逗号归一化之后。于是同一颗键的两种拼法给出两个不同的值：
     //

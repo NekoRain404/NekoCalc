@@ -253,19 +253,23 @@ void main() {
       controller.dispose();
     });
 
-    test('1.5° to arcmin：名字层判假，但翻译器先拒了 `rad`——引擎一次都没被问', () async {
+    test('1.5° to arcmin：名字层判假，但翻译器先拒了 `degangle`——引擎一次都没被问', () async {
       // 中文：这条钉的是**修复轮 9 那条期望值改动为什么不改变屏幕**。`1.5° to arcmin` 归一化之后是
-      //       `rad(1.5) to arcmin`，里面有一个 `rad` 调用，于是 `canRead` 判假（修复轮 9 之前它读原文、
-      //       判真）。**两种判词下屏幕都一样**：`_askEngineTranslated` 先问翻译器，翻译器对 `rad` 给
-      //       「词表里这个名字没有引擎写法」，引擎**根本没被问**（`calls` 为空），走旧解析器，
-      //       而旧解析器读不了 `to` ——应用自己的错误。所以这一条在「把 `canRead` 的输入改回原文」
-      //       的变异体里仍然是绿的，只有 `calculator_engine_display_gate_test.dart` 里那条
-      //       `canRead('1.5° to arcmin')` 的期望值断言会红。
+      //       `degangle(1.5) to arcmin`（`°` 写成内部名字 `degangle`，见 `_replaceDegreeSign`），
+      //       里面有一个 `degangle` 调用，于是 `canRead` 判假（修复轮 9 之前它读原文、判真；
+      //       `°` 修好之前这里写的是 `rad`，判的同样是假）。**两种判词下屏幕都一样**：
+      //       `_askEngineTranslated` 先问翻译器，翻译器对 `degangle` 给「词表里这个名字没有引擎写法」，
+      //       引擎**根本没被问**（`calls` 为空），走旧解析器，而旧解析器读不了 `to` ——应用自己的错误。
+      //       所以这一条在「把 `canRead` 的输入改回原文」的变异体里仍然是绿的，只有
+      //       `calculator_engine_display_gate_test.dart` 里那条 `canRead('1.5° to arcmin')` 的期望值
+      //       断言会红。
       // English: this pins **why fix round 9's expectation change does not change the screen**.
-      //          `1.5° to arcmin` normalises to `rad(1.5) to arcmin`, which contains a `rad` call, so
-      //          `canRead` says false (before fix round 9 it read the raw source and said true).
-      //          **The screen is the same either way**: `_askEngineTranslated` consults the translator
-      //          first, the translator has no engine spelling for `rad`, the engine is **never asked**
+      //          `1.5° to arcmin` normalises to `degangle(1.5) to arcmin` (`°` is written as the
+      //          internal name `degangle`; see `_replaceDegreeSign`), which contains a `degangle` call,
+      //          so `canRead` says false (before fix round 9 it read the raw source and said true, and
+      //          before the `°` fix this text held `rad`, which also said false). **The screen is the
+      //          same either way**: `_askEngineTranslated` consults the translator first, the
+      //          translator has no engine spelling for `degangle`, the engine is **never asked**
       //          (`calls` is empty) and the legacy parser answers — and it cannot read `to`, so this is
       //          the app's own error. That is why this row stays green in the "put `canRead`'s input
       //          back to the raw source" mutant; only the `canRead('1.5° to arcmin')` expectation in
@@ -281,6 +285,53 @@ void main() {
       expect(controller.hasError, isTrue);
 
       controller.dispose();
+    });
+
+    test('sin(30°)：两种角度模式下引擎一次都不被问，旧解析器给 0.5', () async {
+      // 中文：**这条钉的是「`°` 的修好没有把引擎那条路打开」**，以及**屏幕上真的不再是那个错值**。
+      //       修复前：`sin(30°)` 归一化写成 `sin(rad(30))`，翻译器拒了 `rad`，引擎一次都没被问，
+      //       旧解析器在 DEG 下把实参再乘一次 π/180——屏幕上写着 0.009138（设备 `d87f1aa3` 实测）。
+      //       现在：`°` 归一化写成内部名字 `degangle(30)`，翻译器**仍旧**拒绝（引擎没有这个拼法），
+      //       所以引擎那一边逐字未变（`calls` 为空），而旧解析器按当前角度单位给值：两种模式下都是
+      //       `sin(30°)` = 0.5，与参考实现（宿主 `qalc` 5.12.0，两个角度模式）一致。
+      //       两种模式都断一次，是因为这条错值**只在 DEG 下出现过**——只断一种就漏得掉它。
+      // English: **this pins that fixing `°` did not open the engine route**, and that the screen no
+      //          longer carries the wrong value. Before the fix: `sin(30°)` normalised to
+      //          `sin(rad(30))`, the translator refused `rad`, the engine was never asked, and the
+      //          legacy parser multiplied the argument by π/180 a second time under DEG — the screen
+      //          read 0.009138 (measured on device `d87f1aa3`). Now `°` normalises to the internal name
+      //          `degangle(30)`, the translator **still** refuses it (the engine has no such spelling),
+      //          so the engine side is byte for byte unchanged (`calls` is empty), while the legacy
+      //          parser gives the value in the current angle unit: `sin(30°)` = 0.5 in **both** modes,
+      //          matching the reference (host `qalc` 5.12.0, both angle modes). Both modes are asserted
+      //          because that wrong value only ever appeared under DEG — pinning one mode would miss it.
+      for (final mode in <String>['DEG', 'RAD']) {
+        final engine = _MeasuredEngine();
+        final controller = _controller(
+          _FakeDatabase(),
+          engine: engine,
+          settings: AppSettings(
+            haptics: true,
+            hapticStrength: '标准',
+            restoreState: false,
+            autoSaveHistory: false,
+            angleMode: mode,
+            precision: 6,
+            themeModeLabel: '跟随系统',
+            expressionDisplayMode: '数学符号',
+          ),
+        );
+
+        controller.setExpression('sin(30°)');
+        await controller.submit();
+
+        expect(engine.calls, isEmpty,
+            reason: '$mode：`degangle` 没有引擎写法，翻译器先拒了它，引擎不该被问');
+        expect(controller.result, '0.5', reason: '$mode：`sin(30°)` 是 0.5');
+        expect(controller.hasError, isFalse, reason: '$mode：这是一个答得出来的输入');
+
+        controller.dispose();
+      }
     });
   });
 }

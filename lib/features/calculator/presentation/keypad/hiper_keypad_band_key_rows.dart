@@ -261,13 +261,18 @@ const KeypadRow _formatAndMemoryRow = KeypadRow(
     //       照搬输入那一半，理由是实测的三条，全部在应用这一侧：
     //       1. **表达式行排不出 `°`**：`ExpressionAstParser` 遇到 `°` 会整段降级成 `ParseErrorNode`，
     //          TeX 变成 `\text{30°}`（一段字面文本）。按一下键就让整行表达式不再排版，是可见的退化。
-    //       2. **旧解析器算不对中间态**：`12°34` 今天是 `7.12`（`rad(12)*34` 的隐式乘法），
+    //       2. **旧解析器算不对中间态**：`12°34` 今天是 `7.12`（`degangle(12)*34` 的隐式乘法），
     //          `12°34′56″` 直接 FormatException——按出来的每一串都会先经过这些中间态。
-    //       3. **`°` 在 DEG 下是活的错值**：`sin 30°` 在 RAD 下 = 0.5，在 DEG 下 = 0.009138
-    //          （解析器把它改写成 `rad(30)`，而 DEG 的三角函数再把实参乘一次 π/180）。
-    //          这颗键一旦上线，那条错值就从「粘贴才够得着」变成「按两下就够得着」。
-    //       要照搬输入那一半，得同时给三个地方（求值器、语法树、TeX 生成）加一套度分秒字面量语法，
-    //       并先判定 `°` 在 DEG 下到底该是什么意思——那是另一个工程，且每一步都可能悄悄印出一个错值。
+    //       3. **（本条已失效，原样留着记录）`°` 在 DEG 下曾经是活的错值**：`sin 30°` 在 RAD 下
+    //          0.5、在 DEG 下 0.009138——解析器把它改写成 `rad(30)`，而 DEG 的三角函数再把实参乘
+    //          一次 π/180。**这一条本轮修好了**：`°` 现在归一化写成内部名字 `degangle(30)`，值按
+    //          当前角度单位给（DEG 下 30、RAD 下 0.5235987755982988），两种模式下 `sin(30°)` 都是
+    //          0.5（设备 `d87f1aa3` 实测，参考 `qalc` 5.12.0 两个角度模式都是 0.5）。
+    //          它因此**不再是**这颗键不做的理由；上面两条仍然是，而且都是输入文法本身的问题
+    //          （排版与中间态），与 `°` 的含义无关。
+    //       要照搬输入那一半，仍得同时给两个地方（语法树、TeX 生成）加一套度分秒字面量语法，
+    //       而且按到一半的 `12°34` 必须先有一个说得通的值——*`°` 在 DEG 下是什么意思*这一半本轮
+    //       已经定了，但「度分秒字面量」那一半没有。
     //       而结果这一半**今天就能做对**：引擎真的印得出度分秒（`BASE_SEXAGESIMAL`，见
     //       `printOptions` 那一段；上一轮记的「引擎没有度分秒换算」是**实测错误**——它叫
     //       sexagesimal，`grep -rni dms` 当然搜不到），而且印的是**同一个已求值结构**，
@@ -302,23 +307,29 @@ const KeypadRow _formatAndMemoryRow = KeypadRow(
     //             One press would stop the entire expression line from being typeset — a visible
     //             degradation.
     //          2. **the legacy parser misreads the intermediate states**: `12°34` is `7.12` today
-    //             (an implicit multiplication with `rad(12)`), and `12°34′56″` throws outright —
+    //             (an implicit multiplication with `degangle(12)`), and `12°34′56″` throws outright —
     //             every string the key can build passes through states like those.
-    //          3. **`°` is a live wrong value under DEG**: `sin 30°` is 0.5 under RAD and 0.009138
-    //             under DEG (the parser rewrites it to `rad(30)`, and DEG's trig multiplies the
-    //             argument by π/180 again). Shipping that key would move that wrong value from
-    //             "only reachable by pasting" to "two taps away".
-    //          Copying the entry half would mean adding a degrees-minutes-seconds literal to three
-    //          places at once (the evaluator, the syntax tree, the TeX emitter) and first deciding
-    //          what `°` is supposed to mean under DEG — a project of its own, and every step of it
-    //          can quietly print a wrong value. The result half **can be done correctly today**: the
-    //          engine really does print degrees-minutes-seconds (`BASE_SEXAGESIMAL`, see the note on
-    //          `printOptions`; the previous round's "the engine has no DMS conversion" is **measurably
-    //          wrong** — it is called *sexagesimal*, so `grep -rni dms` was never going to find it),
-    //          and it prints **one already evaluated structure**, so the value is digit for digit the
-    //          same, in the same shape as `d/c`. **Whoever presses this key presses HiPER's `DMS`
-    //          result-format cell** — the only thing HiPER writes DMS on, on screen — which on HiPER
-    //          lives on the `REDMS` key a custom keyboard can carry.
+    //          3. **(this one has lapsed and is kept as a record) `°` used to be a live wrong value
+    //             under DEG**: `sin 30°` was 0.5 under RAD and 0.009138 under DEG — the parser rewrote
+    //             it to `rad(30)` and DEG's trig multiplied the argument by π/180 again. **That was
+    //             fixed this round**: `°` now normalises to the internal name `degangle(30)` and takes
+    //             its value from the current angle unit (30 under DEG, 0.5235987755982988 under RAD),
+    //             so `sin(30°)` is 0.5 in both modes (measured on device `d87f1aa3`; the reference
+    //             `qalc` 5.12.0 answers 0.5 in both angle modes). It is therefore **no longer** a
+    //             reason for this key not to exist; the two above still are, and both belong to the
+    //             entry grammar itself (typesetting and intermediate states) rather than to what `°`
+    //             means.
+    //          Copying the entry half would still mean adding a degrees-minutes-seconds literal to two
+    //          places at once (the syntax tree, the TeX emitter), and a half-typed `12°34` would need
+    //          a defensible value first — *what `°` means under DEG* was settled this round, but the
+    //          "degrees-minutes-seconds literal" half was not. The result half **can be done correctly
+    //          today**: the engine really does print degrees-minutes-seconds (`BASE_SEXAGESIMAL`, see
+    //          the note on `printOptions`; the previous round's "the engine has no DMS conversion" is
+    //          **measurably wrong** — it is called *sexagesimal*, so `grep -rni dms` was never going
+    //          to find it), and it prints **one already evaluated structure**, so the value is digit
+    //          for digit the same, in the same shape as `d/c`. **Whoever presses this key presses
+    //          HiPER's `DMS` result-format cell** — the only thing HiPER writes DMS on, on screen —
+    //          which on HiPER lives on the `REDMS` key a custom keyboard can carry.
     KeypadKey(
       base: KeyVariant(label: "D°M'S", id: 'dmsForm'),
       category: KeyCategory.function,

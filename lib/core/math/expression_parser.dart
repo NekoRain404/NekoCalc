@@ -193,6 +193,18 @@ class ExpressionParser {
         'fact' => _factorial(arg),
         'deg' => arg * 180 / math.pi,
         'rad' => arg * math.pi / 180,
+        // 中文：**度数记号的那一支**：`30°` 归一化写成 `degangle(30)`，30 是**度数**，返回值是
+        //       这个角度在**当前角度单位**下的数值——DEG 下是 30、RAD 下是 0.5235987755982988，
+        //       两种模式下 `sin(30°)` 都是 0.5。修好之前归一化无条件写 `rad(30)`，DEG 的三角函数
+        //       把实参当度再乘一次 π/180，实测 0.009138395397176044。内部名字（键位插不出来、
+        //       引擎没有它的写法），理由与参考实现的读数都在 [\_replaceDegreeSign] 上。
+        // English: **the degree mark's arm**: `30°` normalises to `degangle(30)`, 30 is the **degree
+        //          count**, and the value is that angle in the **current angle unit** — 30 under DEG,
+        //          0.5235987755982988 under RAD, `sin(30°)` = 0.5 in both. Before the fix normalisation
+        //          wrote `rad(30)` unconditionally and DEG's trig multiplied by π/180 again — measured
+        //          0.009138395397176044. An internal name (no key inserts it, the engine has no
+        //          spelling for it); the argument is on [\_replaceDegreeSign].
+        'degangle' => degreeMode ? arg : arg * math.pi / 180,
         'min' => _min(args),
         'max' => _max(args),
         'mod' => secondArg == null ? arg : arg % secondArg,
@@ -586,10 +598,14 @@ class ExpressionParser {
       RegExp(r'(sqrt|cbrt)((?:\d+(?:\.\d+)?)|pi|e)(?![a-z0-9_(])'),
       (match) => '${match.group(1)}(${match.group(2)})',
     );
-    text = text.replaceAllMapped(
-      RegExp(r'(?<![a-z0-9_.])(\d+(?:\.\d+)?)°'),
-      (match) => 'rad(${match.group(1)})',
-    );
+    // 中文：`°` 写成内部名字 `degangle(N)`（`N` 是度数），值由求值器按当前角度单位给出——
+    //       整套理由与实测在 [\_replaceDegreeSign] 上。**模式不在这条改写里**：文本不随角度模式
+    //       变化，所以这份归一化的七个消费者照旧看到同一个字符串。
+    // English: `°` becomes the internal name `degangle(N)` (`N` in degrees) and the evaluator gives
+    //          its value in the current angle unit — the whole argument and the measurements are on
+    //          [\_replaceDegreeSign]. **The mode is not in this rewrite**: the text does not vary with
+    //          the angle mode, so all seven consumers of this normalisation still see one string.
+    text = _replaceDegreeSign(text);
     text = text.replaceAllMapped(
       RegExp(
           '((?<![a-z])\\d|\\))(?=(\\(|$_leadingConstantPattern|$_functionPattern))'),
@@ -670,6 +686,16 @@ class ExpressionParser {
     'round',
     'deg',
     'rad',
+    // 中文：**`degangle` 不是给用户按的函数，是度数记号 `°` 的求值名字**（归一化把 `30°` 写成
+    //       `degangle(30)`，理由与实测在 [\_replaceDegreeSign] 上）。它必须在这张表里：这同时是
+    //       [_functionPattern]（`2 30°` 要写成 `2*degangle(30)`）与「应用自己的语言认不认这个
+    //       调用名」的判据。长名在前的规矩同样适用（它排在 `deg` 前面）。
+    // English: **`degangle` is not a function to press — it is the evaluation name of the degree mark
+    //          `°`** (normalisation writes `30°` as `degangle(30)`; see [\_replaceDegreeSign]). It has
+    //          to be here: this table is at once [_functionPattern] (`2 30°` must become
+    //          `2*degangle(30)`) and the judgement for "does this app's language know this call name".
+    //          The longer-first rule applies the same way (it sits before `deg`).
+    'degangle',
     'min',
     'max',
     'mod',

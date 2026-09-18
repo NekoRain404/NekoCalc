@@ -443,8 +443,8 @@ class MathResult {
   ///       - [EngineResultKind.unit]：**带单位但不是一个量**——算不出来的加法（`5 km + 3 s` 被原样
   ///         退回来）、带变量或函数的结果（`x km`）。
   ///         曾经它还是「应用自己的语法里没有单位名」那条理由的落点：那时的语法只认两个单位式后缀：
-  ///         `°`（`ExpressionParser` 把它改写成 `rad(...)`，`expression_parser.dart:487`）与
-  ///         `%`（百分号，同样是固定算术，`:599`），两者都由旧解析器按自己的算术处理。
+  ///         `°`（`ExpressionParser` 把它归一化成内部名字 `degangle(N)`，值按当前角度单位给）与
+  ///         `%`（百分号，同样是固定算术，`_replacePercent`），两者都由旧解析器按自己的算术处理。
   ///         所以一个带**具名单位**的引擎答案不可能来自这个语法表达得出的东西——除非用户用
   ///         `to`/`->` 明确要求了换算，而那一条由上面的 [EngineResultKind.conversion] 接住。
   ///         剩下的只可能是「引擎把我们的某个标识符读成了单位」（`fact(-1)` → `-10 aa*t`，
@@ -497,9 +497,10 @@ class MathResult {
   ///          - [EngineResultKind.conversion]: the user explicitly asked for a conversion and the
   ///            engine confirms it performed one (`to_struct`). Unit-carrying because it was asked for.
   ///          - [EngineResultKind.unit]: **this app's syntax has no unit *names*** — it recognises
-  ///            exactly two unit-ish postfix shorthands, `°` (which `ExpressionParser` rewrites to
-  ///            `rad(...)`, `expression_parser.dart:487`) and `%` (percent, likewise fixed arithmetic,
-  ///            `:599`), and both are handled by the legacy parser as its own arithmetic. So an answer
+  ///            exactly two unit-ish postfix shorthands, `°` (which `ExpressionParser` normalises to
+  ///            the internal name `degangle(N)`, whose value follows the current angle unit) and `%`
+  ///            (percent, likewise fixed arithmetic, `_replacePercent`), and both are handled by the
+  ///            legacy parser as its own arithmetic. So an answer
   ///            carrying a *named* unit (`aa`, `t`, `km/us`, `n'r'`) cannot have come from anything
   ///            this syntax expresses — unless the user asked for a conversion, which the
   ///            [EngineResultKind.conversion] branch above catches. What is left is the engine reading

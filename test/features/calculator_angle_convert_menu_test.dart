@@ -36,7 +36,12 @@ import 'package:nekocalc/features/calculator/presentation/widgets/math_expressio
 ///       - `deg(1.5707963268)` 仍旧**翻译不了**（仍旧由旧解析器答 90），
 ///       - `5 deg`、`deg`、`deg + 1` 仍旧翻译不了，
 ///       - `rad(90)` 同上（应用的 `rad` 是「度换弧度」，引擎那边的 `rad` 是单位），
-///       - `90°` 也一个字没变（归一化仍旧把它写成 `rad(90)`），
+///       - `90°` 在那时也一个字没变（归一化那时把它写成 `rad(90)`）——**这一条后来被有意改掉了**：
+///         `°` 现在归一化成内部名字 `degangle(N)`、值按当前角度单位给（DEG 下 30、RAD 下
+///         0.5235987755982988），因为原来那个写法在 DEG 下把同一个角度换算两次，
+///         `sin(30°)` 屏幕上写的是 0.009138——参考实现两种角度模式下都是 0.5。
+///         拒绝那一半（`engineExpressionFor('90°')` 仍旧翻译不了）一个字没动，理由见
+///         `test/core/expression_parser_test.dart` 里那组 `°` 的测试。
 ///       - `isAppUnit('deg')` 仍然是假、`variableUnknownToEngine('deg')` 仍然非空。
 ///       **这五条合起来就是「放行一处，不等于拆墙」的可执行形式**：本轮动的只有翻译层里那一条
 ///       按形状判的路（`engine_expression.dart` 的 `_angleConversion`），两张表（`kAppUnits` 与
@@ -68,7 +73,13 @@ import 'package:nekocalc/features/calculator/presentation/widgets/math_expressio
 ///          - `5 deg`, `deg` and `deg + 1` still cannot be translated,
 ///          - `rad(90)` likewise (this app's `rad` is "degrees to radians", the engine's `rad` is a
 ///            unit),
-///          - `90°` has not moved a character either (normalisation still writes it as `rad(90)`),
+///          - `90°` had not moved a character either then (normalisation wrote it as `rad(90)`) —
+///            **that one was later changed on purpose**: `°` now normalises to the internal name
+///            `degangle(N)` whose value follows the current angle unit (30 under DEG,
+///            0.5235987755982988 under RAD), because the old spelling converted one angle twice under
+///            DEG and put 0.009138 on screen for `sin(30°)` where the reference answers 0.5 in both
+///            angle modes. The refusal half (`engineExpressionFor('90°')` is still untranslatable) has
+///            not moved a byte — see the `°` group in `test/core/expression_parser_test.dart`.
 ///          - `isAppUnit('deg')` is still false and `variableUnknownToEngine('deg')` still non-null.
 ///          **Those five together are the executable form of "one admission, not a wall knocked down"**:
 ///          what moved this round is one shape-judged path in the translation
@@ -338,8 +349,23 @@ void main() {
       //          `deg`/`rad` 是**单位**，交过去就换了意思。这一条与放行之前**逐字相同**。
       //       2. **裸的 `deg` 在换算之外仍旧到不了引擎**：`deg`、`5 deg`、`deg + 1` 一律拒绝，
       //          仍旧回落旧解析器（它对裸 `deg` 的答复是应用自己的「Function deg needs (」）。
-      //       3. **`°` 的含义一个字没变**：归一化仍旧把 `90°` 写成 `rad(90)`——应用的 `°` 是
-      //          「这个数是若干度」，不是单位拼法。
+      //       3. **`°` 的含义不再「一个字没变」——它被后来的那一轮有意改掉了。** 放行 `deg` 那一轮
+      //          这里断言的是 **DEG 下 `90°` = 1.5707963267948966**，而那条期望值正是同一个错值的
+      //          另一半：`rad` 与模式无关，DEG 的三角函数再把实参乘一次 π/180，于是 `sin(30°)` 在
+      //          DEG 下写着 0.009138395397176044（设备 `d87f1aa3` 实测），参考实现（宿主
+      //          `qalc` 5.12.0）两种角度模式下都是 0.5。现在 `°` 写成内部名字 `degangle(90)`、
+      //          值按当前角度单位给（DEG 下 90、RAD 下 1.5707963267948966）。改的是期望值而不是
+      //          放松判据：拒绝那一半逐字未动，详见 `test/core/expression_parser_test.dart`。
+      // English: **clause 3 is no longer "`°` has not moved a character" — a later round moves it on
+      //          purpose.** In the round that admitted `deg`, this line asserted **`90°` =
+      //          1.5707963267948966 under DEG**, and that expectation was the other half of the same
+      //          wrong value: `rad` ignores the mode and DEG's trig multiplies by π/180 again, which
+      //          put 0.009138395397176044 on screen for `sin(30°)` under DEG (measured on device
+      //          `d87f1aa3`) where the reference (host `qalc` 5.12.0) answers 0.5 in both angle modes.
+      //          `°` now normalises to the internal name `degangle(90)` and its value follows the
+      //          current angle unit (90 under DEG, 1.5707963267948966 under RAD). What changed is the
+      //          expectation, not the judgement: the refusal half is untouched — the argument is in
+      //          the group added to `test/core/expression_parser_test.dart`.
       //       4. **两张表一格未动**：`isAppUnit('deg')` 仍旧为假（它不在可插入单位表里），
       //          `variableUnknownToEngine('deg')` 仍旧非空（裸的 `deg` 仍旧是表外的自由变量）。
       //       5. **词表里也没有多出什么**：`AppEngineVocabulary.identifiers['deg']` 仍是那条
@@ -356,8 +382,19 @@ void main() {
       //          2. **a bare `deg` outside a conversion still cannot reach the engine**: `deg`,
       //             `5 deg` and `deg + 1` are all refused and still fall back to the legacy parser
       //             (whose own answer for a bare `deg` is this app's "Function deg needs (").
-      //          3. **`°` has not moved a character**: normalisation still writes `90°` as `rad(90)` —
-      //             this app's `°` means "this number is so many degrees", not a unit spelling.
+      //          3. **`°` is no longer "not moved a character" — this round moves it on purpose.** In
+      //             the round that admitted `deg`, this clause read "normalisation still writes `90°`
+      //             as `rad(90)`" and asserted **`90°` = 1.5707963267948966 under DEG**. That
+      //             expectation was **wrong, and was the other half of the same wrong value**: `rad` is
+      //             a degrees → radians conversion independent of the mode, and DEG's trig multiplies
+      //             the argument by π/180 again — one angle converted twice, so `sin(30°)` was
+      //             0.009138395397176044 under DEG (measured on device `d87f1aa3`) where the reference
+      //             (host `qalc` 5.12.0) answers 0.5 in both modes. `°` now normalises to the internal
+      //             name `degangle(90)` and takes its value from the current angle unit: **90 under
+      //             DEG, 1.5707963267948966 under RAD**, `sin(90°)` = 1 in both. Only the expectation
+      //             changed, never the judgement: the refusal half (`engineExpressionFor('90°')` is
+      //             still untranslatable) is untouched — the full argument is in the group added to
+      //             `test/core/expression_parser_test.dart`.
       //          4. **neither table moved a cell**: `isAppUnit('deg')` is still false (it is not an
       //             insertable unit) and `variableUnknownToEngine('deg')` is still non-null (a bare
       //             `deg` is still a free variable outside the table).
@@ -396,11 +433,20 @@ void main() {
             reason: '「$source」没写源单位：那一步的源单位会变成当前角度模式，而用户手里那个数'
                 '未必是它的单位——这正是要拦下的静默错值形状');
       }
-      expect(ExpressionParser('90°', degreeMode: true).parse(),
+      // 中文：**这一条改了期望值**（原来断的是 DEG 下 1.5707963267948966，即被修掉的那个错值的一半）。
+      //       `°` 是「这个数是若干度」这句话，所以数值按当前角度单位给：DEG 下 90、RAD 下
+      //       1.5707963267948966；两种模式下的 `sin(90°)` 都是 1（参考实现也是）。
+      // English: **this expectation changed** (it used to assert 1.5707963267948966 under DEG, half of
+      //          the wrong value that got fixed). `°` is the sentence "this number is so many degrees",
+      //          so the value follows the current angle unit: 90 under DEG, 1.5707963267948966 under
+      //          RAD; `sin(90°)` is 1 in both (as is the reference's).
+      expect(ExpressionParser('90°', degreeMode: true).parse(), closeTo(90, 1e-15),
+          reason: 'DEG 下 `90°` 就是 90 度这个数（修复前这里断的是被换算两次的 1.5707963267948966）');
+      expect(ExpressionParser('90°', degreeMode: false).parse(),
           closeTo(1.5707963267948966, 1e-15),
-          reason: '`°` 的含义一个字没变：归一化仍旧把它写成 `rad(90)`');
+          reason: 'RAD 下 `90°` 是它的弧度值，与修复前逐字相同');
       expect(engineExpressionFor('90°'), isA<UntranslatableExpression>(),
-          reason: '`°` 归一化之后就是 `rad(90)`，而那条路仍旧拒绝（含义两侧不同）');
+          reason: '`°` 归一化之后是内部名字 `degangle(90)`，那条路仍旧拒绝（引擎没有这个拼法）');
 
       expect(isAppUnit('deg'), isFalse,
           reason: '`deg` 仍旧不在可插入单位表里——本轮开的门不在那张表上');

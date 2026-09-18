@@ -231,6 +231,9 @@ const Map<String, String> untranslatableReason = <String, String>{
   'deg': '引擎里的 `deg` 是一个**单位**，翻译过去含义就变了；应用自己的解析器有精确定义'
       '（这一条只说**调用**那个形状：裸的 `deg` 在一次 `to` 换算里是单位，见 [_angleConversion]）',
   'rad': '同上（引擎里的 `rad` 也是单位；同样只在 `to` 换算里放行裸词）',
+  'degangle': '应用自己的内部名字：`°` 归一化写成 `degangle(N)`，而「这个角度在当前角度单位下是多少」'
+      '是应用自己的角度模式规则——翻译这一层没有模式（那是刻意的，见 `expression_parser.dart` 的'
+      '`_replaceDegreeSign`），引擎也就没有它的写法。含 `°` 的表达式因此一次都不被送去让引擎猜',
 };
 
 EngineExpression _translate(ExprNode node) {

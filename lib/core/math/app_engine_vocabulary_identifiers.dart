@@ -471,4 +471,33 @@ const Map<String, AppFunction> _engineIdentifiers = <String, AppFunction>{
   'fact': AppFunction(engineKnowsThisName: false, engineFunction: 'factorial'),
   'deg': AppFunction(engineKnowsThisName: false),
   'rad': AppFunction(engineKnowsThisName: false),
+  // 中文：**`degangle`：度数记号 `°` 的求值名字，不是给用户按的函数。**
+  //       它是归一化自己产出的名字——`30°` 写成 `degangle(30)`（理由、实测与「为什么不按模式改写
+  //       文本」都在 `expression_parser.dart` 的 `_replaceDegreeSign` 上）——所以键位/面板**插不出
+  //       它**，这一行也不是一个入口。
+  //
+  //       它必须在这张表里，理由有两条，方向相反：
+  //       1. 解析器接受它（`ExpressionParser.functionNames` 里就有它，两者由覆盖测试钉成同一集合），
+  //          而这一层的规矩是「解析器认得的名字一个都不能漏在表外」；
+  //       2. **`engineKnowsThisName: false` 是判据的一部分**：引擎没有这个拼法，所以含 `°` 的表达式
+  //          仍然落在「不可信」那一列，`canRead` 照旧判假——与修复前一模一样（那时这条归 `rad`）。
+  //          漏掉这一行，`canRead` 会对含 `°` 的输入**判真**：那不是放宽，是一句假话
+  //          （`unknownToEngine` 只认表里的名字，表外的名字它根本不看）。
+  // English: **`degangle`: the evaluation name of the degree mark `°`, not a function to press.** It
+  //          is a name normalisation produces on its own — `30°` is written `degangle(30)` (the
+  //          argument, the measurements and "why not rewrite the text by mode" are on
+  //          `_replaceDegreeSign` in `expression_parser.dart`) — so no key or sheet inserts it, and
+  //          this row is not an entrance either.
+  //
+  //          It has to sit in this table for two reasons pointing in opposite directions:
+  //          1. the parser accepts it (it is in `ExpressionParser.functionNames`; the coverage test
+  //             pins the two to one set), and this layer's rule is that no name the parser knows may
+  //             be missing from the table;
+  //          2. **`engineKnowsThisName: false` is part of a judgement**: the engine has no such
+  //             spelling, so an expression containing `°` still lands in the untrusted column and
+  //             `canRead` still says false — exactly as before the fix (where that column entry was
+  //             `rad`'s). Without this row `canRead` would say **true** for `°` inputs: not a
+  //             relaxation but a false statement (`unknownToEngine` only knows the names in this
+  //             table; a name outside it is never even looked at).
+  'degangle': AppFunction(engineKnowsThisName: false),
 };

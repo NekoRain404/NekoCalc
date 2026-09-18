@@ -584,6 +584,91 @@ String _replacePercent(String source) {
   return text;
 }
 
+/// 中文：**度数记号：`30°` 是一个「角度」，而本应用把角度的数值写在当前的角度单位下。**
+///
+///       `30°` 从来不是 30，也不是恒定的一个数：它是「30 度」这个角度。本应用里每一个角度数值
+///       都写在当前角度单位下——三角函数的实参这样读（DEG 下 `sin(30)` = 0.5），反三角函数的
+///       返回值也这样给（DEG 下 `asin(0.5)` = 30，RAD 下 = 0.5235987755982988）。所以
+///       `30°` 在 **DEG 下是 30**、**RAD 下是 0.5235987755982988**，而 `sin(30°)` 两边都是
+///       **0.5**。参考实现（宿主 `qalc` 5.12.0，`-set "angle deg"` 与 `-set "angle rad"` 各测一次）
+///       的 `sin(30°)`/`sin(90°)`/`tan(45°)` 是 0.5/1/1，两种角度模式下逐条相同。
+///
+///       **修复前这里是一个错值，而且只在 DEG 下错**（设备 `d87f1aa3`；改写原文是
+///       `'rad(${match.group(1)})'`）：`rad` 是「度 → 弧度」换算、与模式无关，恒给
+///       0.5235987755982988，而 DEG 的三角函数**再乘一次 π/180**——同一个角度被换算两次。
+///       实测：`sin(30°)` = 0.009138395397176044、`sin(90°)` = 0.02741213359204429、
+///       `tan(45°)` = 0.013708642534394055（RAD 下这三条是 0.5/0.9999999999999999/1，
+///       因为那一边只换算一次）。
+///
+///       **为什么写成一个名字 `degangle(N)`，而不是「按模式改写成 `N` 或 `rad(N)`」。**
+///       按模式改写文本，等于让这份归一化带一个角度模式参数；而它的消费者有七个
+///       （`ExpressionParser` 构造函数、翻译器 `engineExpressionFor`、名字层
+///       `canRead`/`canExpress`、`variable_references`、图形标签 `graph_models`、持久化），
+///       它们看到的必须是**同一个字符串**——那是修复轮 8 与 9 的全部内容。模式一旦进了这一层，
+///       七个调用点每一个都要选一个模式，而选错的那一个会让「谁看到了什么」不再一致；
+///       引擎那条路更危险：RAD 文本含 `rad`（翻译器拒绝，于是引擎一次都不被问），DEG 文本
+///       却是 `sin(30)`（翻译得过去）——同一句输入因此按模式走两个完全不同的权威。
+///       定名法把模式留在它本来就在的地方：[ExpressionParser.degreeMode]。**文本不随模式变化**，
+///       七个消费者一个字节都不改，而 `°` 的值由求值器按模式给出（`expression_parser.dart`
+///       里 `degangle` 那一支）。
+///
+///       **`degangle` 是应用自己语言里的一个名字，不是给用户按的函数。** 键位插不出它，
+///       引擎没有它的写法（词表那一行是 `engineKnowsThisName: false`），所以含 `°` 的表达式
+///       照旧**一次都不会送去让引擎猜**——与修复前逐字相同的那条路（那条端到端实测在
+///       `test/domain/calculator_engine_name_layer_test.dart`）。
+///
+///       同一个函数里别的改写都不是这个形状：`%`、上下标、根号、LaTeX、千分位全都只产出
+///       **纯算术**，`degreeMode` 对它们没有任何影响——只有这一个产出的东西带着「角度」这个量纲。
+/// English: **the degree mark: `30°` is an *angle*, and this app writes an angle's value in the
+///          current angle unit.**
+///
+///          `30°` is never the number 30, nor is it one fixed number: it is the angle "30 degrees".
+///          Every angle value in this app is written in the current angle unit — trig reads its
+///          argument that way (`sin(30)` = 0.5 under DEG) and inverse trig returns that way
+///          (`asin(0.5)` = 30 under DEG, 0.5235987755982988 under RAD). So `30°` is **30 under DEG**
+///          and **0.5235987755982988 under RAD**, while `sin(30°)` is **0.5** in both. The reference
+///          (host `qalc` 5.12.0, measured once with `-set "angle deg"` and once with
+///          `-set "angle rad"`) gives 0.5/1/1 for `sin(30°)`/`sin(90°)`/`tan(45°)`, the same in both
+///          angle modes.
+///
+///          **Before this fix there was a wrong value here, and only under DEG** (device `d87f1aa3`;
+///          the rewrite used to read `'rad(${match.group(1)})'`): `rad` is a degrees → radians
+///          conversion, independent of the mode, always 0.5235987755982988 — and DEG's trig
+///          multiplies **again** by π/180, converting one angle twice. Measured: `sin(30°)` =
+///          0.009138395397176044, `sin(90°)` = 0.02741213359204429, `tan(45°)` =
+///          0.013708642534394055 (under RAD those three are 0.5 / 0.9999999999999999 / 1, because
+///          that side converts once).
+///
+///          **Why one name, `degangle(N)`, rather than rewriting the text as `N` or `rad(N)` by
+///          mode.** Rewriting the text by mode would mean handing this normalisation an angle-mode
+///          parameter, and it has seven consumers (`ExpressionParser`'s constructor, the translator
+///          `engineExpressionFor`, the name layer `canRead`/`canExpress`, `variable_references`, the
+///          graph label `graph_models`, persistence) that must all see **one string** — which is the
+///          whole content of fix rounds 8 and 9. With the mode inside this layer every one of the
+///          seven call sites has to pick a mode, and the one that picks wrong makes "who saw what"
+///          disagree. The engine route is the sharper hazard: the RAD text contains `rad` (the
+///          translator refuses it, so the engine is never asked) while the DEG text is `sin(30)`
+///          (which translates) — one input would travel to two different authorities depending on a
+///          setting. Naming keeps the mode where it already lives: [ExpressionParser.degreeMode].
+///          **The text does not vary with the mode**, no consumer changes a byte, and the value of
+///          `°` is given by the evaluator (the `degangle` arm in `expression_parser.dart`).
+///
+///          **`degangle` is a name in this app's own language, not a function to press.** No key
+///          inserts it and the engine has no spelling for it (its vocabulary row is
+///          `engineKnowsThisName: false`), so an expression containing `°` is still **never sent to
+///          the engine to guess at** — the very same route as before the fix (the end-to-end
+///          measurement is in `test/domain/calculator_engine_name_layer_test.dart`).
+///
+///          No other rewrite in this function has that shape: `%`, superscripts, roots, LaTeX and
+///          digit grouping all produce **plain arithmetic**, and `degreeMode` has nothing to say
+///          about any of them — this is the only one whose product carries the dimension "angle".
+String _replaceDegreeSign(String source) {
+  return source.replaceAllMapped(
+    RegExp(r'(?<![a-z0-9_.])(\d+(?:\.\d+)?)°'),
+    (match) => 'degangle(${match.group(1)})',
+  );
+}
+
 String _normalizeScientificNotation(String source) {
   return source.replaceAllMapped(
     RegExp(r'(\d+(?:\.\d+)?|\.\d+)\s*(?:\*|x)\s*10\^([+-]?\d+)'),

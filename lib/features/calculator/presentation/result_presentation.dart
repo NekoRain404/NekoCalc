@@ -189,7 +189,8 @@ class ResultPresentation {
     //          `1°0′0″ / 0°0′0″`），超出 double 量程的值则回落成十进制加指数
     //          （`1.148130695274255E602`）——三种在形状这一关全部判不过。
     //       2. **只在 `DEG` 下存在**：这一串写法里的 `°` 是一句断言——「这个数是若干度」。应用自己的
-    //          `°` 就是这个意思（`ExpressionParser` 把它改写成 `rad(…)`，即「度 → 弧度」），而 DEG
+    //          `°` 就是这个意思（`ExpressionParser` 把它归一化成 `degangle(N)`，值按**当前角度单位**
+    //          给：DEG 下 `30°` 就是 30，RAD 下是它的弧度值 0.5235987755982988），而 DEG
     //          模式下裸数字**本来就是度**（三角函数的实参按度解释），RAD 模式下则是弧度。把弧度值
     //          写成 `0°47′7.75″` 是一句**假话**——那不是同一个数的另一种写法，是换了一个单位，
     //          正好是 rule 7 要挡的那类改动。所以 RAD 下这一格不存在，那一颗键是**老实的空操作**。
@@ -207,12 +208,14 @@ class ResultPresentation {
     //             `1°0′0″ / 0°0′0″`), and a value beyond double range falls back to a decimal with an
     //             exponent (`1.148130695274255E602`) — all three fail the shape check.
     //          2. **it exists only under `DEG`**: the `°` in this spelling is a claim — "this number is
-    //             so many degrees". That is what the app's own `°` means (`ExpressionParser` rewrites
-    //             it to `rad(…)`, i.e. degrees → radians), and under DEG a bare number **is** degrees
-    //             (trig reads its argument in degrees) while under RAD it is radians. Writing a radian
-    //             value as `0°47′7.75″` is a **false** statement — not another spelling of the same
-    //             number but a change of unit, exactly the kind of change rule 7 exists to stop. So the
-    //             cell does not exist under RAD, and that key is an **honest no-op** there.
+    //             so many degrees". That is what the app's own `°` means (`ExpressionParser`
+    //             normalises it to `degangle(N)` and the value follows the **current angle unit**: 30
+    //             for `30°` under DEG, 0.5235987755982988 under RAD), and under DEG a bare number
+    //             **is** degrees (trig reads its argument in degrees) while under RAD it is radians.
+    //             Writing a radian value as `0°47′7.75″` is a **false** statement — not another
+    //             spelling of the same number but a change of unit, exactly the kind of change rule 7
+    //             exists to stop. So the cell does not exist under RAD, and that key is an **honest
+    //             no-op** there.
     //          3. it typesets and is not character-for-character the decimal reading — the two existing
     //             gates (`_accepted`), not one character altered.
     //
