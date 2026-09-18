@@ -4,6 +4,7 @@ extension _DataFitActions on _DataFitToolScreenState {
   Widget _actions() {
     // 中文：复制、保存历史、保存笔记保持同一行，符合工具页统一操作区。
     // English: Copy, save history, and save note share one row to match the common tool action layout.
+    final strings = DataFitStrings.of(context);
     return Column(
       children: [
         Row(
@@ -11,7 +12,7 @@ extension _DataFitActions on _DataFitToolScreenState {
             Expanded(
               child: ActionButton(
                 icon: Icons.copy_outlined,
-                label: '复制',
+                label: strings.copy,
                 onTap: _copyResult,
               ),
             ),
@@ -19,7 +20,7 @@ extension _DataFitActions on _DataFitToolScreenState {
             Expanded(
               child: ActionButton(
                 icon: Icons.save_outlined,
-                label: '保存',
+                label: strings.save,
                 onTap: _saveHistory,
               ),
             ),
@@ -27,7 +28,7 @@ extension _DataFitActions on _DataFitToolScreenState {
             Expanded(
               child: ActionButton(
                 icon: Icons.note_add_outlined,
-                label: '笔记',
+                label: strings.note,
                 onTap: _saveNote,
               ),
             ),
@@ -40,7 +41,7 @@ extension _DataFitActions on _DataFitToolScreenState {
               child: OutlinedButton.icon(
                 onPressed: _exportCsv,
                 icon: const Icon(Icons.table_view_outlined),
-                label: const Text('导出 CSV'),
+                label: Text(strings.exportCsv),
               ),
             ),
             const SizedBox(width: 8),
@@ -48,7 +49,7 @@ extension _DataFitActions on _DataFitToolScreenState {
               child: OutlinedButton.icon(
                 onPressed: _exportChartPng,
                 icon: const Icon(Icons.image_outlined),
-                label: const Text('保存图表'),
+                label: Text(strings.saveChart),
               ),
             ),
           ],
@@ -58,6 +59,7 @@ extension _DataFitActions on _DataFitToolScreenState {
   }
 
   Future<void> _exportCsv() async {
+    final strings = DataFitStrings.of(context);
     final result = _result;
     if (result == null || _series.isEmpty) return;
     try {
@@ -71,17 +73,20 @@ extension _DataFitActions on _DataFitToolScreenState {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? '拟合数据已导出为 CSV' : '已取消导出 CSV')),
+        SnackBar(
+            content: Text(
+                saved ? strings.csvExported : strings.csvExportCancelled)),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出 CSV 失败：$error')),
+        SnackBar(content: Text(strings.csvExportFailed('$error'))),
       );
     }
   }
 
   Future<void> _exportChartPng() async {
+    final strings = DataFitStrings.of(context);
     if (_result == null) return;
     try {
       final bytes = await captureBoundaryPng(_chartBoundaryKey);
@@ -93,12 +98,13 @@ extension _DataFitActions on _DataFitToolScreenState {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? '拟合图表已保存为 PNG' : '已取消保存图表')),
+        SnackBar(
+            content: Text(saved ? strings.chartSaved : strings.chartSaveCancelled)),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存图表失败：$error')),
+        SnackBar(content: Text(strings.chartSaveFailed('$error'))),
       );
     }
   }
@@ -122,6 +128,7 @@ extension _DataFitActions on _DataFitToolScreenState {
   }
 
   Future<void> _showExampleMenu() async {
+    final strings = DataFitStrings.of(context);
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -131,20 +138,20 @@ extension _DataFitActions on _DataFitToolScreenState {
           children: [
             ListTile(
               leading: const Icon(Icons.show_chart_outlined),
-              title: const Text('多列示例'),
-              subtitle: const Text('一列 x，多列 y，适合对比多组数据'),
+              title: Text(strings.sampleMultiColumn),
+              subtitle: Text(strings.sampleMultiColumnNote),
               onTap: () => Navigator.pop(context, 'multi'),
             ),
             ListTile(
               leading: const Icon(Icons.table_chart_outlined),
-              title: const Text('表头示例'),
-              subtitle: const Text('兼容从表格粘贴的 x,y1,y2 表头'),
+              title: Text(strings.sampleHeader),
+              subtitle: Text(strings.sampleHeaderNote),
               onTap: () => Navigator.pop(context, 'spreadsheet'),
             ),
             ListTile(
               leading: const Icon(Icons.percent_outlined),
-              title: const Text('本地化数字示例'),
-              subtitle: const Text('全角数字、百分号会自动规范化'),
+              title: Text(strings.sampleLocalized),
+              subtitle: Text(strings.sampleLocalizedNote),
               onTap: () => Navigator.pop(context, 'localized'),
             ),
           ],
@@ -172,31 +179,33 @@ extension _DataFitActions on _DataFitToolScreenState {
   }
 
   String _copyText() {
+    final strings = DataFitStrings.of(context);
     final result = _result;
-    if (result == null) return _error ?? '无有效拟合结果';
+    if (result == null) return _error ?? strings.noFitResult;
     // 中文：复制内容包含原始数据，便于把拟合结论贴到笔记或外部文档后仍可复核。
     // English: Copied text includes raw data so the fitted result remains auditable in notes or external docs.
     return [
       widget.tool.title,
-      if (_series.isNotEmpty) '数据组: ${_series[_selectedSeriesIndex].name}',
+      if (_series.isNotEmpty)
+        strings.copySeries(_series[_selectedSeriesIndex].name),
       result.summary,
       if (_predictionCopyText() != null) ...[
         '',
         _predictionCopyText()!,
       ],
       '',
-      '模型建议:',
+      strings.copyModelAdvice,
       ..._recommendationLines(),
       '',
-      '诊断:',
+      strings.copyDiagnostics,
       ..._diagnostics,
       if (_residualAlerts.isNotEmpty) ...[
         '',
-        '疑似异常点:',
+        strings.copyResidualHeading,
         ..._residualAlerts.map((item) => item.label),
       ],
       '',
-      '数据:',
+      strings.copyData,
       _dataController.text.trim(),
     ].join('\n');
   }
@@ -212,15 +221,20 @@ extension _DataFitActions on _DataFitToolScreenState {
 
   String _recommendationLabel(FitRecommendation recommendation) {
     final result = recommendation.result;
-    if (result == null) return '${recommendation.model.label}不可用';
+    if (result == null) {
+      return DataFitStrings.of(context)
+          .modelUnavailable(recommendation.model.label);
+    }
     return '${recommendation.model.label}  R² ${formatNumber(result.rSquared, precision: 4)}';
   }
 
   List<String> _recommendationLines() {
+    final strings = DataFitStrings.of(context);
     return _recommendations.take(4).map((recommendation) {
       final result = recommendation.result;
       if (result == null) {
-        return '${recommendation.model.label}: ${recommendation.warning ?? '不可用'}';
+        return '${recommendation.model.label}: '
+            '${recommendation.warning ?? strings.unavailable}';
       }
       return '${recommendation.model.label}: R²=${formatNumber(result.rSquared, precision: 6)}, RMSE=${formatNumber(result.rmse, precision: 6)}';
     }).toList(growable: false);
@@ -228,7 +242,9 @@ extension _DataFitActions on _DataFitToolScreenState {
 
   String? _predictionCopyText() {
     if (_predictionX == null || _predictionY == null) return null;
-    return '预测: x=${formatNumber(_predictionX!, precision: 6)}, y=${formatNumber(_predictionY!, precision: 6)}';
+    return DataFitStrings.of(context).copyPrediction(
+        formatNumber(_predictionX!, precision: 6),
+        formatNumber(_predictionY!, precision: 6));
   }
 
   Future<void> _copyEquation() async {
@@ -236,19 +252,23 @@ extension _DataFitActions on _DataFitToolScreenState {
     if (result == null) return;
     await Clipboard.setData(ClipboardData(text: result.equation));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制方程')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(DataFitStrings.of(context).equationCopied)));
     }
   }
 
   Future<void> _copyResidualAlerts() async {
     if (_residualAlerts.isEmpty) return;
+    final strings = DataFitStrings.of(context);
     await Clipboard.setData(ClipboardData(
-      text: ['疑似异常点:', ..._residualAlerts.map((item) => item.label)].join('\n'),
+      text: [
+        strings.copyResidualHeading,
+        ..._residualAlerts.map((item) => item.label),
+      ].join('\n'),
     ));
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制异常点')));
+          .showSnackBar(SnackBar(content: Text(strings.residualCopied)));
     }
   }
 
@@ -257,16 +277,16 @@ extension _DataFitActions on _DataFitToolScreenState {
     if (text == null) return;
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制预测')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(DataFitStrings.of(context).predictionCopied)));
     }
   }
 
   Future<void> _copyResult() async {
     await Clipboard.setData(ClipboardData(text: _copyText()));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制结果')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(DataFitStrings.of(context).resultCopied)));
     }
   }
 
@@ -307,13 +327,14 @@ extension _DataFitActions on _DataFitToolScreenState {
     if (result == null) {
       return ToolSaveResult.inputInvalid(
         target: ToolSaveTarget.history,
-        summary: _error ?? '请先得到有效拟合结果',
+        summary: _error ?? DataFitStrings.of(context).needFitFirst,
       );
     }
     try {
       final historyId = await _historyRepository.saveToolResult(
         toolId: widget.tool.id,
-        expression: '${result.model.label}拟合: ${_dataController.text.trim()}',
+        expression: DataFitStrings.of(context).historyExpression(
+            result.model.label, _dataController.text.trim()),
         result: result.summary,
       );
       if (historyId <= 0) {
@@ -332,7 +353,7 @@ extension _DataFitActions on _DataFitToolScreenState {
     if (_result == null) {
       return ToolSaveResult.inputInvalid(
         target: ToolSaveTarget.note,
-        summary: _error ?? '请先得到有效拟合结果',
+        summary: _error ?? DataFitStrings.of(context).needFitFirst,
       );
     }
     try {

@@ -17,6 +17,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/data_fit.dart';
 import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'data_fit_strings.dart';
 
 part 'data_fit_cards.dart';
 part 'data_fit_actions.dart';
@@ -84,8 +85,30 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
       ..addListener(_recalculatePrediction);
     _historyRepository = HistoryRepository(widget.db);
     _notesRepository = NotesRepository(widget.db);
-    _recalculate();
     if (widget.settings.restoreState) unawaited(_loadDraft());
+  }
+
+  /// 中文：第一次计算推迟到这里跑，**不能留在 `initState` 里**——它要取 `DataFitStrings`，而
+  ///       在 `initState` 阶段查祖先里的 `AppLanguageScope` 在 debug 构建里会直接抛
+  ///       （`dependOnInheritedWidgetOfExactType` 在 `initState` 未完成时是禁止的；真实 App 里
+  ///       `app.dart` 一定装了那个作用域，所以这不是理论问题——`tools_strings_test.dart` 里那两条
+  ///       装作用域的用例就是为此加的）。`didChangeDependencies` 在 `initState` 之后、第一次
+  ///       `build` 之前跑，屏幕上看不出先后差别。
+  /// English: The first calculation runs here rather than in `initState`, because it reads
+  ///          `DataFitStrings`, and looking up an ancestor `AppLanguageScope` while `initState` is
+  ///          still running throws in debug builds (`dependOnInheritedWidgetOfExactType` is
+  ///          forbidden there). That is not theoretical: `app.dart` always installs that scope, and
+  ///          the two scope-installing cases in `tools_strings_test.dart` exist for exactly this.
+  ///          `didChangeDependencies` runs after `initState` and before the first `build`, so nothing
+  ///          on screen can tell the difference.
+  bool _calculatedOnce = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_calculatedOnce) return;
+    _calculatedOnce = true;
+    _recalculate();
   }
 
   @override
@@ -118,7 +141,12 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
       // English: Parsing supports single-series, multi-column, and blank-line groups; the UI only fits the selected series.
       final series = parseDataSeries(_dataController.text);
       if (series.isEmpty) {
-        throw const FormatException('请输入至少两行有效数据');
+        // 中文：异常里带的是**那一刻**取到的文案（与 `_error` 一样）。切换界面语言不会回填已经
+        //       存下来的那句话，要等下一次重算——这是已知的小口子，不是漏翻。
+        // English: The exception carries the copy **as of that moment**, exactly like `_error`.
+        //          Switching the interface language does not rewrite an already-stored sentence; the
+        //          next recalculation does. A known small gap, not a missed translation.
+        throw FormatException(DataFitStrings.of(context).needTwoRows);
       }
       final selectedIndex = _selectedSeriesIndex.clamp(0, series.length - 1);
       final result = fitData(series[selectedIndex].points, _model);
@@ -247,20 +275,22 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
 
   ({double? x, double? y, String? error}) _buildPredictionState(
       FitResult? result) {
+    final strings = DataFitStrings.of(context);
     final text = _predictionController.text.trim();
     if (text.isEmpty) return (x: null, y: null, error: null);
     final x = parseFitNumber(text);
-    if (x == null) return (x: null, y: null, error: '请输入一个 x 数值');
-    if (result == null) return (x: x, y: null, error: '请先得到有效拟合结果');
+    if (x == null) return (x: null, y: null, error: strings.invalidX);
+    if (result == null) return (x: x, y: null, error: strings.needFitFirst);
     final y = predictFitValue(result, x);
     if (!y.isFinite) {
-      return (x: x, y: null, error: '当前模型在这个 x 上无有效预测');
+      return (x: x, y: null, error: strings.noPrediction);
     }
     return (x: x, y: y, error: null);
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -271,13 +301,13 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
               children: [
                 IconToolButton(
                   icon: Icons.arrow_back_ios_new,
-                  tooltip: '返回',
+                  tooltip: strings.back,
                   onTap: () => Navigator.pop(context),
                 ),
                 Expanded(child: Center(child: PageTitle(widget.tool.title))),
                 IconToolButton(
                   icon: Icons.refresh_outlined,
-                  tooltip: '重置',
+                  tooltip: strings.reset,
                   onTap: _reset,
                 ),
               ],
@@ -299,7 +329,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
               const SizedBox(height: 12),
               _animatedResult(_dataTableCard(_result!), 'table'),
             ] else
-              EmptyPanel(_error ?? '请输入至少两行有效数据。'),
+              EmptyPanel(_error ?? strings.needTwoRowsPanel),
             const SizedBox(height: 12),
             _actions(),
           ],
@@ -345,6 +375,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   }
 
   void _clearData() {
+    final strings = DataFitStrings.of(context);
     _recalculateTimer?.cancel();
     _locallyEditedDraftKeys.addAll({_draftDataKey, _draftSeriesKey});
     _dataController.clear();
@@ -359,7 +390,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
       _predictionX = prediction.x;
       _predictionY = prediction.y;
       _predictionError = prediction.error;
-      _error = '请输入至少两行有效数据';
+      _error = strings.needTwoRows;
     });
     _scheduleDraftSave();
   }

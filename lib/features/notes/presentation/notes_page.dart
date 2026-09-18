@@ -12,6 +12,7 @@ import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../domain/usecases/notes_clipboard_import.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'notes_strings.dart';
 
 part 'notes_page_sections.dart';
 part 'notes_page_actions.dart';
@@ -78,6 +79,7 @@ class _NotesPageState extends State<NotesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = NotesStrings.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       children: [
@@ -86,16 +88,16 @@ class _NotesPageState extends State<NotesPage> {
         TextField(
           controller: _searchController,
           onChanged: _setSearchQuery,
-          decoration: const InputDecoration(
-            hintText: '搜索笔记、历史、公式...',
-            prefixIcon: Icon(Icons.search),
+          decoration: InputDecoration(
+            hintText: strings.searchHint,
+            prefixIcon: const Icon(Icons.search),
           ).copyWith(
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: _searchController,
               builder: (context, value, child) {
                 if (value.text.isEmpty) return const SizedBox.shrink();
                 return IconButton(
-                  tooltip: '清除',
+                  tooltip: strings.clearSearchTooltip,
                   onPressed: _clearSearch,
                   icon: const Icon(Icons.close),
                 );
@@ -108,11 +110,11 @@ class _NotesPageState extends State<NotesPage> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _tabPill(NotesTab.all, '全部'),
-              _tabPill(NotesTab.notes, '笔记'),
-              _tabPill(NotesTab.history, '历史'),
-              _tabPill(NotesTab.formulas, '公式'),
-              _tabPill(NotesTab.tools, '工具'),
+              _tabPill(NotesTab.all, strings.tabAll),
+              _tabPill(NotesTab.notes, strings.tabNotes),
+              _tabPill(NotesTab.history, strings.tabHistory),
+              _tabPill(NotesTab.formulas, strings.tabFormulas),
+              _tabPill(NotesTab.tools, strings.tabTools),
             ],
           ),
         ),
@@ -120,12 +122,12 @@ class _NotesPageState extends State<NotesPage> {
         _filterSummary(),
         const SizedBox(height: 16),
         if (_controller.showsHistory) ...[
-          const SectionTitle('计算历史'),
+          SectionTitle(strings.historySectionTitle),
           _historySection(),
           const SizedBox(height: 14),
         ],
         if (_controller.showsNotes) ...[
-          const SectionTitle('个人笔记'),
+          SectionTitle(strings.notesSectionTitle),
           _notesSection(),
         ],
       ],

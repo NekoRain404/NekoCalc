@@ -11,6 +11,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_navigation.dart';
 import 'tool_widgets.dart';
+import 'tools_strings.dart';
 
 class ToolCategoryScreen extends StatefulWidget {
   const ToolCategoryScreen({
@@ -112,6 +113,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ToolsStrings.of(context);
     final hasQuery = _query.trim().isNotEmpty;
     final results =
         _toolsController.searchTools(_query, category: widget.category);
@@ -158,14 +160,14 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
               focusNode: _searchFocus,
               onChanged: _setSearchQuery,
               decoration: InputDecoration(
-                  hintText: '搜索${widget.category.title}工具',
+                  hintText: strings.searchCategoryHint(widget.category.title),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _searchController,
                     builder: (context, value, child) {
                       if (value.text.isEmpty) return const SizedBox.shrink();
                       return IconButton(
-                        tooltip: '清除',
+                        tooltip: strings.clear,
                         onPressed: _clearSearch,
                         icon: const Icon(Icons.close),
                       );
@@ -174,10 +176,11 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             ),
             const SizedBox(height: 16),
             if (hasQuery) ...[
-              SectionTitle('搜索结果 · ${tools.length}'),
+              SectionTitle(strings.searchResultsCount(tools.length)),
               if (tools.isEmpty)
                 ToolSearchEmptyState(
-                  message: '${widget.category.title}里没有“${_query.trim()}”。',
+                  message: strings.categoryNoMatch(
+                      widget.category.title, _query.trim()),
                   suggestions: suggestions
                       .map((suggestion) => suggestion.text)
                       .toList(growable: false),
@@ -189,8 +192,8 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             ],
             if (!hasQuery && tools.any((tool) => tool.featured)) ...[
               SectionHeader(
-                  title: '常用工具',
-                  action: '更多',
+                  title: strings.commonTools,
+                  action: strings.more,
                   onActionTap: _searchFocus.requestFocus),
               HorizontalToolList(
                   tools: tools.where((tool) => tool.featured).toList(),
@@ -210,7 +213,8 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
                                   favorite: _favoriteIds.contains(tool.id),
                                   matchLabel: _query.trim().isEmpty
                                       ? null
-                                      : '命中：${resultById[tool.id]}',
+                                      : strings
+                                          .match('${resultById[tool.id]}'),
                                   onTap: () => _openTool(tool),
                                   onFavoriteToggle: () => _toggleFavorite(tool),
                                 ))
@@ -231,8 +235,9 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             (result) => ToolListTile(
               tool: result.tool,
               favorite: _favoriteIds.contains(result.tool.id),
-              matchLabel:
-                  result.matchLabel.isEmpty ? null : '命中：${result.matchLabel}',
+              matchLabel: result.matchLabel.isEmpty
+                  ? null
+                  : ToolsStrings.of(context).match(result.matchLabel),
               onTap: () => _openTool(result.tool),
               onFavoriteToggle: () => _toggleFavorite(result.tool),
             ),

@@ -15,69 +15,78 @@ extension _NotesPageSections on _NotesPageState {
   }
 
   Widget _header() {
+    final strings = NotesStrings.of(context);
     if (_selectionActive) {
       return Row(
         children: [
           IconToolButton(
-              icon: Icons.close, tooltip: '取消选择', onTap: _clearSelection),
+              icon: Icons.close,
+              tooltip: strings.cancelSelection,
+              onTap: _clearSelection),
           const SizedBox(width: 10),
           Expanded(
-            child: Text('已选择 $_selectedCount 项',
+            child: Text(strings.selectedCount(_selectedCount),
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           ),
           IconToolButton(
               icon: Icons.done_all,
-              tooltip: '选择当前列表',
+              tooltip: strings.selectVisible,
               onTap: _selectVisibleItems),
           const SizedBox(width: 8),
           IconToolButton(
-              icon: Icons.copy_outlined, tooltip: '复制所选', onTap: _copySelected),
+              icon: Icons.copy_outlined,
+              tooltip: strings.copySelected,
+              onTap: _copySelected),
           const SizedBox(width: 8),
           IconToolButton(
               icon: Icons.delete_outline,
-              tooltip: '删除所选',
+              tooltip: strings.deleteSelected,
               onTap: _deleteSelected),
         ],
       );
     }
     return Row(
       children: [
-        const Expanded(child: PageTitle('笔记')),
+        Expanded(child: PageTitle(strings.pageTitle)),
         if (_controller.showsNotes) ...[
           IconToolButton(
             icon: Icons.tune,
-            tooltip: '笔记筛选',
+            tooltip: strings.noteFilterTitle,
             onTap: _showNoteFilters,
           ),
           const SizedBox(width: 8),
         ],
         IconToolButton(
             icon: Icons.delete_sweep_outlined,
-            tooltip: '清空历史',
+            tooltip: strings.clearHistory,
             onTap: _clearHistory),
         const SizedBox(width: 8),
         IconToolButton(
             icon: Icons.content_paste_outlined,
-            tooltip: '从剪贴板导入',
+            tooltip: strings.clipboardImportTitle,
             onTap: _importFromClipboard),
         const SizedBox(width: 8),
-        IconToolButton(icon: Icons.add, tooltip: '新增笔记', onTap: _addNoteDialog),
+        IconToolButton(
+            icon: Icons.add, tooltip: strings.newNote, onTap: _addNoteDialog),
       ],
     );
   }
 
   Widget _historySection() {
+    final strings = NotesStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final items = _controller.visibleHistory;
-    if (_controller.loading) return const EmptyPanel('正在加载历史记录。');
+    if (_controller.loading) return EmptyPanel(strings.loadingHistory);
     if (_controller.error != null) {
-      return EmptyPanel('历史读取失败：${_controller.error}');
+      return EmptyPanel(strings.historyLoadFailed('${_controller.error}'));
     }
     if (items.isEmpty) {
       return _emptySearchPanel(
         icon: Icons.schedule,
-        message: _controller.query.isEmpty ? '暂无历史记录。' : '当前筛选下没有历史记录。',
+        message: _controller.query.isEmpty
+            ? strings.historyEmpty
+            : strings.historyEmptyFiltered,
         showSearchHelp: _controller.visibleSummary.isEmpty,
       );
     }
@@ -106,7 +115,7 @@ extension _NotesPageSections on _NotesPageState {
                       Text(item.result,
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       IconButton(
-                        tooltip: '删除',
+                        tooltip: strings.delete,
                         onPressed: _selectionActive
                             ? null
                             : () => _controller.deleteHistory(item.id),
@@ -121,17 +130,20 @@ extension _NotesPageSections on _NotesPageState {
   }
 
   Widget _notesSection() {
+    final strings = NotesStrings.of(context);
     final items = _controller.visibleNotes;
-    if (_controller.loading) return const EmptyPanel('正在加载笔记。');
+    if (_controller.loading) return EmptyPanel(strings.loadingNotes);
     if (_controller.error != null) {
-      return EmptyPanel('笔记读取失败：${_controller.error}');
+      return EmptyPanel(strings.notesLoadFailed('${_controller.error}'));
     }
     if (items.isEmpty) {
       return Column(
         children: [
           _emptySearchPanel(
             icon: Icons.article_outlined,
-            message: _controller.query.isEmpty ? '暂无个人笔记。' : '当前筛选下没有个人笔记。',
+            message: _controller.query.isEmpty
+                ? strings.notesEmpty
+                : strings.notesEmptyFiltered,
             showSearchHelp:
                 _controller.visibleSummary.isEmpty && !_controller.showsHistory,
           ),
@@ -186,7 +198,7 @@ extension _NotesPageSections on _NotesPageState {
                   ],
                 ),
                 trailing: IconButton(
-                  tooltip: '更多',
+                  tooltip: strings.moreTooltip,
                   onPressed:
                       _selectionActive ? null : () => _showNoteActions(item),
                   icon: const Icon(Icons.more_horiz),
@@ -211,7 +223,9 @@ extension _NotesPageSections on _NotesPageState {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.expand_more),
-          label: Text(_controller.loadingMoreNotes ? '正在加载' : '加载更多笔记'),
+          label: Text(_controller.loadingMoreNotes
+              ? NotesStrings.of(context).loadingMoreNotes
+              : NotesStrings.of(context).loadMoreNotes),
         ),
       );
 
@@ -230,6 +244,7 @@ extension _NotesPageSections on _NotesPageState {
   }
 
   Widget _filterSummary() {
+    final strings = NotesStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final summary = _controller.visibleSummary;
     return Container(
@@ -254,7 +269,7 @@ extension _NotesPageSections on _NotesPageState {
             TextButton.icon(
               onPressed: _clearSearch,
               icon: const Icon(Icons.close, size: 16),
-              label: const Text('清除'),
+              label: Text(strings.clearSearchTooltip),
               style: TextButton.styleFrom(
                 foregroundColor: scheme.onSurfaceVariant,
                 visualDensity: VisualDensity.compact,
@@ -270,6 +285,7 @@ extension _NotesPageSections on _NotesPageState {
     required String message,
     bool showSearchHelp = false,
   }) {
+    final strings = NotesStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     showSearchHelp = showSearchHelp && _controller.query.isNotEmpty;
     final suggestions =
@@ -332,7 +348,7 @@ extension _NotesPageSections on _NotesPageState {
             OutlinedButton.icon(
               onPressed: _addNoteDialog,
               icon: const Icon(Icons.add),
-              label: const Text('新增笔记'),
+              label: Text(strings.newNote),
             ),
           ],
         ],

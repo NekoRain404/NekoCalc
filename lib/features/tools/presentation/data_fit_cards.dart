@@ -2,6 +2,7 @@ part of 'data_fit_tool_screen.dart';
 
 extension _DataFitCards on _DataFitToolScreenState {
   Widget _inputCard() {
+    final strings = DataFitStrings.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -10,19 +11,19 @@ extension _DataFitCards on _DataFitToolScreenState {
           children: [
             Row(
               children: [
-                const Expanded(child: SectionTitle('数据与模型')),
+                Expanded(child: SectionTitle(strings.dataAndModel)),
                 IconButton(
-                  tooltip: '示例数据',
+                  tooltip: strings.sampleData,
                   onPressed: _showExampleMenu,
                   icon: const Icon(Icons.dataset_outlined),
                 ),
                 IconButton(
-                  tooltip: '清空数据',
+                  tooltip: strings.clearData,
                   onPressed: _clearData,
                   icon: const Icon(Icons.backspace_outlined),
                 ),
                 IconButton(
-                  tooltip: '粘贴',
+                  tooltip: strings.paste,
                   onPressed: _pasteClipboard,
                   icon: const Icon(Icons.content_paste),
                 ),
@@ -41,16 +42,16 @@ extension _DataFitCards on _DataFitToolScreenState {
               const SizedBox(height: 10),
               DropdownButtonFormField<int>(
                 initialValue: _selectedSeriesIndex.clamp(0, _series.length - 1),
-                decoration: const InputDecoration(
-                  labelText: '拟合数据组',
+                decoration: InputDecoration(
+                  labelText: strings.fitSeries,
                   isDense: true,
                 ),
                 items: [
                   for (var i = 0; i < _series.length; i++)
                     DropdownMenuItem(
                       value: i,
-                      child: Text(
-                          '${_series[i].name} · ${_series[i].points.length} 点'),
+                      child: Text(strings.seriesPoints(_series[i].name,
+                          _series[i].points.length)),
                     ),
                 ],
                 onChanged: (value) {
@@ -66,12 +67,11 @@ extension _DataFitCards on _DataFitToolScreenState {
               minLines: 7,
               maxLines: 12,
               keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                labelText: '数据列表',
-                hintText:
-                    '支持 x,y；x,y1,y2 多列；空行分隔多组。\n例如：\n1, 2.1, 1.2\n2, 3.9, 1.8\n\n1, 8\n2, 13',
+              decoration: InputDecoration(
+                labelText: strings.dataList,
+                hintText: strings.dataListHint,
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 10),
@@ -83,13 +83,17 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _parseSummary() {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final current = _series[_selectedSeriesIndex];
     final text = _series.isEmpty
-        ? (_error ?? '尚未解析到有效数据')
+        ? (_error ?? strings.notParsedYet)
         : [
-            '已解析 ${_series.length} 组',
-            '${_series.fold<int>(0, (sum, item) => sum + item.points.length)} 点',
-            '当前 ${_series[_selectedSeriesIndex].name} ${_series[_selectedSeriesIndex].points.length} 点',
+            strings.parsedSeries(_series.length),
+            strings.points(_series.fold<int>(
+                0, (sum, item) => sum + item.points.length)),
+            strings.currentSeries(
+                current.name, current.points.length),
           ].join(' · ');
     return Row(
       children: [
@@ -138,20 +142,21 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _resultCard(FitResult result) {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final best = _bestRecommendation;
     final bestLabel = best == null
         ? null
         : best.model == result.model
-            ? '当前模型已是推荐模型'
-            : '推荐尝试 ${best.model.label}';
+            ? strings.alreadyBestModel
+            : strings.tryRecommended(best.model.label);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: softPanel(context: context, highlight: true),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${result.model.label}拟合',
+          Text(strings.fitOf(result.model.label),
               style: TextStyle(
                   color: scheme.primary, fontWeight: FontWeight.w800)),
           if (bestLabel != null) ...[
@@ -176,9 +181,9 @@ extension _DataFitCards on _DataFitToolScreenState {
             children: [
               _metricChip('R²', formatNumber(result.rSquared, precision: 6)),
               _metricChip('RMSE', formatNumber(result.rmse, precision: 6)),
-              _metricChip('点数', result.points.length.toString()),
+              _metricChip(strings.pointCount, result.points.length.toString()),
               if (_series.isNotEmpty)
-                _metricChip('数据组', _series[_selectedSeriesIndex].name),
+                _metricChip(strings.seriesLabel, _series[_selectedSeriesIndex].name),
             ],
           ),
           const SizedBox(height: 12),
@@ -189,13 +194,13 @@ extension _DataFitCards on _DataFitToolScreenState {
               OutlinedButton.icon(
                 onPressed: _copyEquation,
                 icon: const Icon(Icons.functions, size: 18),
-                label: const Text('复制方程'),
+                label: Text(strings.copyEquation),
               ),
               if (_residualAlerts.isNotEmpty)
                 OutlinedButton.icon(
                   onPressed: _copyResidualAlerts,
                   icon: const Icon(Icons.report_problem_outlined, size: 18),
-                  label: const Text('复制异常点'),
+                  label: Text(strings.copyResidual),
                 ),
             ],
           ),
@@ -205,11 +210,14 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _predictionCard(FitResult result) {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final hasPrediction = _predictionX != null && _predictionY != null;
     final predictionText = hasPrediction
-        ? 'x=${formatNumber(_predictionX!, precision: 6)} 时，y=${formatNumber(_predictionY!, precision: 6)}'
-        : (_predictionError ?? '输入 x 后实时计算预测值');
+        ? strings.predictionReading(
+            formatNumber(_predictionX!, precision: 6),
+            formatNumber(_predictionY!, precision: 6))
+        : (_predictionError ?? strings.predictionHint);
     final isOutsideRange = _predictionX == null
         ? false
         : _predictionX! < result.points.map((p) => p.x).reduce(math.min) ||
@@ -222,12 +230,12 @@ extension _DataFitCards on _DataFitToolScreenState {
           children: [
             Row(
               children: [
-                const Expanded(child: SectionTitle('预测')),
+                Expanded(child: SectionTitle(strings.prediction)),
                 if (hasPrediction)
                   TextButton.icon(
                     onPressed: _copyPrediction,
                     icon: const Icon(Icons.copy_outlined, size: 16),
-                    label: const Text('复制'),
+                    label: Text(strings.copy),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
@@ -241,14 +249,14 @@ extension _DataFitCards on _DataFitToolScreenState {
               keyboardType: const TextInputType.numberWithOptions(
                   decimal: true, signed: true),
               decoration: InputDecoration(
-                labelText: '预测 x',
-                hintText: '例如 7、2.5、５０％',
+                labelText: strings.predictX,
+                hintText: strings.predictXHint,
                 border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: _predictionController.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: '清空预测',
+                        tooltip: strings.clearPrediction,
                         onPressed: _predictionController.clear,
                         icon: const Icon(Icons.close),
                       ),
@@ -315,7 +323,7 @@ extension _DataFitCards on _DataFitToolScreenState {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '该 x 超出样本范围，属于外推估算。',
+                      strings.extrapolationWarning,
                       style: TextStyle(
                         color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -332,6 +340,7 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _recommendationCard() {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final visibleRecommendations = _recommendations.take(4).toList();
     return Card(
@@ -342,12 +351,12 @@ extension _DataFitCards on _DataFitToolScreenState {
           children: [
             Row(
               children: [
-                const Expanded(child: SectionTitle('模型建议')),
+                Expanded(child: SectionTitle(strings.modelAdvice)),
                 if (_bestRecommendation != null)
                   TextButton.icon(
                     onPressed: () => _applyModel(_bestRecommendation!.model),
                     icon: const Icon(Icons.auto_fix_high, size: 16),
-                    label: const Text('应用最佳'),
+                    label: Text(strings.applyBest),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
@@ -400,6 +409,7 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _residualAlertPanel() {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -416,7 +426,7 @@ extension _DataFitCards on _DataFitToolScreenState {
               Icon(Icons.report_problem_outlined,
                   color: scheme.error, size: 18),
               const SizedBox(width: 8),
-              Text('疑似异常点',
+              Text(strings.residualAlerts,
                   style: TextStyle(
                       color: scheme.error, fontWeight: FontWeight.w800)),
             ],
@@ -450,6 +460,7 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _chartCard(FitResult result) {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
@@ -457,7 +468,7 @@ extension _DataFitCards on _DataFitToolScreenState {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('图表'),
+            SectionTitle(strings.chart),
             const SizedBox(height: 8),
             AspectRatio(
               aspectRatio: 1.55,
@@ -478,6 +489,7 @@ extension _DataFitCards on _DataFitToolScreenState {
                         selectedSeriesIndex: _selectedSeriesIndex,
                         residualAlerts: _residualAlerts,
                         scheme: scheme,
+                        legendFitSuffix: strings.legendFitSuffix,
                       ),
                     ),
                   ),
@@ -491,6 +503,7 @@ extension _DataFitCards on _DataFitToolScreenState {
   }
 
   Widget _dataTableCard(FitResult result) {
+    final strings = DataFitStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
@@ -500,9 +513,9 @@ extension _DataFitCards on _DataFitToolScreenState {
           children: [
             Row(
               children: [
-                const Expanded(child: SectionTitle('数据表')),
+                Expanded(child: SectionTitle(strings.dataTable)),
                 Text(
-                  '当前组 ${result.points.length} 行',
+                  strings.seriesRows(result.points.length),
                   style: TextStyle(
                     color: scheme.onSurfaceVariant,
                     fontSize: 12,
@@ -531,12 +544,12 @@ extension _DataFitCards on _DataFitToolScreenState {
                       fontWeight: FontWeight.w900,
                       fontSize: 12,
                     ),
-                    columns: const [
-                      DataColumn(label: Text('#')),
-                      DataColumn(label: Text('x')),
-                      DataColumn(label: Text('y')),
-                      DataColumn(label: Text('ŷ')),
-                      DataColumn(label: Text('残差')),
+                    columns: [
+                      const DataColumn(label: Text('#')),
+                      const DataColumn(label: Text('x')),
+                      const DataColumn(label: Text('y')),
+                      const DataColumn(label: Text('ŷ')),
+                      DataColumn(label: Text(strings.residual)),
                     ],
                     rows: [
                       for (var i = 0; i < result.points.length; i++)

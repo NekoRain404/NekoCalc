@@ -8,6 +8,7 @@ import '../../features/notes/presentation/notes_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/tools/presentation/tools_home_page.dart';
 import 'app_drawer.dart';
+import 'shared_strings.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -278,7 +279,7 @@ class _ShellDrawerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton.filledTonal(
-      tooltip: '打开导航',
+      tooltip: SharedStrings.of(context).openNavigationTooltip,
       onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
       icon: const Icon(Icons.menu),
       iconSize: 20,

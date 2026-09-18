@@ -11,6 +11,7 @@ class FitChartPainter extends CustomPainter {
     required this.selectedSeriesIndex,
     required this.residualAlerts,
     required this.scheme,
+    required this.legendFitSuffix,
   });
 
   final FitResult result;
@@ -18,6 +19,15 @@ class FitChartPainter extends CustomPainter {
   final int selectedSeriesIndex;
   final List<FitResidualPoint> residualAlerts;
   final ColorScheme scheme;
+
+  /// 中文：图例里跟在选中数据组名字后面的那句后缀（`DataFitStrings.legendFitSuffix`）。
+  ///       画笔不持有 `BuildContext`，所以文案由调用方传进来；它同时进了 [shouldRepaint]，
+  ///       否则切成英文之后图例不会重画。
+  /// English: The suffix the legend appends to the selected series' name
+  ///          (`DataFitStrings.legendFitSuffix`). A painter holds no `BuildContext`, so the caller
+  ///          passes the copy in; it is also part of [shouldRepaint], without which the legend would
+  ///          not be repainted after switching to English.
+  final String legendFitSuffix;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -273,7 +283,8 @@ class FitChartPainter extends CustomPainter {
         ..color = _seriesColor(i, selected)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(dx + 5, y + 5), 4, paint);
-      final label = selected ? '${series[i].name} 拟合' : series[i].name;
+      final label =
+          selected ? '${series[i].name}$legendFitSuffix' : series[i].name;
       final painter = TextPainter(
         text: TextSpan(
           text: label,
@@ -307,6 +318,7 @@ class FitChartPainter extends CustomPainter {
         oldDelegate.series != series ||
         oldDelegate.selectedSeriesIndex != selectedSeriesIndex ||
         oldDelegate.residualAlerts != residualAlerts ||
-        oldDelegate.scheme != scheme;
+        oldDelegate.scheme != scheme ||
+        oldDelegate.legendFitSuffix != legendFitSuffix;
   }
 }

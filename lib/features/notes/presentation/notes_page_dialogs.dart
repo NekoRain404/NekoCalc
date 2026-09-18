@@ -7,11 +7,12 @@ class _ClipboardImportDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = NotesStrings.of(context);
     final previews = plan.previews;
     final previewDrafts = previews.take(5).toList(growable: false);
     final hiddenCount = plan.totalCount - previewDrafts.length;
     return AlertDialog(
-      title: const Text('从剪贴板导入'),
+      title: Text(strings.clipboardImportTitle),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -34,7 +35,7 @@ class _ClipboardImportDialog extends StatelessWidget {
               ),
             ),
             if (hiddenCount > 0)
-              Text('还有 $hiddenCount 条未显示',
+              Text(strings.hiddenCount(hiddenCount),
                   style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
@@ -42,10 +43,10 @@ class _ClipboardImportDialog extends StatelessWidget {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消')),
+            child: Text(strings.cancel)),
         FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('导入')),
+            child: Text(strings.importButton)),
       ],
     );
   }
@@ -117,6 +118,7 @@ class _NoteFilterSheetState extends State<_NoteFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = NotesStrings.of(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -124,19 +126,24 @@ class _NoteFilterSheetState extends State<_NoteFilterSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('笔记筛选',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text(strings.noteFilterTitle,
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             DropdownButtonFormField<NoteArchiveFilter>(
               initialValue: _archiveFilter,
-              decoration: const InputDecoration(labelText: '状态'),
-              items: const [
+              decoration:
+                  InputDecoration(labelText: strings.archiveFilterLabel),
+              items: [
                 DropdownMenuItem(
-                    value: NoteArchiveFilter.active, child: Text('未归档')),
+                    value: NoteArchiveFilter.active,
+                    child: Text(strings.archiveActive)),
                 DropdownMenuItem(
-                    value: NoteArchiveFilter.archived, child: Text('已归档')),
+                    value: NoteArchiveFilter.archived,
+                    child: Text(strings.archiveArchived)),
                 DropdownMenuItem(
-                    value: NoteArchiveFilter.all, child: Text('全部状态')),
+                    value: NoteArchiveFilter.all,
+                    child: Text(strings.archiveAll)),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _archiveFilter = value);
@@ -145,14 +152,17 @@ class _NoteFilterSheetState extends State<_NoteFilterSheet> {
             const SizedBox(height: 10),
             DropdownButtonFormField<NoteSort>(
               initialValue: _sort,
-              decoration: const InputDecoration(labelText: '排序'),
-              items: const [
+              decoration: InputDecoration(labelText: strings.sortLabel),
+              items: [
                 DropdownMenuItem(
-                    value: NoteSort.updatedNewest, child: Text('最近更新')),
+                    value: NoteSort.updatedNewest,
+                    child: Text(strings.sortUpdatedNewest)),
                 DropdownMenuItem(
-                    value: NoteSort.updatedOldest, child: Text('最早更新')),
+                    value: NoteSort.updatedOldest,
+                    child: Text(strings.sortUpdatedOldest)),
                 DropdownMenuItem(
-                    value: NoteSort.titleAscending, child: Text('标题 A-Z')),
+                    value: NoteSort.titleAscending,
+                    child: Text(strings.sortTitleAscending)),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _sort = value);
@@ -160,14 +170,14 @@ class _NoteFilterSheetState extends State<_NoteFilterSheet> {
             ),
             if (widget.availableTags.isNotEmpty) ...[
               const SizedBox(height: 14),
-              const Text('标签'),
+              Text(strings.tagLabel),
               const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
                 children: [
                   FilterChip(
-                    label: const Text('全部标签'),
+                    label: Text(strings.allTags),
                     selected: _tag == null,
                     onSelected: (_) => setState(() => _tag = null),
                   ),
@@ -193,7 +203,7 @@ class _NoteFilterSheetState extends State<_NoteFilterSheet> {
                     tag: _tag,
                   ),
                 ),
-                child: const Text('应用'),
+                child: Text(strings.apply),
               ),
             ),
           ],
@@ -241,8 +251,9 @@ class _NoteEditorDialogState extends State<_NoteEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = NotesStrings.of(context);
     return AlertDialog(
-      title: Text(widget.item == null ? '新增笔记' : '编辑笔记'),
+      title: Text(widget.item == null ? strings.newNote : strings.editNote),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -252,7 +263,7 @@ class _NoteEditorDialogState extends State<_NoteEditorDialog> {
               TextField(
                 controller: _titleController,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: '标题'),
+                decoration: InputDecoration(labelText: strings.fieldTitle),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -260,22 +271,23 @@ class _NoteEditorDialogState extends State<_NoteEditorDialog> {
                 minLines: 2,
                 maxLines: 3,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                    labelText: '描述', hintText: '写清用途、来源或下一步处理'),
+                decoration: InputDecoration(
+                    labelText: strings.fieldDescription,
+                    hintText: strings.fieldDescriptionHint),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _bodyController,
                 minLines: 5,
                 maxLines: 10,
-                decoration: const InputDecoration(labelText: '内容'),
+                decoration: InputDecoration(labelText: strings.fieldBody),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: '标签',
-                  hintText: '用逗号分隔，例如：实验, 待处理',
+                decoration: InputDecoration(
+                  labelText: strings.tagLabel,
+                  hintText: strings.fieldTagsHint,
                 ),
               ),
             ],
@@ -284,7 +296,8 @@ class _NoteEditorDialogState extends State<_NoteEditorDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            onPressed: () => Navigator.pop(context),
+            child: Text(strings.cancel)),
         FilledButton(
           onPressed: () => Navigator.pop(
             context,
@@ -295,7 +308,7 @@ class _NoteEditorDialogState extends State<_NoteEditorDialog> {
               tags: _tagsController.text.split(RegExp(r'[,，\n]')),
             ),
           ),
-          child: const Text('保存'),
+          child: Text(strings.save),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import '../../../domain/entities/tool_category.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'category_visuals.dart';
+import 'tools_strings.dart';
 
 class HorizontalToolList extends StatelessWidget {
   const HorizontalToolList({
@@ -98,7 +99,7 @@ class CategoryCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
-                  Text('$count 个工具',
+                  Text(ToolsStrings.of(context).toolCount(count),
                       style: TextStyle(
                           color: scheme.onSurfaceVariant, fontSize: 12)),
                 ],
@@ -157,7 +158,9 @@ class ToolListTile extends StatelessWidget {
                   ? const Icon(Icons.star, color: Colors.amber, size: 18)
                   : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant)
               : IconButton(
-                  tooltip: favorite ? '取消收藏' : '收藏',
+                  tooltip: favorite
+                      ? ToolsStrings.of(context).favoriteRemove
+                      : ToolsStrings.of(context).favoriteAdd,
                   onPressed: onFavoriteToggle,
                   icon: Icon(favorite ? Icons.star : Icons.star_border,
                       color: favorite ? Colors.amber : scheme.onSurfaceVariant),
@@ -240,7 +243,7 @@ class ToolSearchEmptyState extends StatelessWidget {
           if (alternatives.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
-              '其它分类',
+              ToolsStrings.of(context).otherCategories,
               style: TextStyle(
                 color: scheme.onSurfaceVariant,
                 fontSize: 12,
@@ -286,7 +289,7 @@ class DetailMetric extends StatelessWidget {
                   width: 28,
                   height: 28,
                   child: IconButton(
-                    tooltip: '复制此项',
+                    tooltip: ToolsStrings.of(context).copyThisItem,
                     onPressed: onCopy,
                     padding: EdgeInsets.zero,
                     iconSize: 16,

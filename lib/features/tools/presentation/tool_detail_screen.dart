@@ -14,6 +14,7 @@ import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_widgets.dart';
+import 'tools_strings.dart';
 
 /// 中文：数值型工具详情页，负责参数输入、结果展示、收藏、保存和笔记。
 /// English: Detail screen for numeric tools; manages parameter input, results, favorites, history, and notes.
@@ -200,6 +201,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ToolsStrings.of(context);
     final primary = _detailController.primary;
     final scheme = Theme.of(context).colorScheme;
 
@@ -215,7 +217,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                     icon: const Icon(Icons.arrow_back_ios_new)),
                 Expanded(child: Center(child: PageTitle(widget.tool.title))),
                 IconButton(
-                  tooltip: '收藏',
+                  tooltip: strings.favoriteAdd,
                   onPressed: _toggleFavorite,
                   icon: Icon(
                       _detailController.favorite
@@ -224,7 +226,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                       color: _detailController.favorite ? Colors.amber : null),
                 ),
                 PopupMenuButton<String>(
-                  tooltip: '更多',
+                  tooltip: strings.more,
                   icon: const Icon(Icons.more_horiz),
                   onSelected: (value) {
                     switch (value) {
@@ -242,15 +244,20 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                         _resetInputs();
                     }
                   },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'paste', child: Text('粘贴参数')),
-                    PopupMenuItem(value: 'copy_inputs', child: Text('复制参数')),
-                    PopupMenuDivider(),
-                    PopupMenuItem(value: 'copy', child: Text('复制结果')),
-                    PopupMenuItem(value: 'save', child: Text('保存历史')),
-                    PopupMenuItem(value: 'note', child: Text('保存笔记')),
-                    PopupMenuDivider(),
-                    PopupMenuItem(value: 'reset', child: Text('重置输入')),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                        value: 'paste', child: Text(strings.pasteInputs)),
+                    PopupMenuItem(
+                        value: 'copy_inputs', child: Text(strings.copyInputs)),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                        value: 'copy', child: Text(strings.copyResult)),
+                    PopupMenuItem(
+                        value: 'save', child: Text(strings.saveHistory)),
+                    PopupMenuItem(value: 'note', child: Text(strings.saveNote)),
+                    const PopupMenuDivider(),
+                    PopupMenuItem(
+                        value: 'reset', child: Text(strings.resetInputs)),
                   ],
                 ),
               ],
@@ -290,7 +297,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SectionTitle('公式'),
+                    SectionTitle(strings.formula),
                     Text(widget.tool.formula,
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
@@ -307,25 +314,25 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 Expanded(
                     child: ActionButton(
                         icon: Icons.copy_outlined,
-                        label: '复制',
+                        label: strings.copy,
                         onTap: _copyResult)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: ActionButton(
                         icon: Icons.save_outlined,
-                        label: '保存',
+                        label: strings.save,
                         onTap: _saveResult)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: ActionButton(
                         icon: Icons.refresh_outlined,
-                        label: '重置',
+                        label: strings.reset,
                         onTap: _resetInputs)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: ActionButton(
                         icon: Icons.note_add_outlined,
-                        label: '笔记',
+                        label: strings.note,
                         onTap: _saveNote)),
               ],
             ),
@@ -336,6 +343,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   Widget _inputCard() {
+    final strings = ToolsStrings.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -344,27 +352,27 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
           children: [
             Row(
               children: [
-                const Expanded(child: SectionTitle('输入参数')),
+                Expanded(child: SectionTitle(strings.inputParameters)),
                 IconButton(
-                  tooltip: '粘贴参数',
+                  tooltip: strings.pasteInputs,
                   onPressed: _pasteInputs,
                   icon: const Icon(Icons.content_paste_outlined),
                 ),
                 IconButton(
-                  tooltip: '复制参数',
+                  tooltip: strings.copyInputs,
                   onPressed: _copyInputs,
                   icon: const Icon(Icons.copy_all_outlined),
                 ),
                 TextButton(
                   onPressed: _resetInputs,
-                  child: const Text('重置'),
+                  child: Text(strings.reset),
                 ),
               ],
             ),
             if (widget.tool.inputs.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('该工具无需数字参数，请使用上方结果和操作按钮完成复制、保存或笔记记录。'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(strings.noNumericInputs),
               )
             else
               ...widget.tool.inputs.map((input) => Padding(
@@ -378,6 +386,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   Widget _inputRow(ToolInputDefinition input) {
+    final strings = ToolsStrings.of(context);
     final controller = _controllers[input.key]!;
     final scheme = Theme.of(context).colorScheme;
     final error = _detailController.inputErrors[input.key];
@@ -386,11 +395,13 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       children: [
         Expanded(
             flex: 3,
-            child: Text(input.optional ? '${input.label}（可选）' : input.label)),
+            child: Text(input.optional
+                ? strings.optionalInput(input.label)
+                : input.label)),
         const SizedBox(width: 8),
         _stepButton(
           icon: Icons.remove,
-          tooltip: '减小',
+          tooltip: strings.decrease,
           onTap: () => _stepInput(input, -1),
         ),
         const SizedBox(width: 4),
@@ -409,7 +420,9 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
               suffixIcon: controller.text.isEmpty
                   ? null
                   : IconButton(
-                      tooltip: clearsInput ? '清空' : '恢复默认',
+                      tooltip: clearsInput
+                          ? strings.clearInput
+                          : strings.restoreDefault,
                       onPressed: () => _setInputValue(
                           input, clearsInput ? null : input.defaultValue),
                       icon: Icon(
@@ -424,7 +437,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         const SizedBox(width: 4),
         _stepButton(
           icon: Icons.add,
-          tooltip: '增大',
+          tooltip: strings.increase,
           onTap: () => _stepInput(input, 1),
         ),
       ],
@@ -541,8 +554,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     }
     await Clipboard.setData(ClipboardData(text: _detailController.copyText()));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制结果')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ToolsStrings.of(context).resultCopied)));
     }
   }
 
@@ -551,8 +564,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       ClipboardData(text: _detailController.inputCopyText()),
     );
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制输入参数')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ToolsStrings.of(context).inputsCopied)));
     }
   }
 
@@ -564,23 +577,26 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     await Clipboard.setData(
         ClipboardData(text: _detailController.singleResultCopyText(result)));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('已复制${result.label}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text(ToolsStrings.of(context).copiedLabel(result.label))));
     }
   }
 
   void _showInputErrorSnack() {
+    final strings = ToolsStrings.of(context);
     final summary = _detailController.inputErrorSummary();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          summary.isEmpty ? '请先修正输入参数' : '请先修正输入参数：$summary',
-        ),
+        content: Text(summary.isEmpty
+            ? strings.fixInputsFirst
+            : strings.fixInputsFirstWith(summary)),
       ),
     );
   }
 
   Widget _resultStatusCard() {
+    final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final hasInputErrors = _detailController.hasInputErrors;
     final hasResultIssues = _detailController.hasResultIssues;
@@ -595,10 +611,10 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             ? Icons.report_problem_outlined
             : Icons.verified_outlined;
     final title = hasInputErrors
-        ? '输入需要修正'
+        ? strings.statusInputInvalid
         : hasResultIssues
-            ? '结果需要检查'
-            : '结果可复用';
+            ? strings.statusResultCheck
+            : strings.statusResultReusable;
     final details = hasInputErrors
         ? _detailController.inputErrorSummary()
         : hasResultIssues
@@ -637,6 +653,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   Widget _primaryResult(ToolResult primary) {
+    final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(18),
@@ -652,7 +669,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                         color: scheme.primary, fontWeight: FontWeight.w700)),
               ),
               IconButton.filledTonal(
-                tooltip: '复制主结果',
+                tooltip: strings.copyPrimaryResult,
                 onPressed: () => _copySingleResult(primary),
                 iconSize: 18,
                 icon: const Icon(Icons.copy_outlined),
@@ -686,6 +703,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   }
 
   Widget _insightCard() {
+    final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
@@ -693,7 +711,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('校核'),
+            SectionTitle(strings.insights),
             ..._detailController.insights.map(
               (item) => Padding(
                 padding: const EdgeInsets.only(bottom: 9),

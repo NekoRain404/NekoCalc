@@ -76,20 +76,21 @@ extension _NotesPageActions on _NotesPageState {
 
   Future<void> _deleteSelected() async {
     if (!_selectionActive) return;
+    final strings = NotesStrings.of(context);
     final historyCount = _selectedHistoryIds.length;
     final noteCount = _selectedNoteIds.length;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除所选'),
-        content: Text('确认删除 $historyCount 条历史和 $noteCount 条笔记？此操作无法撤销。'),
+        title: Text(strings.deleteSelected),
+        content: Text(strings.deleteSelectedConfirm(historyCount, noteCount)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消')),
+              child: Text(strings.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('删除')),
+              child: Text(strings.delete)),
         ],
       ),
     );
@@ -113,8 +114,8 @@ extension _NotesPageActions on _NotesPageState {
     if (text.trim().isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已复制 $_selectedCount 项')));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(NotesStrings.of(context).copiedItems(_selectedCount))));
   }
 
   Future<void> _importFromClipboard() async {
@@ -147,18 +148,19 @@ extension _NotesPageActions on _NotesPageState {
   }
 
   Future<void> _clearHistory() async {
+    final strings = NotesStrings.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空历史'),
-        content: const Text('确认删除全部计算历史？笔记不会受影响。'),
+        title: Text(strings.clearHistory),
+        content: Text(strings.clearHistoryConfirm),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消')),
+              child: Text(strings.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('清空')),
+              child: Text(strings.clear)),
         ],
       ),
     );
@@ -170,6 +172,7 @@ extension _NotesPageActions on _NotesPageState {
   }
 
   Future<void> _showHistoryActions(HistoryItem item) async {
+    final strings = NotesStrings.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -178,17 +181,17 @@ extension _NotesPageActions on _NotesPageState {
           children: [
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: const Text('复制结果'),
+              title: Text(strings.copyResult),
               onTap: () => Navigator.pop(context, 'copy'),
             ),
             ListTile(
               leading: const Icon(Icons.note_add_outlined),
-              title: const Text('保存为笔记'),
+              title: Text(strings.saveAsNote),
               onTap: () => Navigator.pop(context, 'note'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline),
-              title: const Text('删除记录'),
+              title: Text(strings.deleteHistoryEntry),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
           ],
@@ -200,7 +203,7 @@ extension _NotesPageActions on _NotesPageState {
           ClipboardData(text: _controller.historyCopyText(item)));
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已复制历史结果')));
+            .showSnackBar(SnackBar(content: Text(strings.historyResultCopied)));
       }
     }
     if (action == 'note') {
@@ -212,7 +215,7 @@ extension _NotesPageActions on _NotesPageState {
         await _controller.saveHistoryAsNote(item);
         if (mounted) {
           ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('已保存到笔记')));
+              .showSnackBar(SnackBar(content: Text(strings.savedToNotes)));
         }
       } finally {
         _savingNote = false;
@@ -227,6 +230,7 @@ extension _NotesPageActions on _NotesPageState {
   }
 
   Future<void> _showNoteActions(NoteItem item) async {
+    final strings = NotesStrings.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -236,29 +240,30 @@ extension _NotesPageActions on _NotesPageState {
             ListTile(
               leading: Icon(
                   item.isPinned ? Icons.push_pin_outlined : Icons.push_pin),
-              title: Text(item.isPinned ? '取消置顶' : '置顶笔记'),
+              title: Text(item.isPinned ? strings.unpinNote : strings.pinNote),
               onTap: () => Navigator.pop(context, 'pin'),
             ),
             ListTile(
               leading: Icon(item.isArchived
                   ? Icons.unarchive_outlined
                   : Icons.archive_outlined),
-              title: Text(item.isArchived ? '取消归档' : '归档笔记'),
+              title: Text(
+                  item.isArchived ? strings.unarchiveNote : strings.archiveNote),
               onTap: () => Navigator.pop(context, 'archive'),
             ),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('编辑笔记'),
+              title: Text(strings.editNote),
               onTap: () => Navigator.pop(context, 'edit'),
             ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: const Text('复制笔记'),
+              title: Text(strings.copyNote),
               onTap: () => Navigator.pop(context, 'copy'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline),
-              title: const Text('删除笔记'),
+              title: Text(strings.deleteNote),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
           ],
@@ -272,14 +277,16 @@ extension _NotesPageActions on _NotesPageState {
       await _controller.setNotePinned(item, !item.isPinned);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(item.isPinned ? '已取消置顶' : '已置顶笔记')),
+        SnackBar(content: Text(item.isPinned ? strings.unpinned : strings.pinned)),
       );
     }
     if (action == 'archive') {
       await _controller.setNoteArchived(item, !item.isArchived);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(item.isArchived ? '已取消归档' : '已归档笔记')),
+        SnackBar(
+            content:
+                Text(item.isArchived ? strings.unarchived : strings.archived)),
       );
     }
     if (action == 'copy') {
@@ -287,22 +294,22 @@ extension _NotesPageActions on _NotesPageState {
           ClipboardData(text: _controller.noteCopyText(item)));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制笔记')));
+          .showSnackBar(SnackBar(content: Text(strings.noteCopied)));
     }
     if (action == 'delete') {
       if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('删除笔记'),
-          content: Text('确认删除“${item.title}”？此操作无法撤销。'),
+          title: Text(strings.deleteNote),
+          content: Text(strings.deleteNoteConfirm(item.title)),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消')),
+                child: Text(strings.cancel)),
             FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除')),
+                child: Text(strings.delete)),
           ],
         ),
       );

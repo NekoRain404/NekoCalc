@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'calc_theme.dart';
+import 'shared_strings.dart';
 
 /// 中文：外壳的侧边抽屉，取代原来的底部导航栏。它按页顺序列出**全部**可达页面——计算 / 工具 /
 ///       图形 / 笔记——外加底部的设置：底部栏没了以后，任何一页都不能因为「抽屉里没有它」而变成
@@ -42,6 +43,11 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = CalcTheme.of(context);
+    // 中文：五个入口的字都走文案表——它们与计算页的 `More...` 面板里的「设置」是两处不同的字，
+    //       各有各的表，不互相引用。
+    // English: All five entries read from the string table. They are separate copy from the
+    //          calculator's `More...` panel 「设置」, so each surface keeps its own table.
+    final strings = SharedStrings.of(context);
     return Drawer(
       // 中文：抽屉底色沿用键位区底色，抽屉与主屏是同一片机身，不再是两种色系拼接。
       // English: The drawer borrows the keypad panel's colour so drawer and main screen read as one
@@ -61,28 +67,28 @@ class AppDrawer extends StatelessWidget {
               theme,
               destination: calculatorDestination,
               icon: Icons.calculate_outlined,
-              label: '计算',
+              label: strings.navCalculator,
             ),
             _entry(
               context,
               theme,
               destination: toolsDestination,
               icon: Icons.construction_outlined,
-              label: '工具',
+              label: strings.navTools,
             ),
             _entry(
               context,
               theme,
               destination: graphDestination,
               icon: Icons.show_chart_outlined,
-              label: '图形',
+              label: strings.navGraph,
             ),
             _entry(
               context,
               theme,
               destination: notesDestination,
               icon: Icons.article_outlined,
-              label: '笔记',
+              label: strings.navNotes,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -137,7 +143,8 @@ class AppDrawer extends StatelessWidget {
       child: ListTile(
         onTap: () => _close(context, onOpenSettings),
         leading: const Icon(Icons.settings_outlined),
-        title: const Text('设置', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(SharedStrings.of(context).navSettings,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         iconColor: theme.keys.functionFg,
         textColor: theme.keys.functionFg,
         tileColor: theme.keys.functionBg,

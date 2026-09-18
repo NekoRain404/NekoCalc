@@ -12,6 +12,7 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'tools_strings.dart';
 
 /// 中文：文本/编程类工具详情页，承载 JSON、Base64、URL、正则等输入输出型工具。
 /// English: Detail screen for text/programming tools such as JSON, Base64, URL, and regex utilities.
@@ -62,8 +63,14 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _inputController =
-        TextEditingController(text: _defaultInput(widget.tool.id));
+    // 中文：初值先留空，`didChangeDependencies` 里再填——`_defaultInput` 的两个示例取值来自
+    //       文案表，而文案表要查祖先里的 `AppLanguageScope`，`initState` 阶段查不了（理由见
+    //       `didChangeDependencies` 上的注释）。
+    // English: The initial text is filled in `didChangeDependencies` rather than here, because
+    //          `_defaultInput` reads two sample values from the copy table, which needs an ancestor
+    //          `AppLanguageScope` — not available while `initState` runs (see the note on
+    //          `didChangeDependencies`).
+    _inputController = TextEditingController();
     _formulaController =
         TextEditingController(text: TextToolController.defaultFormula);
     _aController = TextEditingController(text: TextToolController.defaultA);
@@ -77,8 +84,39 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     _aController.addListener(() => _scheduleRecalculate(_draftAKey));
     _bController.addListener(() => _scheduleRecalculate(_draftBKey));
     _cController.addListener(() => _scheduleRecalculate(_draftCKey));
-    _recalculate();
     if (widget.settings.restoreState) unawaited(_loadDraft());
+  }
+
+  /// 中文：填初值与第一次计算推迟到这里跑，**不能留在 `initState` 里**——它们要取
+  ///       `ToolsStrings`，而在 `initState` 阶段查祖先里的 `AppLanguageScope` 在 debug 构建里会
+  ///       直接抛（`dependOnInheritedWidgetOfExactType` 在 `initState` 未完成时是禁止的；真实 App
+  ///       里 `app.dart` 一定装了那个作用域，所以这不是理论问题——`tools_strings_test.dart` 里那
+  ///       两条装作用域的用例就是为此加的）。`didChangeDependencies` 在 `initState` 之后、第一次
+  ///       `build` 之前跑，屏幕上看不出先后差别；填初值那一下按 `_applyingDraft` 挡住监听器，
+  ///       免得它被记成"用户改过"而挡掉稍后要恢复的草稿。
+  /// English: The initial text and the first calculation run here rather than in `initState`, because
+  ///          they read `ToolsStrings`, and looking up an ancestor `AppLanguageScope` while
+  ///          `initState` is still running throws in debug builds
+  ///          (`dependOnInheritedWidgetOfExactType` is forbidden there). Not theoretical: `app.dart`
+  ///          always installs that scope, and the two scope-installing cases in
+  ///          `tools_strings_test.dart` exist for exactly this. `didChangeDependencies` runs after
+  ///          `initState` and before the first `build`, so nothing on screen can tell the difference;
+  ///          the seeding write is guarded by `_applyingDraft` so the listeners do not record it as a
+  ///          user edit and block a draft that is about to be restored.
+  bool _seededOnce = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seededOnce) return;
+    _seededOnce = true;
+    _applyingDraft = true;
+    try {
+      _inputController.text = _defaultInput(widget.tool.id);
+    } finally {
+      _applyingDraft = false;
+    }
+    _recalculate();
   }
 
   @override
@@ -277,6 +315,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ToolsStrings.of(context);
     final isCustom = widget.tool.id == 'custom_formula';
     final scheme = Theme.of(context).colorScheme;
 
@@ -289,13 +328,13 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
               children: [
                 IconToolButton(
                   icon: Icons.arrow_back_ios_new,
-                  tooltip: '返回',
+                  tooltip: strings.back,
                   onTap: () => Navigator.pop(context),
                 ),
                 Expanded(child: Center(child: PageTitle(widget.tool.title))),
                 IconToolButton(
                   icon: Icons.refresh_outlined,
-                  tooltip: '重置',
+                  tooltip: strings.reset,
                   onTap: _reset,
                 ),
               ],
@@ -313,14 +352,16 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                     Row(
                       children: [
                         Expanded(
-                            child: SectionTitle(isCustom ? '公式与变量' : '输入')),
+                            child: SectionTitle(isCustom
+                                ? strings.formulaAndVariables
+                                : strings.inputLabel)),
                         IconButton(
-                          tooltip: '粘贴',
+                          tooltip: strings.paste,
                           onPressed: _pasteInput,
                           icon: const Icon(Icons.content_paste_outlined),
                         ),
                         IconButton(
-                          tooltip: '清空',
+                          tooltip: strings.clearInput,
                           onPressed: _clearInput,
                           icon: const Icon(Icons.clear),
                         ),
@@ -329,8 +370,9 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                     if (isCustom) ...[
                       TextField(
                         controller: _formulaController,
-                        decoration: const InputDecoration(
-                            labelText: '公式', hintText: '例如 a * b + sqrt(c)'),
+                        decoration: InputDecoration(
+                            labelText: strings.formula,
+                            hintText: strings.formulaHint),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -368,16 +410,16 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text('主结果',
+                        child: Text(strings.primaryResult,
                             style: TextStyle(
                                 color: scheme.primary,
                                 fontWeight: FontWeight.w700)),
                       ),
                       IconButton.filledTonal(
-                        tooltip: '复制主结果',
+                        tooltip: strings.copyPrimaryResult,
                         onPressed: () => _copyTextValue(
                           _output.primaryCopyText,
-                          '已复制主结果',
+                          strings.primaryResultCopied,
                         ),
                         iconSize: 18,
                         icon: const Icon(Icons.copy_outlined),
@@ -404,12 +446,12 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                   children: [
                     Row(
                       children: [
-                        const Expanded(child: SectionTitle('详细结果')),
+                        Expanded(child: SectionTitle(strings.detailResult)),
                         IconButton(
-                          tooltip: '复制详细结果',
+                          tooltip: strings.copyDetailResult,
                           onPressed: () => _copyTextValue(
                             _output.detailCopyText,
-                            '已复制详细结果',
+                            strings.detailResultCopied,
                           ),
                           icon: const Icon(Icons.copy_outlined),
                         ),
@@ -432,27 +474,27 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                 Expanded(
                     child: ActionButton(
                         icon: Icons.copy_outlined,
-                        label: '复制',
+                        label: strings.copy,
                         onTap: _copyResult)),
                 const SizedBox(width: 8),
                 if (!isCustom) ...[
                   Expanded(
                       child: ActionButton(
                           icon: Icons.keyboard_return,
-                          label: '回填',
+                          label: strings.useAsInput,
                           onTap: _useResultAsInput)),
                   const SizedBox(width: 8),
                 ],
                 Expanded(
                     child: ActionButton(
                         icon: Icons.save_outlined,
-                        label: '保存',
+                        label: strings.save,
                         onTap: _saveHistory)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: ActionButton(
                         icon: Icons.note_add_outlined,
-                        label: '笔记',
+                        label: strings.note,
                         onTap: _saveNote)),
               ],
             ),
@@ -520,7 +562,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('校核'),
+            SectionTitle(ToolsStrings.of(context).insights),
             ..._insights.map(
               (line) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -563,8 +605,8 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
       ),
     ));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制结果')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ToolsStrings.of(context).resultCopied)));
     }
   }
 
@@ -632,7 +674,9 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
 
   void _showOutputErrorSnack() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('请先修正输入：${_output.statusMessage}')),
+      SnackBar(
+          content: Text(ToolsStrings.of(context)
+              .fixInput(_output.statusMessage))),
     );
   }
 
@@ -644,12 +688,13 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   }
 
   String _defaultInput(String id) {
+    final strings = ToolsStrings.of(context);
     return switch (id) {
       'base_convert' => '0xFF',
       'timestamp' => (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
       'color_convert' => '#5B47FF',
       'base64' => 'NekoCalc',
-      'url_codec' => 'NekoCalc 工具箱',
+      'url_codec' => strings.urlCodecSample,
       'json_format' =>
         '{"name":"NekoCalc","tools":["calculator","units","notes"]}',
       'ascii_unicode' => 'NekoCalc',
@@ -661,7 +706,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
       'query_params' => 'https://example.com/#/tools?tab=text&id=query_params',
       'html_entities' => '<div class="name">NekoCalc & Tools</div>',
       'regex_test' => r'\d+\nNekoCalc 2026 build 42',
-      'text_stats' => 'NekoCalc\n全能计算工具箱',
+      'text_stats' => strings.textStatsSample,
       'csv_json' => 'name,category\nNekoCalc,calculator\nGraph,tool',
       'fnv_crc' => 'NekoCalc',
       _ => '',
@@ -669,25 +714,26 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   }
 
   String _hintText(String id) {
+    final strings = ToolsStrings.of(context);
     return switch (id) {
-      'base_convert' => '输入 255、0xFF、#FF、FFh、1010b 或 0o755',
-      'timestamp' => '输入秒/毫秒时间戳、1700000000.123s 或 2026年6月8日',
-      'color_convert' => '输入 #5B47FF、rgb(...)、hsl(...) 或 rebeccapurple',
-      'base64' => '输入文本、Base64、Base64URL 或 data URL',
-      'url_codec' => '输入 URL、query string、普通文本或百分号编码文本',
-      'json_format' => '输入 JSON、JSON Lines 或带 BOM 的 JSON 文本',
-      'ascii_unicode' => r'输入字符、U+4E2D、\u4E2D 或 128072',
-      'bitwise' => '输入两个整数，例如 12 5、0xFF 0b1010、A=0xF0 B=0b1010',
-      'checksum' => r'输入文本或 DE AD BE EF / \xDE 十六进制字节',
-      'uuid' => '留空生成 UUID，或粘贴 UUID 校验/标准化',
-      'jwt_decode' => '输入完整 JWT token，离线解码 Header/Payload',
-      'query_params' => '输入 URL、请求行、片段 query 或 a=1&b=2;b=3',
-      'html_entities' => '输入 HTML、命名实体或 &#x4E2D; 数字实体',
-      'regex_test' => '第一行正则，后续行测试文本',
-      'text_stats' => '输入要统计的文本，输出字符分类和段落信息',
-      'csv_json' => '首行为表头，支持逗号、Tab、分号、竖线分隔',
-      'fnv_crc' => r'输入文本或 31 32 33 十六进制字节',
-      _ => '输入内容',
+      'base_convert' => strings.hintBaseConvert,
+      'timestamp' => strings.hintTimestamp,
+      'color_convert' => strings.hintColorConvert,
+      'base64' => strings.hintBase64,
+      'url_codec' => strings.hintUrlCodec,
+      'json_format' => strings.hintJsonFormat,
+      'ascii_unicode' => strings.hintAsciiUnicode,
+      'bitwise' => strings.hintBitwise,
+      'checksum' => strings.hintChecksum,
+      'uuid' => strings.hintUuid,
+      'jwt_decode' => strings.hintJwtDecode,
+      'query_params' => strings.hintQueryParams,
+      'html_entities' => strings.hintHtmlEntities,
+      'regex_test' => strings.hintRegexTest,
+      'text_stats' => strings.hintTextStats,
+      'csv_json' => strings.hintCsvJson,
+      'fnv_crc' => strings.hintFnvCrc,
+      _ => strings.hintDefault,
     };
   }
 }

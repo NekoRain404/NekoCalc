@@ -14,6 +14,7 @@ import '../../../shared/presentation/app_chrome.dart';
 import 'tool_category_screen.dart';
 import 'tool_navigation.dart';
 import 'tool_widgets.dart';
+import 'tools_strings.dart';
 
 /// 中文：工具首页，聚合搜索、最近使用、收藏和分类入口。
 /// English: Tools home screen that combines search, recent tools, favorites, and category entry points.
@@ -129,6 +130,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ToolsStrings.of(context);
     final recent =
         _state.recentIds.map(toolById).whereType<ToolDefinition>().toList();
     final favorites = toolCatalog
@@ -160,7 +162,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
       children: [
         Row(
           children: [
-            const Expanded(child: PageTitle('工具')),
+            Expanded(child: PageTitle(strings.toolsPageTitle)),
             IconButton(
                 onPressed: _searchFocus.requestFocus,
                 icon: const Icon(Icons.search)),
@@ -170,16 +172,16 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
           controller: _searchController,
           focusNode: _searchFocus,
           onChanged: _setSearchQuery,
-          decoration: const InputDecoration(
-            hintText: '搜索工具、公式、单位...',
-            prefixIcon: Icon(Icons.search),
+          decoration: InputDecoration(
+            hintText: strings.toolsSearchHint,
+            prefixIcon: const Icon(Icons.search),
           ).copyWith(
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: _searchController,
               builder: (context, value, child) {
                 if (value.text.isEmpty) return const SizedBox.shrink();
                 return IconButton(
-                  tooltip: '清除',
+                  tooltip: strings.clear,
                   onPressed: _clearSearch,
                   icon: const Icon(Icons.close),
                 );
@@ -219,8 +221,8 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
           const SizedBox(height: 18),
         ],
         SectionHeader(
-            title: recent.isEmpty ? '推荐工具' : '最近使用',
-            action: recent.isEmpty ? null : '管理',
+            title: recent.isEmpty ? strings.suggestedTools : strings.recentTools,
+            action: recent.isEmpty ? null : strings.manage,
             onActionTap: () => _showRecentSheet(recent)),
         HorizontalToolList(
           tools: recent.isEmpty ? suggested : recent,
@@ -228,14 +230,15 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
         ),
         const SizedBox(height: 18),
         SectionHeader(
-          title: '收藏工具',
-          action: favorites.isEmpty ? '添加' : '管理',
+          title: strings.favoriteTools,
+          action: favorites.isEmpty ? strings.add : strings.manage,
           onActionTap: favorites.isEmpty
               ? _searchFocus.requestFocus
-              : () => _showToolSheet('收藏工具', favorites, manageFavorites: true),
+              : () => _showToolSheet(strings.favoriteTools, favorites,
+                    manageFavorites: true),
         ),
         if (favorites.isEmpty)
-          const EmptyPanel('还没有收藏工具，点击工具右侧星标即可固定到这里。')
+          EmptyPanel(strings.favoriteEmpty)
         else
           Card(
             child: Column(
@@ -250,7 +253,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
             ),
           ),
         const SizedBox(height: 18),
-        const SectionTitle('分类'),
+        SectionTitle(strings.categories),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -282,6 +285,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
   }
 
   Widget _searchResultHeader(int count) {
+    final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final category = _searchCategory;
     return Padding(
@@ -290,7 +294,9 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
         children: [
           Expanded(
             child: Text(
-              category == null ? '搜索结果 · $count' : '${category.title} · $count',
+              category == null
+                  ? strings.searchResultsCount(count)
+                  : '${category.title} · $count',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
             ),
           ),
@@ -298,7 +304,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
             TextButton.icon(
               onPressed: () => setState(() => _searchCategory = null),
               icon: const Icon(Icons.close, size: 16),
-              label: const Text('全部分类'),
+              label: Text(strings.allCategories),
               style: TextButton.styleFrom(
                 foregroundColor: scheme.onSurfaceVariant,
                 visualDensity: VisualDensity.compact,
@@ -311,7 +317,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
 
   Widget _searchCategoryBar(Map<ToolCategory, int> counts) {
     final chips = [
-      const _SearchCategoryOption(null, '全部'),
+      _SearchCategoryOption(null, ToolsStrings.of(context).allLabel),
       ...ToolCategory.values
           .map((category) => _SearchCategoryOption(category, category.title)),
     ];
@@ -339,10 +345,11 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
   }
 
   String _searchEmptyMessage() {
+    final strings = ToolsStrings.of(context);
     final category = _searchCategory;
     return category == null
-        ? '没有找到“${_query.trim()}”的匹配工具。'
-        : '${category.title}里没有“${_query.trim()}”。';
+        ? strings.noMatchAtAll(_query.trim())
+        : strings.categoryNoMatch(category.title, _query.trim());
   }
 
   List<Widget> _searchAlternativeTiles(List<ToolSearchResult> alternatives) =>
@@ -360,9 +367,10 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
 
   String? _matchHint(ToolSearchResult result) {
     if (result.matchLabel.isEmpty) return null;
+    final strings = ToolsStrings.of(context);
     final text = result.matchText.trim();
-    if (text.isEmpty) return '命中：${result.matchLabel}';
-    return '命中：${result.matchLabel} · $text';
+    if (text.isEmpty) return strings.match(result.matchLabel);
+    return strings.matchWithText(result.matchLabel, text);
   }
 
   Future<void> _showToolSheet(String title, List<ToolDefinition> tools,
@@ -501,10 +509,11 @@ class _RecentToolsSheetState extends State<_RecentToolsSheet> {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '最近使用',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ToolsStrings.of(context).recentTools,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 TextButton.icon(
@@ -516,7 +525,8 @@ class _RecentToolsSheetState extends State<_RecentToolsSheet> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.delete_sweep_outlined, size: 18),
-                  label: const Text('清空'),
+                  label: Text(ToolsStrings.of(context).clearAll),
+
                   style: TextButton.styleFrom(
                     foregroundColor: scheme.error,
                     visualDensity: VisualDensity.compact,
@@ -526,7 +536,7 @@ class _RecentToolsSheetState extends State<_RecentToolsSheet> {
             ),
           ),
           if (_tools.isEmpty)
-            const EmptyPanel('最近使用已清空。打开任意工具后会重新记录到这里。')
+            EmptyPanel(ToolsStrings.of(context).recentEmpty)
           else
             for (final tool in _tools)
               ToolListTile(
@@ -539,7 +549,7 @@ class _RecentToolsSheetState extends State<_RecentToolsSheet> {
                     if (widget.favoriteIds.contains(tool.id))
                       const Icon(Icons.star, color: Colors.amber, size: 18),
                     IconButton(
-                      tooltip: '移除最近使用',
+                      tooltip: ToolsStrings.of(context).removeRecentTooltip,
                       onPressed: _removingIds.contains(tool.id)
                           ? null
                           : () => _remove(tool),
