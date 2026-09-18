@@ -12,9 +12,14 @@
 ///       **为什么不是字面上的"非 ASCII 可见字符"。** 那条口径把**记号**也算成文案。实测
 ///       （口径见本文件末尾那条注释里的命令）：calculator 子树会多出 93 条键帽与数学记号
 ///       （`√ ∛ π ° × ÷ − ⌫ ▶ ◀ ✓ ∞ ∠ ∫ 📷`），`text_tool_html_entities.dart` 会多出
-///       239 个**实体表的解码结果**（`Æ Δ € ∞ …`），两者都不是句子。豁免表会长到把护栏淹掉，
-///       而且 `text_tool_strings_test.dart`（720 行）会越过 800 行的硬线。
+///       239 个**实体表的解码结果**（`Æ Δ € ∞ …`），两者都不是句子。豁免表会长到把护栏淹掉。
 ///       收窄到"这套字"之后，多出来的一共只有 **29 条**，逐条带理由写在各自的护栏里。
+///
+///       ⚠️ 这一段原先还列了**第三条**理由：「而且 `text_tool_strings_test.dart`（720 行）
+///       会越过 800 行的硬线」。**那条已经不成立了**——那个文件经拆分现在是 **519 行**，
+///       再装 239 条豁免也离 800 很远。所以它被删掉了，**但上面两条与体积无关的理由照旧成立**
+///       （记号与实体解码值不是句子，这一条不会因为文件变小而改变）。
+///       留这段是因为：**理由被删掉时该说一声**，免得下一页的读者以为这条口径从来只有一个依据。
 /// English: **the ruler the source scans use.** Eleven "guard" tests each sweep a subtree asking one
 ///          question: "is there interface copy still written straight into the source instead of
 ///          going through a copy table?" Before this round the ruler was "contains an ideograph"
@@ -34,10 +39,17 @@
 ///          copy. Measured (command at the end of this file): the calculator subtree would gain 93
 ///          key caps and mathematical signs (`√ ∛ π ° × ÷ − ⌫ ▶ ◀ ✓ ∞ ∠ ∫ 📷`) and
 ///          `text_tool_html_entities.dart` would gain 239 **decoded entity values** (`Æ Δ € ∞ …`),
-///          none of which is a sentence. The exemption lists would drown the guards, and
-///          `text_tool_strings_test.dart` (720 lines) would cross the hard 800-line limit. Narrowed
+///          none of which is a sentence. The exemption lists would drown the guards. Narrowed
 ///          to "that set of characters", the total added is **29**, each with its reason written
 ///          beside it in its own guard.
+///
+///          ⚠️ A **third** reason used to stand here: "and `text_tool_strings_test.dart` (720 lines)
+///          would cross the hard 800-line limit". **That one no longer holds** — splitting the file
+///          took it to **519 lines**, and 239 exemptions would still leave it far from 800. So it was
+///          deleted — but **the two reasons above are about correctness, not size** (a glyph and a
+///          decoded entity value are not sentences), and they do not weaken because a file got
+///          smaller. The note is kept because **a reason that is removed should say so**, so the next
+///          reader does not think this ruler ever rested on one ground.
 library;
 
 /// 中文：东亚宽度 W（宽）与 F（全角）的区间。取自 Unicode 的 `EastAsianWidth.txt`，
