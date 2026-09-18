@@ -1,6 +1,13 @@
 part of 'calculator_controller.dart';
 
-mixin _CalculatorEvaluation on _CalculatorState {
+/// 中文：`on` 子句里那第二个混因是这一轮加的：选好的答案由 [_CalculatorEngineDisplay] 画出来
+///       （`_engineMathResult`），而它的 `on` 里写着本混因要排在它之后——顺序在
+///       `calculator_controller.dart` 的 `with` 列表上。
+/// English: the second mixin in the `on` clause is new this round: the selected answer is drawn by
+///          [_CalculatorEngineDisplay] (`_engineMathResult`), and its `on` clause records that this
+///          mixin must come after it — the order lives on the `with` list in
+///          `calculator_controller.dart`.
+mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   /// 中文：求值一次——**边打边算的入口**，也是这一步搬到引擎上的那一个。它做两件事：
   ///
   ///       1. **旧结果先上屏**（裁决 1 的策略 (B)，[liveResultPolicy]）：同步跑旧解析器，屏幕上
@@ -580,27 +587,35 @@ mixin _CalculatorEvaluation on _CalculatorState {
     return completer.future;
   }
 
-  /// 中文：把引擎的结果变成屏幕上的结果。引擎的十进制形态是**未取整**的（16 位有效数字），显示
-  ///       形态仍然由 `formatNumber` 按 `AppSettings.precision`（小数位数）取整——取整只有这一处
-  ///       实现，边打边算与提交路径共用，用户在设置里选的位数对两条路径含义完全相同。引擎负责
-  ///       算得准，Dart 负责显示成什么样。
+  /// 中文：**引擎那一份答案选出来之后怎么画在屏幕上**——取整只有这一处实现，选出来的那一份由
+  ///       `calculator_controller_engine_display.dart` 画（本文件到了 800 行那条硬边界，那一半
+  ///       本轮搬了出去；本文件只到「取哪一份」为止）。
   ///
-  ///       **放不进 double 的结果**（`2^2000 ≈ 1.148e+602`、`2^-2000 ≈ 9.3e-603`）原样显示引擎
-  ///       那一份十进制文本：Dart 手里没有可以取整的数（`decimalValue` 为 null），硬要走
-  ///       `formatNumber` 只能先把 `Infinity` 或 `0` 喂进去，而那两个都是假值。取整规则没有被搬到
-  ///       引擎里，只是对超出取整能力的结果不假装能取整。
-  /// English: Turns the engine's result into the one on screen. The engine's decimal form is
-  ///          *unrounded* (16 significant digits) while the display form still comes from
-  ///          `formatNumber` at `AppSettings.precision` (a count of decimal places) — rounding has
-  ///          exactly one implementation, shared by as-you-type and submit, so the digit count the
-  ///          user picked means the same thing on both paths. The engine computes accurately; Dart
-  ///          decides what it looks like.
+  ///       引擎的十进制形态是**未取整**的（16 位有效数字），显示形态由 `formatNumber` 按
+  ///       `AppSettings.precision`（小数位数）取整——取整只有这一处实现，边打边算与提交路径共用，
+  ///       用户在设置里选的位数对两条路径含义完全相同。引擎负责算得准，Dart 负责显示成什么样。
   ///
-  ///          A result that does not fit a double (`2^2000 ≈ 1.148e+602`, `2^-2000 ≈ 9.3e-603`) is
-  ///          shown as the engine's own decimal text: Dart has no number to round (`decimalValue` is
-  ///          null), and forcing it through `formatNumber` would mean feeding it `Infinity` or `0` —
-  ///          both false. Rounding has not moved into the engine; the code just does not pretend to
-  ///          round what it cannot represent.
+  ///       **放不进 double 的结果**（`2^2000 ≈ 1.148e+602`、`2^-2000 ≈ 8.7e-603`）原样显示引擎
+  ///       那一份文本（带单位的同理，见 `quantity_display.dart`）：Dart 手里没有可以取整的数
+  ///       （`decimalValue` 为 null），硬要走 `formatNumber` 只能先把 `Infinity` 或 `0` 喂进去，
+  ///       而那两个都是假值。取整规则没有被搬到引擎里，只是对超出取整能力的结果不假装能取整。
+  /// English: **how the chosen engine answer is drawn on screen** — rounding has this one
+  ///          implementation, and the chosen answer is drawn by
+  ///          `calculator_controller_engine_display.dart` (this file reached the hard 800-line bound,
+  ///          so that half moved out this round; what is left here stops at "which answer is taken").
+  ///
+  ///          The engine's decimal form is *unrounded* (16 significant digits) while the display form
+  ///          comes from `formatNumber` at `AppSettings.precision` — rounding has exactly one
+  ///          implementation, shared by as-you-type and submit, so the digit count the user picked
+  ///          means the same thing on both paths. The engine computes accurately; Dart decides what it
+  ///          looks like.
+  ///
+  ///          A result that does not fit a double (`2^2000 ≈ 1.148e+602`, `2^-2000 ≈ 8.7e-603`) is
+  ///          shown as the engine's own text (a unit-carrying one likewise, see
+  ///          `quantity_display.dart`): Dart has no number to round (`decimalValue` is null), and
+  ///          forcing it through `formatNumber` would mean feeding it `Infinity` or `0` — both false.
+  ///          Rounding has not moved into the engine; the code just does not pretend to round what it
+  ///          cannot represent.
   /// 中文：**引擎这一次的回答该怎么取舍**——提交路径与边打边算共用这一处，不写第二份。
   ///       三级，顺序不能反：
   ///
@@ -708,42 +723,14 @@ mixin _CalculatorEvaluation on _CalculatorState {
         : null;
   }
 
-  MathResult _engineMathResult(MathResult engineResult) {
-    final value = engineResult.decimalValue;
-    if (value == null) return engineResult;
-    return MathResult(
-      displayText: formatNumber(
-        value,
-        precision: _settings.precision,
-        groupThousands: _settings.groupThousands,
-      ),
-      displayTex: engineResult.displayTex,
-      // 中文：**三种「写法」都跟着走**（分数 / 带分数 / 度分秒），理由与下面的 `resultKind` 逐字
-      //       相同——它们是**同一次求值**的另外几半，各自是同一个已求值结构的又一次打印。丢了哪
-      //       一份，对应那一格（`d/c` / 菜单里 `Mixed number` / `D°M'S`）就在引擎已经答出来的结果上
-      //       变成空操作或永远灰着，而那个退化没有任何理由。（`mixedTex` 漏过一次，被 `10/4` 逮到。）
-      // English: **all three spellings travel** (fraction / mixed number / DMS), for the same reason as
-      //          `resultKind` below, word for word — they are the other halves of **this same
-      //          evaluation**, each an extra print of one evaluated structure. Dropping one turns its
-      //          cell (the `d/c` key, the menu's `Mixed number` entry, `D°M'S`) into a no-op or a
-      //          permanently grey row on a result the engine did answer, a degradation with no reason
-      //          behind it. (`mixedTex` was dropped here once; `10/4` caught it.)
-      fractionTex: engineResult.fractionTex,
-      mixedTex: engineResult.mixedTex,
-      dmsText: engineResult.dmsText,
-      decimalText: engineResult.decimalText,
-      // 中文：`resultKind` 必须跟着走。丢了它，重建出来的结果会带上 `notFromEngine`——
-      //       而那个值在 [MathResult.isDisplayable] 里是**放行**的一支，于是这句 doc 说的
-      //       「不是来自引擎」就成了假话，判断也跟着变宽。今天没有消费者读重建之后那一份的
-      //       `isDisplayable`，但那是**碰巧**，不是设计。
-      // English: `resultKind` has to travel with it. Dropping it leaves the rebuilt result carrying
-      //          `notFromEngine` — which [MathResult.isDisplayable] treats as **displayable** — so the
-      //          doc's "not from the engine" would be a lie and the judgement would widen with it.
-      //          Nothing reads the rebuilt copy's `isDisplayable` today, but that is a coincidence,
-      //          not a design.
-      resultKind: engineResult.resultKind,
-    );
-  }
+  // 中文：**「引擎这一份答案怎么画」不在这里**——它搬到了 `calculator_controller_engine_display.dart`
+  //       （本文件到了 800 行那条硬边界，而这一步正好是那条缝：「选哪一份答案」留在这里，
+  //       「那一份怎么画」搬过去）。`_engineMathResult` 是那一边的入口，调用点一个字没改。
+  // English: **how the chosen engine answer is drawn is not here** — it moved to
+  //          `calculator_controller_engine_display.dart` (this file reached the hard 800-line bound,
+  //          and this is exactly where the seam is: "which answer is taken" stays here, "how that
+  //          answer is drawn" goes there). `_engineMathResult` is that side's entry point, and its
+  //          call sites did not change by one character.
 
   /// 中文：旧求值器的唯一出口——它只产出一个 `double`，所以三形态里的 LaTeX 是空的，而显示文本
   ///       同时也是十进制文本。这是引擎缺席时（以及引擎答不出来时）用的那一条路。

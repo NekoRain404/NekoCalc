@@ -12,6 +12,7 @@ import '../../core/math/app_engine_vocabulary.dart';
 import '../../core/math/app_unit_catalog.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
+import '../../core/math/quantity_display.dart';
 import '../../core/math/variable_references.dart';
 import '../../core/platform/qalculate_channel.dart';
 import '../../core/platform/qalculate_math_engine.dart';
@@ -30,6 +31,12 @@ part 'calculator_controller_state.dart';
 part 'calculator_controller_editing.dart';
 part 'calculator_controller_insertion.dart';
 part 'calculator_controller_evaluation.dart';
+// 中文：引擎那一份答案**怎么画**（取整、单位尾巴）——从 `…_evaluation` 里搬出来的一半，理由写在
+//       那个文件的头部：本文件所在的这一组到了 800 行那条硬边界。
+// English: **how the engine's answer is drawn** (rounding, unit tail) — the half split out of
+//          `…_evaluation`; the reason is in that file's header: this group reached the hard 800-line
+//          bound.
+part 'calculator_controller_engine_display.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
 part 'calculator_controller_notation.dart';
@@ -187,6 +194,14 @@ class CalculatorController extends ChangeNotifier
     with
         _CalculatorState,
         _CalculatorEditing,
+        // 中文：**顺序承重**，与下面回归图那一条同一种：`_CalculatorEvaluation` 选好答案之后要
+        //       请这一层把答案画出来（`_engineMathResult`），所以它必须在前面。换顺序是一个编译
+        //       错误，不是一条静默的错行为。
+        // English: **the order is load-bearing**, the same way as the regression-graph entry below:
+        //          `_CalculatorEvaluation` asks this layer to draw the answer it selected
+        //          (`_engineMathResult`), so this one has to come first. Reordering is a compile
+        //          error, not a silent wrong behaviour.
+        _CalculatorEngineDisplay,
         _CalculatorEvaluation,
         _CalculatorPersistence,
         _CalculatorBaseReadout,

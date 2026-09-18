@@ -207,6 +207,7 @@ class MathResult {
     this.mixedTex = '',
     this.dmsText = '',
     this.decimalText = '',
+    this.quantityText = '',
     this.resultKind = EngineResultKind.notFromEngine,
   });
 
@@ -359,6 +360,27 @@ class MathResult {
   ///          continue-with-result, history de-duplication, paste round-trip). An empty string means
   ///          "no parseable decimal form"; it is not an error and callers must keep working.
   final String decimalText;
+
+  /// 中文：**带单位结果的引擎原文**（数字 + 单位，**未取整**的那一份）——显示文本按用户的小数位数
+  ///       取整（`quantity_display.dart`）之后仍然留在手上的那一份。[reusableText] 的第二个来源，
+  ///       别的消费者一个都不读它。为什么非有它不可（[displayText] 是画出来的、[decimalText] 对一个量
+  ///       必须是空串）写在那个文件里，这里只写契约：
+  ///
+  ///       空串 = 「这一次没有这一份原文」（普通数值、矩阵、复数、符号式、错误文案、旧解析器的结果），
+  ///       **不是错误**。与 [decimalText] 同一条铁律：**绝不能喂给数值消费者**——它带着单位，
+  ///       `double.tryParse` 读它返回 null 而不抛异常，正是这个类型要消灭的那类静默失败。
+  /// English: **the engine's own text of a unit-carrying result** (number plus unit, the **unrounded**
+  ///          one) — what is still in hand after the display text was rounded to the user's decimal
+  ///          places (`quantity_display.dart`). [reusableText]'s second source; no other consumer reads
+  ///          it. Why it has to exist ([displayText] is what is drawn, [decimalText] must stay empty for
+  ///          a quantity) is written in that file; the contract is here:
+  ///
+  ///          An empty string means "no such text this time" (ordinary numbers, matrices, complex
+  ///          numbers, symbolic forms, error messages, the legacy parser's results) and **is not an
+  ///          error**. Same iron rule as [decimalText]'s: **never feed it to a numeric consumer** — it
+  ///          carries a unit, `double.tryParse` returns null without throwing, and that silent failure
+  ///          is the class this type exists to delete.
+  final String quantityText;
 
   /// 中文：从一段显示文本里提取十进制形态：去掉千分位与首尾空白，`double.tryParse` 不接受就返回
   ///       空串。旧求值器的显示文本正是从这里变成十进制形态的，也是全应用唯一一处「把显示文本当
@@ -674,13 +696,31 @@ class MathResult {
     return RegExp('[1-9]').hasMatch(significand);
   }
 
-  /// 中文：可以安全写回表达式、或用作去重键的文本：十进制优先，缺失时退回显示文本（去掉千分位），
+  /// 中文：可以安全写回表达式、或用作去重键的文本：十进制优先，其次是**带单位结果的原文**
+  ///       （[quantityText]，同样是未取整的那一份），两者都没有时才退回显示文本（去掉千分位），
   ///       与拆分之前 `result.replaceAll(',', '')` 的结果逐字节一致。
-  /// English: Text that is safe to write back into the expression, or to key a de-duplication on:
-  ///          the decimal form first, the display text (grouping stripped) when it is missing —
+  ///
+  ///       **第二顺位是这一轮加的，它不是放宽，是把既有的意图补全**：`decimalText` 排第一的理由是
+  ///       「写回的必须是**未取整**的那一份」（`5.656854` 是画出来的，写回去的是
+  ///       `5.656854249492380`）。一个量的未取整原文是 [quantityText]，而 [displayText] 自本轮起
+  ///       取过整——少了这一顺位，「继续使用」就会写回一个位数更少的数。它在别的结果上恒为空串，
+  ///       所以其余每一种输入写回去的仍是原来那一串，逐字节相同。
+  /// English: Text that is safe to write back into the expression, or to key a de-duplication on: the
+  ///          decimal form first, then a **unit-carrying result's own text** ([quantityText], likewise
+  ///          the unrounded one), and only when neither exists the display text (grouping stripped) —
   ///          byte-for-byte what `result.replaceAll(',', '')` produced before the split.
-  String get reusableText =>
-      decimalText.isNotEmpty ? decimalText : displayText.replaceAll(',', '');
+  ///
+  ///          **The second rank is new this round; not a relaxation but the completion of an
+  ///          intention already recorded**: `decimalText` ranks first because what gets written back
+  ///          must be the **unrounded** half (`5.656854` is drawn, `5.656854249492380` is written
+  ///          back). A quantity's unrounded text is [quantityText], and [displayText] is rounded as of
+  ///          this round — without the rank, "continue with result" would write a number with fewer
+  ///          digits. It is empty elsewhere, so every other input writes back what it used to.
+  String get reusableText => decimalText.isNotEmpty
+      ? decimalText
+      : (quantityText.isNotEmpty
+          ? quantityText
+          : displayText.replaceAll(',', ''));
 
   /// 中文：显示文本本身是否已经是可解析的十进制。为假时报告才会额外写一行十进制，好让复制粘贴
   ///       的往返在精确形式上仍然成立。
@@ -726,17 +766,24 @@ class MathResult {
         other.mixedTex == mixedTex &&
         other.dmsText == dmsText &&
         other.decimalText == decimalText &&
+        // 中文：`quantityText` 也进相等与哈希——`reusableText` 读它，两份「画出来一样」的结果若在这一
+        //       格上不同，写回表达式的就是两个不同的数（`==` 说它们一样就成了那个谎）。
+        // English: `quantityText` takes part in equality and hashing too — `reusableText` reads it,
+        //          and two results that "draw the same" while differing here would write back two
+        //          different numbers into the expression (`==` calling them equal would be that lie).
+        other.quantityText == quantityText &&
         other.resultKind == resultKind;
   }
 
   @override
   int get hashCode => Object.hash(displayText, displayTex, fractionTex, mixedTex,
-      dmsText, decimalText, resultKind);
+      dmsText, decimalText, quantityText, resultKind);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
         'fractionTex: $fractionTex, mixedTex: $mixedTex, dmsText: $dmsText, '
-        'decimalText: $decimalText, resultKind: ${resultKind.name})';
+        'decimalText: $decimalText, quantityText: $quantityText, '
+        'resultKind: ${resultKind.name})';
   }
 }

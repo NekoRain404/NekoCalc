@@ -347,20 +347,38 @@ void main() {
       expect(engine.calls.map((call) => call.expression).toList(),
           <String>['((((5)*(km))) to (mi))']);
       expect(controller.hasError, isFalse);
-      // 中文：**带单位的结果原样上屏**，数值部分不过 `formatNumber`。理由是结构性的：那个函数要的
-      //       是一个 `double`，而 `decimalText` 这一份**不是有限数**（`3.106855961186670 mi`），
-      //       `decimalValue` 因此为 null。要取整就得先在显示路径上把「数字 + 单位」拆开——那是
-      //       在显示层发明一条解析规则，代价比它带来的整齐更大。（同一条理由已经用在「放不进
-      //       double 的精确结果原样显示」上。）用户设置的小数位数对普通数值照旧生效。
-      // English: **a unit-carrying result lands on screen as it stands**, its numeric part not passed
-      //          through `formatNumber`. The reason is structural: that function wants a `double`, and
-      //          this `decimalText` **is not a finite number** (`3.106855961186670 mi`), so
-      //          `decimalValue` is null. Rounding it would mean splitting "number + unit" on the
-      //          display path first — inventing a parse rule in the display layer, a bigger price than
-      //          the tidiness is worth. (The same reasoning already applies to exact results that do
-      //          not fit a double, which are shown verbatim.) The user's decimal-places setting still
-      //          applies to ordinary numeric results.
-      expect(controller.result, '3.106855961186670 mi');
+      // 中文：**这一条断言的事实在本轮改变了，这是有意的。** 它从前钉的是「带单位的结果原样上屏、
+      //       数值部分不过 `formatNumber`」，理由写得很清楚——「要取整就得先在显示路径上把
+      //       『数字 + 单位』拆开，那是在显示层发明一条解析规则，代价比它带来的整齐更大」。
+      //       那个代价这一轮**被认下来并付掉了**，因为不付的代价更大：同一个屏幕上，
+      //       `1÷3` 显示 6 位而 `-5deg to rad` 显示 16 位（设备实测），而用户在设置里选的那一栏
+      //       叫「小数位数」，它不该对一种结果生效、对另一种不生效。拆开的规则不再是「发明」：
+      //       它是 `quantity_display.dart` 里一条**形状明确**的规则（种类只认 `conversion`/
+      //       `quantity`、整串必须吻合「数 + 空格 + 一整块单位」、数得装进一个 double），
+      //       四条拒绝各自带着实测，且取整仍然只有 `formatNumber` 一处实现。
+      //
+      //       **值没有动**：屏幕上少的是位数，`Ans`/记忆/继续使用读的那一份（`quantityText`，
+      //       未取整的引擎原文）逐字节不变，下一条断言的正是它。
+      // English: **the fact this assertion recorded changed this round, deliberately.** It used to pin
+      //          "a unit-carrying result lands on screen as it stands, its numeric part not passed
+      //          through `formatNumber`", and its reason was explicit — "rounding it would mean
+      //          splitting 'number + unit' in the display layer first, inventing a parse rule there, a
+      //          bigger price than the tidiness is worth". That price **was accepted and paid** this
+      //          round, because not paying it costs more: on one screen `1÷3` read 6 digits while
+      //          `-5deg to rad` read 16 (measured on the device), and the setting the user picked is
+      //          called "decimal places" — it cannot govern one kind of result and not another. The
+      //          split is no longer an invention: it is a **shape-explicit** rule in
+      //          `quantity_display.dart` (only the `conversion`/`quantity` kinds, the whole string must
+      //          match "number, space, one block of unit", the number must fit a double), each of its
+      //          four refusals carrying a measurement, with rounding still implemented once, in
+      //          `formatNumber`.
+      //
+      //          **The value did not move**: what the screen lost is digits, while the copy `Ans`, the
+      //          memory register and "continue with result" read (`quantityText`, the engine's
+      //          unrounded text) is unchanged byte for byte — which is what the next assertion pins.
+      expect(controller.result, '3.106856 mi');
+      expect(controller.reusableResult, '3.106855961186670 mi');
+      expect(controller.resultDecimal, isEmpty);
       expect(submitted.submitted, isTrue);
 
       controller.dispose();
