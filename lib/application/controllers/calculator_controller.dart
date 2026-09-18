@@ -27,6 +27,7 @@ import 'expression_selection.dart';
 
 part 'calculator_controller_state.dart';
 part 'calculator_controller_editing.dart';
+part 'calculator_controller_insertion.dart';
 part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
