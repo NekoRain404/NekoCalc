@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/presentation/calc_theme.dart';
+import '../calculator_strings.dart';
 import '../result_form.dart';
 import 'math_expression_view.dart';
 import 'status_chips.dart';
@@ -393,7 +394,7 @@ class CalculatorDisplay extends StatelessWidget {
           //          slack is zero and this alignment is a no-op.
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            _statusRow(presentation),
+            _statusRow(presentation, CalculatorStrings.of(context)),
             const SizedBox(height: 6),
             // 中文：表达式行吃掉全部剩余高度（面板高度由上层决定，本组件填满它）：面板高度够
             //       类注释里那条下限时，fixed 的状态行与结果行不会被裁掉；再矮下去就先挤这一行，
@@ -479,7 +480,8 @@ class CalculatorDisplay extends StatelessWidget {
   ///          RenderFlex overflowed by 30 pixels on the right.` without it); empty means absent.
   ///          Why the read-outs land here is in [baseReadout], the form indicator in
   ///          [ResultForm.indicator].
-  Widget _statusRow(ResultPresentation presentation) {
+  Widget _statusRow(
+      ResultPresentation presentation, CalculatorStrings strings) {
     // 中文：**请求的形态落到这一份结果上**之后才念名字。少了 `resolve` 这一步，上一份结果上选的
     //       形态会留在状态行上给新结果点一盏假灯——「这一份结果没有那一格」时就该一个字都不说。
     //       判据只有 `ResultPresentation` 那一份（rule 6），这里不重判。
@@ -493,7 +495,7 @@ class CalculatorDisplay extends StatelessWidget {
       child: Row(
         children: <Widget>[
           if (onOpenDrawer != null) ...<Widget>[
-            _drawerButton(),
+            _drawerButton(strings.openNavigationTooltip),
             const SizedBox(width: 4),
           ],
           StatusChips.angleMode(angleMode, colors),
@@ -533,10 +535,14 @@ class CalculatorDisplay extends StatelessWidget {
   ///          Material's default padding of the hit area out to 48: that invisible 48-wide box
   ///          makes the status row's left spacing read as uneven, while this size is a square of
   ///          our own choosing — so the icon sits exactly in its middle.
-  Widget _drawerButton() {
+  /// 中文：`openNavigationTooltip` 由调用方传进来——本方法没有 `BuildContext`，而那句话现在跟着
+  ///       界面语言走（表在 `calculator_strings.dart`）。
+  /// English: `openNavigationTooltip` arrives from the caller: this method has no `BuildContext`, and
+  ///          that sentence now follows the interface language (`calculator_strings.dart`).
+  Widget _drawerButton(String openNavigationTooltip) {
     return IconButton(
       onPressed: onOpenDrawer,
-      tooltip: '打开导航',
+      tooltip: openNavigationTooltip,
       icon: const Icon(Icons.menu),
       iconSize: 20,
       color: colors.statusFg,

@@ -6,6 +6,7 @@ import '../../../../application/controllers/calculator_controller.dart';
 import '../../../../shared/presentation/calc_theme.dart';
 import '../../../graph/models/graph_models.dart';
 import '../../../graph/presentation/graph_painter.dart';
+import '../calculator_strings.dart';
 
 /// 中文：**回归图——HiPER 那条「计算细节」里的图：一条拟合曲线与所有的数据点。**
 ///
@@ -178,6 +179,7 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = CalcTheme.of(context);
+    final strings = CalculatorStrings.of(context);
     if (widget.points.isEmpty) {
       return SafeArea(
         child: Padding(
@@ -218,9 +220,9 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('曲线',
-                    style: TextStyle(
-                        color: theme.display.statusFg, fontSize: 12)),
+                Text(strings.curveRowTitle,
+                    style:
+                        TextStyle(color: theme.display.statusFg, fontSize: 12)),
                 for (final name in widget.fitNames)
                   TextButton(
                     // 中文：**这一格永远是亮的**，与 `STAT` 面板上那三格**故意不同**。理由量得出来：
@@ -261,7 +263,8 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
               decoration: BoxDecoration(
                 color: theme.display.background,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: theme.display.statusFg.withValues(alpha: 0.28)),
+                border: Border.all(
+                    color: theme.display.statusFg.withValues(alpha: 0.28)),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(6),
@@ -287,7 +290,7 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
             ),
             const SizedBox(height: 8),
             Text(
-              _reading(),
+              _reading(strings),
               style: TextStyle(
                 color: _outcome?.refusal == null
                     ? theme.display.statusFg
@@ -311,14 +314,16 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
   ///          The three states each have their own sentence, and the "cannot be drawn" one comes
   ///          **verbatim from the controller** (`refusal`): the judgement is there and so is the
   ///          sentence, and the screen only prints it, so the two cannot drift apart.
-  String _reading() {
+  String _reading(CalculatorStrings strings) {
     final outcome = _outcome;
-    if (outcome == null) return '正在向引擎要这条曲线的点…';
+    if (outcome == null) return strings.curveLoading;
     final curve = outcome.curve;
     if (curve == null) return outcome.refusal ?? '';
-    return '${curve.function} 的曲线：'
-        '引擎在 ${curve.ys.length} 个取样位置上给了值；'
-        '数据集里 ${widget.points.length} 个点也在图上';
+    return strings.curveReading(
+      curve.function,
+      curve.ys.length,
+      widget.points.length,
+    );
   }
 }
 
@@ -449,7 +454,8 @@ class RegressionGraphPainter extends CustomPainter {
   /// 中文：**此刻画了几条曲线**——0 或 1，没有别的可能。测试用它断言「拒绝时不画曲线」。
   /// English: **how many curves are drawn right now** — 0 or 1, nothing else is possible. Tests use
   ///          it to assert "a refused fit draws no curve".
-  bool get drawsCurve => curveXs.length >= 2 && curveYs.length == curveXs.length;
+  bool get drawsCurve =>
+      curveXs.length >= 2 && curveYs.length == curveXs.length;
 
   @override
   void paint(Canvas canvas, Size size) {

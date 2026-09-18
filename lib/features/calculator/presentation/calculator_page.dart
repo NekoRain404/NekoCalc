@@ -14,6 +14,7 @@ import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../shared/presentation/calc_theme.dart';
+import 'calculator_strings.dart';
 import 'keypad/calculator_keypad.dart';
 import 'keypad/hiper_keypad.dart';
 import 'result_form.dart';
@@ -126,7 +127,8 @@ class CalculatorPage extends StatefulWidget {
     // （`d/dx`），它插 `diff(x^2,x)`，取舍写在 `ins:diff` 自己那一段里。
     // English: and `ins:diff` is the SHIFT variant of the `∫dx` key (`d/dx`), inserting
     //          `diff(x^2,x)`; the trade-off is written in that id's own note below.
-    'ins:sum', 'ins:product', 'ins:integrate', 'ins:diff', 'ins:limit', 'ins:logxy',
+    'ins:sum', 'ins:product', 'ins:integrate', 'ins:diff', 'ins:limit',
+    'ins:logxy',
     // 矩阵与虚数单位：`MTRX` 插一整条 `matrix(行, 列, 元素…)`（引擎实测 `[1  2; 3  4]`），
     // `i` 插引擎认识的虚数单位（`2i+1` 实测 `1 + 2i`）。
     'ins:matrix', 'ins:i',
@@ -161,8 +163,21 @@ class CalculatorPage extends StatefulWidget {
   ///          brackets and collapsing a trailing operator). This set is the one place defining that
   ///          batch; the coverage test and the dispatch test both read it.
   static const Set<String> defaultInputKeyIds = <String>{
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    '.', '(', ')', '+', '-',
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '.',
+    '(',
+    ')',
+    '+',
+    '-',
   };
 
   @override
@@ -216,6 +231,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _inlineEditing = false;
   bool _requestInlineFocus = false;
   bool _pastingCalculatorDetails = false;
+
+  /// 中文：**表达式显示设成了「数学符号」吗**——结果行与两颗格式键问的是同一个问题，所以这个比较
+  ///       只写在这里一处，别处引用它。判据仍是**持久化令牌**（`SettingsTokens` 那个常量），
+  ///       不是界面上的标签：设置值换成别的写法时，这里跟着换的是那个常量，不是译文。
+  /// English: **is expression display set to "Symbols"?** The result line and the two format keys ask
+  ///          the one question, so this comparison is written once, here, and referenced elsewhere.
+  ///          The judgement is still the **persisted token** (the `SettingsTokens` constant) rather
+  ///          than an on-screen label: when the stored value changes form, what changes with it is
+  ///          that constant, never a translation.
+  bool get _naturalDisplay =>
+      widget.settings.expressionDisplayMode ==
+      SettingsTokens.expressionDisplaySymbols;
 
   /// 中文：当前修饰态。`KeypadModifier` 一个值就同时表达了「SHIFT 还是 hyp」与「互斥」，
   ///       所以旧计划里另立一个 `bool _hypActive` 是多余的——两个字段表达同一事实只会走岔。
@@ -362,7 +389,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       angleMode: _controller.angleMode,
       hasMemory: _controller.memoryValue != 0,
       colors: theme.display,
-      naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
+      naturalDisplay: _naturalDisplay,
       onTapOffset: (sourceOffset) =>
           _openInlineEditor(sourceOffset: sourceOffset),
       onMore: _openMoreSheet,
@@ -429,6 +456,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_modifier != KeypadModifier.shift) return;
     setState(() => _modifier = KeypadModifier.none);
   }
+
   void _feedback() {
     AppHaptics.tap(
       enabled: widget.settings.haptics,
@@ -450,6 +478,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (resolved == _resultForm) return;
     setState(() => _resultForm = resolved);
   }
+
   void _openInlineEditor({bool requestFocus = false, int? sourceOffset}) {
     if (sourceOffset != null) {
       _controller.setSelection(ExpressionSelection.collapsed(sourceOffset));

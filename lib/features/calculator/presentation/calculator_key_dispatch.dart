@@ -774,7 +774,7 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         //          this time (and that menu entry cannot be pressed).
         mixedTex: _controller.resultMixedTex,
         resultDecimal: _controller.resultDecimal,
-        naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
+        naturalDisplay: _naturalDisplay,
         // 中文：度分秒那一格的另外两个入参：引擎给的那串写法（形状由 `ResultPresentation` 判），
         //       以及**这一份结果是在哪种角度模式下算出来的**——用的是控制器里那个活着的
         //       `angleMode`（不是设置里那一份）：粘贴可以带来另一种模式，而「这个数是若干度」

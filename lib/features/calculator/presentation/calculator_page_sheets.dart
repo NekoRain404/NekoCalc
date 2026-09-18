@@ -291,7 +291,6 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     );
   }
 
-
   /// 中文：`More...` 打开的动作面板。它是被删掉的三块（底部操作行、常驻记忆条、显示工具条）里那些
   ///       操作的落点——复制结果、保存笔记、撤销/重做、编辑表达式、退格、光标移动，以及记忆寄存器。
   ///       面板比显示区更高优先级：`isScrollControlled` 让它按内容取高（上限 70% 屏高），
@@ -322,15 +321,16 @@ extension _CalculatorPageSheets on _CalculatorPageState {
   }
 
   Future<void> _copyResult() async {
+    final strings = CalculatorStrings.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: _controller.copyText()));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制计算详情')));
+          .showSnackBar(SnackBar(content: Text(strings.detailsCopied)));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法复制计算详情')));
+            .showSnackBar(SnackBar(content: Text(strings.detailsCopyFailed)));
       }
     }
   }
@@ -345,8 +345,8 @@ extension _CalculatorPageSheets on _CalculatorPageState {
           .showSnackBar(SnackBar(content: Text(paste.summary)));
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法读取剪贴板')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(CalculatorStrings.of(context).clipboardReadFailed)));
       }
     } finally {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -549,7 +549,6 @@ class _ComplexSheet extends StatelessWidget {
   }
 }
 
-
 /// 中文：`More...` 面板的内容。它直接驱动本页的控制器——面板是本页私有的 UI，把十几个回调逐个传进来
 ///       只会更难读，所以它拿页面状态本体。一次性动作（复制、保存、编辑、退格、撤销/重做、光标移动）
 ///       先关面板再执行；四个记忆寄存器按钮**不关面板**，这样记忆读数能在原地跟着更新。唯一的例外是
@@ -573,6 +572,7 @@ class _MoreSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = page._controller;
+    final strings = CalculatorStrings.of(context);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -584,13 +584,14 @@ class _MoreSheet extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
-                _action(context, '编辑表达式', page._editFromSheet),
-                _action(context, '退格', controller.backspace),
-                _action(context, '撤销', controller.undo,
+                _action(
+                    context, strings.actionEditExpression, page._editFromSheet),
+                _action(context, strings.actionBackspace, controller.backspace),
+                _action(context, strings.actionUndo, controller.undo,
                     enabled: controller.canUndo),
-                _action(context, '重做', controller.redo,
+                _action(context, strings.actionRedo, controller.redo,
                     enabled: controller.canRedo),
-                _action(context, '复制结果', page._copyResult),
+                _action(context, strings.actionCopyResult, page._copyResult),
                 // 中文：继续使用。它把结果**替换**成表达式（`ans` 是追加，两者不等价），而显示区在结果
                 //       可用时会写着「结果可继续使用」/「当前值可继续使用」——那句话必须有对应的入口，
                 //       否则 UI 在让用户做一件它不再提供的事。不可用时和撤销/重做一样置灰。
@@ -599,17 +600,21 @@ class _MoreSheet extends StatelessWidget {
                 //          / "当前值可继续使用" whenever it is available — that sentence needs an entry
                 //          point, or the UI asks for something it no longer offers. Greyed out when
                 //          unavailable, like undo/redo.
-                _action(context, '继续使用', controller.continueWithResult,
+                _action(context, strings.actionContinueWith,
+                    controller.continueWithResult,
                     enabled: controller.canContinueWithResult),
-                _action(context, '保存笔记', page._saveNote),
-                _action(context, '移到开头', controller.moveCursorToStart),
-                _action(context, '移到末尾', controller.moveCursorToEnd),
+                _action(context, strings.actionSaveNote, page._saveNote),
+                _action(context, strings.actionMoveToStart,
+                    controller.moveCursorToStart),
+                _action(context, strings.actionMoveToEnd,
+                    controller.moveCursorToEnd),
                 // 中文：设置入口。它原本长在被删掉的应用名标题行上，而抽屉（Task 5）才是导航的主入口；
                 //       这里保留一个次级入口，是因为没有它整台应用的设置页在主屏上就完全不可达了。
                 // English: The settings entry. It used to live on the deleted app-name title row, and the
                 //          drawer (Task 5) is the primary navigation; this secondary entry is kept because
                 //          without it the settings page would be unreachable from the main screen at all.
-                _action(context, '设置', page.widget.onOpenSettings),
+                _action(context, strings.actionSettings,
+                    page.widget.onOpenSettings),
               ],
             ),
             const SizedBox(height: 8),
@@ -618,7 +623,7 @@ class _MoreSheet extends StatelessWidget {
                 page._repeatableCursorButton(
                   theme: theme,
                   icon: Icons.keyboard_arrow_left,
-                  tooltip: '光标左移（长按按表达式块左移后连续移动）',
+                  tooltip: strings.cursorLeftTooltip,
                   onTap: controller.moveCursorLeft,
                   onBlockMove: controller.moveCursorByBlockBackward,
                   onRepeat: controller.moveCursorLeft,
@@ -627,7 +632,7 @@ class _MoreSheet extends StatelessWidget {
                 page._repeatableCursorButton(
                   theme: theme,
                   icon: Icons.keyboard_arrow_right,
-                  tooltip: '光标右移（长按按表达式块右移后连续移动）',
+                  tooltip: strings.cursorRightTooltip,
                   onTap: controller.moveCursorRight,
                   onBlockMove: controller.moveCursorByBlockForward,
                   onRepeat: controller.moveCursorRight,

@@ -1,0 +1,376 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../l10n/app_language.dart';
+
+/// 中文：计算页的界面文案表，**按功能切分**——一张表、表里并排放所有语言。机制本身（为什么是手写
+///       分表而不是 ARB / `gen-l10n`、为什么表是 `static final` 而不是 `const`）与设置页那张表
+///       共用一套理由，写在 `settings_strings.dart` 的文件头上，这里不重抄。
+///
+///       **加一种语言要动几个文件**：这个文件（加一份 `CalculatorStrings` 表 + `of` 里加一个
+///       分支，`forLanguage` 的 switch 必须穷尽 `AppLanguage`，由分析器检查）+ `AppLanguage`
+///       里加一个枚举值。
+///
+///       **本表只装"给人看的字"。** 有三类中文字面量**故意不进来**，各自有各自的理由：
+///       1. **HiPER 的键面与菜单原文**（`DRG`、`FSE`、`MTRX`、`EXP SI`、`D°M'S`、`Select Result
+///          Format`、`Decimal`、`Mixed number`…）。它们是厂商字符串，任何语言的构建里都是这个
+///          样子，翻译了反而找不到；而且它们本来就不含汉字，扫描也不会拦住它们。
+///       2. **持久化令牌的比较值**（`'数学符号'`）。它住在 `SettingsTokens` 里，是存进库的格式
+///          不是屏幕上的字——`calculator_page.dart` 那两处比较直接引用那个常量，而不是把字面量
+///          再抄一遍。
+///       3. **调试断言的那句话**（`calculator_key_dispatch.dart` 里 `assert` 的第二参数）。它是
+///          写给开发者看的，用户永远看不到，形状与 `app_shell.dart:176` 里那句逐字相同。
+///
+///       `inline_expression_editor.dart` 是**用户未提交的改动**，本轮一个字都没动，它里面的
+///       「粘贴计算详情」/「复制计算详情」仍在源码里——这是已知的残留，不是漏翻。
+/// English: The calculator page's string table, **split by feature** — one table holding every
+///          language side by side. The mechanism itself (why hand-written tables rather than ARB /
+///          `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of
+///          reasons with the settings table and is written on `settings_strings.dart`'s file head;
+///          it is not copied again here.
+///
+///          **Adding a language touches**: this file (one more `CalculatorStrings` table plus one more
+///          branch in `of`, whose switch over `AppLanguage` the analyzer checks for exhaustiveness)
+///          and `AppLanguage` (one more enum value).
+///
+///          **This table holds human-facing text only.** Three kinds of Chinese literal are
+///          **deliberately absent**, each for its own reason:
+///          1. **HiPER's key faces and menu strings** (`DRG`, `FSE`, `MTRX`, `EXP SI`, `D°M'S`,
+///             `Select Result Format`, `Decimal`, `Mixed number`…). They are vendor strings and read
+///             the same in every language's build; translating them would make them unfindable, and
+///             since they hold no CJK the scan would not flag them anyway.
+///          2. **Persisted tokens used as comparison values** (`'数学符号'`). That one lives in
+///             `SettingsTokens`: it is storage format, not on-screen text, and the two comparisons in
+///             `calculator_page.dart` reference that constant rather than copying the literal again.
+///          3. **The debug assertion's sentence** (the second argument of the `assert` in
+///             `calculator_key_dispatch.dart`). It is written for developers and never reaches a
+///             user; its shape is item-for-item the one at `app_shell.dart:176`.
+///
+///          `inline_expression_editor.dart` is **the user's uncommitted work**; not one character of
+///          it was touched this round, so its 「粘贴计算详情」/「复制计算详情」 remain in the source —
+///          a known remainder, not a missed translation.
+@immutable
+class CalculatorStrings {
+  const CalculatorStrings({
+    // —— 主屏显示区 ——
+    required this.openNavigationTooltip,
+    // —— `More...` 动作面板 ——
+    required this.actionEditExpression,
+    required this.actionBackspace,
+    required this.actionUndo,
+    required this.actionRedo,
+    required this.actionCopyResult,
+    required this.actionContinueWith,
+    required this.actionSaveNote,
+    required this.actionMoveToStart,
+    required this.actionMoveToEnd,
+    required this.actionSettings,
+    required this.cursorLeftTooltip,
+    required this.cursorRightTooltip,
+    required this.detailsCopied,
+    required this.detailsCopyFailed,
+    required this.clipboardReadFailed,
+    // —— `CONV` 单位面板 ——
+    required this.unitSearchHint,
+    required this.unitSheetHint,
+    required this.noMatchingUnits,
+    // —— `X` 变量面板 ——
+    required this.variableSheetTitle,
+    required this.noStorableValue,
+    required this.currentValueReading,
+    required this.unassigned,
+    required this.insertVariable,
+    required this.storeCurrentValue,
+    required this.clearBinding,
+    // —— 数据集编辑面板 ——
+    required this.datasetSheetTitle,
+    required this.datasetEmptyReading,
+    required this.datasetValuesReading,
+    required this.noDatasetValues,
+    required this.noAddableValue,
+    required this.addCurrentResultReading,
+    required this.addCurrentResult,
+    required this.clearDataset,
+    required this.removeValueTooltip,
+    // —— `STAT` 统计面板 ——
+    required this.datasetSheetButton,
+    required this.datasetCallEmpty,
+    required this.datasetCallValues,
+    required this.statisticsHint,
+    required this.twoVariableRowTitle,
+    required this.datasetAsTwoRows,
+    required this.fitRowTitle,
+    required this.regressionGraphButton,
+    // —— 回归图面板 ——
+    required this.curveRowTitle,
+    required this.curveLoading,
+    required this.curveReading,
+    // —— `x⇔E` 结果格式菜单 ——
+    required this.resultFormatDefaultLabel,
+    required this.resultFormatDefaultNote,
+    required this.resultFormatPolarNote,
+    required this.resultFormatSubtitle,
+    required this.resultFormatGapNotFromEngine,
+    required this.resultFormatGapTypesettingOff,
+    required this.spellingExact,
+    required this.spellingFraction,
+    required this.spellingMixed,
+    required this.spellingDms,
+    required this.spellingAuto,
+    // —— 多处共用的通用字 ——
+    required this.close,
+  });
+
+  // —— 主屏显示区 ——
+  final String openNavigationTooltip;
+
+  // —— `More...` 动作面板 ——
+  final String actionEditExpression;
+  final String actionBackspace;
+  final String actionUndo;
+  final String actionRedo;
+  final String actionCopyResult;
+  final String actionContinueWith;
+  final String actionSaveNote;
+  final String actionMoveToStart;
+  final String actionMoveToEnd;
+  final String actionSettings;
+  final String cursorLeftTooltip;
+  final String cursorRightTooltip;
+  final String detailsCopied;
+  final String detailsCopyFailed;
+  final String clipboardReadFailed;
+
+  // —— `CONV` 单位面板 ——
+  final String unitSearchHint;
+  final String unitSheetHint;
+  final String noMatchingUnits;
+
+  // —— `X` 变量面板 ——
+  final String variableSheetTitle;
+  final String noStorableValue;
+  final String Function(String value) currentValueReading;
+  final String unassigned;
+  final String Function(String name) insertVariable;
+  final String storeCurrentValue;
+  final String clearBinding;
+
+  // —— 数据集编辑面板 ——
+  final String datasetSheetTitle;
+  final String Function(String callArguments) datasetEmptyReading;
+  final String Function(int count) datasetValuesReading;
+  final String noDatasetValues;
+  final String noAddableValue;
+  final String Function(String value) addCurrentResultReading;
+  final String addCurrentResult;
+  final String clearDataset;
+  final String removeValueTooltip;
+
+  // —— `STAT` 统计面板 ——
+  final String datasetSheetButton;
+  final String Function(String callArguments) datasetCallEmpty;
+  final String Function(int count, String values) datasetCallValues;
+  final String statisticsHint;
+  final String twoVariableRowTitle;
+  final String Function(String call) datasetAsTwoRows;
+  final String fitRowTitle;
+  final String regressionGraphButton;
+
+  // —— 回归图面板 ——
+  final String curveRowTitle;
+  final String curveLoading;
+  final String Function(String function, int samples, int points) curveReading;
+
+  // —— `x⇔E` 结果格式菜单 ——
+  final String resultFormatDefaultLabel;
+  final String resultFormatDefaultNote;
+  final String resultFormatPolarNote;
+  final String resultFormatSubtitle;
+  final String Function(String spelling) resultFormatGapNotFromEngine;
+  final String Function(String spelling) resultFormatGapTypesettingOff;
+  final String spellingExact;
+  final String spellingFraction;
+  final String spellingMixed;
+  final String spellingDms;
+  final String spellingAuto;
+
+  // —— 多处共用的通用字 ——
+  final String close;
+
+  /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
+  ///       而不是静默回落到中文。
+  /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
+  ///          adding a language breaks the build here rather than silently falling back to Chinese.
+  static CalculatorStrings of(BuildContext context) {
+    return forLanguage(AppLanguage.of(context));
+  }
+
+  /// 中文：与 [of] 同一张分派表，供不持有 `BuildContext` 的调用方使用。两条路径共用这一个
+  ///       switch，不会分叉。
+  /// English: The same dispatch as [of], for callers without a `BuildContext`. Both routes share this
+  ///          one switch, so they cannot drift apart.
+  static CalculatorStrings forLanguage(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.zh => calculatorZh,
+      AppLanguage.en => calculatorEn,
+    };
+  }
+
+  static final CalculatorStrings calculatorZh = CalculatorStrings(
+    openNavigationTooltip: '打开导航',
+    actionEditExpression: '编辑表达式',
+    actionBackspace: '退格',
+    actionUndo: '撤销',
+    actionRedo: '重做',
+    actionCopyResult: '复制结果',
+    actionContinueWith: '继续使用',
+    actionSaveNote: '保存笔记',
+    actionMoveToStart: '移到开头',
+    actionMoveToEnd: '移到末尾',
+    actionSettings: '设置',
+    cursorLeftTooltip: '光标左移（长按按表达式块左移后连续移动）',
+    cursorRightTooltip: '光标右移（长按按表达式块右移后连续移动）',
+    detailsCopied: '已复制计算详情',
+    detailsCopyFailed: '无法复制计算详情',
+    clipboardReadFailed: '无法读取剪贴板',
+    unitSearchHint: '搜索单位（米、km、mile…）',
+    unitSheetHint: '点一个单位插进表达式；两个单位之间点「to」',
+    noMatchingUnits: '没有匹配的单位',
+    variableSheetTitle: '变量',
+    noStorableValue: '当前没有可存入的数值（结果没有十进制形态，或者不是有限数）',
+    currentValueReading: (value) => '当前值 $value',
+    unassigned: '未赋值',
+    insertVariable: (name) => '插入 $name',
+    storeCurrentValue: '存入当前值',
+    clearBinding: '清除',
+    datasetSheetTitle: '统计数据集',
+    datasetEmptyReading: (callArguments) => '数据集是空的，插入的调用用起手数据 $callArguments。',
+    datasetValuesReading: (count) => '数据集 $count 个值；插入的调用用它们，按现在的顺序。',
+    noDatasetValues: '还没有值',
+    noAddableValue: '当前没有可加入的数值（结果没有十进制形态，或者不是有限数）',
+    addCurrentResultReading: (value) => '加入当前结果 $value',
+    addCurrentResult: '加入当前结果',
+    clearDataset: '清空',
+    removeValueTooltip: '去掉这个值',
+    datasetSheetButton: '数据集…',
+    datasetCallEmpty: (callArguments) => '数据集空，插入起手数据 $callArguments',
+    datasetCallValues: (count, values) => '数据集 $count 个：$values',
+    statisticsHint: '插入的是完整调用；实参来自数据集，数据集为空时用起手数据，'
+        '插入之后那串数仍可在内联编辑器里改（逗号可以打）。'
+        'stdev/var 按样本（n−1）算；pearson/covar 按总体（n）算。',
+    twoVariableRowTitle: '两变量',
+    datasetAsTwoRows: (call) => '数据集读成两行：$call',
+    fitRowTitle: '拟合',
+    regressionGraphButton: '回归图…',
+    curveRowTitle: '曲线',
+    curveLoading: '正在向引擎要这条曲线的点…',
+    curveReading: (function, samples, points) => '$function 的曲线：'
+        '引擎在 $samples 个取样位置上给了值；'
+        '数据集里 $points 个点也在图上',
+    resultFormatDefaultLabel: '默认',
+    resultFormatDefaultNote: '本应用自己的一行（精确写法 + ≈ 十进制读数）；HiPER 的菜单里没有这一项',
+    resultFormatPolarNote: '本应用没有极坐标印法：引擎那一份是求值选项（会改值），而且印出来的是 '
+        'r(cos θ + i sin θ)，不是 HiPER 那一格 r∠θ',
+    resultFormatSubtitle: '结果行的写法。灰掉的项按不下去：不是这一份结果没有这一格，就是本应用今天印不出这一格',
+    resultFormatGapNotFromEngine: (spelling) =>
+        '本应用没有它的$spelling：这一份结果不是引擎算的，而这一格只有引擎印得出来',
+    resultFormatGapTypesettingOff: (spelling) =>
+        '本应用今天印不出它的$spelling：表达式显示设成了「数学表达式」，'
+        '结果行不排任何写法、边打边算也不问引擎',
+    spellingExact: '精确写法',
+    spellingFraction: '分数写法',
+    spellingMixed: '带分数写法',
+    spellingDms: '度分秒写法',
+    spellingAuto: '写法',
+    close: '关闭',
+  );
+
+  static final CalculatorStrings calculatorEn = CalculatorStrings(
+    openNavigationTooltip: 'Open navigation',
+    actionEditExpression: 'Edit expression',
+    actionBackspace: 'Backspace',
+    actionUndo: 'Undo',
+    actionRedo: 'Redo',
+    actionCopyResult: 'Copy result',
+    actionContinueWith: 'Continue with result',
+    actionSaveNote: 'Save note',
+    actionMoveToStart: 'Move to start',
+    actionMoveToEnd: 'Move to end',
+    actionSettings: 'Settings',
+    cursorLeftTooltip:
+        'Move cursor left (hold: moves one expression block, then keeps moving)',
+    cursorRightTooltip:
+        'Move cursor right (hold: moves one expression block, then keeps moving)',
+    detailsCopied: 'Calculation details copied',
+    detailsCopyFailed: 'Could not copy the calculation details',
+    clipboardReadFailed: 'Could not read the clipboard',
+    unitSearchHint: 'Search units (m, km, mile…)',
+    unitSheetHint: 'Tap a unit to insert it; tap "to" between the two units',
+    noMatchingUnits: 'No matching units',
+    variableSheetTitle: 'Variables',
+    noStorableValue:
+        'Nothing storable right now (the result has no decimal form, or is not finite)',
+    currentValueReading: (value) => 'Current value $value',
+    unassigned: 'Unassigned',
+    insertVariable: (name) => 'Insert $name',
+    storeCurrentValue: 'Store current value',
+    clearBinding: 'Clear',
+    datasetSheetTitle: 'Statistics dataset',
+    datasetEmptyReading: (callArguments) =>
+        'The dataset is empty; the inserted call uses the starting sample '
+        '$callArguments.',
+    datasetValuesReading: (count) =>
+        'The dataset holds $count values; the inserted call uses them in this '
+        'order.',
+    noDatasetValues: 'No values yet',
+    noAddableValue:
+        'Nothing addable right now (the result has no decimal form, or is not finite)',
+    addCurrentResultReading: (value) => 'Add the current result $value',
+    addCurrentResult: 'Add current result',
+    clearDataset: 'Clear all',
+    removeValueTooltip: 'Remove this value',
+    datasetSheetButton: 'Dataset…',
+    datasetCallEmpty: (callArguments) =>
+        'Dataset empty; inserting the starting sample $callArguments',
+    datasetCallValues: (count, values) => 'Dataset: $count values, $values',
+    statisticsHint:
+        'A complete call is inserted; its arguments come from the dataset, '
+        'falling back to the starting sample while it is empty, and the run of numbers '
+        'stays editable in the inline editor afterwards (commas can be typed there). '
+        'stdev/var use the sample convention (n−1); pearson/covar use the population '
+        'convention (n).',
+    twoVariableRowTitle: 'Two variables',
+    datasetAsTwoRows: (call) => 'Dataset read as two rows: $call',
+    fitRowTitle: 'Fits',
+    regressionGraphButton: 'Regression graph…',
+    curveRowTitle: 'Curve',
+    curveLoading: 'Asking the engine for points on this curve…',
+    curveReading: (function, samples, points) =>
+        'Curve of $function: the engine gave a value at $samples sampled positions; '
+        'the $points points in the dataset are on the figure too',
+    resultFormatDefaultLabel: 'Default',
+    resultFormatDefaultNote:
+        "This app's own row (exact spelling + ≈ decimal reading); HiPER's menu has no "
+        'such entry',
+    resultFormatPolarNote:
+        "This app has no polar spelling: the engine's is an evaluation option (it "
+        'changes the value), and what it prints is r(cos θ + i sin θ), not HiPER\'s '
+        'r∠θ cell',
+    resultFormatSubtitle:
+        'How the result line is written. A greyed entry cannot be '
+        'pressed: either this result has no such cell, or this app cannot print that '
+        'cell today',
+    resultFormatGapNotFromEngine: (spelling) =>
+        'This app does not have its $spelling: this result did not come from the '
+        'engine, and only the engine can print that cell',
+    resultFormatGapTypesettingOff: (spelling) =>
+        'This app cannot print its $spelling today: expression display is set to '
+        '"Math expression", so the result line typesets nothing and as-you-type does '
+        'not ask the engine',
+    spellingExact: 'exact spelling',
+    spellingFraction: 'fraction spelling',
+    spellingMixed: 'mixed-number spelling',
+    spellingDms: 'degrees-minutes-seconds spelling',
+    spellingAuto: 'spelling',
+    close: 'Close',
+  );
+}

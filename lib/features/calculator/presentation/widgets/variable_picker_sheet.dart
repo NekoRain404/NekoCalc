@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../calculator_strings.dart';
+
 /// 中文：**一个变量此刻的样子**——面板只读它，不自己去问控制器。名字是小写（`x`/`y`），
 ///       [value] 是它绑着的十进制文本，未赋值时是 `null`。
 /// English: **how one variable looks right now** — the sheet only reads this and never asks the
@@ -103,6 +105,7 @@ class VariablePickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = CalculatorStrings.of(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -111,7 +114,7 @@ class VariablePickerSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '变量',
+              strings.variableSheetTitle,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
@@ -123,13 +126,13 @@ class VariablePickerSheet extends StatelessWidget {
             //          two judgement points.
             Text(
               storableValue == null
-                  ? '当前没有可存入的数值（结果没有十进制形态，或者不是有限数）'
-                  : '当前值 $storableValue',
+                  ? strings.noStorableValue
+                  : strings.currentValueReading(storableValue!),
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
             for (final reading in readings) ...[
-              _variableRow(context, reading),
+              _variableRow(context, reading, strings),
               const SizedBox(height: 8),
             ],
             if (onClose != null)
@@ -137,7 +140,7 @@ class VariablePickerSheet extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: onClose,
-                  child: const Text('关闭'),
+                  child: Text(strings.close),
                 ),
               ),
           ],
@@ -146,7 +149,8 @@ class VariablePickerSheet extends StatelessWidget {
     );
   }
 
-  Widget _variableRow(BuildContext context, VariableReading reading) {
+  Widget _variableRow(BuildContext context, VariableReading reading,
+      CalculatorStrings strings) {
     final theme = Theme.of(context);
     final canAssign = storableValue != null;
     return Row(
@@ -158,28 +162,28 @@ class VariablePickerSheet extends StatelessWidget {
           width: 28,
           child: Text(
             reading.name,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontStyle: FontStyle.italic, fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleMedium?.copyWith(
+                fontStyle: FontStyle.italic, fontWeight: FontWeight.w700),
           ),
         ),
         Expanded(
           child: Text(
-            reading.isBound ? '= ${reading.value}' : '未赋值',
+            reading.isBound ? '= ${reading.value}' : strings.unassigned,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium,
           ),
         ),
         TextButton(
           onPressed: () => onInsert(reading.name),
-          child: Text('插入 ${reading.name}'),
+          child: Text(strings.insertVariable(reading.name)),
         ),
         TextButton(
           onPressed: canAssign ? () => onAssign(reading.name) : null,
-          child: const Text('存入当前值'),
+          child: Text(strings.storeCurrentValue),
         ),
         TextButton(
           onPressed: reading.isBound ? () => onClear(reading.name) : null,
-          child: const Text('清除'),
+          child: Text(strings.clearBinding),
         ),
       ],
     );

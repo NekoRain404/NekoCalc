@@ -54,8 +54,8 @@ void main() {
   testWidgets('主题配色在 CalcTheme.all 里循环，落库的是 id 而不是名字', (tester) async {
     final db = _FakeDatabase();
     final notified = <String>[];
-    await _pumpSettings(tester, db: db, language: AppLanguage.zh,
-        onThemeChanged: notified.add);
+    await _pumpSettings(tester,
+        db: db, language: AppLanguage.zh, onThemeChanged: notified.add);
 
     expect(find.text('玫瑰奶霜'), findsOneWidget);
 
@@ -84,8 +84,8 @@ void main() {
   testWidgets('语言在 zh / en 之间循环，落库的是 code 而不是自称', (tester) async {
     final db = _FakeDatabase();
     final notified = <String>[];
-    await _pumpSettings(tester, db: db, language: AppLanguage.zh,
-        onLanguageChanged: notified.add);
+    await _pumpSettings(tester,
+        db: db, language: AppLanguage.zh, onLanguageChanged: notified.add);
 
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('中文'), findsOneWidget);
@@ -125,12 +125,17 @@ void main() {
     expect(find.text('Follow system'), findsOneWidget);
     expect(find.text('Back'), findsNothing, reason: 'tooltip 不是可见文本');
 
-    // 中文：`CalcTheme.name` 只有中文（本轮按 brief 用它），英文界面下这一格仍是中文——
-    //       这是本轮已知的可见缺口，写在这里免得它被当成"漏了个断言"。
-    // English: `CalcTheme.name` is Chinese-only (used as instructed this round), so this cell stays
-    //          Chinese in the English UI — a known, visible gap recorded here so it is not mistaken
-    //          for a missing assertion.
-    expect(find.text('玫瑰奶霜'), findsOneWidget);
+    // 中文：**这一条从前钉的是那个缺口**：`CalcTheme.name` 只有中文，英文界面下这一格仍写着
+    //       「玫瑰奶霜」（旧注释原话是"本轮已知的可见缺口"）。本轮把三个名字 × 两种语言补进了
+    //       `SettingsStrings`，于是这一条翻转成缺口关闭的证据，并在中文侧要求仍是 `CalcTheme.name`
+    //       （`settings_strings_test.dart` 里那条逐套主题的断言钉着这件事）。
+    // English: **this used to pin the gap**: `CalcTheme.name` was Chinese-only, so the cell still read
+    //          「玫瑰奶霜」 in an English interface (the old note called it a known, visible gap). This
+    //          round put the three names × two languages into `SettingsStrings`, so this flips into the
+    //          evidence that the gap is closed; the Chinese side is still required to equal
+    //          `CalcTheme.name` (pinned theme by theme in `settings_strings_test.dart`).
+    expect(find.text('Rose Cream'), findsOneWidget);
+    expect(find.text('玫瑰奶霜'), findsNothing);
   });
 
   /// 中文：**本轮最关键的一条**。设置里有一批字段的值本身就是中文，它们被持久化、被 `==` 比较、
@@ -218,8 +223,7 @@ void main() {
     expect(en.keys.toSet(), zh.keys.toSet(),
         reason: '两个语言写下的键集合必须一致，多一个少一个都是分叉');
     for (final key in zh.keys) {
-      expect(en[key], zh[key],
-          reason: '键 `$key` 的持久化值在切换语言后必须逐字节相同');
+      expect(en[key], zh[key], reason: '键 `$key` 的持久化值在切换语言后必须逐字节相同');
     }
 
     // —— 落库的就是那几个令牌，不是任何标签 ——
@@ -249,12 +253,10 @@ void main() {
     // —— 但屏幕上那句话确实换了，否则上面那些比较是空的 ——
     expect(shownTitles[AppLanguage.zh], '设置');
     expect(shownTitles[AppLanguage.en], 'Settings');
-    expect(shownTitles[AppLanguage.zh],
-        isNot(shownTitles[AppLanguage.en]));
+    expect(shownTitles[AppLanguage.zh], isNot(shownTitles[AppLanguage.en]));
   });
 
-  testWidgets('默认态与接入前逐字节相同：不碰新选择时仍是中文 + 玫瑰奶霜',
-      (tester) async {
+  testWidgets('默认态与接入前逐字节相同：不碰新选择时仍是中文 + 玫瑰奶霜', (tester) async {
     final db = _FakeDatabase();
     await _pumpSettings(tester, db: db, language: AppLanguage.zh);
 

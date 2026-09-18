@@ -269,6 +269,7 @@ class _StatisticsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = CalculatorStrings.of(context);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -321,9 +322,7 @@ class _StatisticsSheet extends StatelessWidget {
             //          sample-convention 1.290 reads as the population 1.118 — **both are reasonable
             //          numbers** and nothing on screen would say which one this is.
             Text(
-              '插入的是完整调用；实参来自数据集，数据集为空时用起手数据，'
-              '插入之后那串数仍可在内联编辑器里改（逗号可以打）。'
-              'stdev/var 按样本（n−1）算；pearson/covar 按总体（n）算。',
+              strings.statisticsHint,
               style: TextStyle(color: theme.display.statusFg, fontSize: 12),
             ),
           ],
@@ -342,13 +341,15 @@ class _StatisticsSheet extends StatelessWidget {
   ///          stacked sheets are legible to nobody.
   Widget _datasetRow(BuildContext context) {
     final values = page._controller.datasetValues;
+    final strings = CalculatorStrings.of(context);
     return Row(
       children: [
         Expanded(
           child: Text(
             values.isEmpty
-                ? '数据集空，插入起手数据 ${page._controller.datasetCallArguments}'
-                : '数据集 ${values.length} 个：${values.join(', ')}',
+                ? strings
+                    .datasetCallEmpty(page._controller.datasetCallArguments)
+                : strings.datasetCallValues(values.length, values.join(', ')),
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: theme.display.statusFg, fontSize: 12),
           ),
@@ -364,7 +365,7 @@ class _StatisticsSheet extends StatelessWidget {
             minimumSize: const Size(0, 38),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          child: const Text('数据集…'),
+          child: Text(strings.datasetSheetButton),
         ),
       ],
     );
@@ -393,6 +394,7 @@ class _StatisticsSheet extends StatelessWidget {
   Widget _regressionRow(BuildContext context) {
     final controller = page._controller;
     final available = controller.canReadDatasetAsTwoRows;
+    final strings = CalculatorStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -402,7 +404,7 @@ class _StatisticsSheet extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              '两变量',
+              strings.twoVariableRowTitle,
               style: TextStyle(color: theme.display.statusFg, fontSize: 12),
             ),
             for (final (label, id) in _regressionEntries)
@@ -426,7 +428,8 @@ class _StatisticsSheet extends StatelessWidget {
         ),
         Text(
           available
-              ? '数据集读成两行：${controller.regressionCall('pearson')}'
+              ? strings
+                  .datasetAsTwoRows(controller.regressionCall('pearson') ?? '')
               : controller.regressionUnavailableMessage,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: theme.display.statusFg, fontSize: 12),
@@ -445,6 +448,7 @@ class _StatisticsSheet extends StatelessWidget {
   ///          inserted once at least one cell is lit).
   Widget _fitRow(BuildContext context) {
     final controller = page._controller;
+    final strings = CalculatorStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -454,7 +458,7 @@ class _StatisticsSheet extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              '拟合',
+              strings.fitRowTitle,
               style: TextStyle(color: theme.display.statusFg, fontSize: 12),
             ),
             for (final (label, id) in _fitEntries)
@@ -487,7 +491,7 @@ class _StatisticsSheet extends StatelessWidget {
                 minimumSize: const Size(0, 38),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('回归图…'),
+              child: Text(strings.regressionGraphButton),
             ),
           ],
         ),

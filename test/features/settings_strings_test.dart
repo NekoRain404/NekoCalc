@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
+import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 /// 中文：设置页文案表的三条护栏。
 ///       1) 中文表的「令牌标签」必须与 `SettingsTokens` **逐字节相同**——这是"默认态不变"的
@@ -91,6 +92,37 @@ void main() {
     expect(zh.hapticStrengthLabel('轻'), '轻');
     expect(zh.hapticStrengthLabel('标准'), '标准');
     expect(zh.hapticStrengthLabel('强'), '强');
+  });
+
+  test('主题配色的中文名与 CalcTheme.name 逐套相同', () {
+    // 中文：**这一条是"主题配色那一行在英文界面下仍是中文"这个缺陷的到期日。** 从前那一行读的是
+    //       `CalcTheme.resolve(id).name`，而 `name` 是中文常量，于是英文界面上那一格永远写着
+    //       「玫瑰奶霜」。现在名字住在这张表里，中文侧必须与 `CalcTheme.name` **逐字节相同**
+    //       （默认态不变），而这一条是逐套主题走的：**任何一套认不出来、或者 `CalcTheme` 里新增了
+    //       一套而这里没加名字，都会红**——漏一套时那一行会静默显示成玫瑰奶霜，屏幕上没有提示。
+    // English: **This is the expiry assertion for "the colour-theme row stays Chinese in an English
+    //          interface"**: that row used to read `CalcTheme.resolve(id).name`, and `name` is a Chinese
+    //          constant, so the cell read 「玫瑰奶霜」 in English too. The names now live in this table
+    //          and the Chinese side must be **byte-identical** to `CalcTheme.name` (the default state
+    //          does not change). The loop walks every theme: **an unrecognised theme, or a `CalcTheme`
+    //          added without a name here, goes red** — a missing one would silently render Rose Cream
+    //          with nothing on screen to say so.
+    for (final theme in CalcTheme.all) {
+      expect(zh.themeLabel(theme.id), theme.name,
+          reason: '${theme.id} 的中文名与 CalcTheme.name 不一致');
+    }
+    expect(zh.themeRoseCreamLabel, '玫瑰奶霜');
+    expect(zh.themeLavenderMistLabel, '薰衣草雾');
+    expect(zh.themePeachSugarLabel, '蜜桃砂糖');
+
+    // 中文：**`id` 是持久化令牌，一个字节都不许翻译**；英文侧换的只是屏幕上那三个名字。
+    // English: **the `id` is a persisted token and must not be translated by one byte**; what changes
+    //          on the English side is only the three names on screen.
+    expect(const <String>['roseCream', 'lavenderMist', 'peachSugar'],
+        CalcTheme.all.map((theme) => theme.id).toList());
+    expect(en.themeRoseCreamLabel, 'Rose Cream');
+    expect(zh.themeLabel('库里没见过的主题'), '玫瑰奶霜',
+        reason: '认不出就回落到默认那一套，而不是把 id 原样显示出去');
   });
 
   test('带参数的文案把参数放进去了', () {
@@ -221,6 +253,9 @@ void main() {
       'hapticLightLabel': en.hapticLightLabel,
       'hapticStandardLabel': en.hapticStandardLabel,
       'hapticStrongLabel': en.hapticStrongLabel,
+      'themeRoseCreamLabel': en.themeRoseCreamLabel,
+      'themeLavenderMistLabel': en.themeLavenderMistLabel,
+      'themePeachSugarLabel': en.themePeachSugarLabel,
     };
     for (final entry in copy.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 是空的');
@@ -236,8 +271,7 @@ void main() {
 
   test('设置页源码里除了文案表再没有中文字符串字面量', () {
     final directory = Directory('lib/features/settings/presentation');
-    expect(directory.existsSync(), isTrue,
-        reason: '测试的工作目录应当是包的根目录');
+    expect(directory.existsSync(), isTrue, reason: '测试的工作目录应当是包的根目录');
 
     final offenders = <String>[];
     for (final entity in directory.listSync()) {

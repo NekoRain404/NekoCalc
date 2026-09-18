@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../calculator_strings.dart';
+
 /// 中文：**`STAT` 背后的数据集的编辑面板。** 它只做一件事：让「一组值」有个能被编辑、能被留下的
 ///       存放处。四个统计函数那几格仍然在 `STAT` 面板上（那里是 HiPER 的 `STATISTICS_MENU`），
 ///       这个面板**不重复它们**——一个按钮只有一个落点，是本仓库一贯的做法。
@@ -90,6 +92,7 @@ class DatasetSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = CalculatorStrings.of(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -99,20 +102,20 @@ class DatasetSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '统计数据集',
+                strings.datasetSheetTitle,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
               Text(
                 values.isEmpty
-                    ? '数据集是空的，插入的调用用起手数据 $callArguments。'
-                    : '数据集 ${values.length} 个值；插入的调用用它们，按现在的顺序。',
+                    ? strings.datasetEmptyReading(callArguments)
+                    : strings.datasetValuesReading(values.length),
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
               if (values.isEmpty)
-                Text('还没有值', style: theme.textTheme.bodyMedium)
+                Text(strings.noDatasetValues, style: theme.textTheme.bodyMedium)
               else
                 Wrap(
                   spacing: 8,
@@ -132,24 +135,25 @@ class DatasetSheet extends StatelessWidget {
               //          here, since that would make what goes in differ from what is on screen.
               Text(
                 storableValue == null
-                    ? '当前没有可加入的数值（结果没有十进制形态，或者不是有限数）'
-                    : '加入当前结果 $storableValue',
+                    ? strings.noAddableValue
+                    : strings.addCurrentResultReading(storableValue!),
                 style: theme.textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   TextButton(
-                    onPressed: storableValue == null ? null : () => _add(context),
-                    child: const Text('加入当前结果'),
+                    onPressed:
+                        storableValue == null ? null : () => _add(context),
+                    child: Text(strings.addCurrentResult),
                   ),
                   TextButton(
                     onPressed: values.isEmpty ? null : onClear,
-                    child: const Text('清空'),
+                    child: Text(strings.clearDataset),
                   ),
                   const Spacer(),
                   if (onClose != null)
-                    TextButton(onPressed: onClose, child: const Text('关闭')),
+                    TextButton(onPressed: onClose, child: Text(strings.close)),
                 ],
               ),
             ],
@@ -169,7 +173,8 @@ class DatasetSheet extends StatelessWidget {
     return InputChip(
       label: Text(values[index]),
       onDeleted: () => onRemove(index),
-      deleteButtonTooltipMessage: '去掉这个值',
+      deleteButtonTooltipMessage:
+          CalculatorStrings.of(context).removeValueTooltip,
       visualDensity: VisualDensity.compact,
       labelStyle: theme.textTheme.bodyMedium,
     );

@@ -152,6 +152,9 @@ class SettingsStrings {
     required this.hapticLightLabel,
     required this.hapticStandardLabel,
     required this.hapticStrongLabel,
+    required this.themeRoseCreamLabel,
+    required this.themeLavenderMistLabel,
+    required this.themePeachSugarLabel,
   });
 
   // —— 页面骨架 ——
@@ -207,8 +210,9 @@ class SettingsStrings {
   final String Function(String label, int source, int before, int after,
       String delta, String skippedTail) reportTableRow;
   final String Function(int skipped) reportSkipped;
-  final String Function(String version, String exportedAt, String total,
-      String summary) backupPreviewSummary;
+  final String Function(
+          String version, String exportedAt, String total, String summary)
+      backupPreviewSummary;
   final String Function(String modeLabel, String totalLabel) backupPlanHeadline;
   final String Function(int before, int source, int expected) backupPlanRow;
 
@@ -266,6 +270,9 @@ class SettingsStrings {
   final String hapticLightLabel;
   final String hapticStandardLabel;
   final String hapticStrongLabel;
+  final String themeRoseCreamLabel;
+  final String themeLavenderMistLabel;
+  final String themePeachSugarLabel;
 
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文，这正是"加语言是机械的"所依赖的那条保证。
@@ -361,7 +368,8 @@ class SettingsStrings {
     aboutChipSqlite: 'SQLite 本地记录',
     aboutPrivacyNote: '数据当前仅保存在本机 SQLite，不上传网络服务。',
     openSourceTitle: '开源结构',
-    openSourceBody: '项目采用 Feature-first + Clean Architecture 简化版：UI、Application、Domain、Data、Core 分层维护。',
+    openSourceBody:
+        '项目采用 Feature-first + Clean Architecture 简化版：UI、Application、Domain、Data、Core 分层维护。',
     openSourceAction: '架构',
     helpIntro: '计算页用于快速表达式；工具页可按分类检索工程工具；图形页用于函数分析；笔记页可保存计算结果和工程记录。',
     diagnosticReportTitle: '诊断报告',
@@ -390,6 +398,9 @@ class SettingsStrings {
     hapticLightLabel: '轻',
     hapticStandardLabel: '标准',
     hapticStrongLabel: '强',
+    themeRoseCreamLabel: '玫瑰奶霜',
+    themeLavenderMistLabel: '薰衣草雾',
+    themePeachSugarLabel: '蜜桃砂糖',
   );
 
   static final SettingsStrings settingsEn = SettingsStrings(
@@ -443,7 +454,8 @@ class SettingsStrings {
     reportSkipped: (skipped) => ', skipped/trimmed $skipped',
     backupPreviewSummary: (version, exportedAt, total, summary) =>
         'Version: $version\nExported: $exportedAt\nTotal: $total\n$summary',
-    backupPlanHeadline: (modeLabel, totalLabel) => '$modeLabel would leave $totalLabel',
+    backupPlanHeadline: (modeLabel, totalLabel) =>
+        '$modeLabel would leave $totalLabel',
     backupPlanRow: (before, source, expected) =>
         'device $before · file $source · after $expected',
     aboutTileTitle: 'About NekoCalc',
@@ -508,6 +520,9 @@ class SettingsStrings {
     hapticLightLabel: 'Light',
     hapticStandardLabel: 'Standard',
     hapticStrongLabel: 'Strong',
+    themeRoseCreamLabel: 'Rose Cream',
+    themeLavenderMistLabel: 'Lavender Mist',
+    themePeachSugarLabel: 'Peach Sugar',
   );
 }
 
@@ -572,6 +587,35 @@ extension SettingsTokenLabels on SettingsStrings {
       AppHaptics.light => hapticLightLabel,
       AppHaptics.strong => hapticStrongLabel,
       _ => hapticStandardLabel,
+    };
+  }
+
+  /// 中文：主题配色。**入参是持久化的 `theme_id`**（`roseCream` / `lavenderMist` / `peachSugar`），
+  ///       出参才是屏幕上那三个名字；`id` 一个字节都不许翻译，它是存储格式。
+  ///
+  ///       三个 id 在这里是**字面量**，不是 `CalcTheme.lavenderMist.id`——`switch` 的分支要求常量
+  ///       表达式，而属性访问不是（`const_eval_property_access`，实测）。抄一遍字面量的风险是
+  ///       "某一格永远走不到、悄悄回落到玫瑰奶霜"，所以这条风险由测试承担：
+  ///       `settings_strings_test.dart` 里那条 `for (final theme in CalcTheme.all)` 逐套主题断言
+  ///       `themeLabel(theme.id) == theme.name`，**任何一套主题认不出来（或者 `CalcTheme` 里新增
+  ///       了一套没在这里加名字）都会红**。这比引用常量更强：常量引用只挡拼写，挡不住漏一套。
+  /// English: Colour theme. **The argument is the stored `theme_id`** (`roseCream` / `lavenderMist` /
+  ///          `peachSugar`); only the result is user-facing, and the `id` must never be translated —
+  ///          it is storage format.
+  ///
+  ///          The three ids are **literals** here rather than `CalcTheme.lavenderMist.id`, because a
+  ///          `switch` case demands a constant expression and a property access is not one
+  ///          (`const_eval_property_access`, measured). Re-typing a literal risks a case that can never
+  ///          be reached quietly falling back to Rose Cream, so that risk is carried by a test: the
+  ///          `for (final theme in CalcTheme.all)` loop in `settings_strings_test.dart` asserts
+  ///          `themeLabel(theme.id) == theme.name` for every theme, so **any unrecognised theme — or a
+  ///          newly added `CalcTheme` with no name here — goes red**. That is stronger than referencing
+  ///          the constants: a reference guards spelling, not a missing theme.
+  String themeLabel(String themeId) {
+    return switch (themeId) {
+      'lavenderMist' => themeLavenderMistLabel,
+      'peachSugar' => themePeachSugarLabel,
+      _ => themeRoseCreamLabel,
     };
   }
 }

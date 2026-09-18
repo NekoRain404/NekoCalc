@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/math/app_unit_catalog.dart';
+import '../calculator_strings.dart';
 
 /// 中文：**面板交出去的文本 → 真正插进表达式的那一段。** 分隔符在这一处决定，因为它是
 ///       「应用自己的语言读不读得懂」这件事的一部分，不是面板的排版细节。
@@ -127,6 +128,7 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = CalculatorStrings.of(context);
     final matches = _matches;
     return SafeArea(
       child: Padding(
@@ -139,10 +141,10 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
               controller: _search,
               autofocus: false,
               onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18),
-                hintText: '搜索单位（米、km、mile…）',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: strings.unitSearchHint,
               ),
             ),
             const SizedBox(height: 8),
@@ -150,7 +152,7 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    '点一个单位插进表达式；两个单位之间点「to」',
+                    strings.unitSheetHint,
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
@@ -170,7 +172,8 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Center(
-                        child: Text('没有匹配的单位', style: theme.textTheme.bodyMedium),
+                        child: Text(strings.noMatchingUnits,
+                            style: theme.textTheme.bodyMedium),
                       ),
                     )
                   : ListView(
@@ -180,7 +183,8 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                           if (matches.any((unit) => unit.family == family)) ...[
                             Padding(
                               padding: const EdgeInsets.only(top: 8, bottom: 4),
-                              child: Text(family, style: theme.textTheme.labelLarge),
+                              child: Text(family,
+                                  style: theme.textTheme.labelLarge),
                             ),
                             Wrap(
                               spacing: 8,
@@ -189,7 +193,8 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                                 for (final unit in matches)
                                   if (unit.family == family)
                                     TextButton(
-                                      onPressed: () => widget.onInsert(unit.symbol),
+                                      onPressed: () =>
+                                          widget.onInsert(unit.symbol),
                                       style: TextButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 10),

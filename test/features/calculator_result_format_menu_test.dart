@@ -5,11 +5,13 @@ import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/core/math/math_result.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/calculator/presentation/calculator_strings.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
 import 'package:nekocalc/features/calculator/presentation/result_form.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/calculator_display.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/result_format_sheet.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 // 中文：**`x⇔E` 打开的「Select Result Format」菜单。** 这个文件钉三件事：
 //
@@ -57,6 +59,14 @@ import 'package:nekocalc/features/calculator/presentation/widgets/result_format_
 void main() {
   const channel = MethodChannel('nekocalc/qalculate');
 
+  // 中文：菜单里那两行"给人看的字"现在住在 `CalculatorStrings` 里（第 0 项的名字与那两条理由），
+  //       六项 HiPER 原文仍写在表里。这里按**默认语言**取一次，下面各处只是读同一份结构。
+  // English: the two human-facing lines in the menu (entry 0's name and both notes) now live in
+  //          `CalculatorStrings`, while the six HiPER strings stay written out in the table. This
+  //          takes the **default language's** table once; every assertion below just reads it.
+  final cells =
+      resultFormatCells(CalculatorStrings.forLanguage(AppLanguage.zh));
+
   void reply(Map<String, String> payload) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
@@ -79,7 +89,7 @@ void main() {
   group('菜单的形状与来源', () {
     test('七项：第 0 项是本应用自己那一行，其后六项是 HiPER 的原文与顺序', () {
       expect(
-        kResultFormatCells.map((cell) => cell.label).toList(),
+        cells.map((cell) => cell.label).toList(),
         <String>[
           '默认',
           'Decimal',
@@ -93,15 +103,14 @@ void main() {
       );
       // 中文：**七项对应六个 `ResultForm`** —— 第 0 项与 `Decimal` 不是同一件事：前者是本应用
       //       自己那一行（精确写法 + `≈` 读数，HiPER 没有这一格），后者是「只要那串十进制读数」。
-      expect(kResultFormatCells.first.form, ResultForm.auto);
-      expect(kResultFormatCells.first.label, '默认',
-          reason: '它必须在名字上就说清自己不是 HiPER 的菜单项');
-      expect(kResultFormatCells.first.note, isNotEmpty,
+      expect(cells.first.form, ResultForm.auto);
+      expect(cells.first.label, '默认', reason: '它必须在名字上就说清自己不是 HiPER 的菜单项');
+      expect(cells.first.note, isNotEmpty,
           reason: '「本应用自己的一行」这句话要写在那一行上，不能只写在代码注释里');
     });
 
     test('到期日：本应用今天给不出 `Polar coordinates`——那一项没有形态，枚举里也没有这一格', () {
-      final polar = kResultFormatCells.last;
+      final polar = cells.last;
       expect(polar.label, 'Polar coordinates');
       // 中文：**这一条就是那一项禁用的到期日。** 今天它成立，因为：
       //       （一）引擎的极坐标是 `EvaluationOptions.complex_number_form`，由
@@ -124,8 +133,7 @@ void main() {
       //          a polar spelling that changes the writing only, this goes red** — that entry should then
       //          light up rather than an expired refusal quietly staying put.
       expect(polar.form, isNull, reason: '本应用今天没有任何一格可以落到这一项上');
-      expect(polar.note, contains('极坐标'),
-          reason: '禁用要在屏幕上说得出理由，不能是一条按下去没反应的行');
+      expect(polar.note, contains('极坐标'), reason: '禁用要在屏幕上说得出理由，不能是一条按下去没反应的行');
       expect(
         ResultForm.values.map((form) => form.name).toList(),
         isNot(contains('polar')),
@@ -134,11 +142,11 @@ void main() {
       // 中文：**六项对六格**（第 0 项与 `Decimal` 共用不了同一格，所以是 7 项对 6 格 + 1 个画不出的）。
       // English: six `ResultForm`s behind seven rows — the extra row is the one this app cannot draw.
       expect(ResultForm.values.length, 6);
-      expect(kResultFormatCells.where((c) => c.form != null).length, 6);
+      expect(cells.where((c) => c.form != null).length, 6);
     });
 
     test('其他六项今天都落得到形态上，而且形态互不相同', () {
-      final forms = kResultFormatCells
+      final forms = cells
           .where((cell) => cell.form != null)
           .map((cell) => cell.form!)
           .toList();
@@ -244,8 +252,7 @@ void main() {
         ResultForm.mixed,
         ResultForm.dms,
       ]) {
-        expect(p.canDraw(form), isFalse,
-            reason: '自然排版关掉时整行纯文本，一种写法都不排');
+        expect(p.canDraw(form), isFalse, reason: '自然排版关掉时整行纯文本，一种写法都不排');
         expect(p.gapFor(form), ResultCellGap.typesettingOff);
       }
     });
@@ -283,8 +290,7 @@ void main() {
       );
 
       expect(p.fractionTex, r'\frac{1}{3}');
-      expect(p.mixedTex, isEmpty,
-          reason: '同一个数的同一种写法不该占两格——`1/3` 没有整数部分');
+      expect(p.mixedTex, isEmpty, reason: '同一个数的同一种写法不该占两格——`1/3` 没有整数部分');
       expect(p.canDraw(ResultForm.mixed), isFalse);
       expect(p.resolve(ResultForm.mixed), ResultForm.auto,
           reason: '这一份结果没有这一格，请求它只能回落——fail-closed 没有被放宽');
@@ -296,10 +302,12 @@ void main() {
         fractionTex: r'\frac{\num{123456789}}{\num{10000}}',
         resultDecimal: '12345.6789',
         naturalDisplay: true,
-        mixedTex: r'\num[parse-numbers=true]{12345} + \frac{6789}{\num[parse-numbers=true]{10000}}',
+        mixedTex:
+            r'\num[parse-numbers=true]{12345} + \frac{6789}{\num[parse-numbers=true]{10000}}',
       );
 
-      expect(p.mixedTex, isEmpty, reason: '`\\num{…}` 排不出来——与分数那一格同一条 fail-closed');
+      expect(p.mixedTex, isEmpty,
+          reason: '`\\num{…}` 排不出来——与分数那一格同一条 fail-closed');
       expect(p.canDraw(ResultForm.mixed), isFalse);
     });
 
@@ -396,12 +404,12 @@ void main() {
             reason: '选了「$label」之后十进制形态动了');
         expect(MathResult.decimalValueOf(_display(tester).resultDecimal), 2.5,
             reason: '选了「$label」之后数值动了');
-        expect(_display(tester).result, '2.5',
-            reason: '选了「$label」之后结果行的读数动了');
+        expect(_display(tester).result, '2.5', reason: '选了「$label」之后结果行的读数动了');
       }
     });
 
-    testWidgets('面板里选一项，与按 `d/c` / `D°M\'S` 落到同一个状态——两个入口，一个状态', (tester) async {
+    testWidgets('面板里选一项，与按 `d/c` / `D°M\'S` 落到同一个状态——两个入口，一个状态',
+        (tester) async {
       reply(<String, String>{
         'decimal': '2.5',
         'latex': '2.5',
@@ -423,7 +431,8 @@ void main() {
 
       // 中文：**`d/c` 走一趟**：分数写法。
       await _tapKey(tester, 'd/c');
-      expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'\frac{5}{2}');
+      expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
+          r'\frac{5}{2}');
       expect(_display(tester).resultForm, ResultForm.fraction);
       // 中文：**再按一次回到默认**——那一颗键是老实的开关，`x⇔E` 换成菜单没有动它。
       await _tapKey(tester, 'd/c');
@@ -439,13 +448,15 @@ void main() {
       await _tapKey(tester, 'x⇔E');
       await _pickInMenu(tester, 'Fraction');
       expect(_display(tester).resultForm, ResultForm.fraction);
-      expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'\frac{5}{2}');
+      expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
+          r'\frac{5}{2}');
 
       // 中文：**`D°M'S` 仍然工作**：DEG 之下一份度分秒写法，按一下换过去、再按一下回来。
       // English: **`D°M'S` still works**: one DMS spelling under DEG, toggled over and back.
       await _tapKey(tester, "D°M'S");
       expect(_display(tester).resultForm, ResultForm.dms);
-      expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r"2^\circ\,30'\,0''");
+      expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
+          r"2^\circ\,30'\,0''");
       expect(find.text('DMS'), findsOneWidget);
       expect(_display(tester).resultDecimal, '2.5');
       await _tapKey(tester, "D°M'S");
@@ -500,8 +511,7 @@ void main() {
             reason: '$label 灰着时必须写出理由，不能像从前那样一声不吭');
         final note = (tile.subtitle! as Text).data!;
         expect(note, contains('印不出'), reason: '$label 那一行要说的是本应用印不出这一格');
-        expect(note, contains('表达式显示'),
-            reason: '$label 那一行要点出是哪个设置把写法关掉的');
+        expect(note, contains('表达式显示'), reason: '$label 那一行要点出是哪个设置把写法关掉的');
         expect(note, contains('数学表达式'), reason: '$label：那一句要指名道姓');
       }
 
@@ -544,8 +554,7 @@ void main() {
 
       await _tapKey(tester, 'x⇔E');
       final fraction = _menuTile(tester, 'Fraction');
-      expect(fraction.enabled, isFalse,
-          reason: '写法就在结果上，屏幕上照样不排它——灰的是本应用这一侧');
+      expect(fraction.enabled, isFalse, reason: '写法就在结果上，屏幕上照样不排它——灰的是本应用这一侧');
       expect(fraction.subtitle, isNotNull, reason: '这一格灰着，它自己那一行要写明为什么');
       final note = (fraction.subtitle! as Text).data!;
       expect(note, contains('表达式显示'));
@@ -557,7 +566,8 @@ void main() {
       expect(_display(tester).resultDecimal, '2.5');
     });
 
-    testWidgets('灰掉的那一项（`Polar coordinates`）按下去什么都不做：不关面板、不改状态', (tester) async {
+    testWidgets('灰掉的那一项（`Polar coordinates`）按下去什么都不做：不关面板、不改状态',
+        (tester) async {
       reply(<String, String>{
         'decimal': '2.5',
         'latex': '2.5',
@@ -593,7 +603,8 @@ void main() {
   });
 }
 
-ListTile _menuTile(WidgetTester tester, String label) => tester.widget<ListTile>(
+ListTile _menuTile(WidgetTester tester, String label) =>
+    tester.widget<ListTile>(
       find.ancestor(
         of: find.descendant(
           of: find.byType(ResultFormatSheet),

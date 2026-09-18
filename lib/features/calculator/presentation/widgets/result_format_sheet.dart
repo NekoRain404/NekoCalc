@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../calculator_strings.dart';
 import '../result_form.dart';
 
 /// 中文：**结果格式菜单里的一项。**
 ///
 ///       [form] 为 `null` 表示**本应用给不出这一格**——今天的唯一一项是 `Polar coordinates`
-///       （理由见 [kResultFormatCells] 里那一项的注释与它上面的到期日断言）。用 `null` 而不是
+///       （理由见 [resultFormatCells] 里那一项的注释与它上面的到期日断言）。用 `null` 而不是
 ///       给 `ResultForm` 添一个永远画不出来的枚举值：那种值会让每一处 `switch` 都多出一条**永远
 ///       走不到**的分支，而「本应用没有这一格」是一句关于**这一项**的话，不是关于那一维的话。
 ///
@@ -15,7 +16,7 @@ import '../result_form.dart';
 /// English: **one entry of the result format menu.**
 ///
 ///          A `null` [form] means **this app cannot offer that cell** — today the only one is
-///          `Polar coordinates` (its reason is on that entry in [kResultFormatCells], with the
+///          `Polar coordinates` (its reason is on that entry in [resultFormatCells], with the
 ///          expiry assertion above it). `null` rather than adding a `ResultForm` value that can never
 ///          be drawn: such a value would add a **never-reachable** branch to every `switch`, and "this
 ///          app has no such cell" is a statement about **one entry**, not about the dimension.
@@ -60,10 +61,14 @@ class ResultFormatCell {
 ///       "press `x⇔E` and **choose** one of the following formats"。**两句都写的是"选一个"，
 ///       没有一句说它是循环**——这就是本轮把 `x⇔E` 从循环改成菜单的依据。
 ///
-///       **第 0 项 `默认` 是本应用自己的一行，不是 HiPER 的六项之一。** 它必须在菜单里，因为
+///       **第 0 项是本应用自己的一行，不是 HiPER 的六项之一。** 它必须在菜单里，因为
 ///       [ResultForm.auto] 是本应用的初始态与回落态：菜单若只列六项，用户一旦选了任何一项就再也
 ///       回不到「精确写法 + `≈` 读数」那一行（`d/c` 与 `D°M'S` 只在各自那一格存在时才回到它）。
 ///       它的名字与注释都写明它**不是** HiPER 的菜单项，免得被读成第七格。
+///
+///       **这张表是函数而不是 `const` 列表**：第 0 项的名字与那两行理由都是**给人看的字**，
+///       住在 `CalculatorStrings` 里（`calculator_strings.dart`）。六项 HiPER 原文仍写在下面，
+///       因为它们是厂商字符串，任何语言的构建里都是这个样子。
 ///
 ///       **`Polar coordinates` 那一项今天给不出，所以 [ResultFormatCell.form] 是 `null`，
 ///       菜单里那一行是灰的、点不动**。理由（两条，各自都实测过）：
@@ -93,12 +98,17 @@ class ResultFormatCell {
 ///          **Both say "choose"; neither says it cycles** — which is this round's ground for turning
 ///          `x⇔E` from a cycle into a menu.
 ///
-///          **Entry 0, `默认`, is this app's own line, not one of HiPER's six.** It has to be in the
-///          menu because [ResultForm.auto] is this app's initial and fallback state: with only the six
+///          **Entry 0 is this app's own line, not one of HiPER's six.** It has to be in the menu
+///          because [ResultForm.auto] is this app's initial and fallback state: with only the six
 ///          entries, choosing any of them would leave no way back to the "exact spelling + `≈`
 ///          reading" line (`d/c` and `D°M'S` return to it only while their own cell exists). Its name
 ///          and its note both say it is **not** a HiPER entry, so it cannot be misread as a seventh
 ///          cell.
+///
+///          **This table is a function rather than a `const` list**: entry 0's name and both notes are
+///          **human-facing text** and live in `CalculatorStrings` (`calculator_strings.dart`). The six
+///          HiPER strings stay written out below, because they are vendor strings and read the same in
+///          every language's build.
 ///
 ///          **`Polar coordinates` cannot be offered today, so its [ResultFormatCell.form] is `null`
 ///          and its row is greyed and unpressable.** Two measured reasons — see the English list
@@ -108,24 +118,25 @@ class ResultFormatCell {
 ///          `test/features/calculator_result_format_menu_test.dart` pin both sentences. The day this
 ///          app gains a polar spelling that **changes the writing only**, they go red — and that entry
 ///          should then light up rather than an expired refusal quietly staying put.
-const List<ResultFormatCell> kResultFormatCells = <ResultFormatCell>[
-  ResultFormatCell(
-    label: '默认',
-    form: ResultForm.auto,
-    note: '本应用自己的一行（精确写法 + ≈ 十进制读数）；HiPER 的菜单里没有这一项',
-  ),
-  ResultFormatCell(label: 'Decimal', form: ResultForm.decimal),
-  ResultFormatCell(label: 'Expression', form: ResultForm.exact),
-  ResultFormatCell(label: 'Fraction', form: ResultForm.fraction),
-  ResultFormatCell(label: 'Mixed number', form: ResultForm.mixed),
-  ResultFormatCell(label: 'Degrees, mins, secs', form: ResultForm.dms),
-  ResultFormatCell(
-    label: 'Polar coordinates',
-    form: null,
-    note: '本应用没有极坐标印法：引擎那一份是求值选项（会改值），而且印出来的是 '
-        'r(cos θ + i sin θ)，不是 HiPER 那一格 r∠θ',
-  ),
-];
+List<ResultFormatCell> resultFormatCells(CalculatorStrings strings) {
+  return <ResultFormatCell>[
+    ResultFormatCell(
+      label: strings.resultFormatDefaultLabel,
+      form: ResultForm.auto,
+      note: strings.resultFormatDefaultNote,
+    ),
+    const ResultFormatCell(label: 'Decimal', form: ResultForm.decimal),
+    const ResultFormatCell(label: 'Expression', form: ResultForm.exact),
+    const ResultFormatCell(label: 'Fraction', form: ResultForm.fraction),
+    const ResultFormatCell(label: 'Mixed number', form: ResultForm.mixed),
+    const ResultFormatCell(label: 'Degrees, mins, secs', form: ResultForm.dms),
+    ResultFormatCell(
+      label: 'Polar coordinates',
+      form: null,
+      note: strings.resultFormatPolarNote,
+    ),
+  ];
+}
 
 /// 中文：**`x⇔E` 打开的面板**——HiPER 的 "Select Result Format" 菜单。
 ///
@@ -233,6 +244,7 @@ class ResultFormatSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = CalculatorStrings.of(context);
     final resolved = presentation.resolve(current);
     return SafeArea(
       child: Padding(
@@ -263,7 +275,7 @@ class ResultFormatSheet extends StatelessWidget {
             //          has no such cell, or this app cannot print that cell today** (the second is
             //          written out cell by cell, see [_gapNote]).
             Text(
-              '结果行的写法。灰掉的项按不下去：不是这一份结果没有这一格，就是本应用今天印不出这一格',
+              strings.resultFormatSubtitle,
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -281,8 +293,8 @@ class ResultFormatSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    for (final cell in kResultFormatCells)
-                      _cellRow(context, theme, cell, resolved),
+                    for (final cell in resultFormatCells(strings))
+                      _cellRow(context, theme, cell, resolved, strings),
                   ],
                 ),
               ),
@@ -292,7 +304,7 @@ class ResultFormatSheet extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: onClose,
-                  child: const Text('关闭'),
+                  child: Text(strings.close),
                 ),
               ),
           ],
@@ -306,6 +318,7 @@ class ResultFormatSheet extends StatelessWidget {
     ThemeData theme,
     ResultFormatCell cell,
     ResultForm resolved,
+    CalculatorStrings strings,
   ) {
     final form = cell.form;
     final selected = form != null && form == resolved;
@@ -328,7 +341,9 @@ class ResultFormatSheet extends StatelessWidget {
     //          what speaks for those.
     final note = cell.note.isNotEmpty
         ? cell.note
-        : (form == null ? '' : _gapNote(presentation.gapFor(form), form));
+        : (form == null
+            ? ''
+            : _gapNote(presentation.gapFor(form), form, strings));
     return ListTile(
       dense: true,
       enabled: enabled,
@@ -336,9 +351,7 @@ class ResultFormatSheet extends StatelessWidget {
       leading: Icon(
         selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
         size: 18,
-        color: enabled
-            ? theme.colorScheme.primary
-            : theme.disabledColor,
+        color: enabled ? theme.colorScheme.primary : theme.disabledColor,
       ),
       title: Row(
         children: <Widget>[
@@ -413,30 +426,36 @@ class ResultFormatSheet extends StatelessWidget {
   ///            on the `=` path the engine has already handed those spellings over (the submit path does
   ///            not look at the kill switch) and they still are not drawn — so the sentence says "does
   ///            not print", not "does not have".
-  String _gapNote(ResultCellGap gap, ResultForm form) => switch (gap) {
+  String _gapNote(
+          ResultCellGap gap, ResultForm form, CalculatorStrings strings) =>
+      switch (gap) {
         ResultCellGap.none => '',
         ResultCellGap.engineNotAsked =>
-          '本应用没有它的${_spellingName(form)}：这一份结果不是引擎算的，而这一格只有引擎印得出来',
+          strings.resultFormatGapNotFromEngine(_spellingName(form, strings)),
         ResultCellGap.typesettingOff =>
-          '本应用今天印不出它的${_spellingName(form)}：表达式显示设成了「数学表达式」，'
-              '结果行不排任何写法、边打边算也不问引擎',
+          strings.resultFormatGapTypesettingOff(_spellingName(form, strings)),
       };
 
   /// 中文：那一格自己要的写法叫什么。点它的名是为了让四行灰格不至于读起来一模一样——它们**是**
   ///       被同一个原因一起挡住的，但每一行都要能单独读懂。
+  ///       **名字本身在 `CalculatorStrings` 里**（`spellingExact`…）；这里只负责"哪一格叫哪一个"，
+  ///       因为那个 `switch` 是「每一格叫什么」这个问题**唯一**的落点。
   /// English: the name of the spelling this cell wants. Naming it keeps those four grey rows from
   ///          reading identically — they **are** blocked together by one cause, but each row has to be
-  ///          readable on its own.
-  String _spellingName(ResultForm form) => switch (form) {
-        ResultForm.exact => '精确写法',
-        ResultForm.fraction => '分数写法',
-        ResultForm.mixed => '带分数写法',
-        ResultForm.dms => '度分秒写法',
+  ///          readable on its own. **The words themselves live in `CalculatorStrings`**
+  ///          (`spellingExact`…); this only answers "which cell takes which name", because that
+  ///          `switch` is the **only** landing place for that question.
+  String _spellingName(ResultForm form, CalculatorStrings strings) =>
+      switch (form) {
+        ResultForm.exact => strings.spellingExact,
+        ResultForm.fraction => strings.spellingFraction,
+        ResultForm.mixed => strings.spellingMixed,
+        ResultForm.dms => strings.spellingDms,
         // 中文：这两格不会走到这里（`gapFor` 对它们恒回 `none`）——写出来是因为这个 `switch` 是
         //       「每一格叫什么」这个问题**唯一**的落点，留一个 `_` 兜底就等于把那条约定废掉。
         // English: these two cannot reach here (`gapFor` always answers `none` for them). They are
         //          written out because this `switch` is the **only** landing place for "what is this
         //          cell called"; a `_` catch-all would void that rule.
-        ResultForm.auto || ResultForm.decimal => '写法',
+        ResultForm.auto || ResultForm.decimal => strings.spellingAuto,
       };
 }

@@ -210,7 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 SettingsTile(
                     icon: Icons.palette_outlined,
                     title: s.themeTileTitle,
-                    value: CalcTheme.resolve(_themeId).name,
+                    value: s.themeLabel(_themeId),
                     onTap: _cycleCalcTheme),
                 SettingsTile(
                     icon: Icons.translate,
