@@ -207,6 +207,76 @@ extension _CalculatorPageSheets on _CalculatorPageState {
   ///          expression. The dataset is the argument list written in that expression — already inside
   ///          the undo stack, the persisted state and the generation guard — and the user edits it in
   ///          the inline editor, which does accept commas.
+  /// 中文：**`x⇔E` 打开的结果格式菜单**——HiPER 的 "Select Result Format"（`rfMenu.title`）。
+  ///       面板本身在 `widgets/result_format_sheet.dart`，七项的名字与来源都在那里。
+  ///
+  ///       **为什么是面板而不是循环**：厂商自己的两句话都写的是「选一个」——
+  ///       FAQ 的 "press the `x⇔E` key. **It opens the Select Result Format menu**" 与手册 v12.0 的
+  ///       "press `x⇔E` and **choose** one of the following formats"。本应用从前画成三档循环，是因为
+  ///       那六格当时只有三格印得出来；现在五格印得出来（多出带分数那一格），循环这个形状既不是
+  ///       来源说的、又每次都要按着走一遍，菜单才是原来那个东西。
+  ///
+  ///       **换的只是「怎么选」，不是「选什么」**：选完仍然落到同一个 `_setResultForm`，也就是同一处
+  ///       `ResultPresentation.resolve`，值路径一个字节都不动——`Ans`/`last`、记忆、继续使用、历史与
+  ///       提交路径读的都还是 `MathResult.decimalText`。
+  ///
+  ///       **判据不在这里**：哪一项点得动、哪一项是当前，都由 `ResultPresentation`（`canDraw` /
+  ///       `resolve`）回答，面板只把它们画出来。这一份 `ResultPresentation` 与结果行那份是**同一个
+  ///       工厂**（`_resultPresentation`），所以面板里灰掉的东西与结果行画得出来的东西不可能漂开。
+  ///
+  ///       **面板自己关自己**（选一项就关）：这是一次「选一个格式」的动作，不是 `CONV`/`X` 那种一次
+  ///       要插好几样的面板。
+  /// English: **the result format menu `x⇔E` opens** — HiPER's "Select Result Format"
+  ///          (`rfMenu.title`). The sheet itself lives in `widgets/result_format_sheet.dart`, with the
+  ///          seven entries' names and sources.
+  ///
+  ///          **Why a sheet and not a cycle**: both of the vendor's own sentences say "choose" — the
+  ///          FAQ's "press the `x⇔E` key. **It opens the Select Result Format menu**" and manual v12.0's
+  ///          "press `x⇔E` and **choose** one of the following formats". This app drew a three-stop
+  ///          cycle because only three of those six cells could be printed then; five can be printed
+  ///          now (the mixed-number cell joined), and a cycle is neither the shape the sources describe
+  ///          nor pleasant to walk every time — the menu is the thing that was there.
+  ///
+  ///          **What changes is how you choose, not what you choose**: a pick still lands on the same
+  ///          `_setResultForm`, i.e. the same single `ResultPresentation.resolve`, and the value path is
+  ///          untouched — `Ans`/`last`, memory, continue-with, history and the submit path all still
+  ///          read `MathResult.decimalText`.
+  ///
+  ///          **No judgement lives here**: which entry can be pressed and which one is current are
+  ///          answered by `ResultPresentation` (`canDraw` / `resolve`); the sheet only draws them. The
+  ///          presentation it uses is built by the **same factory** the result line uses
+  ///          (`_resultPresentation`), so what is greyed in the sheet and what the result line can draw
+  ///          cannot drift apart.
+  ///
+  ///          **The sheet closes itself** (one pick, one close): this is a "choose a format" action, not
+  ///          a sheet like `CONV`/`X` where several things get inserted in a row.
+  void _openResultFormatSheet() {
+    final NavigatorState navigator = Navigator.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height *
+            _CalculatorPageState._moreSheetHeightRatio,
+      ),
+      builder: (sheetContext) => ResultFormatSheet(
+        // 中文：**同一个工厂**——结果行读的就是这一份（`_resultPresentation`），所以两边的判据是
+        //       一份。`plainReading` 是结果行此刻那串纯文本读数，只用于预览的降级。
+        // English: **the same factory** — this is what the result line reads
+        //          (`_resultPresentation`), so both sides share one judgement. `plainReading` is the
+        //          plain reading the result line is showing now, used only for preview fallback.
+        presentation: _resultPresentation,
+        current: _resultForm,
+        plainReading: _controller.result,
+        onPick: (form) {
+          navigator.pop();
+          _setResultForm(form);
+        },
+      ),
+    );
+  }
+
   void _openStatisticsSheet() {
     final theme = CalcTheme.of(context);
     showModalBottomSheet<void>(

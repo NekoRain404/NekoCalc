@@ -156,25 +156,51 @@ class CalcTheme {
   /// English: Matching dark variant of this theme; a dark variant returns itself.
   CalcTheme get dark => _darkVariants[id] ?? this;
 
-  /// 中文：当前生效的 `CalcTheme`——计算页与侧边抽屉取色的**唯一**入口。
+  /// 中文：当前生效的 `CalcTheme`——计算页、侧边抽屉与回归图取色的**唯一**入口。
   ///       明暗取自 `Theme.of(context).brightness`：那是应用自己的主题模式（设置里的
   ///       浅色 / 深色 / 跟随系统，由 `app.dart` 的 `themeMode` 落到 `MaterialApp`）算完之后的
   ///       **实际**明暗。反过来若读平台的 `MediaQuery.platformBrightness`，用户选了浅色而手机开着
   ///       深色模式时两者相反，本页与抽屉就会在其余页面全是浅色时独自变黑。
-  ///       主题选择本身还没接进设置页（列为后续工作），所以基准主题固定为 `roseCream`；
-  ///       接入后只需在这里换成读取设置，两个调用点都不用动。
-  /// English: The active `CalcTheme` — the **single** entry point for the calculator page's and the
-  ///          drawer's colours. Light/dark comes from `Theme.of(context).brightness`: the *effective*
-  ///          brightness after the app's own theme mode (浅色 / 深色 / 跟随系统 from the settings,
-  ///          applied to `MaterialApp` by `app.dart`'s `themeMode`). Reading the platform's
-  ///          `MediaQuery.platformBrightness` instead disagrees whenever 浅色 is chosen on a dark-mode
-  ///          phone, turning this page and the drawer black while every other page stays light.
-  ///          Theme selection is not wired into the settings page yet (recorded as follow-up work), so
-  ///          the base theme is always `roseCream`; once it is, only this method reads the setting and
-  ///          neither call site changes.
+  ///       配色取自祖先里的 [CalcThemeScope]，由 `app.dart` 按设置里的 `theme_id` 装入；没有
+  ///       该祖先时回落到 [fallback]（`roseCream`）。**这是"接上主题选择"的唯一改动点**：
+  ///       `grep -rn "CalcTheme.of" lib` 数到 7 个调用点，分布在 4 个文件里——它们一个字都不用改，
+  ///       因为选择的读取对调用方不可见。（旧注释写的是"两个调用点"，那是把计算页与抽屉两个**页面**
+  ///       当成了调用点；实际调用点数是 7。）
+  /// English: The active `CalcTheme` — the **single** entry point for the calculator page's, the
+  ///          drawer's and the regression graph's colours. Light/dark comes from
+  ///          `Theme.of(context).brightness`: the *effective* brightness after the app's own theme mode
+  ///          (浅色 / 深色 / 跟随系统 from the settings, applied to `MaterialApp` by `app.dart`'s
+  ///          `themeMode`). Reading the platform's `MediaQuery.platformBrightness` instead disagrees
+  ///          whenever 浅色 is chosen on a dark-mode phone, turning this page and the drawer black while
+  ///          every other page stays light.
+  ///          The palette comes from a [CalcThemeScope] ancestor installed by `app.dart` from the
+  ///          stored `theme_id`, falling back to [fallback] (`roseCream`) when there is none. **This is
+  ///          the only place "wiring the theme picker" touched**: `grep -rn "CalcTheme.of" lib` finds 7
+  ///          call sites across 4 files, and not one of them changed, because reading the choice is
+  ///          invisible to the caller. (The old comment said "two call sites" — that counted *pages*
+  ///          rather than call sites; the real number is 7.)
   static CalcTheme of(BuildContext context) {
-    const CalcTheme base = roseCream;
+    final base = CalcThemeScope.maybeOf(context) ?? fallback;
     return Theme.of(context).brightness == Brightness.dark ? base.dark : base;
+  }
+
+  /// 中文：没有装 [CalcThemeScope] 时用的基准主题。默认态必须与"主题选择接入之前"逐字节相同。
+  /// English: Base theme used when no [CalcThemeScope] is installed; the default state must stay
+  ///          byte-identical to the one before the theme picker existed.
+  static const CalcTheme fallback = roseCream;
+
+  /// 中文：把持久化的 `theme_id` 解成基准（浅色）主题；认不出的 id 一律回落到 [fallback]，
+  ///       所以库里存着一个已删主题的名字不会让界面取色崩溃，只会显示默认主题。
+  ///       **入参是持久化令牌，不是标签**——不要拿 `CalcTheme.name`（那是给人看的、可翻译的）来喂它。
+  /// English: Resolves a persisted `theme_id` to its base (light) theme; anything unrecognised falls
+  ///          back to [fallback], so a deleted theme's name left in the database cannot break colour
+  ///          resolution — it just renders the default. **The argument is a persisted token, not a
+  ///          label**: never feed it `CalcTheme.name`, which is human-facing and translatable.
+  static CalcTheme resolve(String? id) {
+    for (final theme in all) {
+      if (theme.id == id) return theme;
+    }
+    return fallback;
   }
 
   /// 中文：玫瑰奶霜，暖玫瑰色系的浅色主题。
@@ -414,3 +440,45 @@ const Map<String, CalcTheme> _darkVariants = <String, CalcTheme>{
   'lavenderMist': _lavenderMistDark,
   'peachSugar': _peachSugarDark,
 };
+
+/// 中文：把用户选中的基准主题送进 `CalcTheme.of` 的载体。`app.dart` 用 `MaterialApp.builder`
+///       把它装在 **Navigator 之上**——不是装在 `home:` 里。这一点是必须的：`Navigator.push`
+///       压上来的路由（设置页就在其中）与 `home` 是兄弟而非子孙，装在 `home` 里的作用域推上来的
+///       页面根本看不见，设置页就会退回默认主题。
+///       只装**基准（浅色）**变体，明暗仍由 `CalcTheme.of` 按 `Theme.of(context).brightness` 选，
+///       所以"用户选了浅色而手机开着深色"这条既有规则不受影响。
+/// English: Carries the chosen base theme into `CalcTheme.of`. `app.dart` installs it with
+///          `MaterialApp.builder`, i.e. **above the Navigator** — not inside `home:`, which would be a
+///          sibling of every `Navigator.push`ed route (the settings page among them) rather than an
+///          ancestor, so a pushed page would silently fall back to the default theme.
+///          Only the **base (light)** variant is carried; light/dark is still chosen by `CalcTheme.of`
+///          from `Theme.of(context).brightness`, so the existing "浅色 chosen on a dark-mode phone"
+///          rule is untouched.
+class CalcThemeScope extends InheritedWidget {
+  const CalcThemeScope({
+    required this.base,
+    required super.child,
+    super.key,
+  });
+
+  /// 中文：基准（浅色）变体，见 [CalcTheme.resolve]。
+  /// English: The base (light) variant; see [CalcTheme.resolve].
+  final CalcTheme base;
+
+  /// 中文：取不到作用域时返回 `null`，由 [CalcTheme.of] 回落到默认主题——这样单独渲染
+  ///       `CalculatorPage` / `AppDrawer` 的既有测试不必套一层作用域。
+  /// English: `null` when there is no scope, letting [CalcTheme.of] fall back to the default theme, so
+  ///          the existing tests that render `CalculatorPage` / `AppDrawer` on their own need no wrapper.
+  static CalcTheme? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<CalcThemeScope>()?.base;
+  }
+
+  @override
+  bool updateShouldNotify(CalcThemeScope oldWidget) {
+    // 中文：主题都是 `const` 规范实例，`identical` 就够；这里刻意不比较色值，避免在热路径上
+    //       逐字段比 30 多个 `Color`。
+    // English: Themes are canonical `const` instances, so `identical` suffices; this deliberately does
+    //          not compare colours field by field on a hot path.
+    return !identical(oldWidget.base, base);
+  }
+}

@@ -5,7 +5,9 @@ extension _SettingsDialogs on _SettingsPageState {
     final scheme = Theme.of(context).colorScheme;
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) {
+        final s = SettingsStrings.of(context);
+        return AlertDialog(
         contentPadding: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -66,16 +68,16 @@ extension _SettingsDialogs on _SettingsPageState {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('个人全能计算工作台，覆盖科学计算、工程工具、单位换算、函数图形和计算笔记。'),
+                  Text(s.aboutTagline),
                   const SizedBox(height: 14),
-                  const Wrap(
+                  Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _AboutChip('科学计算'),
-                      _AboutChip('工程工具'),
-                      _AboutChip('函数图形'),
-                      _AboutChip('SQLite 本地记录'),
+                      _AboutChip(s.aboutChipScience),
+                      _AboutChip(s.aboutChipEngineering),
+                      _AboutChip(s.aboutChipGraph),
+                      _AboutChip(s.aboutChipSqlite),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -85,7 +87,7 @@ extension _SettingsDialogs on _SettingsPageState {
                           size: 18, color: Color(0xFF23B45D)),
                       const SizedBox(width: 8),
                       Expanded(
-                          child: Text('数据当前仅保存在本机 SQLite，不上传网络服务。',
+                          child: Text(s.aboutPrivacyNote,
                               style:
                                   TextStyle(color: scheme.onSurfaceVariant))),
                     ],
@@ -97,13 +99,14 @@ extension _SettingsDialogs on _SettingsPageState {
         ),
         actions: [
           TextButton(
-              onPressed: () => _showInfo('开源结构',
-                  '项目采用 Feature-first + Clean Architecture 简化版：UI、Application、Domain、Data、Core 分层维护。'),
-              child: const Text('架构')),
+              onPressed: () =>
+                  _showInfo(s.openSourceTitle, s.openSourceBody),
+              child: Text(s.openSourceAction)),
           FilledButton(
-              onPressed: () => Navigator.pop(context), child: const Text('完成')),
+              onPressed: () => Navigator.pop(context), child: Text(s.done)),
         ],
-      ),
+        );
+      },
     );
   }
 
@@ -111,85 +114,99 @@ extension _SettingsDialogs on _SettingsPageState {
     final report = _diagnosticReport();
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('帮助与反馈'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                    '计算页用于快速表达式；工具页可按分类检索工程工具；图形页用于函数分析；笔记页可保存计算结果和工程记录。'),
-                const SizedBox(height: 16),
-                const Text('诊断报告',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                SelectableText(
-                  report,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      height: 1.35),
-                ),
-              ],
+      builder: (dialogContext) {
+        final s = SettingsStrings.of(dialogContext);
+        return AlertDialog(
+          title: Text(s.helpFeedbackTitle),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.helpIntro),
+                  const SizedBox(height: 16),
+                  Text(s.diagnosticReportTitle,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    report,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.35),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: report));
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('诊断报告已复制')),
-              );
-            },
-            child: const Text('复制报告'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final opened =
-                  await _openExternalUrl(GithubReleaseChecker.issueCreationUrl);
-              if (opened && dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-            },
-            child: const Text('提交 GitHub Issue'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: report));
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(s.reportCopied)),
+                );
+              },
+              child: Text(s.copyReport),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final opened = await _openExternalUrl(
+                    GithubReleaseChecker.issueCreationUrl);
+                if (opened && dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+              },
+              child: Text(s.submitIssue),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  String _diagnosticReport() => [
-        'NekoCalc 诊断报告',
-        '应用：${AppInfo.name}',
-        '版本：${AppInfo.version}',
-        '发布通道：${AppInfo.channel}',
-        '平台：${defaultTargetPlatform.name}',
-        '生成时间：${DateTime.now().toIso8601String()}',
-        '',
-        '请补充：问题发生步骤、预期结果、实际结果；不要粘贴个人敏感数据。',
-      ].join('\n');
+  /// 中文：诊断报告是**用户要粘贴到 Issue 里的文本**，所以它跟着界面语言走——报告里那些
+  ///       `应用：`/`版本：` 前缀是给人看的标签，不是机器解析的字段（没有解析方，`backup_snapshot`
+  ///       那一套 JSON 才是机器格式）。报告正文里的 App 名、版本号、平台名都是标识符，不翻。
+  /// English: The diagnostic report is **text the user pastes into an issue**, so it follows the UI
+  ///          language: the `应用：` / `版本：` prefixes are human labels, not machine-parsed fields
+  ///          (nothing parses them; the `backup_snapshot` JSON is the machine format). The app name,
+  ///          version and platform inside it are identifiers and stay untranslated.
+  String _diagnosticReport() {
+    final s = SettingsStrings.of(context);
+    return [
+      s.diagnosticHeading,
+      s.diagnosticApp(AppInfo.name),
+      s.diagnosticVersion(AppInfo.version),
+      s.diagnosticChannel(AppInfo.channel),
+      s.diagnosticPlatform(defaultTargetPlatform.name),
+      s.diagnosticGeneratedAt(DateTime.now().toIso8601String()),
+      '',
+      s.diagnosticPrompt,
+    ].join('\n');
+  }
 
   Future<bool> _openExternalUrl(String url) async {
     try {
       final opened = await _appLinkOpener.openExternalUrl(url);
       if (!opened && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开链接，请稍后重试')),
-        );
+        _showLinkOpenFailure();
       }
       return opened;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法打开链接，请稍后重试')),
-        );
+        _showLinkOpenFailure();
       }
       return false;
     }
+  }
+
+  void _showLinkOpenFailure() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(SettingsStrings.of(context).linkOpenFailed)),
+    );
   }
 
   void _showInfo(String title, String message) {
@@ -201,7 +218,7 @@ extension _SettingsDialogs on _SettingsPageState {
         actions: [
           FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('知道了')),
+              child: Text(SettingsStrings.of(context).gotIt)),
         ],
       ),
     );

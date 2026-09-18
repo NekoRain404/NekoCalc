@@ -16,6 +16,27 @@ void main() {
         .setMockMethodCallHandler(backupChannel, null);
   });
 
+  testWidgets('number format toggle persists thousands grouping',
+      (tester) async {
+    final db = _FakeSettingsDatabase({
+      'calculation_history': 0,
+      'notes': 0,
+      'favorite_tools': 0,
+      'recent_tools': 0,
+      'app_settings': 0,
+    });
+
+    await tester.pumpWidget(MaterialApp(home: SettingsPage(db: db)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1234.56'), findsOneWidget);
+    await tester.tap(find.text('数字格式'));
+    await tester.pump();
+
+    expect(find.text('1,234.56'), findsOneWidget);
+    expect(db.savedSettings['group_thousands'], 'true');
+  });
+
   testWidgets('empty backup import disables destructive replace action',
       (tester) async {
     final db = _FakeSettingsDatabase({
@@ -181,7 +202,17 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: SettingsPage(db: db)));
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(SwitchTile, '记住上次状态'));
+    // 中文：设置页加了「主题配色」「语言」两行之后，这一节被推到测试视口（800×600）之下。
+    //       这里补一次 `ensureVisible`——**不是**放宽断言，断言一个字没改，只是让这一次点击
+    //       真的落到控件上，而不是落在屏幕外。
+    // English: The 外观设置 section gained the 「主题配色」 and 「语言」 rows, pushing this section below
+    //          the test viewport (800×600). The `ensureVisible` below is **not** a relaxation — not one
+    //          assertion changed; it just makes the tap land on the control instead of off-screen.
+    final restoreSwitch = find.widgetWithText(SwitchTile, '记住上次状态');
+    await tester.ensureVisible(restoreSwitch);
+    await tester.pump();
+
+    await tester.tap(restoreSwitch);
     await tester.pump();
     expect(db.savedSettings['restore_state'], 'false');
 

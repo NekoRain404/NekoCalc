@@ -242,54 +242,44 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _reportMemory(_controller.memoryAdd());
       case 'memorySubtract':
         _reportMemory(_controller.memorySubtract());
-      // 中文：**结果行的形态**——`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回。HiPER 的手册把
+      // 中文：**结果行的形态**——`x⇔E` 打开菜单、`d/c` 在标准写法与十进制之间来回。HiPER 的手册把
       //       「结果格式」与「数字记法」分成两维（`x⇔E` 是前者、`FSE` 是后者），而 `d/c` 的 SHIFT
-      //       标签 `a b/c`（带分数）正是同一格里分数那一个取值，所以这两颗键管的是同**一维**里的
-      //       两件事：一颗沿着它走一圈，另一颗在分数与十进制之间短接。
+      //       标签 `a b/c` 正是同一格里分数那一格，所以这两颗键管的是同**一维**里的两件事。
       //
       //       **两者都只改显示，一个值都不碰**：`Ans`/`last`、记忆寄存器、继续使用、历史与提交路径
-      //       读的都还是 `MathResult.decimalText`（[CalculatorController.resultDecimal]），这两颗键
-      //       连控制器的状态都不进——形态记在这一页的 `_resultForm` 上。这不是四个进制胶囊那条
-      //       「显示读数」的路（那条要把读数送到状态行上、要与结果的十进制形态比对来源、要带代际），
-      //       而是**结果行自己的画法**：HiPER 的 `x⇔E` 改的就是结果行，所以它必须落在结果行上，
-      //       而不是另开一格显示区。
+      //       读的都还是 `MathResult.decimalText`，这两颗键连控制器的状态都不进——形态记在这一页的
+      //       `_resultForm` 上。这不是四个进制胶囊那条「显示读数」的路，而是**结果行自己的画法**。
       //
-      //       两颗键「按下去有没有变化」由 [ResultPresentation] 回答（它按「画出来是不是同一行」
-      //       合并形态）：`2+2` 只有一种画法，于是两颗都是空操作——一颗**看起来坏了**的键比一颗
-      //       诚实的空操作更像错误，而这里不做任何假装（不弹提示、不写状态行）。
-      // English: **the result line's form** — `x⇔E` walks the cycle, `d/c` toggles between the
-      //          standard spelling and the decimal. HiPER's manual splits "result format" from
-      //          "number notation" (`x⇔E` the first, `FSE` the second), and `d/c`'s SHIFT label
-      //          `a b/c` (a mixed number) is the fraction value in the same cell — so these two keys
-      //          do two things inside **one** dimension: one walks around it, the other short-circuits
-      //          between the fraction and the decimal.
+      //       按下去有没有变化由 [ResultPresentation] 回答（它按「画出来是不是同一行」合并形态）：
+      //       `2+2` 只有一种画法，于是菜单里那些格都是灰的——不做任何假装（不弹提示、不写状态行）。
+      // English: **the result line's form** — `x⇔E` opens the menu, `d/c` toggles between the standard
+      //          spelling and the decimal. HiPER's manual splits "result format" from "number notation"
+      //          (`x⇔E` the first, `FSE` the second), and `d/c`'s SHIFT label `a b/c` is the fraction
+      //          cell of that same dimension — so both keys work inside **one** dimension.
       //
       //          **Both change the display only; neither touches a value**: `Ans`/`last`, the memory
       //          register, continue-with, history and the submit path all still read
-      //          `MathResult.decimalText` ([CalculatorController.resultDecimal]), and these keys do
-      //          not even enter the controller's state — the form lives in this page's `_resultForm`.
-      //          This is not the four base pills' "read-out" route (that one has to send a read-out to
-      //          the status row, compare its source against the result's decimal form and carry a
-      //          generation) but **the result line's own drawing**: HiPER's `x⇔E` changes the result
-      //          line, so it has to land on the result line rather than open a display cell of its own.
+      //          `MathResult.decimalText`, and these keys do not even enter the controller's state —
+      //          the form lives in this page's `_resultForm`. This is not the four base pills'
+      //          "read-out" route but **the result line's own drawing**.
       //
-      //          Whether a press changes anything is answered by [ResultPresentation] (which merges
-      //          forms by "does it draw the same line"): `2+2` has one drawing, so both keys are
-      //          no-ops — a key that *looks* broken is more like a bug than an honest no-op, and
+      //          Whether a press changes anything is [ResultPresentation]'s answer (it merges forms by
+      //          "does it draw the same line"): `2+2` has one drawing, so those menu cells are grey —
       //          nothing is faked here (no toast, no status-row text).
+      // 中文：**自本轮起它打开菜单，不再走一圈**——来源、形状与代价写在 `_openResultFormatSheet` 上。
+      // English: **from this round on it opens the menu, no longer a cycle** — sources, shape and cost
+      //          are on `_openResultFormatSheet`.
       case 'resultForm':
-        _setResultForm(_resultPresentation.next(_resultForm));
+        _openResultFormatSheet();
       case 'fractionForm':
         _setResultForm(_resultPresentation.toggleStandard(_resultForm));
       // 中文：`D°M'S`——**度分秒写法 ⇄ 原来那一行**，与 `d/c` 同一个形状（也是只改显示、值一个
-      //       都不碰）。它与上面两颗的分别只有一处：那一格**不在 `x⇔E` 的循环里**，因为它不是
-      //       `x⇔E` 按出来的（见 `ResultForm.dms`），所以它走 `toggleDms` 而不是 `next`。
-      //       没有度分秒写法时（没引擎、RAD 模式、形状认不出）是同样的空操作。
+      //       都不碰），只是走 `toggleDms` 而不经过菜单。没有度分秒写法时（没引擎、RAD 模式、
+      //       形状认不出）是同样的空操作。
       // English: `D°M'S` — **the DMS spelling ⇄ the line it had**, the same shape as `d/c` (display
-      //          only, not one value touched). Its one difference from the two above: that cell is
-      //          **not in `x⇔E`'s cycle**, because it is not something `x⇔E` steps to (see
-      //          `ResultForm.dms`), so it goes through `toggleDms` rather than `next`. With no DMS
-      //          spelling (no engine, RAD mode, an unrecognised shape) it is the same honest no-op.
+      //          only, not one value touched), except that it goes through `toggleDms` and never
+      //          through the menu. With no DMS spelling (no engine, RAD mode, an unrecognised shape)
+      //          it is the same honest no-op.
       case 'dmsForm':
         _setResultForm(_resultPresentation.toggleDms(_resultForm));
       // 中文：`ins:` 前缀 = 插入这段文本。三处落点比裸插入更贴切：`%` 走控制器的百分号运算（`50+10%`
@@ -779,6 +769,10 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
   ResultPresentation get _resultPresentation => ResultPresentation.of(
         resultTex: _controller.resultTex,
         fractionTex: _controller.resultFractionTex,
+        // 中文：带分数那一格——与上面两份同一条路，空串 = 这一次没有这一格（菜单里那一项点不动）。
+        // English: the mixed-number cell — the same road as the two above; empty means there is none
+        //          this time (and that menu entry cannot be pressed).
+        mixedTex: _controller.resultMixedTex,
         resultDecimal: _controller.resultDecimal,
         naturalDisplay: widget.settings.expressionDisplayMode == '数学符号',
         // 中文：度分秒那一格的另外两个入参：引擎给的那串写法（形状由 `ResultPresentation` 判），

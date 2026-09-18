@@ -178,6 +178,20 @@ mixin _CalculatorState on ChangeNotifier {
   ///          **never** be fed to a numeric consumer.
   String get resultFractionTex => _result.fractionTex;
 
+  /// 中文：**结果的带分数写法**（HiPER 结果格式菜单里 `Mixed number` 那一格要的东西），与
+  ///       [resultFractionTex] 是同一个已求值结构的两次打印，值严格相等（见 `MathResult.mixedTex`）。
+  ///       空串表示这一次没有带分数写法——引擎缺席、旧解析器上屏、原生侧不认识这个字段、或者这一份
+  ///       结果在 `FRACTION_COMBINED` 下印出来的是排不出来的 `\num{…}`；调用方照常工作，那一格于是
+  ///       不存在。与 [resultTex] 一样，**它绝不能被喂给任何数值消费者**。
+  /// English: **the result's mixed-number spelling** (what HiPER's `Mixed number` cell in the result
+  ///          format menu needs). It and [resultFractionTex] are two prints of one evaluated structure
+  ///          and carry strictly equal values (see `MathResult.mixedTex`). An empty string means there
+  ///          is none this time — no engine, the legacy parser on screen, a native side that does not
+  ///          know the field, or a result whose `FRACTION_COMBINED` print is an untypesettable
+  ///          `\num{…}`; callers keep working and the cell then does not exist. Like [resultTex] it
+  ///          must **never** be fed to a numeric consumer.
+  String get resultMixedTex => _result.mixedTex;
+
   /// 中文：**结果的度分秒写法**（HiPER 的 `DMS` 那一格要的东西）。它与 [resultDecimal] 描述的是
   ///       同一个数——引擎对**同一个近似结构**的两次打印（见 `MathResult.dmsText`）。空串表示这一次
   ///       没有这一种写法（没有引擎、旧解析器上屏、换算那一支）；调用方照常工作，那一颗键于是是

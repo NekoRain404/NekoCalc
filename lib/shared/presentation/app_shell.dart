@@ -15,6 +15,8 @@ class AppShell extends StatefulWidget {
     required this.settings,
     required this.onSettingsChanged,
     required this.onThemeModeChanged,
+    this.onThemeChanged,
+    this.onLanguageChanged,
     super.key,
   });
 
@@ -22,6 +24,16 @@ class AppShell extends StatefulWidget {
   final AppSettings settings;
   final Future<void> Function() onSettingsChanged;
   final ValueChanged<String> onThemeModeChanged;
+
+  /// 中文：配色选择（`CalcTheme.id`）与语言选择（`AppLanguage.code`）的实时回调，转交给设置页。
+  ///       可选：不接时设置页仍会正常落库，只是要等退出设置页后由 `onSettingsChanged` 一次性刷新。
+  ///       单独渲染 `AppShell` 的既有测试因此不必新增参数。
+  /// English: Live callbacks for the palette (`CalcTheme.id`) and language (`AppLanguage.code`)
+  ///          choices, forwarded to the settings page. Optional: without them the page still persists
+  ///          both, they just only take effect when the page pops and `onSettingsChanged` refreshes.
+  ///          The existing tests that render `AppShell` on its own therefore need no new arguments.
+  final ValueChanged<String>? onThemeChanged;
+  final ValueChanged<String>? onLanguageChanged;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -51,6 +63,8 @@ class _AppShellState extends State<AppShell> {
     await Navigator.of(context).push(_fadeRoute(SettingsPage(
       db: widget.db,
       onThemeModeChanged: widget.onThemeModeChanged,
+      onThemeChanged: widget.onThemeChanged,
+      onLanguageChanged: widget.onLanguageChanged,
       onDataImported: _handleDataImported,
     )));
     await widget.onSettingsChanged();

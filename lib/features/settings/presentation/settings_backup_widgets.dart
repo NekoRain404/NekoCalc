@@ -18,6 +18,7 @@ class _BackupImportPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final warnings = buildBackupPreviewWarnings(
       source,
       now: DateTime.now(),
@@ -28,13 +29,13 @@ class _BackupImportPrompt extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _BackupPreviewBlock(title: '备份文件', preview: source),
+          _BackupPreviewBlock(title: s.backupFileTitle, preview: source),
           if (warnings.isNotEmpty) ...[
             const SizedBox(height: 8),
             _BackupWarningsBlock(warnings: warnings),
           ],
           const SizedBox(height: 12),
-          _BackupPreviewBlock(title: '本机当前', preview: local),
+          _BackupPreviewBlock(title: s.localCurrentTitle, preview: local),
           const SizedBox(height: 12),
           _BackupPlanBlock(plan: mergePlan),
           const SizedBox(height: 10),
@@ -53,7 +54,7 @@ class _BackupImportPrompt extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '请确认文件来自可信备份。覆盖恢复会先清空本机数据；合并导入会保留本机数据，但设置和同一工具记录可能被备份内容更新。',
+                  s.importWarning,
                   style:
                       TextStyle(color: scheme.onSurfaceVariant, height: 1.35),
                 ),
@@ -78,16 +79,19 @@ class _BackupPreviewBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         Text(
-          '版本：${preview.appVersion ?? '未知'}\n'
-          '时间：${preview.exportedAt ?? '本机当前'}\n'
-          '总计：${preview.totalLabel}\n'
-          '${preview.summary}',
+          s.backupPreviewSummary(
+            preview.appVersion ?? s.unknownValue,
+            preview.exportedAt ?? s.localCurrentTitle,
+            preview.totalLabel,
+            preview.summary,
+          ),
           style: TextStyle(color: scheme.onSurfaceVariant, height: 1.35),
         ),
       ],
@@ -103,6 +107,7 @@ class _BackupWarningsBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final highestSeverity = warnings.fold<BackupPreviewWarningSeverity>(
       BackupPreviewWarningSeverity.info,
       (current, warning) =>
@@ -133,7 +138,7 @@ class _BackupWarningsBlock extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 18),
               const SizedBox(width: 8),
-              Text('备份提示',
+              Text(s.backupWarningsTitle,
                   style: TextStyle(color: color, fontWeight: FontWeight.w800)),
             ],
           ),
@@ -164,6 +169,7 @@ class _BackupPlanBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final color = plan.replaceExisting ? scheme.error : scheme.primary;
     return Container(
       width: double.infinity,
@@ -188,7 +194,7 @@ class _BackupPlanBlock extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${plan.modeLabel}后预计 ${plan.totalLabel}',
+                  s.backupPlanHeadline(plan.modeLabel, plan.totalLabel),
                   style: TextStyle(color: color, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -321,6 +327,7 @@ class _BackupPlanRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final deltaText = delta > 0 ? '+$delta' : delta.toString();
     final deltaColor = delta < 0
         ? scheme.error
@@ -338,7 +345,7 @@ class _BackupPlanRow extends StatelessWidget {
         ),
         Expanded(
           child: Text(
-            '本机 $before · 文件 $source · 导入后 $expected',
+            s.backupPlanRow(before, source, expected),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
@@ -366,12 +373,14 @@ class _DataSummaryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final current = preview;
     return ListTile(
       leading: Icon(Icons.storage_outlined, color: scheme.primary),
-      title: const Text('本机数据', style: TextStyle(fontWeight: FontWeight.w600)),
+      title:
+          Text(s.localDataTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: current == null
-          ? Text('统计中', style: TextStyle(color: scheme.onSurfaceVariant))
+          ? Text(s.counting, style: TextStyle(color: scheme.onSurfaceVariant))
           : Text(
               current.summary,
               style: TextStyle(color: scheme.onSurfaceVariant),
@@ -384,7 +393,7 @@ class _DataSummaryTile extends StatelessWidget {
                 style: TextStyle(color: scheme.onSurfaceVariant)),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: '刷新数据统计',
+            tooltip: s.refreshDataStats,
             onPressed: onRefresh,
             icon: busy
                 ? SizedBox(

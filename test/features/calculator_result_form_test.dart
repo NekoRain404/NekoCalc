@@ -9,6 +9,7 @@ import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keyp
 import 'package:nekocalc/features/calculator/presentation/result_form.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/calculator_display.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/result_format_sheet.dart';
 
 // 中文：`x⇔E` 与 `d/c` 两颗结果格式键。分两层钉：
 //
@@ -110,8 +111,28 @@ void main() {
       //          (both `0.333333`), so it is merged away and the cycle contains no press that
       //          changes nothing.
       expect(p.cycle, <ResultForm>[ResultForm.fraction]);
-      expect(p.resolve(ResultForm.decimal), ResultForm.auto,
-          reason: '在 `1/3` 上请求十进制形态本来就不改变画面，回落到 auto');
+      // 中文：**本条断言自结果格式菜单那一轮起换了值**。从前这里要的是 `auto`：那时
+      //       `resolve` 的判据是 `cycle.contains`，而十进制形态在 `1/3` 上与默认那一行画出来
+      //       逐字符相同、被合并掉了，于是请求它只能回落到 `auto`。菜单来了之后判据换成
+      //       `canDraw`（「这一份结果有没有这一格」），而 `1/3` **有**十进制读数——菜单里那一项
+      //       于是亮着，选它就该停在它上面。
+      //       **fail-closed 没有被放宽**：`resolve` 保证的从来不是「一定回落到 auto」，而是
+      //       「画出来永远是这一份结果自己的一行、不会空白也不会是另一个数」。十进制形态的 TeX
+      //       是空串（`texFor`），整行就是那串读数，与 `auto` 在这里画出来的东西**逐字符相同**
+      //       ——选与不选，屏幕上是同一行。
+      // English: **this assertion's value changed in the result format menu round.** It used to want
+      //          `auto`: `resolve` was judged by `cycle.contains`, and the decimal form draws
+      //          character-for-character the default line for `1/3` and was merged away, so asking for
+      //          it could only fall back. With the menu the judgement is `canDraw` ("does this result
+      //          have this cell") and `1/3` **does** have a decimal reading — the menu entry is live, so
+      //          picking it should stay on it.
+      //          **Fail-closed was not relaxed**: what `resolve` guarantees was never "always fall back
+      //          to auto" but "the line drawn is always one belonging to this result, never blank and
+      //          never another number". The decimal form's TeX is the empty string (`texFor`) and the
+      //          whole line is that reading — character for character what `auto` draws here, so the
+      //          screen is the same line whether it is picked or not.
+      expect(p.resolve(ResultForm.decimal), ResultForm.decimal,
+          reason: '有十进制读数就有这一格；选它停在它上面，画出来与 auto 逐字符相同');
     });
 
     test('`2+2`：两种写法都等于那串十进制，所以只有一种画法', () {
@@ -302,12 +323,13 @@ void main() {
     });
   });
 
-  group('端到端：`x⇔E` 循环结果行的形态', () {
-    testWidgets('`√8`：默认 → 精确 → 十进制 → 默认', (tester) async {
+  group('端到端：`x⇔E` 打开的菜单', () {
+    testWidgets('`√8`：菜单里点 Expression / Decimal / 默认，三次都画对了', (tester) async {
       reply(<String, String>{
         'decimal': '2.828427124746190',
         'latex': r'2\times \sqrt{2}',
         'fraction': r'2\times \sqrt{2}',
+        'mixed': r'2\times \sqrt{2}',
         'kind': 'number',
       });
 
@@ -316,17 +338,34 @@ void main() {
       await _typeKeys(tester, <String>['√x', '8']);
       await tester.pumpAndSettle();
 
-      // 1. 默认：精确形式 + `≈` 读数。
+      // 1. 默认：精确形式 + `≈` 读数——按任何键之前那一行，与接菜单之前逐字符相同。
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'2\times \sqrt{2}');
       expect(find.text('≈'), findsOneWidget);
 
-      // 2. 精确形态：只剩排出来的那一段，`≈` 那一半整个不出现。
+      // 2. **`x⇔E` 打开菜单**（本轮改的就是这一处）：七个名字，全是 HiPER 的原文。
       await _tapKey(tester, 'x⇔E');
+      for (final label in <String>[
+        '默认',
+        'Decimal',
+        'Expression',
+        'Fraction',
+        'Mixed number',
+        'Degrees, mins, secs',
+        'Polar coordinates',
+      ]) {
+        expect(find.descendant(of: find.byType(ResultFormatSheet), matching: find.text(label)),
+            findsOneWidget,
+            reason: '菜单里应当有「$label」这一项');
+      }
+
+      // 3. Expression：只剩排出来的那一段，`≈` 那一半整个不出现。
+      await _pickInMenu(tester, 'Expression');
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'2\times \sqrt{2}');
       expect(find.text('≈'), findsNothing);
 
-      // 3. 十进制形态：一段都不排，整行就是读数。
+      // 4. Decimal：一段都不排，整行就是读数。
       await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, 'Decimal');
       expect(_typesetResult(), findsNothing);
       expect(find.text('≈'), findsNothing);
       expect(
@@ -337,17 +376,59 @@ void main() {
         findsOneWidget,
       );
 
-      // 4. 回到默认——与第 1 步逐字符相同的画面。
+      // 5. 回到默认——与第 1 步逐字符相同的画面。
       await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, '默认');
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'2\times \sqrt{2}');
       expect(find.text('≈'), findsOneWidget);
     });
 
-    testWidgets('`2+2`：只有一种画法，两颗键按下去都不改变屏幕', (tester) async {
+    testWidgets('`√8`：菜单里没有分数的写法的那两项是灰的，点不动', (tester) async {
+      reply(<String, String>{
+        'decimal': '2.828427124746190',
+        'latex': r'2\times \sqrt{2}',
+        'fraction': r'2\times \sqrt{2}',
+        'mixed': r'2\times \sqrt{2}',
+        'kind': 'number',
+      });
+
+      await tester.pumpWidget(_page());
+      await tester.pumpAndSettle();
+      await _typeKeys(tester, <String>['√x', '8']);
+      await tester.pumpAndSettle();
+      await _tapKey(tester, 'x⇔E');
+
+      // 中文：分数写法与精确写法逐字符相同 → `_accepted` 不收它 → 这一格不存在；带分数同理。
+      //       菜单里这两项于是灰着，而且**点它们什么都不会发生**（菜单不会关、屏幕不会变）。
+      // English: the fraction spelling is character for character the exact one, so `_accepted`
+      //          rejects it and the cell does not exist; the mixed number likewise. Those two entries
+      //          are therefore grey, and **pressing them does nothing at all** (the sheet does not
+      //          close, the screen does not change).
+      expect(_menuTile(tester, 'Fraction').enabled, isFalse);
+      expect(_menuTile(tester, 'Mixed number').enabled, isFalse);
+      expect(_menuTile(tester, 'Expression').enabled, isTrue);
+      expect(_menuTile(tester, 'Decimal').enabled, isTrue);
+      expect(_menuTile(tester, 'Polar coordinates').enabled, isFalse,
+          reason: '本应用今天给不出极坐标印法——这一项必须看得见地拒绝，而不是按下去没反应');
+
+      final before = tester.widget<CalculatorDisplay>(find.byType(CalculatorDisplay)).resultForm;
+      await tester.tap(find.descendant(
+        of: find.byType(ResultFormatSheet),
+        matching: find.text('Fraction'),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.byType(ResultFormatSheet), findsOneWidget,
+          reason: '灰掉的那一项不该关掉菜单');
+      expect(tester.widget<CalculatorDisplay>(find.byType(CalculatorDisplay)).resultForm, before,
+          reason: '灰掉的那一项不该改任何状态');
+    });
+
+    testWidgets('`2+2`：菜单里只有默认那一行可以改画面，两颗键都不改变屏幕', (tester) async {
       reply(<String, String>{
         'decimal': '4',
         'latex': '4',
         'fraction': '4',
+        'mixed': '4',
         'kind': 'number',
       });
 
@@ -357,8 +438,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_typesetResult(), findsNothing);
-      for (final key in <String>['x⇔E', 'd/c', 'x⇔E', 'd/c']) {
+      for (final key in <String>['d/c', 'x⇔E', 'd/c']) {
         await _tapKey(tester, key);
+        // 中文：`x⇔E` 走到这里时菜单开着，先关掉它再看屏幕——菜单本身不画结果，但「屏幕没变」
+        //       这句话要在菜单关掉之后量才有意义。关法就是点面板外面一次。
+        if (key == 'x⇔E') {
+          await tester.tapAt(const Offset(10, 10));
+          await tester.pumpAndSettle();
+        }
         expect(_typesetResult(), findsNothing,
             reason: '$key 之后仍然是纯文本读数：这一份结果没有第二种画法');
         expect(
@@ -371,8 +458,11 @@ void main() {
       }
     });
 
-    testWidgets('引擎没答上来（旧解析器上屏）：两颗键都是空操作，那一行一个字节不变', (tester) async {
-      // 中文：回执里没有 `fraction` 字段——原生侧版本不匹配就是这一种，旧解析器上屏也是这一种。
+    testWidgets('引擎没答上来（旧解析器上屏）：菜单里只有默认与十进制可以点，屏幕一个字节不变', (tester) async {
+      // 中文：回执里没有 `fraction`/`mixed` 字段——原生侧版本不匹配就是这一种，旧解析器上屏也是
+      //       这一种。
+      // English: the receipt carries no `fraction`/`mixed` field — that is a native version mismatch,
+      //          and also the legacy parser on screen.
       reply(<String, String>{'decimal': '0.3333333333333333'});
 
       await tester.pumpWidget(_page());
@@ -381,22 +471,108 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_display(tester).resultFractionTex, isEmpty);
+      expect(_display(tester).resultMixedTex, isEmpty);
       expect(_typesetResult(), findsNothing);
 
-      for (final key in <String>['d/c', 'x⇔E']) {
-        await _tapKey(tester, key);
-        expect(tester.takeException(), isNull);
-        expect(_typesetResult(), findsNothing, reason: '$key 没有分数可给，也不许去猜一个');
-        expect(
-          find.descendant(
-            of: find.byType(CalculatorDisplay),
-            matching: find.text('0.333333'),
-          ),
-          findsOneWidget,
-        );
-      }
+      await _tapKey(tester, 'x⇔E');
+      expect(_menuTile(tester, 'Fraction').enabled, isFalse);
+      expect(_menuTile(tester, 'Mixed number').enabled, isFalse);
+      expect(_menuTile(tester, 'Expression').enabled, isFalse,
+          reason: '`\num{…}` 排不出来，精确那一格也不存在');
+      expect(_menuTile(tester, 'Degrees, mins, secs').enabled, isFalse);
+      // 中文：**默认与十进制亮着**——这一份结果真的有读数，而「画成十进制」就是它。
+      // English: **default and Decimal are live** — this result really has a reading, and "draw it as
+      //          a decimal" is exactly that.
+      expect(_menuTile(tester, '默认').enabled, isTrue);
+      expect(_menuTile(tester, 'Decimal').enabled, isTrue);
+      await _pickInMenu(tester, 'Decimal');
+
+      expect(_typesetResult(), findsNothing, reason: '没有分数可给，也不许去猜一个');
+      expect(
+        find.descendant(
+          of: find.byType(CalculatorDisplay),
+          matching: find.text('0.333333'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('带分数那一项真的画得出来：`10/4` 选 Mixed number 得到 `2 + \frac{1}{2}`', (tester) async {
+      reply(<String, String>{
+        'decimal': '2.5',
+        'latex': '2.5',
+        'fraction': r'\frac{5}{2}',
+        'mixed': r'2 + \frac{1}{2}',
+        'kind': 'number',
+      });
+
+      await tester.pumpWidget(_page());
+      await tester.pumpAndSettle();
+      await _typeKeys(tester, <String>['1', '0', '÷', '4']);
+      await tester.pumpAndSettle();
+
+      await _tapKey(tester, 'x⇔E');
+      expect(_menuTile(tester, 'Mixed number').enabled, isTrue);
+      await _pickInMenu(tester, 'Mixed number');
+
+      expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'2 + \frac{1}{2}');
+      // 中文：**同一个数**——2.5 就是 2 + 1/2。结果行的读数一个字都没动，状态行上点的是 `MIXED`。
+      // English: **the same number** — 2.5 *is* 2 + 1/2. The result line's reading has not moved a
+      //          character, and the status row lights `MIXED`.
+      expect(_display(tester).result, '2.5');
+      expect(_display(tester).resultDecimal, '2.5');
+      expect(_display(tester).resultMixedTex, r'2 + \frac{1}{2}');
+      expect(find.text('MIXED'), findsOneWidget);
+    });
+
+    testWidgets('分数与带分数是两格：`10/4` 选 Fraction 得到 `\frac{5}{2}`，不点 `MIXED`', (tester) async {
+      reply(<String, String>{
+        'decimal': '2.5',
+        'latex': '2.5',
+        'fraction': r'\frac{5}{2}',
+        'mixed': r'2 + \frac{1}{2}',
+        'kind': 'number',
+      });
+
+      await tester.pumpWidget(_page());
+      await tester.pumpAndSettle();
+      await _typeKeys(tester, <String>['1', '0', '÷', '4']);
+      await tester.pumpAndSettle();
+
+      await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, 'Fraction');
+
+      expect(tester.widget<MathExpressionView>(_typesetResult()).tex, r'\frac{5}{2}');
+      expect(find.text('MIXED'), findsNothing,
+          reason: '`\frac{5}{2}` 是假分数，给它挂 MIXED 才是假话');
+      expect(_display(tester).resultDecimal, '2.5');
     });
   });
+}
+
+/// 中文：菜单里某一项那一行（`ListTile`）。**按标题文字取**，所以它同时钉住了「那一项在不在」
+///       与「它在不在场」。
+/// English: One entry's row (`ListTile`) in the menu, found by its title text — so it pins both that
+///          the entry is there and what state it is in.
+ListTile _menuTile(WidgetTester tester, String label) => tester.widget<ListTile>(
+      find.ancestor(
+        of: find.descendant(
+          of: find.byType(ResultFormatSheet),
+          matching: find.text(label),
+        ),
+        matching: find.byType(ListTile),
+      ),
+    );
+
+/// 中文：在菜单里点某一项（面板会自己关掉）。
+/// English: Pick one entry in the menu (the sheet closes itself).
+Future<void> _pickInMenu(WidgetTester tester, String label) async {
+  await tester.tap(find.descendant(
+    of: find.byType(ResultFormatSheet),
+    matching: find.text(label),
+  ));
+  await tester.pumpAndSettle();
+  expect(find.byType(ResultFormatSheet), findsNothing, reason: '选完一项面板该关掉');
 }
 
 /// 中文：结果行里那一个**直入 TeX** 的排版视图。表达式行也有一个 `MathExpressionView`，但它永远

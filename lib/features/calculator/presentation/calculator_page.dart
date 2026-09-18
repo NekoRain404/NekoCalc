@@ -21,6 +21,7 @@ import 'widgets/calculator_display.dart';
 import 'widgets/dataset_sheet.dart';
 import 'widgets/inline_expression_editor.dart';
 import 'widgets/regression_graph_sheet.dart';
+import 'widgets/result_format_sheet.dart';
 import 'widgets/unit_picker_sheet.dart';
 import 'widgets/variable_picker_sheet.dart';
 
@@ -323,6 +324,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          shapes in `CalculatorDisplay`.
       resultTex: _controller.resultTex,
       resultFractionTex: _controller.resultFractionTex,
+      // 中文：带分数写法（引擎在 `FRACTION_COMBINED` 下印的那一份，结果格式菜单里 `Mixed number`
+      //       那一项要的东西）。空串表示这一次没有这一格，菜单里那一项于是点不动——与 `d/c` 同一条路。
+      // English: the mixed-number spelling (the engine's `FRACTION_COMBINED` print — what the
+      //          `Mixed number` entry of the result format menu needs). An empty string means there is
+      //          no such cell this time and that entry cannot be pressed — the same road as `d/c`.
+      resultMixedTex: _controller.resultMixedTex,
       // 中文：度分秒写法（引擎那一串原文，`D°M'S` 那一颗键要的东西）。空串表示这一次没有，
       //       那一颗键于是是空操作——与 `d/c` 同一条路。
       // English: the DMS spelling (the engine's own string — what the `D°M'S` key needs). An empty

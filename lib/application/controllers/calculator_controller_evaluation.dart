@@ -718,21 +718,18 @@ mixin _CalculatorEvaluation on _CalculatorState {
         groupThousands: _settings.groupThousands,
       ),
       displayTex: engineResult.displayTex,
-      // 中文：分数写法跟着走，理由与下面的 `resultKind` 逐字相同：它是**同一次求值**的另一半，
-      //       丢了它 `d/c` 那一颗键就在引擎已经答出来的结果上变成空操作——一个没有任何理由的退化。
-      // English: the fraction spelling travels too, for the same reason as `resultKind` below, word
-      //          for word: it is the other half of **this same evaluation**, and dropping it would
-      //          turn the `d/c` key into a no-op on a result the engine did answer — a degradation
-      //          with no reason behind it.
+      // 中文：**三种「写法」都跟着走**（分数 / 带分数 / 度分秒），理由与下面的 `resultKind` 逐字
+      //       相同——它们是**同一次求值**的另外几半，各自是同一个已求值结构的又一次打印。丢了哪
+      //       一份，对应那一格（`d/c` / 菜单里 `Mixed number` / `D°M'S`）就在引擎已经答出来的结果上
+      //       变成空操作或永远灰着，而那个退化没有任何理由。（`mixedTex` 漏过一次，被 `10/4` 逮到。）
+      // English: **all three spellings travel** (fraction / mixed number / DMS), for the same reason as
+      //          `resultKind` below, word for word — they are the other halves of **this same
+      //          evaluation**, each an extra print of one evaluated structure. Dropping one turns its
+      //          cell (the `d/c` key, the menu's `Mixed number` entry, `D°M'S`) into a no-op or a
+      //          permanently grey row on a result the engine did answer, a degradation with no reason
+      //          behind it. (`mixedTex` was dropped here once; `10/4` caught it.)
       fractionTex: engineResult.fractionTex,
-      // 中文：度分秒写法同样跟着走，理由与 `fractionTex` 逐字相同——**这是同一次求值的另一半**，
-      //       而且它描述的就是下面这行 `decimalText` 同一个数（同一个近似结构的两次打印）。
-      //       丢了它，`D°M'S` 那一颗键在引擎已经答出来的结果上会变成空操作，一个没有理由的退化。
-      // English: the DMS spelling travels for exactly what `fractionTex` travels for — it is **the
-      //          other half of this same evaluation**, and it describes the same number as
-      //          `decimalText` on the line below (two renders of one approximated structure). Dropping
-      //          it would turn the `D°M'S` key into a no-op on a result the engine did answer — a
-      //          degradation with no reason behind it.
+      mixedTex: engineResult.mixedTex,
       dmsText: engineResult.dmsText,
       decimalText: engineResult.decimalText,
       // 中文：`resultKind` 必须跟着走。丢了它，重建出来的结果会带上 `notFromEngine`——

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../application/app_settings.dart';
 import '../../../application/update/github_release_checker.dart';
 import '../../../core/constants/app_info.dart';
 import '../../../core/platform/app_link_channel.dart';
@@ -11,7 +12,16 @@ import '../../../core/utils/backup_snapshot_validator.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/repositories/data_backup_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../l10n/app_language.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import '../../../shared/presentation/calc_theme.dart';
+
+// 中文：文案表刻意**不是** `part`：它是独立库，测试可以直接 import 它，不必把整棵设置页控件树
+//       拖进来；它也因此可以有自己的 import。（Dart 要求 import 全部排在 part 之前。）
+// English: The string table is deliberately **not** a `part`: as a standalone library the tests can
+//          import it directly without dragging in the whole settings widget tree, and it can carry
+//          imports of its own. (Dart requires every import to precede the part directives.)
+import 'settings_strings.dart';
 
 part 'settings_dialogs.dart';
 part 'settings_backup_widgets.dart';
@@ -23,6 +33,8 @@ class SettingsPage extends StatefulWidget {
   const SettingsPage({
     required this.db,
     this.onThemeModeChanged,
+    this.onThemeChanged,
+    this.onLanguageChanged,
     this.onDataImported,
     this.updateChecker,
     this.appLinkOpener,
@@ -31,6 +43,15 @@ class SettingsPage extends StatefulWidget {
 
   final AppDatabase db;
   final ValueChanged<String>? onThemeModeChanged;
+
+  /// 中文：配色与语言的实时回调，收到的是**持久化令牌**（`CalcTheme.id` / `AppLanguage.code`），
+  ///       不是屏幕上的标签。设置页自己已经落库，这里只是让外壳立刻跟着换。
+  /// English: Live callbacks for the palette and the language. Each receives a **persisted token**
+  ///          (`CalcTheme.id` / `AppLanguage.code`), never an on-screen label; the page has already
+  ///          saved it, this only makes the shell follow immediately.
+  final ValueChanged<String>? onThemeChanged;
+  final ValueChanged<String>? onLanguageChanged;
+
   final Future<void> Function()? onDataImported;
   final GithubReleaseChecker? updateChecker;
   final AppLinkOpener? appLinkOpener;
@@ -44,11 +65,23 @@ class _SettingsPageState extends State<SettingsPage> {
   String _hapticStrength = AppHaptics.medium;
   bool _restoreState = true;
   bool _autoSave = true;
-  String _themeMode = '跟随系统';
-  String _angleMode = '弧度';
-  String _digits = '6 位';
+
+  // 中文：下面六个字段全部是**持久化令牌**（`SettingsTokens` / `CalcTheme.id` / `AppLanguage.code`），
+  //       不是屏幕上显示的那句话。显示走 `SettingsStrings` 的 `*Label` 方法，两者绝不合并：
+  //       令牌一被翻译，用户库里已经存好的值立刻对不上，而 `fromMap` 的 `??` 回退只会静默变成
+  //       默认值，不会有任何报错。
+  // English: All six fields below hold **persisted tokens** (`SettingsTokens` / `CalcTheme.id` /
+  //          `AppLanguage.code`), never the text on screen. Rendering goes through `SettingsStrings`'
+  //          `*Label` methods and the two are never merged: translate a token and the value already in
+  //          the user's database stops matching, where `fromMap`'s `??` fallbacks turn it into the
+  //          default silently, with no error anywhere.
+  String _themeMode = SettingsTokens.themeModeSystem;
+  String _themeId = SettingsTokens.defaultThemeId;
+  String _languageCode = SettingsTokens.defaultLanguageCode;
+  String _angleMode = SettingsTokens.angleModeRadians;
+  String _digits = SettingsTokens.digits6;
   bool _groupThousands = false;
-  String _expressionDisplay = '数学符号';
+  String _expressionDisplay = SettingsTokens.expressionDisplaySymbols;
   bool _backupBusy = false;
   bool _updateBusy = false;
   BackupPreview? _localBackupPreview;
@@ -95,6 +128,14 @@ class _SettingsPageState extends State<SettingsPage> {
         _themeMode = settings['theme_mode'] ?? _themeMode;
       }
       if (!preserveLocalEdits ||
+          !_locallyEditedSettingKeys.contains('theme_id')) {
+        _themeId = settings['theme_id'] ?? _themeId;
+      }
+      if (!preserveLocalEdits ||
+          !_locallyEditedSettingKeys.contains('language')) {
+        _languageCode = settings['language'] ?? _languageCode;
+      }
+      if (!preserveLocalEdits ||
           !_locallyEditedSettingKeys.contains('angle_mode')) {
         _angleMode = settings['angle_mode'] ?? _angleMode;
       }
@@ -108,9 +149,16 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       if (!preserveLocalEdits ||
           !_locallyEditedSettingKeys.contains('expression_display')) {
-        _expressionDisplay = settings['expression_display'] == '函数表达式'
-            ? '数学表达式'
-            : settings['expression_display'] ?? _expressionDisplay;
+        // 中文：**旧值迁移**——`'函数表达式'` 是历史令牌，读到时升级成 `'数学表达式'`。
+        //       两个字面量都直接来 `SettingsTokens`，因为它们是存储格式，不是可以翻译的文案。
+        // English: **Legacy migration** — `'函数表达式'` is a historical token and is upgraded to
+        //          `'数学表达式'` on read. Both literals come straight from `SettingsTokens`, being
+        //          storage format rather than translatable copy.
+        _expressionDisplay =
+            settings['expression_display'] ==
+                    SettingsTokens.expressionDisplayFunctionLegacy
+                ? SettingsTokens.expressionDisplayMath
+                : settings['expression_display'] ?? _expressionDisplay;
       }
     });
   }
@@ -129,6 +177,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 中文：文案一律经这张表取，控件里不留界面字面量——这是"后续迁移是机械的"的样板：
+    //       加一种语言只动 `settings_strings.dart` 与 `AppLanguage`，本文件一个字不用改。
+    // English: All copy comes through this table; the widgets keep no UI literals of their own. That
+    //          is the template the later migrations follow: adding a language touches only
+    //          `settings_strings.dart` and `AppLanguage`, and not one line of this file.
+    final s = SettingsStrings.of(context);
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -138,71 +192,86 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 IconToolButton(
                     icon: Icons.arrow_back_ios_new,
-                    tooltip: '返回',
+                    tooltip: s.backTooltip,
                     onTap: () => Navigator.pop(context)),
-                const Expanded(child: Center(child: PageTitle('设置'))),
+                Expanded(child: Center(child: PageTitle(s.pageTitle))),
                 const SizedBox(width: 36),
               ],
             ),
             const SizedBox(height: 20),
-            const SectionTitle('外观设置'),
+            SectionTitle(s.sectionAppearance),
             SettingsGroup(
               children: [
                 SettingsTile(
                     icon: Icons.contrast,
-                    title: '主题模式',
-                    value: _themeMode,
+                    title: s.themeModeTileTitle,
+                    value: s.themeModeLabel(_themeMode),
                     onTap: _cycleTheme),
                 SettingsTile(
+                    icon: Icons.palette_outlined,
+                    title: s.themeTileTitle,
+                    value: CalcTheme.resolve(_themeId).name,
+                    onTap: _cycleCalcTheme),
+                SettingsTile(
+                    icon: Icons.translate,
+                    title: s.languageTileTitle,
+                    value: AppLanguage.fromCode(_languageCode).label,
+                    onTap: _cycleLanguage),
+                SettingsTile(
                     icon: Icons.architecture,
-                    title: '角度模式',
-                    value: _angleMode,
+                    title: s.angleModeTileTitle,
+                    value: s.angleModeLabel(_angleMode),
                     onTap: _cycleAngleMode),
                 SettingsTile(
                     icon: Icons.pin,
-                    title: '数字格式',
+                    title: s.numberFormatTileTitle,
+                    // 中文：示例数字刻意不翻译——它演示的就是分组符号本身。
+                    // English: The sample number is deliberately not translated; the grouping
+                    //          separator is the thing it demonstrates.
                     value: _groupThousands ? '1,234.56' : '1234.56',
                     onTap: _toggleThousandsGrouping),
                 SettingsTile(
                     icon: Icons.more_horiz,
-                    title: '小数位数',
-                    value: _digits,
+                    title: s.decimalPlacesTileTitle,
+                    value: s.digitsLabel(_digits),
                     onTap: () => _cycleDigits()),
                 SettingsTile(
                     icon: Icons.functions,
-                    title: '表达式显示',
-                    value: _expressionDisplay,
+                    title: s.expressionDisplayTileTitle,
+                    value: s.expressionDisplayLabel(_expressionDisplay),
                     onTap: _cycleExpressionDisplay),
               ],
             ),
             const SizedBox(height: 18),
-            const SectionTitle('使用体验'),
+            SectionTitle(s.sectionExperience),
             SettingsGroup(
               children: [
                 SwitchTile(
                     icon: Icons.touch_app_outlined,
-                    title: '触感反馈',
+                    title: s.hapticsTileTitle,
                     value: _haptics,
                     onChanged: (value) => _setBool('haptics', value)),
                 SettingsTile(
                     icon: Icons.vibration,
-                    title: '触感强度',
-                    value: _haptics ? _hapticStrength : '关闭',
+                    title: s.hapticStrengthTileTitle,
+                    value: _haptics
+                        ? s.hapticStrengthLabel(_hapticStrength)
+                        : s.hapticsOffLabel,
                     onTap: _haptics ? _cycleHapticStrength : null),
                 SwitchTile(
                     icon: Icons.history,
-                    title: '记住上次状态',
+                    title: s.restoreStateTileTitle,
                     value: _restoreState,
                     onChanged: (value) => _setBool('restore_state', value)),
                 SwitchTile(
                     icon: Icons.save_outlined,
-                    title: '自动保存计算历史',
+                    title: s.autoSaveHistoryTileTitle,
                     value: _autoSave,
                     onChanged: (value) => _setBool('auto_save', value)),
               ],
             ),
             const SizedBox(height: 18),
-            const SectionTitle('数据管理'),
+            SectionTitle(s.sectionData),
             SettingsGroup(
               children: [
                 _DataSummaryTile(
@@ -212,43 +281,45 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 SettingsTile(
                     icon: Icons.ios_share_outlined,
-                    title: '导出备份',
+                    title: s.exportBackupTitle,
                     value: _backupBusy
-                        ? '处理中'
-                        : _localBackupPreview?.totalLabel ?? '保存文件',
+                        ? s.processing
+                        : _localBackupPreview?.totalLabel ?? s.saveFile,
                     onTap: _backupBusy ? null : _exportBackup),
                 SettingsTile(
                     icon: Icons.restore_page_outlined,
-                    title: '导入恢复',
-                    value: _backupBusy ? '处理中' : '选择文件',
+                    title: s.importBackupTitle,
+                    value: _backupBusy ? s.processing : s.chooseFile,
                     onTap: _backupBusy ? null : _importBackup),
               ],
             ),
             const SizedBox(height: 18),
-            const SectionTitle('关于与其他'),
+            SectionTitle(s.sectionAbout),
             SettingsGroup(
               children: [
                 SettingsTile(
                     icon: Icons.info_outline,
-                    title: '关于 ${AppInfo.name}',
+                    title: s.aboutTileTitle,
                     value: AppInfo.version,
                     onTap: _showAbout),
                 SettingsTile(
                     icon: Icons.system_update_alt,
-                    title: '检查更新',
-                    value: _updateBusy ? '正在检查' : 'GitHub Releases',
+                    title: s.checkUpdateTitle,
+                    // 中文：`GitHub Releases` 是产品名，不是文案，不翻译。
+                    // English: `GitHub Releases` is a product name, not copy; left untranslated.
+                    value: _updateBusy ? s.checking : 'GitHub Releases',
                     onTap: _updateBusy ? null : _checkForUpdate),
                 SettingsTile(
                     icon: Icons.help_outline,
-                    title: '帮助与反馈',
-                    value: '诊断报告与 GitHub Issue',
+                    title: s.helpFeedbackTitle,
+                    value: s.helpFeedbackValue,
                     onTap: _showHelpAndFeedback),
                 SettingsTile(
                     icon: Icons.privacy_tip_outlined,
-                    title: '隐私政策',
+                    title: s.privacyPolicyTitle,
                     value: '',
-                    onTap: () => _showInfo('隐私政策',
-                        '所有计算历史、收藏工具、设置和笔记当前仅存储在本机 SQLite 数据库，不会上传到网络服务。')),
+                    onTap: () =>
+                        _showInfo(s.privacyPolicyTitle, s.privacyPolicyBody)),
               ],
             ),
           ],
@@ -257,24 +328,65 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // 中文：下面每个 `_cycle*` 都只做两件事：把**持久化令牌**换到下一个，然后原样写库。
+  //       屏幕上那句标签由 `build` 经 `SettingsStrings` 取得，循环里一个字面量都不出现——
+  //       这正是"切换语言不改动持久化值"的结构性保证：令牌根本不经过语言表。
+  // English: Every `_cycle*` below does exactly two things: advance a **persisted token** and write it
+  //          to storage unchanged. The on-screen label is produced by `build` through
+  //          `SettingsStrings`, so no literal appears in the cycle at all. That is the structural
+  //          guarantee behind "switching language never moves a persisted value": the tokens never
+  //          pass through the language table.
   void _cycleTheme() {
     _feedback();
     _locallyEditedSettingKeys.add('theme_mode');
     setState(() {
       _themeMode = switch (_themeMode) {
-        '跟随系统' => '浅色',
-        '浅色' => '深色',
-        _ => '跟随系统',
+        SettingsTokens.themeModeSystem => SettingsTokens.themeModeLight,
+        SettingsTokens.themeModeLight => SettingsTokens.themeModeDark,
+        _ => SettingsTokens.themeModeSystem,
       };
     });
     _settingsRepository.set('theme_mode', _themeMode);
     widget.onThemeModeChanged?.call(_themeMode);
   }
 
+  void _cycleCalcTheme() {
+    _feedback();
+    _locallyEditedSettingKeys.add('theme_id');
+    setState(() {
+      final index = CalcTheme.all.indexWhere((theme) => theme.id == _themeId);
+      // 中文：认不出的 id（删掉的主题、手改过的库）当作"还没选过"，下一次落到第一套，
+      //       而不是原地不动——`indexWhere` 的 -1 会让 `(_themeId + 1) % 3` 变成 0，正好如此。
+      // English: An unrecognised id (a removed theme, a hand-edited database) counts as "nothing
+      //          chosen yet" and advances to the first theme rather than standing still —
+      //          `indexWhere`'s -1 makes `(index + 1) % 3` land on 0, exactly as wanted.
+      _themeId = CalcTheme.all[(index + 1) % CalcTheme.all.length].id;
+    });
+    _settingsRepository.set('theme_id', _themeId);
+    widget.onThemeChanged?.call(_themeId);
+  }
+
+  void _cycleLanguage() {
+    _feedback();
+    _locallyEditedSettingKeys.add('language');
+    setState(() {
+      final index =
+          AppLanguage.values.indexWhere((item) => item.code == _languageCode);
+      _languageCode = AppLanguage.values[(index + 1) % AppLanguage.values.length]
+          .code;
+    });
+    _settingsRepository.set('language', _languageCode);
+    widget.onLanguageChanged?.call(_languageCode);
+  }
+
   void _cycleAngleMode() {
     _feedback();
     _locallyEditedSettingKeys.add('angle_mode');
-    setState(() => _angleMode = _angleMode == '弧度' ? '角度' : '弧度');
+    setState(() {
+      _angleMode = _angleMode == SettingsTokens.angleModeRadians
+          ? SettingsTokens.angleModeDegrees
+          : SettingsTokens.angleModeRadians;
+    });
     _settingsRepository.set('angle_mode', _angleMode);
   }
 
@@ -283,9 +395,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _locallyEditedSettingKeys.add('digits');
     setState(() {
       _digits = switch (_digits) {
-        '4 位' => '6 位',
-        '6 位' => '8 位',
-        _ => '4 位',
+        SettingsTokens.digits4 => SettingsTokens.digits6,
+        SettingsTokens.digits6 => SettingsTokens.digits8,
+        _ => SettingsTokens.digits4,
       };
     });
     _settingsRepository.set('digits', _digits);
@@ -302,7 +414,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _feedback();
     _locallyEditedSettingKeys.add('expression_display');
     setState(() {
-      _expressionDisplay = _expressionDisplay == '数学符号' ? '数学表达式' : '数学符号';
+      _expressionDisplay =
+          _expressionDisplay == SettingsTokens.expressionDisplaySymbols
+              ? SettingsTokens.expressionDisplayMath
+              : SettingsTokens.expressionDisplaySymbols;
     });
     _settingsRepository.set('expression_display', _expressionDisplay);
   }
@@ -352,11 +467,12 @@ class _SettingsPageState extends State<SettingsPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final s = SettingsStrings.of(dialogContext);
         final release = result.release;
         final actionLabel = switch (result.status) {
-          UpdateCheckStatus.updateAvailable => '查看发布',
-          UpdateCheckStatus.upToDate => '查看发布说明',
-          UpdateCheckStatus.unavailable => '打开发布页',
+          UpdateCheckStatus.updateAvailable => s.viewRelease,
+          UpdateCheckStatus.upToDate => s.viewReleaseNotes,
+          UpdateCheckStatus.unavailable => s.openReleasesPage,
         };
         final actionUrl = release?.url ?? GithubReleaseChecker.releasesPageUrl;
         final icon = switch (result.status) {
@@ -365,7 +481,7 @@ class _SettingsPageState extends State<SettingsPage> {
           UpdateCheckStatus.unavailable => Icons.cloud_off_outlined,
         };
         return AlertDialog(
-          title: const Text('检查更新'),
+          title: Text(s.checkUpdateTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,11 +494,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text('当前版本：${AppInfo.version}',
+              Text(s.currentVersion(AppInfo.version),
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant)),
               if (release != null)
-                Text('线上版本：${release.version}',
+                Text(s.remoteVersion(release.version),
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
@@ -390,7 +506,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('关闭'),
+              child: Text(s.close),
             ),
             FilledButton.tonal(
               onPressed: () async {
@@ -423,18 +539,21 @@ class _SettingsPageState extends State<SettingsPage> {
         _backupPreviewLoadToken++;
         await _loadLocalBackupPreview();
         if (!mounted) return;
+        final s = SettingsStrings.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(export.successMessage),
             action: SnackBarAction(
-              label: '详情',
-              onPressed: () => _showInfo('导出备份', export.detail),
+              label: s.details,
+              onPressed: () => _showInfo(s.exportBackupTitle, export.detail),
             ),
           ),
         );
       }
     } catch (error) {
-      if (mounted) _showInfo('导出失败', error.toString());
+      if (mounted) {
+        _showInfo(SettingsStrings.of(context).exportFailedTitle, error.toString());
+      }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
     }
@@ -467,31 +586,35 @@ class _SettingsPageState extends State<SettingsPage> {
       final canReplace = preview.totalRows > 0;
       final mode = await showDialog<_BackupImportMode>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('导入恢复'),
-          content: SingleChildScrollView(
-            child: _BackupImportPrompt(
-              source: preview,
-              local: localPreview,
-              mergePlan: mergePlan,
-              replacePlan: replacePlan,
+        builder: (dialogContext) {
+          final s = SettingsStrings.of(dialogContext);
+          return AlertDialog(
+            title: Text(s.importBackupTitle),
+            content: SingleChildScrollView(
+              child: _BackupImportPrompt(
+                source: preview,
+                local: localPreview,
+                mergePlan: mergePlan,
+                replacePlan: replacePlan,
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消')),
-            TextButton(
-                onPressed: () =>
-                    Navigator.pop(context, _BackupImportMode.merge),
-                child: const Text('合并导入')),
-            FilledButton(
-                onPressed: canReplace
-                    ? () => Navigator.pop(context, _BackupImportMode.replace)
-                    : null,
-                child: const Text('覆盖恢复')),
-          ],
-        ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(s.cancel)),
+              TextButton(
+                  onPressed: () =>
+                      Navigator.pop(dialogContext, _BackupImportMode.merge),
+                  child: Text(s.importMerge)),
+              FilledButton(
+                  onPressed: canReplace
+                      ? () =>
+                          Navigator.pop(dialogContext, _BackupImportMode.replace)
+                      : null,
+                  child: Text(s.importReplace)),
+            ],
+          );
+        },
       );
       if (mode == null) return;
       final report = await _backupRepository.importJson(
@@ -506,33 +629,52 @@ class _SettingsPageState extends State<SettingsPage> {
       final onDataImported = widget.onDataImported;
       if (onDataImported != null) await onDataImported();
       if (!mounted) return;
+      final s = SettingsStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${report.modeLabel}完成：${report.resultLabel}'),
+        content: Text(s.importDone(report.modeLabel, report.resultLabel)),
         action: SnackBarAction(
-          label: '详情',
-          onPressed: () => _showInfo('导入结果', _formatBackupImportReport(report)),
+          label: s.details,
+          onPressed: () =>
+              _showInfo(s.importResultTitle, _formatBackupImportReport(report)),
         ),
       ));
+      // 中文：导入会把配色与语言一并从备份里换掉，所以这两个实时回调也要重发一次——
+      //       只发 `onThemeModeChanged` 的话，恢复了一份英文 / 薰衣草雾的备份后，界面要等退出
+      //       设置页才跟着变。
+      // English: An import replaces the palette and the language along with everything else, so both
+      //          live callbacks are re-fired here. Re-firing only `onThemeModeChanged` would leave an
+      //          English / Lavender Mist backup restored but not shown until the page pops.
       widget.onThemeModeChanged?.call(_themeMode);
+      widget.onThemeChanged?.call(_themeId);
+      widget.onLanguageChanged?.call(_languageCode);
     } catch (error) {
-      if (mounted) _showInfo('导入失败', error.toString());
+      if (mounted) {
+        _showInfo(SettingsStrings.of(context).importFailedTitle, error.toString());
+      }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
     }
   }
 
   String _formatBackupImportReport(BackupImportReport report) {
+    final s = SettingsStrings.of(context);
     final deltas = [
       for (final item in report.tableReports)
-        '${item.label}：文件 ${item.source}，导入前 ${item.before}，导入后 ${item.after}，变化 ${_formatDelta(item.delta)}'
-            '${item.hasSkippedRows ? '，跳过/裁剪 ${item.skipped}' : ''}',
+        s.reportTableRow(
+          item.label,
+          item.source,
+          item.before,
+          item.after,
+          _formatDelta(item.delta),
+          item.hasSkippedRows ? s.reportSkipped(item.skipped) : '',
+        ),
     ].join('\n');
     return [
-      '模式：${report.modeLabel}',
-      '结果：${report.resultLabel}',
-      '导入文件：${report.source.totalLabel}',
-      '导入前：${report.before.totalLabel}',
-      '导入后：${report.after.totalLabel}',
+      s.reportMode(report.modeLabel),
+      s.reportResult(report.resultLabel),
+      s.reportSource(report.source.totalLabel),
+      s.reportBefore(report.before.totalLabel),
+      s.reportAfter(report.after.totalLabel),
       '',
       deltas,
     ].join('\n');

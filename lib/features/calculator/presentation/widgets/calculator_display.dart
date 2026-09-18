@@ -148,18 +148,18 @@ const double _errorMessageFontSize = 12;
 ///          the screen**; when `onOpenDrawer` is null it is not rendered at all.
 ///
 /// 结果行的两种形态 / The result line's two shapes:
-/// 中文：结果行画的是**哪几种形态里的哪一种**，由 [ResultPresentation]（`result_form.dart`）算出来，
-///       本文件不自己判：默认形态就是接这几颗键之前那一行（`= 2√2 ≈ 2.828427`，或没有精确形式时的
-///       `= 2.828427`），另外三种是精确形态、分数形态与十进制形态，各自画法见 [_resultLine]。
-///       默认形态在 [CalculatorDisplay.resultForm] 取默认值 [ResultForm.auto] 时**逐字符相同**，
-///       所以不碰这两颗键的调用方（含全部既有组件测试）看到的一个字节都没变。
-/// English: Which of the result line's forms is drawn is computed by [ResultPresentation]
-///          (`result_form.dart`) rather than judged here: the default form is the line from before
-///          these keys existed (`= 2√2 ≈ 2.828427`, or `= 2.828427` with no exact form), and the
-///          other three are the exact, fraction and decimal forms, each drawn as [_resultLine]
-///          describes. With [CalculatorDisplay.resultForm] left at its default [ResultForm.auto]
-///          the default form is **character for character** what was there before, so callers that
-///          do not touch these keys — every existing widget test included — see no change at all.
+/// 中文：结果行画**哪一形态**由 [ResultPresentation]（`result_form.dart`）算出来，本文件不自己判：
+///       默认形态就是接这几颗键之前那一行（`= 2√2 ≈ 2.828427`，或没有精确形式时的 `= 2.828427`），
+///       其余四种（精确 / 分数 / 带分数 / 度分秒）各自画法见 [_resultLine]。默认形态在
+///       [CalculatorDisplay.resultForm] 取默认值 [ResultForm.auto] 时**逐字符相同**，所以不碰这些
+///       键的调用方（含全部既有组件测试）看到的一个字节都没变。
+/// English: Which form the result line draws is computed by [ResultPresentation] (`result_form.dart`)
+///          rather than judged here: the default form is the line from before these keys existed
+///          (`= 2√2 ≈ 2.828427`, or `= 2.828427` with no exact form), and the other four (exact,
+///          fraction, mixed number, DMS) are drawn as [_resultLine] describes. With
+///          [CalculatorDisplay.resultForm] at its default [ResultForm.auto] the default form is
+///          **character for character** what was there before, so callers that do not touch these keys
+///          — every existing widget test included — see no change at all.
 class CalculatorDisplay extends StatelessWidget {
   const CalculatorDisplay({
     required this.expression,
@@ -174,6 +174,7 @@ class CalculatorDisplay extends StatelessWidget {
     required this.naturalDisplay,
     this.resultTex = '',
     this.resultFractionTex = '',
+    this.resultMixedTex = '',
     this.resultDmsText = '',
     this.resultForm = ResultForm.auto,
     this.resultDecimal = '',
@@ -220,15 +221,22 @@ class CalculatorDisplay extends StatelessWidget {
   final String resultDecimal;
 
   /// 中文：**分数写法**（引擎对同一个结构换一种分数格式印出来的那一份，见 `MathResult.fractionTex`）。
-  ///       它只在 `d/c` 请求 [ResultForm.fraction] 时才上场；空串表示这一次没有分数写法，那时
-  ///       排出来的就是纯文本读数——**绝不空白、也绝不去猜一个分数**。
-  ///       与 [resultTex] 一样，**它绝不能被喂给任何数值消费者**。
+  ///       只在 `d/c` 请求 [ResultForm.fraction] 时上场；空串表示这一次没有这一格，那时排出来的
+  ///       就是纯文本读数——**绝不空白、也绝不去猜一个分数**。与 [resultTex] 一样**绝不能喂给数值
+  ///       消费者**。
   /// English: **the fraction spelling** (the engine's other fraction format for the same structure —
-  ///          see `MathResult.fractionTex`). It only takes the stage when `d/c` asks for
-  ///          [ResultForm.fraction]; an empty string means there is no fraction spelling this time,
-  ///          and the plain reading is drawn instead — **never blank, and never a guessed
-  ///          fraction**. Like [resultTex] it must **never** be fed to a numeric consumer.
+  ///          see `MathResult.fractionTex`). It takes the stage only when `d/c` asks for
+  ///          [ResultForm.fraction]; an empty string means that cell does not exist and the plain
+  ///          reading is drawn — **never blank, never a guessed fraction**. Like [resultTex] it must
+  ///          **never** reach a numeric consumer.
   final String resultFractionTex;
+
+  /// 中文：**带分数写法**——与 [resultFractionTex] 完全同一条路（来路、空串的含义与那条禁令都见
+  ///       `MathResult.mixedTex`；那一份注释是唯一的，这里不抄第二份）。
+  /// English: **the mixed-number spelling** — exactly the same road as [resultFractionTex] (its source,
+  ///          what an empty string means and that ban are on `MathResult.mixedTex`; that note is the
+  ///          only one, and no second copy lives here).
+  final String resultMixedTex;
 
   /// 中文：**度分秒写法**（引擎终端印法的原文，`12°34′55.92″`，见 `MathResult.dmsText`）。它只在
   ///       `D°M'S` 请求 [ResultForm.dms] 时才上场，而那要求结果是在 `DEG` 下算出来的
@@ -620,6 +628,7 @@ class CalculatorDisplay extends StatelessWidget {
     return ResultPresentation.of(
       resultTex: resultTex,
       fractionTex: resultFractionTex,
+      mixedTex: resultMixedTex,
       resultDecimal: resultDecimal,
       naturalDisplay: naturalDisplay,
       // 中文：度分秒那一格的另外两个入参——引擎那一串原文，以及**这一份结果算出来时的角度模式**
@@ -638,41 +647,22 @@ class CalculatorDisplay extends StatelessWidget {
   ///       只缩不放，很长的数值因此缩到可用宽度里而不是溢出。要排版的那一段是唯一不是 `Text`
   ///       的东西：它是一个 `MathExpressionView`，与上面那行表达式同一套排版。
   ///
-  ///       **「要画哪一段」不在这里判断**：它整个搬到了 [ResultPresentation]（同目录的
-  ///       `result_form.dart`），因为 `x⇔E` / `d/c` 两颗键要问同一个问题——「这一份结果有哪几种
-  ///       画法」，而两份判断迟早会漂。这里只做两件事：把 [resultForm] 落到这一份结果上（没有的
-  ///       形态一律回落到 [ResultForm.auto]），然后照着画。
-  ///
-  ///       三种画法与它们共用的样式对象：
-  ///       - 默认形态：有排得出来的精确形式时是「排版 + `≈` 十进制读数」，否则整行纯文本读数
-  ///         ——与接这两颗键之前逐字符相同；
-  ///       - 精确 / 分数形态：只有那一段排版，**没有 `≈`**；[result] 仍作为渲染失败的降级文本；
-  ///       - 十进制形态：整行就是 [result]。
-  ///
-  ///       两条分支共用同一份样式对象，所以三个画法的 `=`、字号、颜色完全一致——差别只在中间那
-  ///       一段排不排。
+  ///       **「要画哪一段」不在这里判断**：它整个搬到了 [ResultPresentation]，因为 `x⇔E`/`d/c`
+  ///       要问同一个问题，而两份判断迟早会漂。这里只做两件事：把 [resultForm] 落到这一份结果上
+  ///       （没有的形态一律回落到 [ResultForm.auto]），然后照着 `texFor` / `showsApproximation`
+  ///       那两处答案画——**画法与它们共用的样式对象**见类注释那张表，本方法不另立判据。
   /// English: The result line — the `=` and the result are separate `Text` widgets (not one
-  ///          `RichText`), and the `FittedBox` only scales down, so a very long numeric result
-  ///          shrinks into the available width instead of overflowing. The stretch that typesets is
-  ///          the one part that is not a `Text`: it is a `MathExpressionView`, the same typesetting
-  ///          the expression line above uses.
+  ///          `RichText`), and the `FittedBox` only scales down, so a very long numeric result shrinks
+  ///          into the available width instead of overflowing. The stretch that typesets is the one
+  ///          part that is not a `Text`: a `MathExpressionView`, the same typesetting the expression
+  ///          line above uses.
   ///
-  ///          **"Which stretch to draw" is not judged here**: it all moved to
-  ///          [ResultPresentation] (`result_form.dart` beside this file), because the `x⇔E` / `d/c`
-  ///          keys ask the same question — "which ways can this result be drawn" — and two answers
-  ///          would drift. This method does two things: resolve [resultForm] against this result
-  ///          (any form it does not have falls back to [ResultForm.auto]), then draw it.
-  ///
-  ///          The three drawings and the style objects they share:
-  ///          - the default form: "typeset + `≈` decimal reading" when an exact form typesets, the
-  ///            plain reading throughout otherwise — character for character the line from before
-  ///            these two keys existed;
-  ///          - the exact / fraction forms: that stretch alone, **no `≈`**; [result] still travels
-  ///            as the render-failure fallback;
-  ///          - the decimal form: the whole line is [result].
-  ///
-  ///          Both branches share one set of style objects, so the `=`, the sizes and the colours are
-  ///          identical across all three — only the middle stretch differs in whether it typesets.
+  ///          **"Which stretch to draw" is not judged here**: it all moved to [ResultPresentation],
+  ///          because `x⇔E`/`d/c` ask the same question and two answers would drift. This method does
+  ///          two things: resolve [resultForm] against this result (any form it lacks falls back to
+  ///          [ResultForm.auto]), then draw — reading the answers off `texFor` / `showsApproximation`.
+  ///          **The drawings and the style objects they share** are the table in the class comment;
+  ///          this method invents no second judgement.
   Widget _resultLine(ResultPresentation presentation) {
     final resultStyle = TextStyle(
       color: colors.resultFg,

@@ -204,6 +204,7 @@ class MathResult {
     required this.displayText,
     this.displayTex = '',
     this.fractionTex = '',
+    this.mixedTex = '',
     this.dmsText = '',
     this.decimalText = '',
     this.resultKind = EngineResultKind.notFromEngine,
@@ -268,6 +269,41 @@ class MathResult {
   ///          error**, and callers keep working: that key is then a no-op rather than inventing a
   ///          fraction. Like [displayTex] it must **never** be fed to a numeric consumer.
   final String fractionTex;
+
+  /// 中文：**同一个值的带分数写法**（HiPER 结果格式菜单里 `Mixed number` 那一格），不含 `$` 定界符。
+  ///
+  ///       它与 [displayTex]、[fractionTex] 是**同一个已求值结构的三次打印**，唯一的差别是
+  ///       `number_fraction_format` 取了第三个值（`FRACTION_COMBINED`，库自己的注释：
+  ///       "Display as an integer and a fraction (ex. 3 + 1/2)"），所以三者的值严格相等——理由与实测
+  ///       在 `printOptions` 上。实测的差别：`10/4` 是 `2 + \frac{1}{2}`（假分数那一份是
+  ///       `\frac{5}{2}`）、`100/7` 是 `14 + \frac{2}{7}`、`1/3` 三者同值 `\frac{1}{3}`。
+  ///       **注意引擎把它印成一个加法**（`2 + \frac{1}{2}`），不是 HiPER 那种并排的 `2 1/2`：
+  ///       值一样、意思一样（一个整数部分加一个真分数），写法不同。
+  ///
+  ///       空串表示「这一次没有带分数写法」——引擎缺席、旧解析器上屏、原生侧版本不匹配、或者这一份
+  ///       结果在 `FRACTION_COMBINED` 下印出来的是排不出来的 `\num{…}`（`12345.6789` 实测就是）。
+  ///       **它不是错误**，调用方照常工作：那一格于是不存在，而不是去猜一个。
+  ///       与 [displayTex] 一样，**它绝不能被喂给任何数值消费者**。
+  /// English: **the same value's mixed-number spelling** (HiPER's `Mixed number` cell in the result
+  ///          format menu), without `$` delimiters.
+  ///
+  ///          It and [displayTex]/[fractionTex] are **three prints of one evaluated structure**,
+  ///          differing only in a third value of `number_fraction_format` (`FRACTION_COMBINED`; the
+  ///          library's own note reads "Display as an integer and a fraction (ex. 3 + 1/2)"), so all
+  ///          three carry strictly equal values — the reason and the measurements are on
+  ///          `printOptions`. Measured differences: `10/4` is `2 + \frac{1}{2}` (the improper-fraction
+  ///          print is `\frac{5}{2}`), `100/7` is `14 + \frac{2}{7}`, and `1/3` is `\frac{1}{3}` in all
+  ///          three. **Note the engine prints it as an addition** (`2 + \frac{1}{2}`), not as HiPER's
+  ///          juxtaposed `2 1/2`: the value is the same and so is the meaning (a whole part and a
+  ///          proper fraction), the spelling is not.
+  ///
+  ///          An empty string means "no mixed-number spelling this time" — an absent engine, the
+  ///          legacy parser on screen, a native side that does not send the field, or a result whose
+  ///          `FRACTION_COMBINED` print is an untypesettable `\num{…}` (`12345.6789` is the measured
+  ///          case). **It is not an error**, and callers keep working: the cell then does not exist
+  ///          rather than one being guessed. Like [displayTex] it must **never** be fed to a numeric
+  ///          consumer.
+  final String mixedTex;
 
   /// 中文：**同一个值的度分秒写法**（HiPER 的 `DMS` 那一格：`12°34′55.92″`），**不是 TeX**——
   ///       它是引擎终端印法的原文，`°`/`′`/`″` 是真字符，不含 `$` 定界符，也不含任何排版记号。
@@ -664,6 +700,13 @@ class MathResult {
   ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
   bool get hasFractionTex => fractionTex.trim().isNotEmpty;
 
+  /// 中文：是否带**带分数写法**。与 [hasTex]、[hasFractionTex] 同一条判据、同一个位置——同样
+  ///       **不另写一份**。它只回答「有没有」；排不排得出来仍由渲染器自己的 `typesetsTex` 回答。
+  /// English: Whether a **mixed-number spelling** is present. The same judgement in the same place as
+  ///          [hasTex] and [hasFractionTex] — likewise **not a second copy**. It only answers "is
+  ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
+  bool get hasMixedTex => mixedTex.trim().isNotEmpty;
+
   /// 中文：是否带度分秒写法。与 [hasTex]、[hasFractionTex] 同一条判据、同一个位置——同样**不另写
   ///       一份**。它只回答「有没有」；这一串**画不画得出**（形状对不对、这一份结果配不配印它）仍由
   ///       `ResultPresentation` 一处回答——判据在那里，不在这里。
@@ -680,19 +723,20 @@ class MathResult {
         other.displayText == displayText &&
         other.displayTex == displayTex &&
         other.fractionTex == fractionTex &&
+        other.mixedTex == mixedTex &&
         other.dmsText == dmsText &&
         other.decimalText == decimalText &&
         other.resultKind == resultKind;
   }
 
   @override
-  int get hashCode => Object.hash(
-      displayText, displayTex, fractionTex, dmsText, decimalText, resultKind);
+  int get hashCode => Object.hash(displayText, displayTex, fractionTex, mixedTex,
+      dmsText, decimalText, resultKind);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
-        'fractionTex: $fractionTex, dmsText: $dmsText, '
+        'fractionTex: $fractionTex, mixedTex: $mixedTex, dmsText: $dmsText, '
         'decimalText: $decimalText, resultKind: ${resultKind.name})';
   }
 }

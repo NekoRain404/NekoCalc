@@ -441,6 +441,43 @@ class QalculateEngine {
                 libqalculateConstants.TAG_TYPE_LATEX,
             )
 
+            // 中文：**带分数的写法**（HiPER 结果格式菜单里 `Mixed number` 那一格要的东西）：
+            //       同一个 `evaluated`、同一组 LaTeX 选项、只把 `number_fraction_format` 换成
+            //       `FRACTION_COMBINED`——`10/4` 印成 `2 + \frac{1}{2}`、`100/7` 印成
+            //       `14 + \frac{2}{7}`（宿主 qalc 5.12.0 实测，与本 AAR 同版本、同一组选项）。
+            //       它是 **`PrintOptions` 上的第三个取值**，与 `latex`/`fraction` 一样是**同一个结构的
+            //       又一次打印**，所以三份的值严格相等，`rand()` 也不会被抽第二次。
+            //       `FRACTION_COMBINED` 就是库自己文档里那一句 "Display as an integer and a
+            //       fraction (ex. 3 + 1/2)"（`includes.h:353`），与 HiPER 帮助里
+            //       `solution.step.CONVERT_RESULT_TO_MIXED_NUMBER.desc` 的 "written as a whole part
+            //       and a proper fraction" 是同一件事。
+            //       **认不出来的形状照样丢**：`12345.6789` 在 `FRACTION_COMBINED` 下会印成
+            //       `\num[...]{12345} + \frac{6789}{\num[...]{10000}}`（宿主实测），里面有 `\num`——
+            //       Dart 侧那条既有的「排不出来就不算」的大门会把它整格拦掉，与非法分数写法同路。
+            // English: **the mixed-number spelling** (what HiPER's `Mixed number` cell in the result
+            //          format menu is for): the same `evaluated`, the same LaTeX options, with
+            //          `number_fraction_format` switched to `FRACTION_COMBINED` — `10/4` prints
+            //          `2 + \frac{1}{2}` and `100/7` prints `14 + \frac{2}{7}` (host `qalc` 5.12.0,
+            //          the version this AAR bundles and the same options). It is a **third value of one
+            //          `PrintOptions` field**, so like `latex`/`fraction` it is another print of **one
+            //          structure**: all three carry strictly equal values and `rand()` is not drawn a
+            //          second time. `FRACTION_COMBINED` is the library's own "Display as an integer and
+            //          a fraction (ex. 3 + 1/2)" (`includes.h:353`), the same thing HiPER's help calls
+            //          "written as a whole part and a proper fraction"
+            //          (`solution.step.CONVERT_RESULT_TO_MIXED_NUMBER.desc`).
+            //          **An unrecognised shape is dropped just the same**: under `FRACTION_COMBINED`,
+            //          `12345.6789` prints as `\num[...]{12345} + \frac{6789}{\num[...]{10000}}`
+            //          (host-measured) — it holds `\num`, which the existing "does it typeset" gate on
+            //          the Dart side throws the whole cell out for, exactly as with a fraction spelling.
+            val mixedLatex = engine.print(
+                evaluated,
+                PRINT_TIMEOUT_MS,
+                printOptions(latex = true, combined = true),
+                true,
+                0,
+                libqalculateConstants.TAG_TYPE_LATEX,
+            )
+
             // 中文：十进制那一半由**同一个结构**再算一次得到，不是重新解析字符串：`evaluated` 里
             //       已经是一个求过值的数（`rand()` 的那次抽样已经发生），再算一次只是把它近似成
             //       十进制。宿主实测（同版本库、同一串调用）：`4 * sqrt(2)` 的精确结构印成
@@ -600,6 +637,7 @@ class QalculateEngine {
                 "decimal" to decimal,
                 "latex" to latex,
                 "fraction" to fractionLatex,
+                "mixed" to mixedLatex,
                 "dms" to dmsText,
                 "aborted" to aborted.toString(),
                 "messages" to drainMessages(engine),

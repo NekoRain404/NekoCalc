@@ -107,6 +107,19 @@ class QalculateMathEngine implements MathEngine {
         //          time", which makes that key a no-op — the same route as an absent engine or the
         //          legacy parser on screen, and it never invents a fraction.
         fractionTex: (payload['fraction'] ?? '').trim(),
+        // 中文：**带分数写法**（HiPER 结果格式菜单里 `Mixed number` 那一格）。它与 `latex`、
+        //       `fraction` 是**同一个结构**的三次打印，只是 `number_fraction_format` 取了第三个值
+        //       （`FRACTION_COMBINED`），所以值严格相等（见 `QalculateOptions.printOptions`）。
+        //       与分数那一格同一条路：原生侧不认识这个字段（版本不匹配）时这里是空串 = 「这一次没有
+        //       带分数写法」，那一格于是不存在，不会去猜一个。
+        // English: **the mixed-number spelling** (HiPER's `Mixed number` cell in the result format
+        //          menu). It and `latex`/`fraction` are three prints of **one structure**, differing
+        //          only in a third value of `number_fraction_format` (`FRACTION_COMBINED`), so the
+        //          values are strictly equal (see `QalculateOptions.printOptions`). Same road as the
+        //          fraction cell: a native side that does not know the field (a version mismatch)
+        //          leaves this empty = "no mixed-number spelling this time" and the cell then does not
+        //          exist, rather than one being guessed.
+        mixedTex: (payload['mixed'] ?? '').trim(),
         // 中文：度分秒写法（HiPER 的 `DMS` 那一格）。它与 `decimal` 是**同一个 `approximated`
         //       结构**的两次打印，所以那一串里的值逐位等于十进制那一份（见 `QalculateEngine`）。
         //       原生侧不认识这个字段（版本不匹配）、引擎缺席、旧解析器上屏、或走的是换算那一支时，

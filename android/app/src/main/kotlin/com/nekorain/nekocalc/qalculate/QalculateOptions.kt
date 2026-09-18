@@ -123,17 +123,18 @@ internal fun evaluationOptions(
 }
 
 /**
- * 中文：一组打印选项。[fractional] 只对 `latex` 那一份有意义、[sexagesimal] 只对**度分秒那一份**
- *       有意义，理由见下面 `printOptions` 上的注释。
- * English: One set of print options. [fractional] only means anything for the `latex` render and
- *          [sexagesimal] only for **the degrees-minutes-seconds one**; see the note on
- *          `printOptions` below.
+ * 中文：一组打印选项。[fractional] 与 [combined] 只对 `latex` 那一份有意义（分数的两种写法）、
+ *       [sexagesimal] 只对**度分秒那一份**有意义，理由见下面 `printOptions` 上的注释。
+ * English: One set of print options. [fractional] and [combined] only mean anything for the `latex`
+ *          renders (the two fraction spellings) and [sexagesimal] only for **the
+ *          degrees-minutes-seconds one**; see the note on `printOptions` below.
  */
 internal fun printOptions(
     latex: Boolean,
     machineReadable: Boolean = false,
     fractional: Boolean = false,
     sexagesimal: Boolean = false,
+    combined: Boolean = false,
 ): PrintOptions = PrintOptions().apply {
     // 中文：**这一格决定有理数印成小数还是印成带分数线的分数**，而它现在是两档：
     //
@@ -165,9 +166,28 @@ internal fun printOptions(
     //          `\pi / 4`, `\sqrt{2}/2` → `1 / \sqrt{2}` — **every one of them exactly equal**, none of
     //          them an approximation. The engine never rounds a value into a different fraction; it
     //          only changes how it is written.
+    // 中文：**第三个取值**：`combined = true` 是 `FRACTION_COMBINED`——库自己的注释写着
+    //       "Display as an integer and a fraction (ex. 3 + 1/2)"（`includes.h:353`），
+    //       也就是 HiPER 结果格式菜单里 `Mixed number` 那一格：`10/4` 印成 `2 + \frac{1}{2}`、
+    //       `100/7` 印成 `14 + \frac{2}{7}`（宿主 `qalc` 5.12.0 实测）。
+    //       它与上面两档是**同一个字段的三个取值**，所以三份仍然是同一个已求值结构的三种写法，
+    //       值严格相等（理由见这一段上面那条注释，没有第二次求值）。
+    //       [fractional] 与 [combined] 同时为真时后者说了算不了——两个 `if` 都会写同一个字段，
+    //       调用方从不这么用（每次都只传一个），这里不另立一条判据。
+    // English: **a third value**: `combined = true` is `FRACTION_COMBINED` — the library's own
+    //          "Display as an integer and a fraction (ex. 3 + 1/2)" (`includes.h:353`), i.e. HiPER's
+    //          `Mixed number` cell in the result format menu: `10/4` prints `2 + \frac{1}{2}` and
+    //          `100/7` prints `14 + \frac{2}{7}` (host `qalc` 5.12.0, measured). It and the two
+    //          settings above are **three values of one field**, so all three remain spellings of one
+    //          evaluated structure with strictly equal values (the reason is in the note just above;
+    //          there is no second evaluation). Passing both [fractional] and [combined] is not a case
+    //          callers have (each call passes one), so no extra judgement is invented for it.
     setNumber_fraction_format(
-        if (fractional) NumberFractionFormat.FRACTION_FRACTIONAL
-        else NumberFractionFormat.FRACTION_DECIMAL
+        when {
+            combined -> NumberFractionFormat.FRACTION_COMBINED
+            fractional -> NumberFractionFormat.FRACTION_FRACTIONAL
+            else -> NumberFractionFormat.FRACTION_DECIMAL
+        }
     )
     // 中文：C++ 里这是 int 不是 boolean。LaTeX 必须关掉 Unicode 符号，否则拿到的是「√」而不是「\sqrt」。
     //       机器可解析的那一份（`decimal`）同样要关：开着的时候负号是 `−`(U+2212)，Dart 侧
