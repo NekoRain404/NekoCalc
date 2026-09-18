@@ -70,8 +70,8 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "sin|sin|on function shift:asin|sin⁻¹|on hyp:sinh|sinh|on",
     "cos|cos|on function shift:acos|cos⁻¹|on hyp:cosh|cosh|on",
     "tan|tan|on function shift:atan|tan⁻¹|on hyp:tanh|tanh|on",
-    "ins:i|i|on function",
-    "ins:e|e|on function",
+    "ins:i|i|on function shift:dis:angle|∠|off",
+    "ins:e|e|on function shift:ins:logxy|logₓy|on",
   ],
   <String>[
     "ins:^-1|x⁻¹|on function",
@@ -144,8 +144,8 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "hint:sin⁻¹",
     "hint:cos⁻¹",
     "hint:tan⁻¹",
-    "dis:angle|∠|off disabled",
-    "ins:logxy|logₓy|on function",
+    "hint:∠",
+    "hint:logₓy",
   ],
   <String>[
     "ins:limit|lim|on function",

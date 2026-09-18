@@ -252,14 +252,92 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
 
   // 中文：行 3——π / sin / cos / tan / i / e。
   //       上方标签：hyp 实体修饰键（可直接点按，是可查证的刻意偏离）、sin⁻¹/cos⁻¹/tan⁻¹
-  //       三个 SHIFT 提示、仍禁用的 ∠，以及 logₓy（已启用：它插的是引擎 `log(数, 底)` 的二元调用）。
+  //       三个 SHIFT 提示，以及 **∠ 与 logₓy 两个 SHIFT 提示**——后两格本轮从可点的 `InlineKey`
+  //       退回纯提示，动作分别挂到 `i` 与 `e` 的 `shift` 上（与上一轮 `FSE` 同一形状、同一类偏差）。
   //       sin/cos/tan 同时带 SHIFT 变体（asin/acos/atan）与 hyp 变体（sinh/cosh/tanh）。
+  //
+  //       **为什么这两格是提示而不是键**（三条来源，都是本轮自己量的）：
+  //
+  //       1. **真机截图上它们印在下方那颗键的正上方。** 在
+  //          `~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`（1440×3200）上
+  //          逐像素量列的横向中心：横带第三行 `hyp / sin⁻¹ / cos⁻¹ / tan⁻¹ / ∠ / logₓy` 的中心是
+  //          `129.0 / 362.0 / 599.5 / 835.5 / 1075.0 / 1316.5`，主键 `π / sin / cos / tan / i / e`
+  //          的中心是 `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 / 1311.0`——六格六键一一对齐
+  //          （∠ 与 i 差 0.5 px，logₓy 与 e 差 5.5 px，两者都小于半格宽）。
+  //       2. **HiPER 给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's second
+  //          function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517-525`）
+  //          "Symbols of these secondary functions are displayed above their keys."。**一个位置只有一种
+  //          含义**，它不可能既是提示又是独立按钮。
+  //       3. **厂商 FAQ 把这条规则逐字应用在同一行横带上**（`https://hiperlabs.eu/help.html`，本轮
+  //          联网核过原文）："To enter a number in polar coordinates, enter the radius, then
+  //          **press SHIFT and the i key** to insert the angle symbol ∠, and then enter the angle."
+  //          ——`∠` 就是 `i` 的第二功能，不是横带里独立的键。同一页把 `OTHER` 说成 "the secondary
+  //          function of the 0 key"，用的是同一套措辞。
+  //
+  //       动作本身在 HiPER 的命令表里都真实存在：`command.name.LOGX` = "Base-x Logarithm"
+  //       （手册第 17 页的例子里它的键面写作 `log` 带一个下标空槽：`log₄(256)` 的按键序列是
+  //       先按这颗键、再打底 `4`、再打数 `256`），`command.name.POLAR` = "Polar Coordinates"。
+  //       两条都是**命令**——但命令表里 `FSE`（`x⇔E` 的 SHIFT）与 `CHANGE_EXPR`（`x⇔E` 的基准）
+  //       同样各占一条，所以「是一条命令」不说明它有没有自己的键；位置由上面三条回答。
+  //
+  //       **`∠` 挂上去了但仍是禁用的——这是拒绝，不是没做。** 核实结果是：**引擎读得了 `∠`，
+  //       应用自己的两个解析器都读不了**。宿主 libqalculate 5.12.0 实测 `5∠45` =
+  //       `3.535533906 + 3.535533906i`、`1∠90` = `i`、`2∠0` = `2`；而应用这边
+  //       `ExpressionAstParser` 把 `5∠45` 判成 `ParseErrorNode`（LaTeX 降级成 `\text{5∠45}`），
+  //       `ExpressionParser` 抛 `FormatException: Unexpected token at 1`，翻译器因此回
+  //       「不能翻译：解析器读不懂 `5∠45`」并回落旧解析器——旧解析器同样读不懂。
+  //       也就是说 `∠` 插进表达式之后**得不到任何值，只会得到一条错误**，而表达式行上的
+  //       `\text{5∠45}` 是本项目认定的可见降级。屏幕上出现错值比报错更糟，所以这一格保持禁用：
+  //       按 HiPER 的位置挂到 `i` 的 SHIFT 上，但 `enabled: false`——SHIFT 态下这颗键变暗且不响应，
+  //       正是「这个动作在本应用里到不了」的诚实画法。
+  //
   // English: Row 3 — π / sin / cos / tan / i / e.
-  //          Band above: the tappable `hyp` modifier key (a documented deviation from
-  //          HiPER), the sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, the still-disabled ∠, and an enabled
-  //          logₓy — it inserts the engine's two-argument `log(number, base)` call.
+  //          Band above: the tappable `hyp` modifier key (a documented deviation from HiPER), the
+  //          sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, and **the ∠ and logₓy SHIFT hints** — those last two cells
+  //          go back from a tappable `InlineKey` to a plain hint this round, their actions moving onto
+  //          the `shift` of `i` and `e` (the same shape, and the same class of deviation, as `FSE`).
   //          sin/cos/tan carry both a SHIFT variant (asin/acos/atan) and a hyp variant
   //          (sinh/cosh/tanh).
+  //
+  //          **Why these two cells are hints, not keys** (three sources, all measured this round):
+  //
+  //          1. **On the device screenshot they are printed directly above the key below them.** On
+  //             the file cited above (1440×3200), the measured horizontal centres of the row-3 band
+  //             `hyp / sin⁻¹ / cos⁻¹ / tan⁻¹ / ∠ / logₓy` are
+  //             `129.0 / 362.0 / 599.5 / 835.5 / 1075.0 / 1316.5` and those of the keys
+  //             `π / sin / cos / tan / i / e` are `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 / 1311.0` —
+  //             six cells over six keys, one to one (∠ vs i differ by 0.5 px, logₓy vs e by 5.5 px,
+  //             both well under half a cell).
+  //          2. **HiPER defines what that position means**:
+  //             `quickTour.page.SECOND_FUNCTION.text2` = "The key's second function is displayed in
+  //             the label above.", and the manual's SHIFT section (`hipercalc-manual.txt:517-525`)
+  //             "Symbols of these secondary functions are displayed above their keys." **A position
+  //             has one meaning**; it cannot be both a hint and a standalone button.
+  //          3. **The vendor FAQ applies that rule verbatim to this very band** (hiperlabs.eu/help.html,
+  //             re-read online this round): "To enter a number in polar coordinates, enter the radius,
+  //             then **press SHIFT and the i key** to insert the angle symbol ∠, and then enter the
+  //             angle." — `∠` is `i`'s second function, not a key of its own. The same page calls
+  //             `OTHER` "the secondary function of the 0 key", the same wording.
+  //
+  //          Both actions really exist in HiPER's command catalogue: `command.name.LOGX` = "Base-x
+  //          Logarithm" (the manual's page 17 draws its face as `log` with an empty subscript slot:
+  //          the sequence for `log₄(256)` is that key, then the base `4`, then the number `256`) and
+  //          `command.name.POLAR` = "Polar Coordinates". Both are **commands** — but so are `FSE`
+  //          (`x⇔E`'s SHIFT) and `CHANGE_EXPR` (`x⇔E`'s base), so "it is a command" says nothing about
+  //          whether it has a key of its own; the three sources above answer that.
+  //
+  //          **`∠` is mounted but stays disabled — a refusal, not an omission.** What the check found:
+  //          **the engine can read `∠`; this app's own two parsers cannot.** Host libqalculate 5.12.0
+  //          measures `5∠45` = `3.535533906 + 3.535533906i`, `1∠90` = `i`, `2∠0` = `2`; on this side
+  //          `ExpressionAstParser` turns `5∠45` into a `ParseErrorNode` (LaTeX degraded to
+  //          `\text{5∠45}`), `ExpressionParser` throws `FormatException: Unexpected token at 1`, so the
+  //          translator answers "cannot translate: the parser cannot read `5∠45`" and falls back to the
+  //          legacy parser — which cannot read it either. Typing `∠` therefore yields no value at all,
+  //          only an error, and the `\text{5∠45}` on the expression line is what this project counts as
+  //          a visible degradation. A wrong value on screen is worse than an error, so this cell stays
+  //          disabled: mounted where HiPER has it (the SHIFT of `i`) but with `enabled: false`, which
+  //          makes the key dim and inert under SHIFT — the honest picture of "this action is out of
+  //          reach in this app".
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
@@ -287,10 +365,29 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
       KeypadKey(
         base: KeyVariant(label: 'i', id: 'ins:i'),
         category: KeyCategory.function,
+        // 中文：`∠` = `POLAR`，HiPER 上它是 `i` 的第二功能（厂商 FAQ 原话：press SHIFT and the i key
+        //       to insert the angle symbol ∠）。**仍然禁用**：引擎读得了它，应用的两个解析器都读不了
+        //       （见本行上面那一段），插进表达式只会得到错误、得不到值。基准动作 `ins:i` 一格未动。
+        // English: `∠` = `POLAR`, which on HiPER is `i`'s second function (the vendor FAQ's own words:
+        //          press SHIFT and the i key to insert the angle symbol ∠). **Still disabled**: the
+        //          engine reads it, this app's two parsers do not (see the note above this row), so
+        //          typing it can only produce an error, never a value. The base `ins:i` has not moved.
+        shift: KeyVariant(label: '∠', id: 'dis:angle', enabled: false),
       ),
       KeypadKey(
         base: KeyVariant(label: 'e', id: 'ins:e'),
         category: KeyCategory.function,
+        // 中文：`logₓy` = `LOGX`，HiPER 上它是 `e` 的第二功能（位置与规则见上面那一段）。它插的
+        //       `log(8,2)` 逐字节不变——宿主 libqalculate 5.12.0 实测 `log(8,2)` = `3`，即引擎的
+        //       `log(数, 底)`：**第二个实参才是底**（`log(2,8)` = `0.3333333333`）。应用自己的解析器
+        //       同样给 `3`，LaTeX 印 `\log_{2}(8)`——三者一致，这一次改动一个字都没碰它。
+        // English: `logₓy` = `LOGX`, which on HiPER is `e`'s second function (position and rule in the
+        //          note above). What it inserts is `log(8,2)`, byte for byte unchanged — host
+        //          libqalculate 5.12.0 measures `log(8,2)` = `3`, i.e. the engine's
+        //          `log(number, base)`: **the second argument is the base** (`log(2,8)` =
+        //          `0.3333333333`). This app's own parser also gives `3` and its LaTeX prints
+        //          `\log_{2}(8)` — all three agree, and this round touched none of it.
+        shift: KeyVariant(label: 'logₓy', id: 'ins:logxy'),
       ),
     ],
     labels: <KeypadLabel?>[
@@ -303,18 +400,8 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
       ShiftLabel('sin⁻¹'),
       ShiftLabel('cos⁻¹'),
       ShiftLabel('tan⁻¹'),
-      InlineKey(
-        KeypadKey(
-          base: KeyVariant(label: '∠', id: 'dis:angle', enabled: false),
-          category: KeyCategory.disabled,
-        ),
-      ),
-      InlineKey(
-        KeypadKey(
-          base: KeyVariant(label: 'logₓy', id: 'ins:logxy'),
-          category: KeyCategory.function,
-        ),
-      ),
+      ShiftLabel('∠'),
+      ShiftLabel('logₓy'),
     ],
   ),
 
