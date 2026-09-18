@@ -59,7 +59,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
   ],
   <String>[
     "angleMode|DRG|on function",
-    "resultForm|x⇔E|on function",
+    "resultForm|x⇔E|on function shift:notationCycle|FSE|on",
     "ins:matrix|MTRX|on function",
     "ins:sum|Σ|on function shift:ins:product|Π|on",
     "ins:integrate|∫dx|on function shift:ins:diff|d/dx|on",
@@ -133,7 +133,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
   ],
   <String>[
     "hint:DRG",
-    "notationCycle|FSE|on pill",
+    "hint:FSE",
     "hint:MTRX",
     "hint:Π",
     "hint:d/dx",

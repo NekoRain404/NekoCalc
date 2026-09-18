@@ -111,13 +111,12 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
 
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
   //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
-  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**已接上，现在是一个真控件**，
-  //       与四个进制胶囊同一形状：按一下把当前结果换一种数字记法，读数挂在状态行上。那一维在 HiPER 上
-  //       有五档——Normal / Fixed / Scientific / Engineering / Engineering SI，**本应用只接得上三档**
-  //       （Normal / Scientific / Engineering），缺的两档与理由写在
-  //       `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键 `x⇔E` 管的是
-  //       结果**形式**那一维，与 FSE 不是同一件事。SHIFT 态下按 `x⇔E` 走的是它自己的基准动作
-  //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `MTRX` 同一种情形）、
+  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**`x⇔E` 的 SHIFT 提示，
+  //       已接上**——上一轮它被做成横带里一颗可点的 `InlineKey`，本轮按来源退回提示，理由见下面
+  //       `x⇔E` 那颗键上的长注释。那一维在 HiPER 上有五档——Normal / Fixed / Scientific /
+  //       Engineering / Engineering SI，**本应用只接得上三档**（Normal / Scientific / Engineering），
+  //       缺的两档与理由写在 `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键
+  //       `x⇔E` 的**基准**管的是结果**形式**那一维，SHIFT 才是记法——两维不是一件事）、
   //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
   //       **已接上**：SHIFT 态下按 `∫dx` 插的是 `diff(x^2,x)`，实参顺序是引擎自己的，不是 HiPER
   //       手册那套——两槽而不是四槽的理由在 `calculator_key_dispatch.dart` 的 `ins:diff` 那一段）、
@@ -129,16 +128,14 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
   //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
   //          only real band buttons are the four base pills plus hyp, so this one is a
-  //          non-tappable hint), FSE (**now wired, and a real control** — the same shape as the four
-  //          base pills: one press re-spells the current result in another number notation and the
-  //          read-out hangs on the status row. On HiPER that dimension has five positions — Normal /
-  //          Fixed / Scientific / Engineering / Engineering SI — and **this app can only reach
-  //          three** (Normal / Scientific / Engineering); the two that are missing, and why, are on
-  //          the file head of `calculator_controller_notation.dart`. Missing is missing. The key
-  //          under it, `x⇔E`, owns the result **form** dimension instead, which is a
-  //          different thing. Under SHIFT, `x⇔E` runs its own base action — as
-  //          `CalculatorKeypad._resolve` says, a key without a shift variant falls back to the base —
-  //          exactly the situation `MTRX` is in), MTRX (hint of the matrix key),
+  //          non-tappable hint), FSE (**the SHIFT hint of `x⇔E`, wired** — the previous round made it
+  //          a tappable `InlineKey` in this band; this round puts it back to a hint per the sources,
+  //          and the reasoning is on the `x⇔E` key's long note below. On HiPER that dimension has five
+  //          positions — Normal / Fixed / Scientific / Engineering / Engineering SI — and **this app
+  //          can only reach three** (Normal / Scientific / Engineering); the two that are missing, and
+  //          why, are on the file head of `calculator_controller_notation.dart`. Missing is missing.
+  //          The **base** action of the key under it, `x⇔E`, owns the result **form** dimension; the
+  //          notation dimension sits on SHIFT — two different things), MTRX (hint of the matrix key),
   //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now wired**: under SHIFT the `∫dx` key
   //          inserts `diff(x^2,x)`, in the engine's own argument order rather than the manual's — the
   //          note on `ins:diff` in `calculator_key_dispatch.dart` says why two slots and not four);
@@ -154,9 +151,57 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
         base: KeyVariant(label: 'DRG', id: 'angleMode'),
         category: KeyCategory.function,
       ),
+      // 中文：**`FSE` 是这一颗键的 SHIFT 功能**——不是横带里独立的键。上一轮把它做成了横带里
+      //       一颗可点的 `InlineKey`，那是错的，本轮按来源改回来。三条来源，各自独立：
+      //
+      //       1. **真机截图**（本机 `~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`，
+      //          裁出第 2 行的那一块是 `/tmp/hiper_row2.png`）：`FSE` 印在 `x⇔E` **正上方、水平居中对齐**；
+      //          同一张图上 `▸DRG`/`MTRX`/`Π`/`d/dx`/`CNST` 也各自压在 `DRG`/矩阵/`Σ`/`∫dx`/`CONV` 上方。
+      //       2. **HiPER 自己写了这条规则**（`/tmp/hiper_en.po`，`quickTour.page.SECOND_FUNCTION.text2`）：
+      //          *"The key's second function is displayed in the label above."* —— 键上方的标签
+      //          **就是**那颗键的第二功能。同一条 `text` 还说第二功能要靠 `SHIFT` 键进入。
+      //          手册同页写着 "Symbols of these secondary functions are displayed above their keys"。
+      //       3. **两条命令是分开的**：`command.name.CHANGE_EXPR` = "Result Format"（`x⇔E` 的基准，
+      //          `resultFormat.info2` 说 "press `<key:CHANGE_EXPR>` key or tap on the result"），
+      //          `command.name.FSE` = "Number Notation"。`id` 相邻但**是两个命令**。
+      //
+      //       所以这里挂的是 `shift`，键面文字与横带里那条提示都是 `FSE`——`Π`/`MTRX`/`d/dx`
+      //       同一种形状，也同一条不变式：**横带那一格是纯提示、不可点**，一个动作只有一个 id 入口。
+      //       上一轮 `d/dx` 那组测试把这条不变式写成了断言（`calculator_ddiff_key_test.dart`），
+      //       `FSE` 现在受同一条约束。
+      //
+      //       **基准动作逐字节未动**：`resultForm`，结果**形式**那一维（`x⇔E` 的循环）。`FSE` 是
+      //       另一维——数字**记法**。HiPER 手册自己就把这两段分成 "RESULT FORMAT" 与 "NOTATIONS" 两节。
+      // English: **`FSE` is a SHIFT function of this key** — not a key of its own in the band. The
+      //          previous round made it a tappable `InlineKey` in the band; that was wrong and this
+      //          round puts it back where the sources put it. Three independent sources:
+      //
+      //          1. **The device screenshot** (on this machine, the crop of its row 2 is
+      //             `/tmp/hiper_row2.png`): `FSE` is printed **directly above `x⇔E`, horizontally
+      //             centred on it**; the same shot puts `▸DRG`/`MTRX`/`Π`/`d/dx`/`CNST` over
+      //             `DRG`/matrix/`Σ`/`∫dx`/`CONV` the same way.
+      //          2. **HiPER states the rule itself** (`/tmp/hiper_en.po`,
+      //             `quickTour.page.SECOND_FUNCTION.text2`): *"The key's second function is displayed
+      //             in the label above."* The label above a key **is** that key's second function, and
+      //             the sibling string says the `SHIFT` key is how you reach it. The manual's own page
+      //             says "Symbols of these secondary functions are displayed above their keys".
+      //          3. **Two separate commands**: `command.name.CHANGE_EXPR` = "Result Format" (the base
+      //             of `x⇔E`; `resultFormat.info2` says "press `<key:CHANGE_EXPR>` key or tap on the
+      //             result") and `command.name.FSE` = "Number Notation" — adjacent ids, **two commands**.
+      //
+      //          So the variant goes on `shift`, with `FSE` as both the variant's face and the band's
+      //          hint — the shape `Π`/`MTRX`/`d/dx` already have, and the same invariant with it: **the
+      //          band cell is a plain hint and is not tappable**, one action has exactly one id
+      //          entrance. The `d/dx` group wrote that invariant down as an assertion
+      //          (`calculator_ddiff_key_test.dart`); `FSE` is under it now too.
+      //
+      //          **The base action has not moved by a byte**: `resultForm`, the result **form**
+      //          dimension. `FSE` is another dimension — number **notation**. HiPER's manual splits
+      //          them into its own two sections, "RESULT FORMAT" and "NOTATIONS".
       KeypadKey(
         base: KeyVariant(label: 'x⇔E', id: 'resultForm'),
         category: KeyCategory.function,
+        shift: KeyVariant(label: 'FSE', id: 'notationCycle'),
       ),
       KeypadKey(
         base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
@@ -179,29 +224,25 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
     ],
     labels: <KeypadLabel?>[
       ShiftLabel('DRG'),
-      // 中文：**`FSE` 从这一步起是实体键**（原来是一行不可点的 `ShiftLabel`）。它长在标签横带里，
-      //       与四个进制胶囊同一分类、同一形状——那四颗是横带里既有的可点控件，这条横带里"看起来
-      //       像按钮"和"真的是按钮"必须是一回事。
-      //       交互：**按一下循环下一档**（Normal → SCI → ENG → Normal），与 `DRG` 一样是循环键；
-      //       否掉的是 HiPER 自己的那个五档菜单（`fseMenu.title` = "Decimal Numbers Format"）：它要
-      //       新开一层界面（面板/对话框 + 自己的测试与关闭规则），而这条横带里其它可点的格子都是
-      //       一按即得；菜单换来的"跳着选"在只剩三档时不值那层界面。
-      // English: **`FSE` is a real key from this step on** (it used to be a non-tappable
-      //          `ShiftLabel`). It sits in the label band with the four base pills' category and
-      //          shape — those four are the band's existing tappable controls, and in this band
-      //          "looks like a button" and "is a button" have to be the same thing.
-      //          Interaction: **one press cycles to the next position** (Normal → SCI → ENG →
-      //          Normal), a cycle key like `DRG`. Rejected: HiPER's own five-item menu
-      //          (`fseMenu.title` = "Decimal Numbers Format") — it needs a new UI layer (a sheet or
-      //          dialog with its own tests and dismissal rules) while every other tappable cell in
-      //          this band is one press, and the "jump straight there" a menu buys is not worth that
-      //          layer with only three positions left.
-      InlineKey(
-        KeypadKey(
-          base: KeyVariant(label: 'FSE', id: 'notationCycle'),
-          category: KeyCategory.pill,
-        ),
-      ),
+      // 中文：**`FSE` 是一句提示，不是一颗键**——它压在 `x⇔E` 正上方，而那正是 HiPER
+      //       自己给第二功能定的位置（`quickTour.page.SECOND_FUNCTION.text2`：
+      //       *"The key's second function is displayed in the label above."*）。动作挂在上面那颗键的
+      //       `shift` 上，见它的注释。**上一轮这里是 `InlineKey`**，那是主会话 brief 让「把它接成一个
+      //       真控件」的结果——本轮按来源退回。同一个动作不能有两个 id 入口（键 id 全局唯一），
+      //       这条不变式在 `calculator_ddiff_key_test.dart` 里已经是断言，`FSE` 与它同一形状。
+      //       横带里真正的键是四个进制胶囊（手册第 1791 行："Press ►BIN , ►OCT , ►DEC and ►HEX keys"，
+      //       真机图上它们也戴着胶囊底色）与 `hyp`（手册第 701 行："press hyp key"）。
+      // English: **`FSE` is a hint, not a key** — it sits directly above `x⇔E`, which is exactly where
+      //          HiPER puts a second function (`quickTour.page.SECOND_FUNCTION.text2`: *"The key's
+      //          second function is displayed in the label above."*). The action hangs on the `shift`
+      //          variant of the key above it; see that key's note. **This cell was an `InlineKey` last
+      //          round**, the result of a brief that asked for it to be "wired as a real control"; this
+      //          round it goes back to what the sources say. One action must not have two id entrances
+      //          (key ids are globally unique) — the `d/dx` group already made that invariant an
+      //          assertion, and `FSE` has the same shape. The band's real keys are the four base pills
+      //          (manual line 1791: "Press ►BIN , ►OCT , ►DEC and ►HEX keys", and on the real screenshot
+      //          they wear a capsule background) and `hyp` (manual line 701: "press hyp key").
+      ShiftLabel('FSE'),
       ShiftLabel('MTRX'),
       ShiftLabel('Π'),
       ShiftLabel('d/dx'),
