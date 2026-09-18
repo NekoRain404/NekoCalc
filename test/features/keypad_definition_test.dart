@@ -58,7 +58,12 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "clear|AC|on destructive",
   ],
   <String>[
-    "angleMode|DRG|on function shift:openAngleConvert|DRG|on",
+    // 中文：**本轮这一格只在 SHIFT 键面上多了 `▸`**（`▸DRG`，U+25B8——那是换算家族名字的一部分，
+    //       与 `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX` 同一次更正）。基准的 `DRG` 与厂商截图逐字一致，没动。
+    // English: **this round only added the `▸` to this cell's SHIFT face** (`▸DRG`, U+25B8 — part of
+    //          the conversion family's name, the same correction as `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX`). The
+    //          base `DRG` matches the vendor's screenshot letter for letter and has not moved.
+    "angleMode|DRG|on function shift:openAngleConvert|▸DRG|on",
     "resultForm|x⇔E|on function shift:notationCycle|FSE|on",
     "ins:matrix|MTRX|on function shift:openMatrixMenu|MTRX|on",
     "ins:sum|Σ|on function shift:ins:product|Π|on",
@@ -132,7 +137,10 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "-",
   ],
   <String>[
-    "hint:DRG",
+    // 中文：横带第一格带上 `▸`——厂商当前主屏截图里那一格写的正是 `▸DRG`（行 7 的注释里有逐格读数）。
+    // English: the band's first cell gains the `▸` — the vendor's current main-screen screenshot
+    //          writes `▸DRG` there (the cell-by-cell readings are in row 7's note).
+    "hint:▸DRG",
     "hint:FSE",
     "hint:MTRX",
     "hint:Π",
@@ -174,15 +182,21 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "fact|n!|on function",
     "nCr|nCr|on function",
     "nPr|nPr|on function",
-    "baseBin|BIN|on pill",
-    "baseOct|OCT|on pill",
+    // 中文：**四个进制胶囊的键面本轮补上 `▸`**（HiPER 把这一族的名字写成 `▸BIN` 等，U+25B8；
+    //       依据是厂商当前主屏截图——`▸` 画在胶囊**里面**）。四个 id 与它们的动作一字未动。
+    // English: **the four base pills' faces gain the `▸` this round** (HiPER writes this family's
+    //          names `▸BIN` and so on, U+25B8; the evidence is the vendor's current main-screen
+    //          screenshot, where the arrow sits **inside** the capsule). Their four ids and the
+    //          actions behind them have not moved a character.
+    "baseBin|▸BIN|on pill",
+    "baseOct|▸OCT|on pill",
   ],
   <String>[
     "openConstants|CNST|on function",
     "openUnits|CONV|on function",
     "abs|abs|on function",
-    "baseDec|DEC|on pill",
-    "baseHex|HEX|on pill",
+    "baseDec|▸DEC|on pill",
+    "baseHex|▸HEX|on pill",
   ],
   <String>[
     "openTools|OTHER|on function",

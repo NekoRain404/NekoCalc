@@ -148,7 +148,7 @@ const KeypadRow _modifierRow = KeypadRow(
 );
 
 // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
-//       上方标签：DRG（**`DRG` 的 SHIFT 提示，本轮真的点亮了**——HiPER 那一格是 `TO_DRG`
+//       上方标签：▸DRG（**`▸DRG` 的 SHIFT 提示，已点亮**——HiPER 那一格是 `TO_DRG`
 //       「换算角度单位」，与本行下方 `DRG` 那颗键的「切换角度单位」**是两个命令**：前者换算**当前
 //       显示的那个数**、先问源单位与目标单位，后者换的是**模式**。本轮建起了前者：`openAngleConvert`
 //       打开一个面板，选好源与目标之后把整条表达式换成 `<值> <源单位> to <目标单位>`。来源、理由与
@@ -172,13 +172,31 @@ const KeypadRow _modifierRow = KeypadRow(
 //       `cameraWindow.proVersion` 说这是 Pro 专属。本机没有可分发的识别器，本机 OCR 只会产出
 //       **看似正确、实则错误**的表达式，故保持禁用（见相机键报告 camera-key-report.md）。
 //
-//       **一处更正（本轮实测）**：本注释过去写着「HiPER 的 `▸` 只是装饰」。**那句话不成立**，
+//       **一处实测更正（本轮）：这一格跟的是厂商当前的默认键盘，不是本机那张截图——所以相机键留在原位。**
+//       两张图都对，差的是**布局版本**：
+//       1. **厂商官网的当前主屏截图**（`https://hiperlabs.eu/screenshots.html` →
+//          `assets/img/01 calculator.png`，本轮自己下载、逐格读过）：第 2 行第 6 格是**相机键**
+//          （上方无标签），而 `CNST`/`CONV` 落在 `1`/`2` 的横带上——与本表**逐格一致**。
+//       2. **本机那张 1440×3200 真机截图**（`~/Downloads/04_媒体/…cz.hipercalc.p.jpg`）量到的是**另一个
+//          布局**：第 6 格是 `CONV`、`CNST` 是它的第二功能（横带那一格），`1`/`2` 上方是 `gcd`/`lcm`。
+//       3. **厂商自己的字符串把这件事说明白了**（`cameraWindow.cameraRevoked.info` /
+//          `cameraWindow.permissionRevoked.text`）："If you want to use the former keyboard layout with
+//          the `<key:CONST>` and `<key:CONV>` keys **in their original positions**, … select the
+//          **Custom / Version 10 keyboard**."——本机截图那一版就是 Version 10；当前默认布局把
+//          `CONST`/`CONV` 挪到 `1`/`2` 的横带、把原来那一格给了相机键。
+//       所以**这颗 `📷` 不是本应用自加的**（本表的出处是规格书第 24 行那张从厂商官方手册 PDF v12.0
+//       解出的网格），把它从这一格删掉会让本表与厂商**当前**键位出现新的偏差。**结论：留原位、仍禁用。**
+//
+//       **一处更正（更早一轮实测）**：本注释过去写着「HiPER 的 `▸` 只是装饰」。**那句话不成立**，
 //       换掉它的是三条量出来的事实，写在各颗键的注释里：`▸` 是这个**换算家族**的名字的一部分
 //       （厂商自己的更新日志把 `▸BASE` 写成一个函数名，U+25B8），不是「这是一颗按钮」的记号——
 //       带它的 `►DRG` 与不带它的 `FSE`/`MTRX`/`Π`/`d/dx` 在截图上**逐像素同一种画法**
 //       （字形核心 (159,161,168)、无胶囊底），而横带里每一颗**真按钮**都戴着胶囊底。
+//       **本轮把 `▸` 按这个名字画进键面**：横带那一格与 `DRG` 的 SHIFT 键面都写 `▸DRG`，四个进制胶囊
+//       写 `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX`（依据与逐格读数在 `hiper_keypad_number_rows.dart` 行 7 那一段）。
+//       这一处键面偏差到此关掉；`CONV`/`CNST` 不带 `▸`，两处都照厂商的写法。
 // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
-//          Band above: DRG (**the SHIFT hint of `DRG`, really lit this round** — on HiPER that cell is
+//          Band above: ▸DRG (**the SHIFT hint of `DRG`, wired** — on HiPER that cell is
 //          `TO_DRG`, "Convert Angular Units", which is **a different command** from the `DRG` key
 //          below it in the same row: the former converts **the number currently displayed**, after
 //          asking for a source and a target unit, while the latter switches the **mode**. This round
@@ -209,13 +227,39 @@ const KeypadRow _modifierRow = KeypadRow(
 //          OCR would only yield a **plausible but wrong** expression — so it stays disabled (see
 //          camera-key-report.md).
 //
-//          **One correction (measured this round)**: this note used to say "HiPER's `▸` is
+//          **One measured correction (this round): this cell follows the vendor's *current* default
+//          keyboard, not the device screenshot — so the camera key stays where it is.** Both pictures
+//          are right; what differs is the **layout version**:
+//          1. **The vendor's current main-screen screenshot** (`https://hiperlabs.eu/screenshots.html`
+//             → `assets/img/01 calculator.png`, downloaded and read cell by cell this round): row 2's
+//             sixth cell is the **camera key** (nothing above it), and `CNST`/`CONV` sit on the `1`/`2`
+//             band cells — **cell for cell the same as this table**.
+//          2. **The device screenshot on this machine** (the 1440×3200 file cited above) measured a
+//             **different layout**: that cell is `CONV` with `CNST` as its second function, and `1`/`2`
+//             carry `gcd`/`lcm` above them.
+//          3. **The vendor's own strings settle it** (`cameraWindow.cameraRevoked.info` /
+//             `cameraWindow.permissionRevoked.text`): "If you want to use the former keyboard layout
+//             with the `<key:CONST>` and `<key:CONV>` keys **in their original positions**, … select
+//             the **Custom / Version 10 keyboard**." The device screenshot is that Version 10 layout;
+//             the current default moved `CONST`/`CONV` onto the `1`/`2` band and gave their old cell to
+//             the camera key.
+//          So **this `📷` was not added by this app** (the table's provenance is the grid on line 24 of
+//          the spec, decoded from the vendor's official manual PDF v12.0), and deleting it from this
+//          cell would open a **new** deviation from the vendor's current keypad. **Conclusion: it stays
+//          in place, and stays disabled.**
+//
+//          **One correction (measured a round earlier)**: this note used to say "HiPER's `▸` is
 //          decoration". **That sentence does not hold**, and three measured facts replace it (they
 //          are written out on the keys themselves): `▸` is part of the **name of the conversion
 //          family** (the vendor's own release note spells the name of one of them `▸BASE`, U+25B8) —
 //          it is **not** a "this is a button" marker, because a cell carrying it (`►DRG`) and cells
 //          that do not (`FSE`/`MTRX`/`Π`/`d/dx`) are drawn **pixel for pixel the same way** (glyph
 //          core (159,161,168), no capsule), while every real band **button** wears a capsule.
+//          **This round draws the `▸` that name asks for**: the band cell and the `DRG` key's SHIFT
+//          face both read `▸DRG`, and the four base pills read `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX` (the evidence
+//          and the cell-by-cell readings are in the row-7 note of `hiper_keypad_number_rows.dart`).
+//          That key-face deviation is closed; `CONV`/`CNST` carry no `▸` and are written as the vendor
+//          writes them.
 const KeypadRow _angleAndAggregateRow = KeypadRow(
   keys: <KeypadKey>[
     // 中文：**`DRG` 的 SHIFT 功能是 `TO_DRG`「换算角度单位」——与这颗键的基准不是同一个动作，
@@ -347,7 +391,17 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     KeypadKey(
       base: KeyVariant(label: 'DRG', id: 'angleMode'),
       category: KeyCategory.function,
-      shift: KeyVariant(label: 'DRG', id: 'openAngleConvert', enabled: true),
+      // 中文：**SHIFT 变体的键面补上 `▸`**：HiPER 把这个换算家族的名字写成 `▸DRG`（U+25B8，见本行
+      //       上面那一段与 `hiper_keypad_number_rows.dart` 四个进制胶囊同一次更正），而本应用这一格
+      //       过去写的是不带 `▸` 的 `DRG`——横带那条提示与这颗键的 SHIFT 键面是同一个名字，两处一起补。
+      //       **基准 `angleMode` 的键面仍是 `DRG`**：HiPER 两颗键上写的也是不带 `▸` 的 `DRG`。
+      // English: **the SHIFT variant's face gains the `▸`**: HiPER spells this conversion family's name
+      //          `▸DRG` (U+25B8; see the note above this row and the same correction applied to the
+      //          four base pills in `hiper_keypad_number_rows.dart`), while this app used to write a
+      //          bare `DRG` here — the band hint and this key's SHIFT face are one and the same name,
+      //          so both change together. **The base `angleMode` face stays `DRG`**: HiPER's two keys
+      //          are written `DRG` without the arrow as well.
+      shift: KeyVariant(label: '▸DRG', id: 'openAngleConvert', enabled: true),
     ),
     // 中文：**`FSE` 是这一颗键的 SHIFT 功能**——不是横带里独立的键。上一轮把它做成了横带里
     //       一颗可点的 `InlineKey`，那是错的，本轮按来源改回来。三条来源，各自独立：
@@ -513,7 +567,14 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     ),
   ],
   labels: <KeypadLabel?>[
-    ShiftLabel('DRG'),
+    // 中文：横带里那一格的字是 **`▸DRG`**，带 U+25B8——`▸` 是这个换算家族名字的一部分（见
+    //       `hiper_keypad_number_rows.dart` 四个进制胶囊上那一次更正），不是「这是一颗按钮」的记号。
+    //       `CONV`/`CNST` 不带 `▸`（厂商当前截图里那两格逐字如此），本应用也照写。
+    // English: the band cell reads **`▸DRG`**, with U+25B8 — the arrow is part of this conversion
+    //          family's name (see the correction on the four base pills in
+    //          `hiper_keypad_number_rows.dart`), not a "this is a button" marker. `CONV`/`CNST` carry
+    //          no `▸` (verbatim from the vendor's current screenshot), and this app writes them so.
+    ShiftLabel('▸DRG'),
     // 中文：**`FSE` 是一句提示，不是一颗键**——它压在 `x⇔E` 正上方，而那正是 HiPER
     //       自己给第二功能定的位置（`quickTour.page.SECOND_FUNCTION.text2`：
     //       *"The key's second function is displayed in the label above."*）。动作挂在上面那颗键的

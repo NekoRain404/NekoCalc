@@ -591,10 +591,14 @@ String _displayedExpression(WidgetTester tester) => tester
 /// 中文：键面文字所在的**可点**那一层。`SHIFT`/`DRG` 这些字在屏幕上出现两次（横带里的提示与下方
 ///       主键的键面），所以不能直接 `find.text`——这里从文字往上找它所在的 `InkWell`：提示那一句
 ///       没有可点的祖先，键面那一句有。
+///       **横带那一格本轮起写 `▸DRG`**（带 U+25B8，见行 7 的注释），而键面永远画基准标签 `DRG`——
+///       两个字符串从此不同，这个查找器仍然按**键面**（可点的那一层）取，不受影响。
 /// English: the **tappable** layer the face text sits on. Faces such as `SHIFT`/`DRG` appear twice on
 ///          screen (the band's hint and the key face below), so a bare `find.text` will not do — this
 ///          walks up from the text to its `InkWell`: the hint has no tappable ancestor, the key face
-///          has one.
+///          has one. **The band cell reads `▸DRG` from this round on** (U+25B8; see row 7's note) while
+///          the face always draws the base `DRG` — the two strings differ now, and this finder still
+///          takes the **face**, the tappable one.
 Finder _keypadKey(String label) => find
     .ancestor(
       of: find.descendant(

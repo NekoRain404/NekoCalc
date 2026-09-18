@@ -117,7 +117,7 @@ void main() {
     await typeHundred(tester);
     calls.clear();
 
-    await tester.tap(_keypadKey('HEX'));
+    await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
 
     expect(calls, <String>['(100) to hex'],
@@ -129,11 +129,11 @@ void main() {
     respondWith(engine());
     await typeHundred(tester);
 
-    await tester.tap(_keypadKey('BIN'));
+    await tester.tap(_keypadKey('▸BIN'));
     await tester.pumpAndSettle();
     expect(find.text('BIN 1100100'), findsOneWidget);
 
-    await tester.tap(_keypadKey('OCT'));
+    await tester.tap(_keypadKey('▸OCT'));
     await tester.pumpAndSettle();
     expect(find.text('OCT 144'), findsOneWidget);
     expect(find.text('BIN 1100100'), findsNothing,
@@ -144,12 +144,12 @@ void main() {
     respondWith(engine());
     await typeHundred(tester);
 
-    await tester.tap(_keypadKey('HEX'));
+    await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
     expect(find.text('HEX 64'), findsOneWidget);
 
     calls.clear();
-    await tester.tap(_keypadKey('DEC'));
+    await tester.tap(_keypadKey('▸DEC'));
     await tester.pumpAndSettle();
 
     expect(find.text('HEX 64'), findsNothing);
@@ -160,7 +160,7 @@ void main() {
     respondWith(engine());
     await typeHundred(tester);
 
-    await tester.tap(_keypadKey('HEX'));
+    await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
 
     expect(find.text('HEX 64'), findsOneWidget);
@@ -175,7 +175,7 @@ void main() {
     respondWith(engine(failConversions: true));
     await typeHundred(tester);
 
-    await tester.tap(_keypadKey('HEX'));
+    await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
 
     expect(find.text('HEX 64'), findsNothing);
@@ -188,7 +188,7 @@ void main() {
     respondWith(engine());
     await typeHundred(tester);
 
-    await tester.tap(_keypadKey('HEX'));
+    await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
     expect(find.text('HEX 64'), findsOneWidget);
 

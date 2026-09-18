@@ -143,7 +143,7 @@ void main() {
   testWidgets('pill buttons are tappable and report ids', (tester) async {
     final tapped = <String>[];
     await tester.pumpWidget(pad(onKey: tapped.add));
-    await tester.tap(find.text('BIN').first);
+    await tester.tap(find.text('▸BIN').first);
     expect(tapped, ['baseBin']);
   });
 
@@ -168,7 +168,7 @@ void main() {
     final pill = tester.widget<Container>(
       find
           .ancestor(
-              of: find.text('BIN').first, matching: find.byType(Container))
+              of: find.text('▸BIN').first, matching: find.byType(Container))
           .first,
     );
     expect((pill.decoration as ShapeDecoration).color, theme.keys.pillBg,

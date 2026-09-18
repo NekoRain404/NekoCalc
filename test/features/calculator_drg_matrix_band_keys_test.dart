@@ -111,7 +111,9 @@ void main() {
           reason: '本轮起它是一个**真动作 id**——与上一轮 `dis:matrixMenu`→`openMatrixMenu`、'
               '以及更早 `dis:cplx`→`openComplex` 同一条先例：`dis:` 前缀是「有这个名字、但做不到」，'
               '点亮时换成真正的动作 id');
-      expect(shift.label, 'DRG', reason: '变体的键面文字就是横带里那条提示');
+      expect(shift.label, '▸DRG',
+          reason: '变体的键面文字就是横带里那条提示；本轮两处一起补上 `▸`（U+25B8——'
+              '`▸` 是换算家族名字的一部分，依据是厂商当前主屏截图，见行 7 的注释）');
       expect(shift.enabled, isTrue,
           reason: '缺口补上了（翻译层给 `deg` 开了一个形状：`<值> <角度单位> to <角度单位>`，'
               '见本文件最后一组），所以它不再禁用——禁用是拒绝，而这一格今天不再需要拒绝');
@@ -122,7 +124,8 @@ void main() {
       //          one action has two id entrances — the id-uniqueness invariant goes red at once.
       final above = located.row.labels[located.index];
       expect(above, isA<ShiftLabel>());
-      expect((above! as ShiftLabel).text, 'DRG');
+      expect((above! as ShiftLabel).text, '▸DRG',
+          reason: '横带那一格的字与 SHIFT 键面是同一个名字，两处都带 `▸`');
     });
 
     testWidgets('SHIFT + `DRG` 打开「换算角度单位」面板，面板自己一个字节都不插；不按 SHIFT 时 `DRG` 走的仍是基准',
@@ -143,6 +146,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(_keypadKey('SHIFT'));
       await tester.pumpAndSettle();
+      // 中文：**键面永远画基准标签**（`calculator_keypad.dart` 的 `_face` 那一段），所以 SHIFT 态下
+      //       这一格上仍是 `DRG`——`▸DRG` 只印在它上方的横带里。要按的还是这颗键。
+      // English: **the face always draws the base label** (see `_face` in `calculator_keypad.dart`), so
+      //          this cell still reads `DRG` under SHIFT — `▸DRG` is printed only in the band above it.
+      //          The key to tap is still this one.
       await tester.tap(_keypadKey('DRG'));
       await tester.pumpAndSettle();
 
@@ -227,11 +235,15 @@ void main() {
       expect(labels.length, 6);
       for (var i = 0; i < labels.length; i++) {
         final label = labels[i];
-        // 中文：第 6 格是空位——HiPER 那里是 `CNST`（`CONV` 的 SHIFT），而本应用那一格是相机键，
-        //       相机键上方**没有**标签（理由在键位表第 2 行的注释里）。这条断言把「空位」也钉住。
-        // English: cell 6 is empty — HiPER has `CNST` there (`CONV`'s SHIFT), while this app's cell
-        //          holds the camera key, which has **no** band label (the reason is in the key table's
-        //          row-2 note). This assertion pins the empty slot too.
+        // 中文：第 6 格是空位——本应用那一格是相机键，相机键上方**没有**标签（厂商当前的默认键位
+        //       也是这样：相机键那一格上方空着）。厂商的**旧布局**（Version 10）那一格是 `CONV`、
+        //       上方写着 `CNST`；两张图是两个布局版本，逐格读数与出处写在键位表第 2 行的注释里。
+        //       这条断言把「空位」也钉住。
+        // English: cell 6 is empty — this app's cell holds the camera key, which has **no** band label
+        //          (the vendor's *current* default keypad leaves that cell above the camera empty too).
+        //          In the vendor's **older** layout (Version 10) that cell is `CONV` with `CNST` above
+        //          it; the two pictures are two layout versions, and the cell-by-cell readings and
+        //          sources are in the key table's row-2 note. This assertion pins the empty slot too.
         if (i == 5) {
           expect(label, isNull);
           continue;
@@ -241,8 +253,9 @@ void main() {
       }
       expect(
           labels.whereType<ShiftLabel>().map((ShiftLabel l) => l.text).toList(),
-          <String>['DRG', 'FSE', 'MTRX', 'Π', 'd/dx'],
-          reason: '本轮只给第 1、3 格挂上了 `shift` 变体，五格文字一个都没改');
+          <String>['▸DRG', 'FSE', 'MTRX', 'Π', 'd/dx'],
+          reason: '这一组只钉「横带六格仍是提示」：第 1 格的字是一支换算家族的名字 `▸DRG`'
+              '（U+25B8，与 `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX` 同一次更正），另外四格逐字未动');
     });
   });
 
