@@ -354,12 +354,12 @@ mixin _CalculatorEvaluation on _CalculatorState {
   /// 中文：**提交路径**（只有「按下等号」会走到这里）的结果来源：先问引擎，问不到就回落旧解析器。
   ///
   ///       回落是硬要求，且引擎的失败对用户完全不可见：引擎未加载、没有原生侧、被中止、超时、
-  ///       解析失败，用户看到的都是**今天那条结果或那条错误**，一字不差。所以这里接受引擎结果的
-  ///       条件很紧——必须是一个**有限十进制**：
+  ///       解析失败，用户看到的都是**今天那条结果或那条错误**，一字不差。但接受引擎答案的条件
+  ///       **不止一条**——[_selectEngineResult] 有若干出口，下面两条只是其中**第三级**：
   ///
-  ///       - 引擎没有十进制形态（`1 m` 这类带单位的结果）：回落到旧解析器；
-  ///       - 十进制形态根本不是有限数（`infinity` / `NaN` 字面量）：同样回落，于是 `1/0` 仍然是
-  ///         今天那条「结果不是有限数值」，而不是一个看起来像结果的 `无效`。
+  ///       - 引擎没有十进制形态（`1 m` 这类带单位的结果）：第三级挡下，落到第四级；
+  ///       - 十进制形态根本不是有限数（`infinity` / `NaN`）：同样下落，`1/0` 仍是你今天看到的
+  ///         那条「结果不是有限数值」，而不是一个看着像结果的 `无效`。
   ///
   ///       这个判断发生在**字符串层面**（[MathResult.hasFiniteDecimal]），**不借 double**：
   ///       `2^2000 ≈ 1.148e+602` 是一个完全正确的有限结果，只是超出 double 上限，用
@@ -381,15 +381,15 @@ mixin _CalculatorEvaluation on _CalculatorState {
   ///
   ///          The fallback is a hard requirement, and the engine's failure is invisible to the
   ///          user: engine not loaded, no native side, aborted, timed out or failed to parse — the
-  ///          user sees *today's* result or *today's* error, character for character. So the
-  ///          condition for accepting the engine's answer is deliberately tight: it must be a
-  ///          *finite decimal*, judged at the string level ([MathResult.hasFiniteDecimal]) and
-  ///          never through a double:
+  ///          user sees *today's* result or *today's* error, character for character. Accepting the
+  ///          engine's answer is **more than one test**, and they do not ask the same question —
+  ///          [_selectEngineResult] has several exits; the two below are only its **third level**:
   ///
-  ///          - the engine has no decimal form (a result carrying a unit, say `1 m`): fall back;
+  ///          - the engine has no decimal form (a result carrying a unit, say `1 m`): stopped at
+  ///            the third level, left to the fourth;
   ///          - the decimal form is not a finite number at all (the `infinity` / `NaN` literals):
-  ///            fall back too, so `1/0` still produces today's "result is not finite" rather than a
-  ///            `无效` that looks like a result.
+  ///            same, so `1/0` still produces today's "result is not finite" rather than a `无效`
+  ///            that looks like a result.
   ///
   ///          Judging finiteness at the string level matters because `2^2000 ≈ 1.148e+602` is a
   ///          perfectly correct finite result that merely overflows a double — `double.isFinite`
