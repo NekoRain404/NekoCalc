@@ -27,42 +27,67 @@ const Map<String, int> _monthNumbers = {
   'december': 12,
 };
 
+// 中文：**这一族的分界值得逐个点出来**，因为同一批汉字在这里既是文案又是判据：
+//       - `纳秒` / `微秒` / `毫秒` 出现在 `_timestampMillisFromUnit` 的 `unit == '纳秒'` 里，
+//         也出现在下面那条带单位的正则里——**两处都是判据，刻意不翻**；
+//       - `现在` / `北京时间` / `中国标准时间` / `东八区` 比的是用户敲进来的说法，
+//         以及 `(?:北京时间|中国标准时间|东八区)` 这条正则匹配的也是用户输入——**刻意不翻**；
+//       - 其余（十来句识别说明、`JSON 字段` / `标签文本` 两个来源名、正文各行、相对时间量词、
+//         星期名、三句错误）都是给人看的字，进了 `TextToolTimestampStrings`。
+//       最容易被搞混的一对是 `$n 天` / `$n 小时`（量词，进表）与 `纳秒` / `微秒` / `毫秒`
+//       （判据，不进表）：它们长得一样，身份不一样。
+// English: **This family's boundary is worth spelling out item by item**, because the same
+//          characters are copy in one place and a branch condition in another:
+//          - `纳秒` / `微秒` / `毫秒` appear in `unit == '纳秒'` inside `_timestampMillisFromUnit` and
+//            in the unit regular expression below — **both are conditions and both stay**;
+//          - `现在` / `北京时间` / `中国标准时间` / `东八区` compare what the user typed, and the
+//            `(?:北京时间|中国标准时间|东八区)` pattern matches user input too — **both stay**;
+//          - everything else (a dozen recognition notes, the two provenance names `JSON 字段` /
+//            `标签文本`, the detail lines, the relative-time measure words, the weekday names and
+//            three errors) is for the reader and went into `TextToolTimestampStrings`.
+//          The pair most easily confused is `$n 天` / `$n 小时` (measure words, in the table) versus
+//          `纳秒` / `微秒` / `毫秒` (conditions, not in the table): they look alike, they are not the
+//          same thing.
 extension _TextToolTimestampTools on TextToolController {
-  TextToolOutput _timestamp(String input) {
-    final parsed = _parseTimestampInput(input);
+  TextToolOutput _timestamp(TextToolTimestampStrings strings, String input) {
+    final parsed = _parseTimestampInput(strings, input);
     final millis = parsed.millisecondsSinceEpoch;
     final local = DateTime.fromMillisecondsSinceEpoch(millis);
     final utc = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
     return TextToolOutput(
       local.toString(),
       [
-        '本地时间: $local',
+        strings.localTime('$local'),
         'UTC: $utc',
-        'ISO 本地: ${local.toIso8601String()}',
+        strings.isoLocal(local.toIso8601String()),
         'ISO UTC: ${utc.toIso8601String()}',
-        '秒级时间戳: ${(millis / 1000).round()}',
-        '毫秒时间戳: $millis',
-        '星期: ${_weekdayLabel(local.weekday)}',
-        '年内第 ${_dayOfYear(local)} 天',
+        strings.secondStamp('${(millis / 1000).round()}'),
+        strings.millisecondStamp('$millis'),
+        strings.weekdayLine(strings.weekday(local.weekday)),
+        strings.dayOfYear(_dayOfYear(local)),
       ].join('\n'),
       insights: [
         parsed.description,
-        '时区偏移: ${local.timeZoneOffset.inHours >= 0 ? '+' : ''}${local.timeZoneOffset.inHours} 小时。',
-        _relativeTimeInsight(local),
+        strings.timeZoneOffset(
+            '${local.timeZoneOffset.inHours >= 0 ? '+' : ''}${local.timeZoneOffset.inHours}'),
+        _relativeTimeInsight(strings, local),
       ],
     );
   }
 
-  _ParsedTimestamp _parseTimestampInput(String input) {
-    final extracted = _extractTimestampInput(input);
+  _ParsedTimestamp _parseTimestampInput(
+    TextToolTimestampStrings strings,
+    String input,
+  ) {
+    final extracted = _extractTimestampInput(strings, input);
     final normalized = extracted.value;
     if (normalized.isEmpty) {
-      throw const FormatException('请输入时间戳、日期时间或 now');
+      throw FormatException(strings.emptyTimestampInput);
     }
     if (normalized.toLowerCase() == 'now' || normalized == '现在') {
       return _ParsedTimestamp(
         millisecondsSinceEpoch: DateTime.now().millisecondsSinceEpoch,
-        description: _timestampDescription('输入识别为当前时间。', extracted),
+        description: _timestampDescription(strings, strings.now, extracted),
       );
     }
     final unitMatch = RegExp(
@@ -72,10 +97,12 @@ extension _TextToolTimestampTools on TextToolController {
     if (unitMatch != null) {
       final value = double.parse(unitMatch.group(1)!);
       final unit = unitMatch.group(2)!.toLowerCase();
-      final (millis, description) = _timestampMillisFromUnit(value, unit);
+      final (millis, description) =
+          _timestampMillisFromUnit(strings, value, unit);
       return _ParsedTimestamp(
         millisecondsSinceEpoch: millis,
         description: _timestampDescription(
+          strings,
           description,
           extracted,
         ),
@@ -85,29 +112,38 @@ extension _TextToolTimestampTools on TextToolController {
     if (decimalSeconds != null && normalized.contains('.')) {
       return _ParsedTimestamp(
         millisecondsSinceEpoch: (decimalSeconds * 1000).round(),
-        description: _timestampDescription('输入识别为小数秒时间戳。', extracted),
+        description: _timestampDescription(
+          strings,
+          strings.fractionalSeconds,
+          extracted,
+        ),
       );
     }
     final numeric = int.tryParse(normalized);
     if (numeric != null) {
-      final compact = _parseCompactTimestamp(normalized);
+      final compact = _parseCompactTimestamp(strings, normalized);
       if (compact != null) {
         return _ParsedTimestamp(
           millisecondsSinceEpoch: compact.millisecondsSinceEpoch,
-          description: _timestampDescription(compact.description, extracted),
+          description: _timestampDescription(
+            strings,
+            compact.description,
+            extracted,
+          ),
         );
       }
-      final inferred = _timestampMillisFromNumeric(normalized, numeric);
+      final inferred = _timestampMillisFromNumeric(strings, normalized, numeric);
       return _ParsedTimestamp(
         millisecondsSinceEpoch: inferred.$1,
-        description: _timestampDescription(inferred.$2, extracted),
+        description: _timestampDescription(strings, inferred.$2, extracted),
       );
     }
     final dateTime = _tryParseDateTimeText(normalized);
     if (dateTime != null) {
       return _ParsedTimestamp(
         millisecondsSinceEpoch: dateTime.toLocal().millisecondsSinceEpoch,
-        description: _timestampDescription('输入识别为日期时间文本。', extracted),
+        description:
+            _timestampDescription(strings, strings.dateTimeText, extracted),
       );
     }
     final common = RegExp(
@@ -126,53 +162,68 @@ extension _TextToolTimestampTools on TextToolController {
       );
       return _ParsedTimestamp(
         millisecondsSinceEpoch: value.millisecondsSinceEpoch,
-        description: _timestampDescription('输入识别为本地日期时间。', extracted),
+        description:
+            _timestampDescription(strings, strings.localDateTime, extracted),
       );
     }
-    throw const FormatException(
-      '请输入时间戳、ISO 日期、yyyy-MM-dd HH:mm:ss 或 20260608093000',
-    );
+    throw FormatException(strings.needTimestampInput);
   }
 
-  (int, String) _timestampMillisFromUnit(double value, String unit) {
+  (int, String) _timestampMillisFromUnit(
+    TextToolTimestampStrings strings,
+    double value,
+    String unit,
+  ) {
+    // 中文：`unit` 比的是**用户输入里的单位词**（`纳秒` / `微秒` / `毫秒` 三个中文词在这里是判据）。
+    // English: `unit` is compared against **the unit word in the user's input** (`纳秒` / `微秒` /
+    //          `毫秒` are branch conditions here).
     if (unit == 'ns' || unit == '纳秒') {
-      return ((value / 1000000).round(), '输入识别为带单位的纳秒时间戳。');
+      return ((value / 1000000).round(), strings.unitNanos);
     }
     if (unit == 'us' || unit == 'µs' || unit == 'μs' || unit == '微秒') {
-      return ((value / 1000).round(), '输入识别为带单位的微秒时间戳。');
+      return ((value / 1000).round(), strings.unitMicros);
     }
     if (unit == 'ms' || unit == '毫秒') {
-      return (value.round(), '输入识别为带单位的毫秒时间戳。');
+      return (value.round(), strings.unitMillis);
     }
-    return ((value * 1000).round(), '输入识别为带单位的秒级时间戳。');
+    return ((value * 1000).round(), strings.unitSeconds);
   }
 
-  (int, String) _timestampMillisFromNumeric(String input, int value) {
+  (int, String) _timestampMillisFromNumeric(
+    TextToolTimestampStrings strings,
+    String input,
+    int value,
+  ) {
     final digits = input.startsWith('-') || input.startsWith('+')
         ? input.substring(1)
         : input;
     final length = digits.length;
     final absValue = value.abs();
     if (length >= 19) {
-      return ((value / 1000000).round(), '输入识别为纳秒级时间戳。');
+      return ((value / 1000000).round(), strings.numericNanos);
     }
     if (length >= 16) {
-      return ((value / 1000).round(), '输入识别为微秒级时间戳。');
+      return ((value / 1000).round(), strings.numericMicros);
     }
     if (absValue > 9999999999) {
-      return (value, '输入识别为毫秒级时间戳。');
+      return (value, strings.numericMillis);
     }
-    return (value * 1000, '输入识别为秒级时间戳。');
+    return (value * 1000, strings.numericSeconds);
   }
 
-  _TimestampInputCandidate _extractTimestampInput(String input) {
+  _TimestampInputCandidate _extractTimestampInput(
+    TextToolTimestampStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return const _TimestampInputCandidate('');
 
     try {
       final decoded = json.decode(trimmed);
       final found = _findTimestampInJson(decoded);
-      if (found != null) return _TimestampInputCandidate(found, 'JSON 字段');
+      if (found != null) {
+        return _TimestampInputCandidate(found, strings.sourceJsonField);
+      }
     } catch (_) {
       // Not JSON; continue with plain text extraction.
     }
@@ -182,14 +233,16 @@ extension _TextToolTimestampTools on TextToolController {
       caseSensitive: false,
     ).firstMatch(trimmed);
     if (labeledRfc != null) {
-      return _TimestampInputCandidate(labeledRfc.group(1)!.trim(), '标签文本');
+      return _TimestampInputCandidate(
+          labeledRfc.group(1)!.trim(), strings.sourceLabelText);
     }
     final labeled = RegExp(
       r'(?:timestamp|time|date|datetime|created_at|updated_at|expires_at|过期时间|时间|日期)\s*[:=]\s*["“”]?([^",，\n\r]+)',
       caseSensitive: false,
     ).firstMatch(trimmed);
     if (labeled != null) {
-      return _TimestampInputCandidate(labeled.group(1)!.trim(), '标签文本');
+      return _TimestampInputCandidate(
+          labeled.group(1)!.trim(), strings.sourceLabelText);
     }
     return _TimestampInputCandidate(trimmed);
   }
@@ -227,16 +280,25 @@ extension _TextToolTimestampTools on TextToolController {
     return null;
   }
 
+  /// 中文：把识别说明与来源拼成整句。**拼法在表里**（`extractedFrom`）：中文是「$base 已从…」，
+  ///       英文是「$base The time value was extracted from …」——断句与语序都不同。
+  /// English: Joins the recognition note with its provenance. **The shape lives in the table**
+  ///          (`extractedFrom`): Chinese reads `$base 已从…` and English reads `$base The time value
+  ///          was extracted from …` — different punctuation and different word order.
   String _timestampDescription(
+    TextToolTimestampStrings strings,
     String base,
     _TimestampInputCandidate extracted,
   ) {
     return extracted.source == null
         ? base
-        : '$base 已从${extracted.source}中提取时间值。';
+        : strings.extractedFrom(base, extracted.source!);
   }
 
-  _ParsedTimestamp? _parseCompactTimestamp(String input) {
+  _ParsedTimestamp? _parseCompactTimestamp(
+    TextToolTimestampStrings strings,
+    String input,
+  ) {
     final match = RegExp(
       r'^(\d{4})(\d{2})(\d{2})(?:(\d{2})(\d{2})(?:(\d{2}))?)?$',
     ).firstMatch(input);
@@ -258,11 +320,11 @@ extension _TextToolTimestampTools on TextToolController {
         value.hour != part(4) ||
         value.minute != part(5) ||
         value.second != part(6)) {
-      throw const FormatException('紧凑日期时间无效。');
+      throw FormatException(strings.compactInvalid);
     }
     return _ParsedTimestamp(
       millisecondsSinceEpoch: value.millisecondsSinceEpoch,
-      description: '输入识别为紧凑本地日期时间。',
+      description: strings.compactLocalDateTime,
     );
   }
 
@@ -429,25 +491,26 @@ extension _TextToolTimestampTools on TextToolController {
     return offset == null ? base : base.subtract(offset);
   }
 
-  String _weekdayLabel(int weekday) {
-    return const ['一', '二', '三', '四', '五', '六', '日'][weekday - 1];
-  }
-
   int _dayOfYear(DateTime value) {
     return value.difference(DateTime(value.year)).inDays + 1;
   }
 
-  String _relativeTimeInsight(DateTime value) {
+  String _relativeTimeInsight(
+    TextToolTimestampStrings strings,
+    DateTime value,
+  ) {
     final diff = value.difference(DateTime.now());
     final past = diff.isNegative;
     final abs = diff.abs();
     final amount = abs.inDays >= 1
-        ? '${abs.inDays} 天'
+        ? strings.durationDays(abs.inDays)
         : abs.inHours >= 1
-            ? '${abs.inHours} 小时'
+            ? strings.durationHours(abs.inHours)
             : abs.inMinutes >= 1
-                ? '${abs.inMinutes} 分钟'
-                : '${abs.inSeconds} 秒';
-    return past ? '相对当前时间: 约 $amount 前。' : '相对当前时间: 约 $amount 后。';
+                ? strings.durationMinutes(abs.inMinutes)
+                : strings.durationSeconds(abs.inSeconds);
+    return past
+        ? strings.relativePast(amount)
+        : strings.relativeFuture(amount);
   }
 }

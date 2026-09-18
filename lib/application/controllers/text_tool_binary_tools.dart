@@ -1,8 +1,17 @@
 part of 'text_tool_controller.dart';
 
+// 中文：**这一文件里没有一条中文字面量是判据。** 这里所有的正则（PEM 头、Markdown 围栏、
+//       `base64:` 标签、`uint8_t[]` 之类）都是纯 ASCII 的**输入文法**，本来就不涉及语言；
+//       `mode` 与 `description` 两个字段只被插进输出，反向不参与分支。**故意不翻的与
+//       该翻的在这里没有重叠**：一条都没有留。
+// English: **Not one Chinese literal in this file is a branch condition.** Every regular expression
+//          here (PEM headers, Markdown fences, the `base64:` label, `uint8_t[]` and friends) is plain
+//          ASCII **input grammar** and has nothing to do with language; the `mode` and `description`
+//          fields are only interpolated into the output and never branch on the way back. **Nothing
+//          here is both** — which is why this file has no exemptions at all.
 extension _TextToolBinaryTools on TextToolController {
-  TextToolOutput _base64(String input) {
-    final decoded = _tryDecodeBase64Input(input);
+  TextToolOutput _base64(TextToolCodecStrings strings, String input) {
+    final decoded = _tryDecodeBase64Input(strings, input);
     if (decoded != null) {
       final text = decoded.text;
       final standard = base64.encode(decoded.bytes);
@@ -10,24 +19,24 @@ extension _TextToolBinaryTools on TextToolController {
       return TextToolOutput(
         text ?? '${decoded.bytes.length} bytes',
         [
-          if (text != null) 'UTF-8 文本长度: ${text.runes.length} 字符',
-          if (text == null) '二进制内容，无法按 UTF-8 文本完整显示。',
-          '字节数: ${decoded.bytes.length}',
+          if (text != null) strings.utf8TextLength(text.runes.length),
+          if (text == null) strings.binaryContentNote,
+          strings.byteCount(decoded.bytes.length),
           'HEX: ${_formatHexPreview(decoded.bytes)}',
-          if (decoded.bytes.length > 64) 'HEX 仅展示前 64 bytes。',
+          if (decoded.bytes.length > 64) strings.hexPreviewTruncated,
           if (decoded.mimeType != null) 'MIME: ${decoded.mimeType}',
-          '格式: ${decoded.variantLabel}',
-          '标准 Base64: $standard',
+          strings.formatLabel(decoded.variantLabel),
+          strings.standardBase64(standard),
           'Base64URL: $urlSafe',
           if (decoded.fromDataUrl)
             'data URL: data:${decoded.mimeType ?? 'application/octet-stream'};base64,$standard',
         ].join('\n'),
         insights: [
-          decoded.description,
-          if (decoded.hadWhitespace) '已忽略输入中的空白和换行。',
-          if (decoded.isUrlSafe) '已识别 URL-safe 字符集，详情同时给出标准 Base64。',
-          if (decoded.fromDataUrl) '详情中已重建可复制的 data URL。',
-          if (text == null) '结果更适合作为二进制数据保存或继续复制 HEX。',
+          decoded.description(strings),
+          if (decoded.hadWhitespace) strings.whitespaceIgnored,
+          if (decoded.isUrlSafe) strings.urlSafeAlphabet,
+          if (decoded.fromDataUrl) strings.dataUrlRebuilt,
+          if (text == null) strings.binaryPreferred,
         ],
       );
     }
@@ -38,20 +47,20 @@ extension _TextToolBinaryTools on TextToolController {
     return TextToolOutput(
       encoded,
       [
-        '检测为普通文本，已编码为标准 Base64。',
-        'UTF-8 字节: ${bytes.length}',
+        strings.plainTextEncoded,
+        strings.utf8ByteLabel(bytes.length),
         'Base64URL: $urlSafe',
         'data:text/plain: data:text/plain;charset=utf-8;base64,$encoded',
       ].join('\n'),
-      insights: const [
-        '复制主结果可直接用于标准 Base64 解码场景。',
-        '详情同时提供 URL-safe 写法和 text/plain data URL。',
+      insights: [
+        strings.standardBase64Reuse,
+        strings.urlSafeAndDataUrl,
       ],
     );
   }
 
-  TextToolOutput _checksum(String input) {
-    final parsed = _parseByteInput(input);
+  TextToolOutput _checksum(TextToolCodecStrings strings, String input) {
+    final parsed = _parseByteInput(strings, input);
     final bytes = parsed.bytes;
     final sum = bytes.fold<int>(0, (total, byte) => (total + byte) & 0xff);
     final xor = bytes.fold<int>(0, (total, byte) => total ^ byte);
@@ -59,23 +68,23 @@ extension _TextToolBinaryTools on TextToolController {
     return TextToolOutput(
       'SUM8 = 0x${sum.toRadixString(16).toUpperCase().padLeft(2, '0')}',
       [
-        '输入模式: ${parsed.mode}',
-        '长度: ${bytes.length} bytes',
+        strings.inputMode(parsed.mode),
+        strings.lengthBytes(bytes.length),
         'SUM8: $sum (0x${_hexByte(sum)})',
         'XOR8: $xor (0x${_hexByte(xor)})',
         'LRC: $lrc (0x${_hexByte(lrc)})',
         'HEX: ${_formatHexPreview(bytes)}',
-        if (bytes.length > 64) 'HEX 仅展示前 64 bytes。',
+        if (bytes.length > 64) strings.hexPreviewTruncated,
       ].join('\n'),
       insights: [
         parsed.description,
-        if (parsed.cleanedSeparators) '已忽略字节列表中的空白、括号或分隔符。',
+        if (parsed.cleanedSeparators) strings.byteListSeparatorsIgnored,
       ],
     );
   }
 
-  TextToolOutput _fnvCrc(String input) {
-    final parsed = _parseByteInput(input);
+  TextToolOutput _fnvCrc(TextToolCodecStrings strings, String input) {
+    final parsed = _parseByteInput(strings, input);
     final bytes = parsed.bytes;
     var fnv = 0x811c9dc5;
     var crc = 0xffffffff;
@@ -91,21 +100,24 @@ extension _TextToolBinaryTools on TextToolController {
     return TextToolOutput(
       'CRC32 = ${_hex32(crc)}',
       [
-        '输入模式: ${parsed.mode}',
+        strings.inputMode(parsed.mode),
         'FNV-1a 32: ${_hex32(fnv)}',
         'CRC32: ${_hex32(crc)}',
-        '长度: ${bytes.length} bytes',
+        strings.lengthBytes(bytes.length),
         'HEX: ${_formatHexPreview(bytes)}',
-        if (bytes.length > 64) 'HEX 仅展示前 64 bytes。',
+        if (bytes.length > 64) strings.hexPreviewTruncated,
       ].join('\n'),
       insights: [
         parsed.description,
-        if (parsed.cleanedSeparators) '已忽略字节列表中的空白、括号或分隔符。',
+        if (parsed.cleanedSeparators) strings.byteListSeparatorsIgnored,
       ],
     );
   }
 
-  _ParsedBase64? _tryDecodeBase64Input(String input) {
+  _ParsedBase64? _tryDecodeBase64Input(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
@@ -122,10 +134,10 @@ extension _TextToolBinaryTools on TextToolController {
       fromDataUrl = true;
       mimeType = dataUrlMatch.group(1);
       payload = dataUrlMatch.group(2) ?? '';
-      sourceDescription = '检测为 data URL Base64 输入，已提取 payload 解码。';
+      sourceDescription = strings.dataUrlDecoded;
     }
     if (!fromDataUrl) {
-      final extracted = _extractBase64Payload(trimmed);
+      final extracted = _extractBase64Payload(strings, trimmed);
       if (extracted != null) {
         payload = extracted.payload;
         sourceDescription = extracted.description;
@@ -175,7 +187,10 @@ extension _TextToolBinaryTools on TextToolController {
     }
   }
 
-  _ExtractedBase64Payload? _extractBase64Payload(String input) {
+  _ExtractedBase64Payload? _extractBase64Payload(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     final markdownFence = RegExp(
       r'```(?:base64|b64|pem|text|txt)?\s*([\s\S]*?)```',
@@ -184,7 +199,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (markdownFence != null) {
       return _ExtractedBase64Payload(
         markdownFence.group(1)!,
-        '已从 Markdown 代码块中提取 Base64 payload 解码。',
+        strings.fromMarkdownFence,
       );
     }
 
@@ -195,7 +210,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (pemBlock != null) {
       return _ExtractedBase64Payload(
         pemBlock.group(2)!,
-        '已从 PEM 块中提取 Base64 payload 解码。',
+        strings.fromPemBlock,
       );
     }
 
@@ -204,7 +219,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (quoted != null) {
       return _ExtractedBase64Payload(
         quoted.group(1)!,
-        '已从带标签文本中提取 Base64 payload 解码。',
+        strings.fromLabeledText,
       );
     }
 
@@ -216,7 +231,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (leadingLabel != null) {
       return _ExtractedBase64Payload(
         _stripPayloadQuotes(leadingLabel.group(1)!),
-        '已从带标签文本中提取 Base64 payload 解码。',
+        strings.fromLabeledText,
       );
     }
 
@@ -228,7 +243,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (quotedField != null) {
       return _ExtractedBase64Payload(
         quotedField.group(1)!,
-        '已从带标签文本中提取 Base64 payload 解码。',
+        strings.fromLabeledText,
       );
     }
 
@@ -239,7 +254,7 @@ extension _TextToolBinaryTools on TextToolController {
     if (unquotedField != null) {
       return _ExtractedBase64Payload(
         unquotedField.group(1)!,
-        '已从带标签文本中提取 Base64 payload 解码。',
+        strings.fromLabeledText,
       );
     }
     return null;
@@ -279,35 +294,41 @@ extension _TextToolBinaryTools on TextToolController {
         .join(' ');
   }
 
-  _ParsedByteInput _parseByteInput(String input) {
-    final hex = _tryParseHexByteInput(input);
+  _ParsedByteInput _parseByteInput(TextToolCodecStrings strings, String input) {
+    final hex = _tryParseHexByteInput(strings, input);
     if (hex != null) return hex;
-    final decimal = _tryParseDecimalByteInput(input);
+    final decimal = _tryParseDecimalByteInput(strings, input);
     if (decimal != null) return decimal;
-    final base64Bytes = _tryParseBase64ByteInput(input);
+    final base64Bytes = _tryParseBase64ByteInput(strings, input);
     if (base64Bytes != null) return base64Bytes;
     return _ParsedByteInput(
       bytes: utf8.encode(input),
-      mode: 'UTF-8 文本',
-      description: '输入按 UTF-8 文本字节计算。',
+      mode: strings.modeUtf8Text,
+      description: strings.utf8BytesAssumed,
       cleanedSeparators: false,
     );
   }
 
-  _ParsedByteInput? _tryParseBase64ByteInput(String input) {
-    final decoded = _tryDecodeBase64Input(input);
+  _ParsedByteInput? _tryParseBase64ByteInput(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
+    final decoded = _tryDecodeBase64Input(strings, input);
     if (decoded == null) return null;
     return _ParsedByteInput(
       bytes: decoded.bytes,
-      mode: 'Base64 字节',
-      description: decoded.description,
+      mode: strings.modeBase64Bytes,
+      description: decoded.description(strings),
       cleanedSeparators: decoded.hadWhitespace ||
           decoded.fromDataUrl ||
           decoded.sourceDescription != null,
     );
   }
 
-  _ParsedByteInput? _tryParseHexByteInput(String input) {
+  _ParsedByteInput? _tryParseHexByteInput(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
     final normalizedInput = _normalizeAsciiLike(trimmed);
@@ -320,7 +341,7 @@ extension _TextToolBinaryTools on TextToolController {
       for (final match in hexTokens) {
         if (match.end < normalizedInput.length &&
             RegExp(r'[0-9a-fA-F]').hasMatch(normalizedInput[match.end])) {
-          throw const FormatException('十六进制字节需要偶数个数字。');
+          throw FormatException(strings.hexBytesNeedEvenDigits);
         }
         final token = match.group(0)!;
         final hex = token
@@ -330,8 +351,8 @@ extension _TextToolBinaryTools on TextToolController {
       }
       return _ParsedByteInput(
         bytes: bytes,
-        mode: '十六进制字节',
-        description: _hexByteDescription(trimmed, hexTokens.length),
+        mode: strings.modeHexBytes,
+        description: _hexByteDescription(strings, trimmed, hexTokens.length),
         cleanedSeparators: true,
       );
     }
@@ -354,7 +375,7 @@ extension _TextToolBinaryTools on TextToolController {
       return null;
     }
     if (normalized.length.isOdd) {
-      throw const FormatException('十六进制字节需要偶数个数字。');
+      throw FormatException(strings.hexBytesNeedEvenDigits);
     }
 
     final bytes = <int>[];
@@ -363,20 +384,24 @@ extension _TextToolBinaryTools on TextToolController {
     }
     return _ParsedByteInput(
       bytes: bytes,
-      mode: '十六进制字节',
-      description: '输入识别为十六进制字节序列。',
+      mode: strings.modeHexBytes,
+      description: strings.hexByteSequence,
       cleanedSeparators: normalized.length != trimmed.length,
     );
   }
 
-  String _hexByteDescription(String input, int count) {
+  String _hexByteDescription(
+    TextToolCodecStrings strings,
+    String input,
+    int count,
+  ) {
     if (RegExp(
             r'\b(?:const\s+)?(?:(?:unsigned\s+)?char|uint8_t|byte)\s+\w*\s*\[|Uint8List',
             caseSensitive: false)
         .hasMatch(input)) {
-      return '输入识别为代码中的十六进制字节数组，共 $count bytes。';
+      return strings.hexByteArrayFromCode(count);
     }
-    return '输入识别为十六进制字节序列。';
+    return strings.hexByteSequence;
   }
 
   bool _looksLikeDecimalByteList(String input) {
@@ -403,7 +428,10 @@ extension _TextToolBinaryTools on TextToolController {
     return null;
   }
 
-  _ParsedByteInput? _tryParseDecimalByteInput(String input) {
+  _ParsedByteInput? _tryParseDecimalByteInput(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
     final normalized = _normalizeAsciiLike(trimmed);
@@ -424,26 +452,30 @@ extension _TextToolBinaryTools on TextToolController {
     for (final token in tokens) {
       final value = int.parse(token);
       if (value < 0 || value > 255) {
-        throw FormatException('十进制字节超出 0-255 范围: $value');
+        throw FormatException(strings.decimalByteOutOfRange(value));
       }
       bytes.add(value);
     }
     return _ParsedByteInput(
       bytes: bytes,
-      mode: '十进制字节',
-      description: _decimalByteDescription(trimmed, bytes.length),
+      mode: strings.modeDecimalBytes,
+      description: _decimalByteDescription(strings, trimmed, bytes.length),
       cleanedSeparators: true,
     );
   }
 
-  String _decimalByteDescription(String input, int count) {
+  String _decimalByteDescription(
+    TextToolCodecStrings strings,
+    String input,
+    int count,
+  ) {
     if (RegExp(
             r'\b(?:const\s+)?(?:(?:unsigned\s+)?char|uint8_t|byte|int)\s+\w*\s*\[|Uint8List',
             caseSensitive: false)
         .hasMatch(input)) {
-      return '输入识别为代码中的十进制字节数组，共 $count bytes。';
+      return strings.decimalByteArrayFromCode(count);
     }
-    return '输入识别为十进制字节列表。';
+    return strings.decimalByteList;
   }
 
   String _hexByte(int value) {

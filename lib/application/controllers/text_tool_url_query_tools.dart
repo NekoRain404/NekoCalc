@@ -1,10 +1,22 @@
 part of 'text_tool_controller.dart';
 
+// 中文：`_ParsedQueryInput.description` 有十八种来路（完整 URL、HTTP 请求行、curl 的各种
+//       `-d/--data` 与 `--url-query` 组合……）。它们**全是界面文案，一条判据也没有**：
+//       每个调用点先按输入的形状挑好一句，再存进字段；`description` 从不被比较，只被显示。
+//       所以这里的改法是"把表顺着参数递下去"，挑哪一句的逻辑一个字都没动。
+// English: `_ParsedQueryInput.description` has eighteen provenances (a full URL, an HTTP request
+//          line, the various `-d/--data` and `--url-query` combinations of curl …). **They are all
+//          interface copy and not one of them is a branch condition**: each call site picks a
+//          sentence according to the shape of the input and stores it in the field; `description` is
+//          never compared, only shown. So the change here is "hand the table down through the
+//          parameters", and the logic that picks which sentence is untouched.
 extension _TextToolUrlQueryTools on TextToolController {
-  TextToolOutput _queryParams(String input) {
-    final parsed = _parseQueryInput(input);
+  TextToolOutput _queryParams(TextToolWebStrings strings, String input) {
+    final parsed = _parseQueryInput(strings, input);
     final params = parsed.params;
-    if (params.isEmpty) return const TextToolOutput('无参数', '没有解析到 query 参数。');
+    if (params.isEmpty) {
+      return TextToolOutput(strings.noParameters, strings.noParametersDetail);
+    }
     final totalValues =
         params.values.fold<int>(0, (sum, values) => sum + values.length);
     final jsonObject = {
@@ -25,33 +37,34 @@ extension _TextToolUrlQueryTools on TextToolController {
         .map((entry) => '${entry.key}(${entry.value.length})')
         .toList();
     return TextToolOutput(
-      '$totalValues 个参数',
+      strings.parameterCount(totalValues),
       '$table\n\nJSON:\n$jsonText',
       insights: [
         parsed.description,
-        if (parsed.host != null) '主机: ${parsed.host}',
-        if (parsed.path != null) '路径: ${parsed.path}',
-        '已解析 $totalValues 个 query 参数，${params.length} 个唯一键。',
-        if (repeatedKeys.isNotEmpty) '重复键: ${repeatedKeys.join(', ')}。',
-        if (parsed.usedSemicolonSeparators) '已兼容分号分隔的表单参数。',
-        if (parsed.usedLineSeparators) '已兼容换行分隔的表单参数。',
-        if (parsed.fragment != null) '片段: ${parsed.fragment}',
+        if (parsed.host != null) strings.hostLine(parsed.host!),
+        if (parsed.path != null) strings.pathLine(parsed.path!),
+        strings.parsedSummary(totalValues, params.length),
+        if (repeatedKeys.isNotEmpty)
+          strings.repeatedKeys(repeatedKeys.join(', ')),
+        if (parsed.usedSemicolonSeparators) strings.semicolonSeparators,
+        if (parsed.usedLineSeparators) strings.lineSeparators,
+        if (parsed.fragment != null) strings.fragmentLine(parsed.fragment!),
       ],
     );
   }
 
-  _ParsedQueryInput _parseQueryInput(String input) {
+  _ParsedQueryInput _parseQueryInput(TextToolWebStrings strings, String input) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) {
-      return const _ParsedQueryInput(
-        params: {},
-        description: '输入为空。',
+      return _ParsedQueryInput(
+        params: const {},
+        description: strings.emptyInput,
         usedSemicolonSeparators: false,
         usedLineSeparators: false,
       );
     }
 
-    final curl = _parseCurlQueryInput(trimmed);
+    final curl = _parseCurlQueryInput(strings, trimmed);
     if (curl != null) return curl;
 
     final requestTarget = _extractHttpRequestTarget(trimmed);
@@ -61,24 +74,30 @@ extension _TextToolUrlQueryTools on TextToolController {
     if (_looksLikeAbsoluteUrl(source)) {
       final uri = Uri.parse(source);
       return _queryInputFromUri(
+        strings,
         uri,
-        description:
-            fromRequestLine ? '输入识别为 HTTP 请求行中的完整 URL。' : '输入识别为完整 URL。',
+        description: fromRequestLine
+            ? strings.inputFullUrlInRequestLine
+            : strings.inputFullUrl,
       );
     }
 
     if (source.contains('?')) {
       final uri = Uri.parse(source);
       return _queryInputFromUri(
+        strings,
         uri,
-        description: fromRequestLine ? '输入识别为 HTTP 请求行。' : '输入识别为相对 URL。',
+        description: fromRequestLine
+            ? strings.inputRequestLine
+            : strings.inputRelativeUrl,
       );
     }
 
     return _queryInputFromQuery(
       source.startsWith('?') ? source.substring(1) : source,
-      description:
-          fromRequestLine ? '输入识别为 HTTP 请求行。' : '输入识别为 query string / 表单正文。',
+      description: fromRequestLine
+          ? strings.inputRequestLine
+          : strings.inputQueryStringOrForm,
     );
   }
 
@@ -94,7 +113,10 @@ extension _TextToolUrlQueryTools on TextToolController {
     return match?.group(2)?.trim();
   }
 
-  _ParsedQueryInput? _parseCurlQueryInput(String input) {
+  _ParsedQueryInput? _parseCurlQueryInput(
+    TextToolWebStrings strings,
+    String input,
+  ) {
     final tokens = _tokenizeShellWords(input);
     if (!_isCurlCommand(tokens)) return null;
 
@@ -157,17 +179,17 @@ extension _TextToolUrlQueryTools on TextToolController {
     final effectiveUrl =
         url == null ? null : _appendQueryPartsToUrl(url, queryParts);
     final parsedUrl =
-        effectiveUrl == null ? null : _parseUrlQuerySource(effectiveUrl);
+        effectiveUrl == null ? null : _parseUrlQuerySource(strings, effectiveUrl);
     final parsedData = dataParts.isEmpty || sendsDataAsQuery
         ? null
         : _queryInputFromQuery(
             dataParts.join('&'),
-            description: '输入识别为 curl 命令中的表单参数。',
+            description: strings.inputCurlFormFields,
           );
     if (parsedUrl == null && parsedData == null) {
-      return const _ParsedQueryInput(
-        params: {},
-        description: '输入识别为 curl 命令，但未找到 URL query 或表单参数。',
+      return _ParsedQueryInput(
+        params: const {},
+        description: strings.inputCurlNoQueryFound,
         usedSemicolonSeparators: false,
         usedLineSeparators: false,
       );
@@ -182,18 +204,18 @@ extension _TextToolUrlQueryTools on TextToolController {
     }
     final description =
         urlQueryParts.isNotEmpty && sendsDataAsQuery && dataParts.isNotEmpty
-            ? '输入识别为 curl 命令，已合并 --url-query 与 -G/--get 参数。'
+            ? strings.inputCurlMergedUrlQueryAndGet
             : urlQueryParts.isNotEmpty
                 ? parsedData != null
-                    ? '输入识别为 curl 命令，已合并 --url-query 与 -d/--data 表单参数。'
-                    : '输入识别为 curl 命令，已合并 --url-query 参数。'
+                    ? strings.inputCurlMergedUrlQueryAndData
+                    : strings.inputCurlMergedUrlQuery
                 : sendsDataAsQuery && dataParts.isNotEmpty && parsedUrl != null
-                    ? '输入识别为 curl -G/--get 命令，已将 --data 参数合并为 URL query。'
+                    ? strings.inputCurlGetMergedData
                     : parsedUrl != null && parsedData != null
-                        ? '输入识别为 curl 命令，已合并 URL query 与 -d/--data 表单参数。'
+                        ? strings.inputCurlMergedQueryAndData
                         : parsedData != null
-                            ? '输入识别为 curl 命令中的表单参数。'
-                            : '输入识别为 curl 命令中的 URL。';
+                            ? strings.inputCurlFormFields
+                            : strings.inputCurlUrl;
     return _ParsedQueryInput(
       params: params,
       description: description,
@@ -207,17 +229,22 @@ extension _TextToolUrlQueryTools on TextToolController {
     );
   }
 
-  _ParsedQueryInput? _parseUrlQuerySource(String source) {
+  _ParsedQueryInput? _parseUrlQuerySource(
+    TextToolWebStrings strings,
+    String source,
+  ) {
     if (_looksLikeAbsoluteUrl(source)) {
       return _queryInputFromUri(
+        strings,
         Uri.parse(source),
-        description: '输入识别为 curl 命令中的完整 URL。',
+        description: strings.inputCurlFullUrl,
       );
     }
     if (source.contains('?')) {
       return _queryInputFromUri(
+        strings,
         Uri.parse(source),
-        description: '输入识别为 curl 命令中的相对 URL。',
+        description: strings.inputCurlRelativeUrl,
       );
     }
     return null;
@@ -521,6 +548,7 @@ extension _TextToolUrlQueryTools on TextToolController {
   }
 
   _ParsedQueryInput _queryInputFromUri(
+    TextToolWebStrings strings,
     Uri uri, {
     required String description,
   }) {
@@ -530,7 +558,7 @@ extension _TextToolUrlQueryTools on TextToolController {
       final fragmentQuery = _queryFromFragment(uri.fragment);
       if (fragmentQuery != null) {
         query = fragmentQuery;
-        resolvedDescription = '输入识别为 URL 片段中的 query。';
+        resolvedDescription = strings.inputUrlFragmentQuery;
       }
     }
     return _queryInputFromQuery(

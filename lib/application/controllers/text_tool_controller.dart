@@ -102,8 +102,8 @@ class TextToolController {
   ///       `TextToolStrings.of(context)` 递进来；纯 Dart 测试里用
   ///       `TextToolStrings.forLanguage(AppLanguage.zh)`，与"默认态逐字节不变"取的是同一张表。
   ///
-  ///       **还没有接表的几条分支**（编解码组与数据组）本轮没动，它们仍在原地产出中文，
-  ///       见 `text_tool_strings.dart` 的文件头——是已知残留，不是漏翻。
+  ///       **每一条分支现在都接表了**：`switch` 里 18 个工具无一例外，其中六个从
+  ///       `strings` 里取自己那一张子表往下传（编解码组、Web 格式组、时间戳）。
   /// English: **`strings` is required, with no Chinese fallback.** This signature is the family's
   ///          one gate against "the language was forgotten", so it chooses a compile error over a
   ///          silent fall back to Chinese: forgetting it puts a screenful of Chinese sentences into
@@ -112,9 +112,9 @@ class TextToolController {
   ///          `TextToolStrings.forLanguage(AppLanguage.zh)`, the same table the "default state stays
   ///          byte-identical" rule is about.
   ///
-  ///          **Branches that do not take a table yet** (the codec and data groups) were not touched
-  ///          this round and still produce Chinese in place — a known remainder, see
-  ///          `text_tool_strings.dart`'s file head, not a missed translation.
+  ///          **Every branch takes a table now**: all eighteen tools in the `switch` do, six of them
+  ///          taking their own sub-table out of `strings` and handing it down (the codec group, the
+  ///          web-format group and timestamps).
   TextToolOutput calculate({
     required String toolId,
     required TextToolStrings strings,
@@ -127,23 +127,23 @@ class TextToolController {
     try {
       final trimmed = input.trim();
       return switch (toolId) {
-        'base_convert' => _baseConvert(trimmed),
-        'timestamp' => _timestamp(trimmed),
-        'color_convert' => _colorConvert(trimmed),
-        'base64' => _base64(trimmed),
-        'url_codec' => _urlCodec(trimmed),
+        'base_convert' => _baseConvert(strings.codec, trimmed),
+        'timestamp' => _timestamp(strings.timestamp, trimmed),
+        'color_convert' => _colorConvert(strings.web, trimmed),
+        'base64' => _base64(strings.codec, trimmed),
+        'url_codec' => _urlCodec(strings.web, trimmed),
         'json_format' => _jsonFormat(strings.text, trimmed),
         'ascii_unicode' => _asciiUnicode(strings.stats, input),
-        'bitwise' => _bitwise(trimmed),
-        'checksum' => _checksum(input),
+        'bitwise' => _bitwise(strings.codec, trimmed),
+        'checksum' => _checksum(strings.codec, input),
         'uuid' => _uuid(strings.text, trimmed),
         'jwt_decode' => _jwtDecode(strings, trimmed),
-        'query_params' => _queryParams(trimmed),
+        'query_params' => _queryParams(strings.web, trimmed),
         'html_entities' => _htmlEntities(strings.output, input),
         'regex_test' => _regexTest(strings.text, input),
         'text_stats' => _textStats(strings.stats, input),
         'csv_json' => _csvJson(strings, input),
-        'fnv_crc' => _fnvCrc(input),
+        'fnv_crc' => _fnvCrc(strings.codec, input),
         'custom_formula' => _customFormula(
             strings: strings,
             input: input,

@@ -483,17 +483,25 @@ void main() {
     for (final entity in directory.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final name = entity.uri.pathSegments.last;
-      // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有四张
-      //       （门面 + 识别组 + 统计 + 数据组），它们和这两张一样是本目录里的"汉字之家"。
+      // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有七张
+      //       （门面 + 识别组 + 统计 + 数据组 + 编解码组 + Web 格式组 + 时间戳），
+      //       它们和这两张一样是本目录里的"汉字之家"。
+      //       **这一串只加表名，不给非表文件开口子**：`text_tool_detail_screen.dart` 之类的
+      //       界面文件仍然照扫不误。
       // English: the tables are where the Chinese is *supposed* to live; skip them. The text-tool
-      //          family has four (facade + recognition + statistics + data) and they are "Chinese
-      //          homes" in this directory just like these two.
+      //          family has seven (facade + recognition + statistics + data + codec + web-format +
+      //          timestamps) and they are "Chinese homes" in this directory just like these two.
+      //          **Only table names go on this list, never a screen file**: interface files such as
+      //          `text_tool_detail_screen.dart` are still scanned like everything else.
       if (name == 'tools_strings.dart' ||
           name == 'data_fit_strings.dart' ||
           name == 'text_tool_strings.dart' ||
           name == 'text_tool_text_strings.dart' ||
           name == 'text_tool_stats_strings.dart' ||
-          name == 'text_tool_data_strings.dart') {
+          name == 'text_tool_data_strings.dart' ||
+          name == 'text_tool_codec_strings.dart' ||
+          name == 'text_tool_web_strings.dart' ||
+          name == 'text_tool_timestamp_strings.dart') {
         continue;
       }
       final source = _stripComments(entity.readAsStringSync());

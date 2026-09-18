@@ -173,7 +173,14 @@ extension _TextToolJwtTools on TextToolController {
     }
 
     try {
-      final parsed = _parseQueryInput(source);
+      // 中文：JWT 只是**借用** query 解析器来拿 `params` 那张表，`description` 它不读；
+      //       但解析器现在要求一张表，所以照样把 Web 组那张递进去——递的是同一张，
+      //       不会因为"用不到"而留下第二种构造路径。
+      // English: JWT only **borrows** the query parser for its `params` map and never reads
+      //          `description`; the parser now asks for a table all the same, so the web-format one
+      //          is passed in — the same table, so "not needed here" does not create a second
+      //          construction path.
+      final parsed = _parseQueryInput(strings.web, source);
       final token = _findJwtInFieldMap(parsed.params);
       if (token == null) return null;
       return _ExtractedJwtToken(

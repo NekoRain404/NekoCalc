@@ -3,25 +3,40 @@ part of 'text_tool_controller.dart';
 const String _integerTokenPattern =
     r'[+\-]?(?:0x[0-9a-f][0-9a-f_,]*[ul]*|[#\$][0-9a-f][0-9a-f_,]*|[0-9a-f][0-9a-f_,]*h|0b[01][01_,]*[ul]*|[01][01_,]*b|0o[0-7][0-7_,]*[ul]*|[0-7][0-7_,]*o|[0-9][0-9_,]*(?:d|[ul]+)?)';
 
+// 中文：**这一组没有一条中文字面量是判据。** `_integerTokenPattern` 上面那条正则才是判据
+//       （十六进制字面量怎么算一个 token），它是纯 ASCII；`radixLabel` 与 `notation`
+//       只被插进 `_ParsedInteger.description`，反向不参与任何分支。这一点与时间戳那一组
+//       正好相反——那边 `unit == '纳秒'` 是判据，所以那三个词留在原地。
+// English: **Not one Chinese literal in this group is a branch condition.** The condition is the
+//          `_integerTokenPattern` regular expression above (what counts as one hexadecimal token)
+//          and it is pure ASCII; `radixLabel` and `notation` are only interpolated into
+//          `_ParsedInteger.description` and never branch on the way back. That is the exact opposite
+//          of the timestamp group, where `unit == '纳秒'` is a condition and so those three words
+//          stay where they are.
 extension _TextToolIntegerTools on TextToolController {
-  TextToolOutput _baseConvert(String input) {
-    final parsed = _parseIntDetailed(input);
+  TextToolOutput _baseConvert(TextToolCodecStrings strings, String input) {
+    final parsed = _parseIntDetailed(strings, input);
     final value = parsed.value;
     return TextToolOutput(
       value.toString(),
-      '二进制: ${_formatIntegerBase(value, 2)}\n八进制: ${_formatIntegerBase(value, 8)}\n十进制: $value\n十六进制: ${_formatIntegerBase(value, 16)}',
+      strings.baseLines(
+        _formatIntegerBase(value, 2),
+        _formatIntegerBase(value, 8),
+        value.toString(),
+        _formatIntegerBase(value, 16),
+      ),
       insights: [
-        parsed.description,
-        '有效位数: ${_integerBitLength(value)} bit。',
-        if (value < 0) '负数按数学符号展示；位运算会使用整数补码语义。',
+        parsed.description(strings),
+        strings.significantBits(_integerBitLength(value)),
+        if (value < 0) strings.negativeShownAsSigned,
       ],
     );
   }
 
-  TextToolOutput _bitwise(String input) {
-    final values = _extractParsedIntegers(input);
+  TextToolOutput _bitwise(TextToolCodecStrings strings, String input) {
+    final values = _extractParsedIntegers(strings, input);
     if (values.length < 2) {
-      throw const FormatException('请输入两个整数，例如 12 5 或 A=0xF0 B=0b1010');
+      throw FormatException(strings.twoIntegersNeeded);
     }
     final aInput = values[0];
     final bInput = values[1];
@@ -40,98 +55,103 @@ extension _TextToolIntegerTools on TextToolController {
         'A >> 1: ${a >> 1}',
       ].join('\n'),
       insights: [
-        'A 识别为${aInput.radixLabel}，B 识别为${bInput.radixLabel}。',
-        'A 位数: ${_integerBitLength(a)} bit，B 位数: ${_integerBitLength(b)} bit。',
-        if (values.length > 2) '检测到多个整数，已使用前两个。',
-        if (a < 0 || b < 0) '负数位运算使用整数补码语义。',
+        strings.recognisedAB(aInput.radixLabel, bInput.radixLabel),
+        strings.bitLengthAB(_integerBitLength(a), _integerBitLength(b)),
+        if (values.length > 2) strings.extraIntegersIgnored,
+        if (a < 0 || b < 0) strings.negativeBitwiseTwosComplement,
       ],
     );
   }
 
-  _ParsedInteger _parseIntDetailed(String input) {
+  _ParsedInteger _parseIntDetailed(TextToolCodecStrings strings, String input) {
     final source = _normalizeAsciiLike(input).trim();
-    final constant = _parseIntegerConstant(source);
+    final constant = _parseIntegerConstant(strings, source);
     if (constant != null) return constant;
-    final token = _compactIntegerSource(source);
+    final token = _compactIntegerSource(strings, source);
     var body = token;
     var sign = 1;
     if (body.startsWith('+') || body.startsWith('-')) {
       sign = body.startsWith('-') ? -1 : 1;
       body = body.substring(1);
     }
-    if (body.isEmpty) throw const FormatException('请输入整数');
+    if (body.isEmpty) throw FormatException(strings.integerNeeded);
 
-    final suffix = _stripIntegerTypeSuffix(body);
+    final suffix = _stripIntegerTypeSuffix(strings, body);
     body = suffix.$1;
     final suffixNotation = suffix.$2;
 
     var radix = 10;
-    var radixLabel = '十进制';
-    var notation = '数字';
+    var radixLabel = strings.radixDecimal;
+    var notation = strings.notationPlainDigits;
     if (body.startsWith('0x')) {
       radix = 16;
-      radixLabel = '十六进制';
-      notation = '0x 前缀';
+      radixLabel = strings.radixHexadecimal;
+      notation = strings.notationHexPrefix0x;
       body = body.substring(2);
     } else if (body.startsWith('#')) {
       radix = 16;
-      radixLabel = '十六进制';
-      notation = '# 前缀';
+      radixLabel = strings.radixHexadecimal;
+      notation = strings.notationHexPrefixHash;
       body = body.substring(1);
     } else if (body.startsWith(r'$')) {
       radix = 16;
-      radixLabel = '十六进制';
-      notation = r'$ 前缀';
+      radixLabel = strings.radixHexadecimal;
+      notation = strings.notationHexPrefixDollar;
       body = body.substring(1);
     } else if (body.endsWith('h') && body.length > 1) {
       radix = 16;
-      radixLabel = '十六进制';
-      notation = 'h 后缀';
+      radixLabel = strings.radixHexadecimal;
+      notation = strings.notationHexSuffixH;
       body = body.substring(0, body.length - 1);
     } else if (body.startsWith('0b')) {
       radix = 2;
-      radixLabel = '二进制';
-      notation = '0b 前缀';
+      radixLabel = strings.radixBinary;
+      notation = strings.notationBinaryPrefix0b;
       body = body.substring(2);
     } else if (body.endsWith('b') &&
         body.length > 1 &&
         RegExp(r'^[01]+b$').hasMatch(body)) {
       radix = 2;
-      radixLabel = '二进制';
-      notation = 'b 后缀';
+      radixLabel = strings.radixBinary;
+      notation = strings.notationBinarySuffixB;
       body = body.substring(0, body.length - 1);
     } else if (body.startsWith('0o')) {
       radix = 8;
-      radixLabel = '八进制';
-      notation = '0o 前缀';
+      radixLabel = strings.radixOctal;
+      notation = strings.notationOctalPrefix0o;
       body = body.substring(2);
     } else if (body.endsWith('o') &&
         body.length > 1 &&
         RegExp(r'^[0-7]+o$').hasMatch(body)) {
       radix = 8;
-      radixLabel = '八进制';
-      notation = 'o 后缀';
+      radixLabel = strings.radixOctal;
+      notation = strings.notationOctalSuffixO;
       body = body.substring(0, body.length - 1);
     } else if (body.endsWith('d') &&
         body.length > 1 &&
         RegExp(r'^[0-9]+d$').hasMatch(body)) {
-      notation = 'd 后缀';
+      notation = strings.notationDecimalSuffixD;
       body = body.substring(0, body.length - 1);
     }
 
     if (!_validIntegerDigits(body, radix)) {
-      throw FormatException('整数格式无效: $input');
+      throw FormatException(strings.invalidIntegerFormat(input));
     }
     return _ParsedInteger(
       value: int.parse(body, radix: radix) * sign,
       radix: radix,
       radixLabel: radixLabel,
-      notation: suffixNotation == null ? notation : '$notation，$suffixNotation',
+      notation: suffixNotation == null
+          ? notation
+          : strings.notationWithSuffix(notation, suffixNotation),
       token: source,
     );
   }
 
-  _ParsedInteger? _parseIntegerConstant(String source) {
+  _ParsedInteger? _parseIntegerConstant(
+    TextToolCodecStrings strings,
+    String source,
+  ) {
     final normalized = source
         .replaceAll(RegExp(r'\s+'), '')
         .replaceAll('::', '.')
@@ -155,32 +175,41 @@ extension _TextToolIntegerTools on TextToolController {
     return _ParsedInteger(
       value: value,
       radix: 10,
-      radixLabel: '十进制',
-      notation: '编程语言常量',
+      radixLabel: strings.radixDecimal,
+      notation: strings.notationProgrammingConstant,
       token: source,
     );
   }
 
-  (String, String?) _stripIntegerTypeSuffix(String body) {
+  (String, String?) _stripIntegerTypeSuffix(
+    TextToolCodecStrings strings,
+    String body,
+  ) {
     final match = RegExp(r'^(.*?)(u?ll|llu|ul|lu|u|l)$', caseSensitive: false)
         .firstMatch(body);
     if (match == null) return (body, null);
     final stripped = match.group(1)!;
     if (stripped.isEmpty) return (body, null);
-    return (stripped, '${match.group(2)!.toUpperCase()} 类型后缀');
+    return (stripped, strings.typeSuffix(match.group(2)!.toUpperCase()));
   }
 
-  _ParsedInteger? _tryParseIntDetailed(String input) {
+  _ParsedInteger? _tryParseIntDetailed(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     try {
-      return _parseIntDetailed(input);
+      return _parseIntDetailed(strings, input);
     } on FormatException {
       return null;
     }
   }
 
-  List<_ParsedInteger> _extractParsedIntegers(String input) {
+  List<_ParsedInteger> _extractParsedIntegers(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final normalized = _normalizeAsciiLike(input);
-    final labeled = _extractLabeledIntegers(normalized);
+    final labeled = _extractLabeledIntegers(strings, normalized);
     if (labeled.containsKey('a') && labeled.containsKey('b')) {
       return [labeled['a']!, labeled['b']!];
     }
@@ -200,7 +229,7 @@ extension _TextToolIntegerTools on TextToolController {
       );
       if (segment.isEmpty) return;
 
-      final parsed = _tryParseIntDetailed(segment);
+      final parsed = _tryParseIntDetailed(strings, segment);
       if (parsed != null) {
         values.add(parsed);
         return;
@@ -216,7 +245,7 @@ extension _TextToolIntegerTools on TextToolController {
       for (final match in tokenRegex.allMatches(segment)) {
         final token = match.group(1);
         if (token == null) continue;
-        final extracted = _tryParseIntDetailed(token);
+        final extracted = _tryParseIntDetailed(strings, token);
         if (extracted != null) values.add(extracted);
       }
     }
@@ -227,7 +256,10 @@ extension _TextToolIntegerTools on TextToolController {
     return values;
   }
 
-  Map<String, _ParsedInteger> _extractLabeledIntegers(String input) {
+  Map<String, _ParsedInteger> _extractLabeledIntegers(
+    TextToolCodecStrings strings,
+    String input,
+  ) {
     final result = <String, _ParsedInteger>{};
     final labelRegex = RegExp(
       '(?:^|[^A-Za-z0-9_])([ab])\\s*[:=]\\s*($_integerTokenPattern)(?![A-Za-z0-9_.])',
@@ -239,17 +271,17 @@ extension _TextToolIntegerTools on TextToolController {
       if (label == null || token == null || result.containsKey(label)) {
         continue;
       }
-      final parsed = _tryParseIntDetailed(token);
+      final parsed = _tryParseIntDetailed(strings, token);
       if (parsed != null) result[label] = parsed;
     }
     return result;
   }
 
-  String _compactIntegerSource(String input) {
+  String _compactIntegerSource(TextToolCodecStrings strings, String input) {
     final compact = input.replaceAll(RegExp(r'\s+'), '');
-    if (compact.isEmpty) throw const FormatException('请输入整数');
+    if (compact.isEmpty) throw FormatException(strings.integerNeeded);
     if (compact.contains(',') && !_integerCommasAreGrouped(compact)) {
-      throw const FormatException('整数千位分隔符格式不正确');
+      throw FormatException(strings.invalidThousandsSeparator);
     }
     return compact.replaceAll('_', '').replaceAll(',', '').toLowerCase();
   }

@@ -1,62 +1,74 @@
 part of 'text_tool_controller.dart';
 
+// 中文：`mode` 与 `sourceDescription` 是**描述符**，不是判据——它们只被插进下面这几句输出里，
+//       反向不参与任何 `==` / `switch`。所以它们与 `radixLabel` 同形：解析阶段从表里取一句
+//       定好的话存进字段，输出阶段只负责拼。`query string` 那一格两侧逐字节相同，
+//       它照样进表——表管的是"这一格由谁供给"，不是"这一格有没有汉字"。
+// English: `mode` and `sourceDescription` are **descriptors**, not branch conditions — they are only
+//          interpolated into the output below and never branch in an `==` or a `switch`. So they
+//          have the same shape as `radixLabel`: the parse stage reads a settled sentence out of the
+//          table into the field, and the output stage only joins. The `query string` slot reads the
+//          same on both sides and still goes through the table: a table decides **who supplies the
+//          slot**, not whether the slot contains Chinese.
 extension _TextToolUrlCodecTools on TextToolController {
-  TextToolOutput _urlCodec(String input) {
-    final decoded = _tryDecodeUrlText(input);
+  TextToolOutput _urlCodec(TextToolWebStrings strings, String input) {
+    final decoded = _tryDecodeUrlText(strings, input);
     if (decoded != null) {
       return TextToolOutput(
         decoded.value,
         [
-          '模式: ${decoded.mode}',
-          '原长度: ${input.length}',
-          '结果长度: ${decoded.value.length}',
-          '长度变化: ${_signedLengthDelta(decoded.value.length - input.length)}',
+          strings.modeLabel(decoded.mode),
+          strings.originalLength(input.length),
+          strings.resultLength(decoded.value.length),
+          strings.lengthDelta(
+              _signedLengthDelta(decoded.value.length - input.length)),
           if (decoded.queryParameterCount > 0)
-            'Query 参数: ${decoded.queryParameterCount} 个',
+            strings.queryParameterCount(decoded.queryParameterCount),
           if (decoded.percentTripletCount > 0)
-            '百分号编码片段: ${decoded.percentTripletCount} 个',
+            strings.percentTripletCount(decoded.percentTripletCount),
         ].join('\n'),
         insights: [
           if (decoded.sourceDescription != null)
-            '已从${decoded.sourceDescription}中提取 URL。',
-          '检测到百分号编码，已按${decoded.mode}解码。',
-          if (decoded.decodedPlus) 'Query 中的 + 已按空格处理。',
-          if (decoded.queryParameterCount > 0) 'Query 参数数量按 & 分隔估算，重复键未在此处合并。',
+            strings.extractedFrom(decoded.sourceDescription!),
+          strings.decodedByMode(decoded.mode),
+          if (decoded.decodedPlus) strings.plusAsSpace,
+          if (decoded.queryParameterCount > 0) strings.queryCountEstimated,
         ],
       );
     }
-    final encoded = _encodeUrlText(input);
+    final encoded = _encodeUrlText(strings, input);
     return TextToolOutput(
       encoded.value,
       [
-        '模式: ${encoded.mode}',
-        '原长度: ${input.length}',
-        '结果长度: ${encoded.value.length}',
-        '长度变化: ${_signedLengthDelta(encoded.value.length - input.length)}',
+        strings.modeLabel(encoded.mode),
+        strings.originalLength(input.length),
+        strings.resultLength(encoded.value.length),
+        strings.lengthDelta(
+            _signedLengthDelta(encoded.value.length - input.length)),
         if (encoded.queryParameterCount > 0)
-          'Query 参数: ${encoded.queryParameterCount} 个',
+          strings.queryParameterCount(encoded.queryParameterCount),
         if (encoded.percentTripletCount > 0)
-          '百分号编码片段: ${encoded.percentTripletCount} 个',
+          strings.percentTripletCount(encoded.percentTripletCount),
       ].join('\n'),
       insights: [
         if (encoded.sourceDescription != null)
-          '已从${encoded.sourceDescription}中提取 URL。',
-        '未检测到百分号编码，已按${encoded.mode}编码。',
-        if (encoded.encodedQuery) '已保留 URL 结构，仅编码 query 键和值。',
-        if (encoded.queryParameterCount > 0) 'Query 参数数量按 & 分隔估算，重复键未在此处合并。',
+          strings.extractedFrom(encoded.sourceDescription!),
+        strings.encodedByMode(encoded.mode),
+        if (encoded.encodedQuery) strings.queryKeysEncoded,
+        if (encoded.queryParameterCount > 0) strings.queryCountEstimated,
       ],
     );
   }
 
-  _UrlCodecResult? _tryDecodeUrlText(String input) {
-    final source = _extractUrlCodecSource(input);
+  _UrlCodecResult? _tryDecodeUrlText(TextToolWebStrings strings, String input) {
+    final source = _extractUrlCodecSource(strings, input);
     final text = source.value;
     if (!_shouldDecodeUrlCodecText(text)) return null;
     try {
       if (_looksLikeAbsoluteUrl(text)) {
         return _UrlCodecResult(
           value: _decodeUrlPreservingQuery(text),
-          mode: '完整 URL',
+          mode: strings.modeFullUrl,
           decodedPlus: _rawUrlQuery(text)?.contains('+') ?? false,
           encodedQuery: _rawUrlQuery(text)?.isNotEmpty ?? false,
           queryParameterCount: _countQueryParameters(_rawUrlQuery(text)),
@@ -67,7 +79,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       if (_looksLikeRelativeUrl(text)) {
         return _UrlCodecResult(
           value: _decodeUrlPreservingQuery(text),
-          mode: '相对 URL',
+          mode: strings.modeRelativeUrl,
           decodedPlus: _rawUrlQuery(text)?.contains('+') ?? false,
           encodedQuery: _rawUrlQuery(text)?.isNotEmpty ?? false,
           queryParameterCount: _countQueryParameters(_rawUrlQuery(text)),
@@ -78,7 +90,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       if (_looksLikeQueryString(text)) {
         return _UrlCodecResult(
           value: _decodeQueryText(text),
-          mode: 'query string',
+          mode: strings.modeQueryString,
           decodedPlus: text.contains('+'),
           encodedQuery: true,
           queryParameterCount: _countQueryParameters(text),
@@ -88,7 +100,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       }
       return _UrlCodecResult(
         value: Uri.decodeComponent(text),
-        mode: 'URL 组件',
+        mode: strings.modeUrlComponent,
         decodedPlus: false,
         encodedQuery: false,
         queryParameterCount: 0,
@@ -96,7 +108,7 @@ extension _TextToolUrlCodecTools on TextToolController {
         sourceDescription: source.description,
       );
     } on FormatException {
-      throw const FormatException('URL 百分号编码不完整或无效。');
+      throw FormatException(strings.invalidPercentEncoding);
     }
   }
 
@@ -108,15 +120,15 @@ extension _TextToolUrlCodecTools on TextToolController {
     return _looksLikeQueryString(input) && input.contains('+');
   }
 
-  _UrlCodecResult _encodeUrlText(String input) {
-    final source = _extractUrlCodecSource(input);
+  _UrlCodecResult _encodeUrlText(TextToolWebStrings strings, String input) {
+    final source = _extractUrlCodecSource(strings, input);
     final text = source.value;
     if (_looksLikeAbsoluteUrl(text)) {
       final uri = Uri.parse(text);
       if (uri.query.isEmpty) {
         return _UrlCodecResult(
           value: Uri.encodeFull(text),
-          mode: '完整 URL',
+          mode: strings.modeFullUrl,
           decodedPlus: false,
           encodedQuery: false,
           queryParameterCount: 0,
@@ -126,7 +138,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       }
       return _UrlCodecResult(
         value: _encodeUrlQuery(uri),
-        mode: '完整 URL',
+        mode: strings.modeFullUrl,
         decodedPlus: false,
         encodedQuery: true,
         queryParameterCount: _countQueryParameters(uri.query),
@@ -139,7 +151,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       final encoded = _encodeUrlQuery(uri);
       return _UrlCodecResult(
         value: encoded,
-        mode: '相对 URL',
+        mode: strings.modeRelativeUrl,
         decodedPlus: false,
         encodedQuery: uri.query.isNotEmpty,
         queryParameterCount: _countQueryParameters(uri.query),
@@ -151,7 +163,7 @@ extension _TextToolUrlCodecTools on TextToolController {
       final encoded = _encodeQueryText(text);
       return _UrlCodecResult(
         value: encoded,
-        mode: 'query string',
+        mode: strings.modeQueryString,
         decodedPlus: false,
         encodedQuery: true,
         queryParameterCount: _countQueryParameters(text),
@@ -162,7 +174,7 @@ extension _TextToolUrlCodecTools on TextToolController {
     final encoded = Uri.encodeComponent(text);
     return _UrlCodecResult(
       value: encoded,
-      mode: 'URL 组件',
+      mode: strings.modeUrlComponent,
       decodedPlus: false,
       encodedQuery: false,
       queryParameterCount: 0,
@@ -189,14 +201,17 @@ extension _TextToolUrlCodecTools on TextToolController {
     return input.contains('=') && !input.contains('://');
   }
 
-  _UrlCodecSource _extractUrlCodecSource(String input) {
+  _UrlCodecSource _extractUrlCodecSource(
+    TextToolWebStrings strings,
+    String input,
+  ) {
     final curlUrl = _extractCurlUrl(input);
     if (curlUrl != null) {
-      return _UrlCodecSource(curlUrl, 'curl 命令');
+      return _UrlCodecSource(curlUrl, strings.sourceCurlCommand);
     }
     final requestTarget = _extractHttpRequestTarget(input);
     if (requestTarget != null) {
-      return _UrlCodecSource(requestTarget, 'HTTP 请求行');
+      return _UrlCodecSource(requestTarget, strings.sourceHttpRequestLine);
     }
     return _UrlCodecSource(input, null);
   }

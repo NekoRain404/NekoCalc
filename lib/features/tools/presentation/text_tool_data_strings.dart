@@ -6,9 +6,9 @@ import '../../../l10n/app_language.dart';
 ///       **为什么控制器要接表进来**、以及**哪些中文刻意不翻**，两条理由都写在
 ///       `text_tool_strings.dart` 的文件头上，这里不重抄。
 ///
-///       **时间戳工具暂时不在这一张里**：它整条链上每一层都在产出中文（识别说明、单位说明、
-///       相对时间），要连描述符一起改，本轮只改了 `'现在'` / `'北京时间'` 那两处**判据**之外的
-///       部分留给下一轮——**已知残留**，逐文件条数写在本轮报告里。
+///       **时间戳工具不在这张表里，它在 `TextToolTimestampStrings`。** 它整条链上每一层都在
+///       产出中文（识别说明、单位说明、相对时间），所以自成一张；`'现在'` / `'北京时间'`
+///       那几处**判据**则留在控制器里，一条也没翻。
 ///
 ///       **刻意不翻的两处**，都在 CSV 的输入文法里，它们是**与输入比较的判据**：
 ///       - `_isCsvUnitDescriptorRow` 里的 `first == '单位' || first == '量纲'`：这一行判的是
@@ -20,11 +20,10 @@ import '../../../l10n/app_language.dart';
 ///          is deliberately left untranslated** are both written on `text_tool_strings.dart`'s file
 ///          head and not copied again here.
 ///
-///          **The timestamp tool is not in this table yet**: every layer of its chain produces
-///          Chinese (recognition notes, unit notes, relative time) and it has to be changed together
-///          with its descriptors; apart from the two **branch conditions** `'现在'` and
-///          `'北京时间'`, this round left it for the next one — a **known remainder**, with the
-///          per-file counts in this round's report.
+///          **The timestamp tool is not in this table; it lives in `TextToolTimestampStrings`.**
+///          Every layer of its chain produces Chinese (recognition notes, unit notes, relative time),
+///          so it gets a table of its own; the **branch conditions** `'现在'` / `'北京时间'` stay in
+///          the controller and were not translated at all.
 ///
 ///          **Two things deliberately untranslated**, both in the CSV input grammar, both **branch
 ///          conditions compared against input**:

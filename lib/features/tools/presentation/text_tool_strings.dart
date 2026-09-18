@@ -1,37 +1,50 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../l10n/app_language.dart';
+import 'text_tool_codec_strings.dart';
 import 'text_tool_data_strings.dart';
 import 'text_tool_stats_strings.dart';
 import 'text_tool_text_strings.dart';
+import 'text_tool_timestamp_strings.dart';
+import 'text_tool_web_strings.dart';
 
 // 中文：`TextToolController` 的各个 `part` 文件要看得见这几张表；它们 `part of` 控制器，
 //       只继承控制器的 import，所以这里把兄弟表一并转出去，免得每个 part 各写一行 import。
 // English: `TextToolController`'s `part` files need to see these tables; being `part of` the
 //          controller they inherit only the controller's imports, so the sibling tables are
 //          re-exported here rather than each part carrying an import line of its own.
+export 'text_tool_codec_strings.dart';
 export 'text_tool_data_strings.dart';
 export 'text_tool_stats_strings.dart';
 export 'text_tool_text_strings.dart';
+export 'text_tool_timestamp_strings.dart';
+export 'text_tool_web_strings.dart';
 
 /// 中文：文本 / 编程类工具这一族的界面文案表。机制本身（为什么是手写分表而不是 ARB /
 ///       `gen-l10n`、为什么表是 `static final` 而不是 `const`）与设置页那张表共用一套理由，
 ///       写在 `settings_strings.dart` 的文件头上，这里不重抄。
 ///
-///       **为什么这一族有四张表而不是一张。** 这一族是控制器产出的**长句**——校核提示、
+///       **为什么这一族有七张表而不是一张。** 这一族是控制器产出的**长句**——校核提示、
 ///       输入识别说明、错误详情——一条就是十几个字，全部塞进一个类会冲破八百行的硬线。
 ///       按"谁产出这些话"切开之后，每张表一屏看得完：
-///       - `TextToolStrings`（本文件）：把四张表并成一个入参的**门面**，外加所有工具共用的
+///       - `TextToolStrings`（本文件）：把七张表并成一个入参的**门面**，外加所有工具共用的
 ///         输出外壳（状态行、复制正文的标签、兜底错误）。
 ///       - `TextToolTextStrings`：文本识别组——UUID、JSON、正则、自定义公式。
 ///       - `TextToolStatsStrings`：文本统计单独一张，它一个工具就产出约五十条长句，
 ///         并进上一张会把那张推过八百行。
 ///       - `TextToolDataStrings`：数据组——CSV/JSON 表格、JWT 解码。
+///       - `TextToolCodecStrings`：编解码组——Base64/校验和、进制与位运算。
+///       - `TextToolWebStrings`：Web 格式组——URL 编解码、query 参数、CSS 颜色。
+///       - `TextToolTimestampStrings`：时间戳一张，它一条链上每一层都在产出中文。
 ///
-///       **还没进来的是另外两组**（编解码组：Base64/校验和、进制、颜色、URL 编解码、query；
-///       以及时间戳）。它们共用 `_ParsedByteInput` / `_ParsedInteger` / `_ParsedTimestamp`
-///       那套描述符机制，要连同描述符一起改，留给下一轮——**这是已知的残留**，
-///       逐文件条数写在本轮报告里。
+///       **后三张是后来补上的**（第一轮只到数据组为止）。它们共用
+///       `_ParsedByteInput` / `_ParsedInteger` / `_ParsedColor` / `_ParsedQueryInput` /
+///       `_ParsedTimestamp` 那套描述符机制，所以是**连同描述符一起**改的：
+///       表沿着参数一路递进解析函数，字段里存的是**已经定好的那句话**，
+///       控制器只负责挑与拼。每一张的分界（哪些是输入文法、哪些是判据）写在各自文件头上。
+///       **`lib/application/controllers/text_tool_*.dart` 现在是 0 条中文界面字面量**，
+///       剩下的只有那张豁免表点名的输入文法与判据——`text_tool_strings_test.dart` 里那条
+///       扫描断言就是这件事的可执行版本。
 ///
 ///       **为什么控制器要接一张表进去，而不是像别处那样就地 `of(context)`。**
 ///       `TextToolController` 是**纯 Dart**、不持有 `BuildContext`（`text_tool_controller.dart`
@@ -58,11 +71,11 @@ export 'text_tool_text_strings.dart';
 ///          rather than `const`) shares one set of reasons with the settings table and is written on
 ///          `settings_strings.dart`'s file head; it is not copied again here.
 ///
-///          **Why this family has four tables rather than one.** These tools produce **long
+///          **Why this family has seven tables rather than one.** These tools produce **long
 ///          sentences** — insight lines, input-recognition notes, error details — a dozen characters
 ///          apiece; folding them into one class would cross the hard 800-line limit. Split by *who
 ///          produces the sentence*, each table stays readable in one screen:
-///          - `TextToolStrings` (this file): the **facade** that packs the four tables into one
+///          - `TextToolStrings` (this file): the **facade** that packs the seven tables into one
 ///            argument, plus the output chrome every tool shares (status lines, the labels inside
 ///            the copied report, the fallback error).
 ///          - `TextToolTextStrings`: the recognition group — UUID, JSON, regex, custom formula.
@@ -70,12 +83,20 @@ export 'text_tool_text_strings.dart';
 ///            tool produces about fifty long sentences and folding them into the table above would
 ///            push it past the 800-line limit.
 ///          - `TextToolDataStrings`: the data group — CSV/JSON tables and the JWT decoder.
+///          - `TextToolCodecStrings`: the codec group — Base64/checksums, bases and bitwise.
+///          - `TextToolWebStrings`: the web-format group — URL codec, query parameters, CSS colours.
+///          - `TextToolTimestampStrings`: timestamps, whose chain produces Chinese at every layer.
 ///
-///          **Two further groups are not in yet** (the codec group: Base64/checksums, bases,
-///          colours, URL codecs, query strings; and timestamps). They share the
-///          `_ParsedByteInput` / `_ParsedInteger` / `_ParsedTimestamp` descriptor machinery and have
-///          to be changed together with it, so they are left for the next round — a **known
-///          remainder**, with the per-file counts in this round's report.
+///          **The last three arrived later** (the first round stopped at the data group). They share
+///          the `_ParsedByteInput` / `_ParsedInteger` / `_ParsedColor` / `_ParsedQueryInput` /
+///          `_ParsedTimestamp` descriptor machinery, so they were changed **together with their
+///          descriptors**: the table is handed down through the parse functions and the field holds
+///          a sentence that is **already settled**, leaving the controller only to pick and join.
+///          Each table's own boundaries (what is input grammar, what is a branch condition) are on
+///          its own file head. **`lib/application/controllers/text_tool_*.dart` now holds zero
+///          Chinese interface literals**, and what remains is only the input grammar and branch
+///          conditions the exemption table names — the scanning assertion in
+///          `text_tool_strings_test.dart` is that fact's executable form.
 ///
 ///          **Why the controller takes a table rather than calling `of(context)` where it needs
 ///          one.** `TextToolController` is **plain Dart** and holds no `BuildContext`
@@ -111,12 +132,18 @@ class TextToolStrings {
     required this.text,
     required this.stats,
     required this.data,
+    required this.codec,
+    required this.web,
+    required this.timestamp,
   });
 
   final TextToolOutputStrings output;
   final TextToolTextStrings text;
   final TextToolStatsStrings stats;
   final TextToolDataStrings data;
+  final TextToolCodecStrings codec;
+  final TextToolWebStrings web;
+  final TextToolTimestampStrings timestamp;
 
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
@@ -142,6 +169,9 @@ class TextToolStrings {
     text: TextToolTextStrings.textZh,
     stats: TextToolStatsStrings.statsZh,
     data: TextToolDataStrings.dataZh,
+    codec: TextToolCodecStrings.codecZh,
+    web: TextToolWebStrings.webZh,
+    timestamp: TextToolTimestampStrings.timestampZh,
   );
 
   static final TextToolStrings textToolEn = TextToolStrings(
@@ -149,6 +179,9 @@ class TextToolStrings {
     text: TextToolTextStrings.textEn,
     stats: TextToolStatsStrings.statsEn,
     data: TextToolDataStrings.dataEn,
+    codec: TextToolCodecStrings.codecEn,
+    web: TextToolWebStrings.webEn,
+    timestamp: TextToolTimestampStrings.timestampEn,
   );
 }
 

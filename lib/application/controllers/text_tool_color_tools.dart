@@ -1,8 +1,25 @@
 part of 'text_tool_controller.dart';
 
+// 中文：**两条刻意不翻的正则在这里**，它们都是输入文法，第二条还兼作判据：
+//       1) `_parseColor` 里的 `r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]\s*(...)'`：
+//          用户敲的 `色值: 5B47FF` 这种**带中文标签的**色值写法。
+//       2) `_hexColorSource` 里的 `r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]'`：
+//          它判断"用户到底写没写标签"，好决定挑哪一句识别说明——**既是文法也是判据**。
+//       其余的中文（二十一句识别说明、一句提示、一句错误）都进了 `TextToolWebStrings`。
+//       `_ParsedColor.source` 存的是**已经定好的那一句**，与 `radixLabel` / `mode` 同一个形状。
+// English: **The two deliberately untranslated regular expressions live here**; both are input
+//          grammar and the second doubles as a branch condition:
+//          1) `r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]\s*(...)'` in `_parseColor` matches
+//             **Chinese-labelled** colour spellings the user types, such as `色值: 5B47FF`.
+//          2) `r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]'` in `_hexColorSource` decides whether
+//             the user actually wrote a label, so as to pick which recognition note to emit — **it
+//             is both grammar and branch condition**.
+//          Every other Chinese string here (twenty-one recognition notes, one hint, one error) went
+//          into `TextToolWebStrings`. `_ParsedColor.source` holds **the sentence already settled**,
+//          the same shape as `radixLabel` and `mode`.
 extension _TextToolColorTools on TextToolController {
-  TextToolOutput _colorConvert(String input) {
-    final color = _parseColor(input);
+  TextToolOutput _colorConvert(TextToolWebStrings strings, String input) {
+    final color = _parseColor(strings, input);
     final alpha = color.alpha;
     final hex = '#${_hex8(color.red)}${_hex8(color.green)}${_hex8(color.blue)}';
     final argb =
@@ -21,24 +38,24 @@ extension _TextToolColorTools on TextToolController {
       ].join('\n'),
       insights: [
         color.source,
-        if (alpha < 255) '包含透明度，复制到不支持 alpha 的场景时请使用 HEX RGB。',
+        if (alpha < 255) strings.alphaInsight,
       ],
     );
   }
 
-  _ParsedColor _parseColor(String input) {
+  _ParsedColor _parseColor(TextToolWebStrings strings, String input) {
     final raw = input.trim();
-    if (raw.isEmpty) throw const FormatException('请输入颜色值');
+    if (raw.isEmpty) throw FormatException(strings.colorValueNeeded);
     final namedHex = _namedColorHex(raw);
     if (namedHex != null) {
-      final parsed = _parseHexColor(namedHex);
+      final parsed = _parseHexColor(strings, namedHex);
       if (parsed != null) {
         return _ParsedColor(
           red: parsed.red,
           green: parsed.green,
           blue: parsed.blue,
           alpha: parsed.alpha,
-          source: '输入识别为 CSS 命名颜色 ${raw.toLowerCase()}。',
+          source: strings.namedColor(raw.toLowerCase()),
         );
       }
     }
@@ -57,7 +74,7 @@ extension _TextToolColorTools on TextToolController {
             green: g,
             blue: b,
             alpha: a,
-            source: parts.length >= 4 ? '输入识别为 RGBA 颜色。' : '输入识别为 RGB 颜色。',
+            source: parts.length >= 4 ? strings.rgbaColor : strings.rgbColor,
           );
         }
       }
@@ -65,12 +82,12 @@ extension _TextToolColorTools on TextToolController {
     final hslMatch =
         RegExp(r'hsla?\(([^)]+)\)', caseSensitive: false).firstMatch(raw);
     if (hslMatch != null) {
-      final parsed = _parseHslColor(hslMatch.group(1)!);
+      final parsed = _parseHslColor(strings, hslMatch.group(1)!);
       if (parsed != null) return parsed;
     }
-    final labeledChannels = _parseLabeledColorChannels(raw);
+    final labeledChannels = _parseLabeledColorChannels(strings, raw);
     if (labeledChannels != null) return labeledChannels;
-    final tupleChannels = _parseColorChannelTuple(raw);
+    final tupleChannels = _parseColorChannelTuple(strings, raw);
     if (tupleChannels != null) return tupleChannels;
     final hashHexMatch = RegExp(r'#([0-9a-fA-F]{3,8})\b').firstMatch(raw);
     final prefixedHexMatch =
@@ -85,9 +102,9 @@ extension _TextToolColorTools on TextToolController {
         cssHexLabelMatch?.group(1) ??
         bareHexMatch?.group(0);
     if (hex != null) {
-      final parsed = _parseHexColor(hex);
+      final parsed = _parseHexColor(strings, hex);
       if (parsed != null) {
-        final source = _hexColorSource(raw, hex, parsed.source);
+        final source = _hexColorSource(strings, raw, hex, parsed.source);
         return _ParsedColor(
           red: parsed.red,
           green: parsed.green,
@@ -97,20 +114,27 @@ extension _TextToolColorTools on TextToolController {
         );
       }
     }
-    throw const FormatException(
-        '请输入 HEX、RGB、RGBA、HSL、Color(0xAARRGGBB) 或 CSS 命名色，例如 #5B47FF、rgb(91,71,255)、hsl(250 100% 60%)');
+    throw FormatException(strings.colorInputNeeded);
   }
 
-  String _hexColorSource(String raw, String hex, String fallback) {
+  String _hexColorSource(
+    TextToolWebStrings strings,
+    String raw,
+    String hex,
+    String fallback,
+  ) {
     if (RegExp(r'\bColor\s*\(', caseSensitive: false).hasMatch(raw)) {
-      return '输入识别为 Flutter/Android Color(0xAARRGGBB) 色值。';
+      return strings.flutterColor;
     }
     if (RegExp(r'\b0x', caseSensitive: false).hasMatch(raw)) {
-      return hex.length == 8 ? '输入识别为 0xAARRGGBB 色值。' : '输入识别为 0xRRGGBB 色值。';
+      return hex.length == 8 ? strings.argbHexValue : strings.rgbHexValue;
     }
+    // 中文：**这条正则是输入文法，刻意不翻**：它匹配的是用户敲的 `色值:` / `hex:` 标签本身。
+    // English: **This regular expression is input grammar and is deliberately untranslated**: it
+    //          matches the `色值:` / `hex:` label the user typed.
     if (RegExp(r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]', caseSensitive: false)
         .hasMatch(raw)) {
-      return '输入识别为带标签 HEX 色值。';
+      return strings.labelledHexValue;
     }
     return fallback;
   }
@@ -124,7 +148,7 @@ extension _TextToolColorTools on TextToolController {
         .toList();
   }
 
-  _ParsedColor? _parseHexColor(String hex) {
+  _ParsedColor? _parseHexColor(TextToolWebStrings strings, String hex) {
     final normalized = hex.length == 3 || hex.length == 4
         ? hex.split('').map((char) => '$char$char').join()
         : hex;
@@ -136,7 +160,7 @@ extension _TextToolColorTools on TextToolController {
         green: (value >> 8) & 0xff,
         blue: value & 0xff,
         alpha: 255,
-        source: hex.length == 3 ? '输入识别为 3 位 HEX 颜色。' : '输入识别为 6 位 HEX 颜色。',
+        source: hex.length == 3 ? strings.shortHex3 : strings.shortHex6,
       );
     }
     if (normalized.length == 8) {
@@ -147,14 +171,13 @@ extension _TextToolColorTools on TextToolController {
         green: (value >> 8) & 0xff,
         blue: value & 0xff,
         alpha: (value >> 24) & 0xff,
-        source:
-            hex.length == 4 ? '输入识别为 4 位 ARGB HEX 颜色。' : '输入识别为 ARGB HEX 颜色。',
+        source: hex.length == 4 ? strings.argbHex4 : strings.argbHex8,
       );
     }
     return null;
   }
 
-  _ParsedColor? _parseHslColor(String body) {
+  _ParsedColor? _parseHslColor(TextToolWebStrings strings, String body) {
     final normalized = body.replaceAll(',', ' ').replaceAll('/', ' ');
     final parts = normalized
         .split(RegExp(r'\s+'))
@@ -177,11 +200,14 @@ extension _TextToolColorTools on TextToolController {
       green: rgb.$2,
       blue: rgb.$3,
       alpha: alpha,
-      source: parts.length >= 4 ? '输入识别为 HSLA 颜色。' : '输入识别为 HSL 颜色。',
+      source: parts.length >= 4 ? strings.hslaColor : strings.hslColor,
     );
   }
 
-  _ParsedColor? _parseLabeledColorChannels(String input) {
+  _ParsedColor? _parseLabeledColorChannels(
+    TextToolWebStrings strings,
+    String input,
+  ) {
     final matches = RegExp(
       r'\b(?:red|green|blue|alpha|r|g|b|a)\s*[:=]\s*([+-]?\d+(?:\.\d+)?%?)',
       caseSensitive: false,
@@ -209,11 +235,14 @@ extension _TextToolColorTools on TextToolController {
       green: g,
       blue: b,
       alpha: a,
-      source: alphaText == null ? '输入识别为标签式 RGB 颜色。' : '输入识别为标签式 RGBA 颜色。',
+      source: alphaText == null ? strings.labelledRgb : strings.labelledRgba,
     );
   }
 
-  _ParsedColor? _parseColorChannelTuple(String input) {
+  _ParsedColor? _parseColorChannelTuple(
+    TextToolWebStrings strings,
+    String input,
+  ) {
     final tupleMatch = RegExp(
       r'\b(argb|rgba|rgb)\s*[:=]\s*\(?\s*([^)]+?)\s*\)?$',
       caseSensitive: false,
@@ -250,10 +279,10 @@ extension _TextToolColorTools on TextToolController {
       blue: b,
       alpha: a,
       source: mode == 'argb'
-          ? '输入识别为 ARGB 通道列表。'
+          ? strings.argbChannelList
           : parts.length >= 4
-              ? '输入识别为 RGBA 通道列表。'
-              : '输入识别为 RGB 通道列表。',
+              ? strings.rgbaChannelList
+              : strings.rgbChannelList,
     );
   }
 

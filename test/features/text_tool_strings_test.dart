@@ -431,58 +431,77 @@ void main() {
       '算式': '自定义公式：同上',
       '单位': 'CSV：`first == \'单位\'`，比的是用户粘贴表格的首格',
       '量纲': 'CSV：同上',
-      // —— 编解码组的已知残留（下一轮连同描述符一起改）——
-      r'输入识别为$radixLabel（$notation）: $token。':
-          '_ParsedInteger.description，进制工具组的描述符',
-      r'检测为 $variantLabel 输入，已解码。': '_ParsedBase64.description，Base64/校验和组的描述符',
+      // —— 颜色：两条**输入文法**，第二条还兼作判据 ——
+      r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]\s*([0-9a-fA-F]{3,8})\b':
+          '颜色：解析用户敲的 `色值: 5B47FF` 这类带中文标签的色值',
+      r'(?:\b(?:hex|color|colour)|颜色|色值)\s*[:=]':
+          '颜色：`_hexColorSource` 用它判断"用户写没写标签"，好挑哪一句识别说明——既是文法也是判据',
+      // —— 时间戳：五条输入文法 ——
+      r'(?:timestamp|time|date|datetime|created_at|updated_at|expires_at|过期时间|时间|日期)\s*[:=]\s*["“”]?((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,\s*[^\n\r"”]+)':
+          '时间戳：从带中文标签的文本里抠出 RFC 风格日期时间的输入文法',
+      r'(?:timestamp|time|date|datetime|created_at|updated_at|expires_at|过期时间|时间|日期)\s*[:=]\s*["“”]?([^",，\n\r]+)':
+          '时间戳：同上，宽的那一支',
+      r'(?:北京时间|中国标准时间|东八区)':
+          '时间戳：把用户输入里的中文时区标签改写成 +08:00',
+      r'^([+-]?\d+(?:\.\d+)?)\s*(ns|纳秒|us|µs|μs|微秒|ms|毫秒|s|sec|秒)$':
+          '时间戳：解析 `100 毫秒` 这类带中文单位词的时间戳',
+      r'^(\d{4})[年/-](\d{1,2})[月/-](\d{1,2})(?:日)?(?:\s+(\d{1,2})(?:[时:：](\d{1,2})(?:[分:：](\d{1,2}))?)?(?:秒)?)?$':
+          '时间戳：解析 `2026年6月8日 9:30` 这类中文日期写法',
+      // —— 时间戳：与输入比较的判据 ——
+      '现在': '时间戳：`normalized == \'现在\'`，比的是用户输入的说法',
+      '北京时间': '时间戳：`normalized == \'北京时间\' || …`，同上',
+      '中国标准时间': '时间戳：同上',
+      '东八区': '时间戳：同上',
+      '纳秒': '时间戳：`unit == \'纳秒\'`，比的是用户输入里的单位词（不是要显示的句子）',
+      '微秒': '时间戳：`unit == \'微秒\'`，同上',
+      '毫秒': '时间戳：`unit == \'毫秒\'`，同上',
     };
 
-    // 中文：**本轮已迁移的文件。** 这些文件里除了上面那张豁免表，不许再有中文字面量。
-    // English: **The files migrated this round.** Apart from the exemption table above, no Chinese
-    //          literal may remain in them.
+    // 中文：**这一族现在整族都在名单上。** 名单从"已迁移"改成"全部"，是因为本轮把最后六个文件
+    //       （编解码组四个 + 时间戳 + 颜色所在的 Web 格式组）连同描述符一起改完了。
+    //       **换成全量名单而不是拆掉名单**：`text_tool_*.dart` 是本族的边界，边界里每一个文件
+    //       都点名，新加一个文件时这里就会红——那正是我们希望它红的时候。
+    // English: **the whole family is on this list now.** It changed from "migrated so far" to "all of
+    //          them" because this round finished the last six files (the four codec ones, timestamps,
+    //          and the web-format group the colour tool lives in) together with their descriptors.
+    //          **A full list rather than no list**: `text_tool_*.dart` is this family's boundary, every
+    //          file inside it is named, and adding a new file turns this red — which is exactly when
+    //          we want it red.
     const migrated = <String>{
+      'text_tool_binary_tools.dart',
+      'text_tool_color_tools.dart',
       'text_tool_controller.dart',
+      'text_tool_csv_tools.dart',
+      'text_tool_custom_formula_tools.dart',
+      'text_tool_html_entities.dart',
+      'text_tool_integer_tools.dart',
+      'text_tool_json_tools.dart',
+      'text_tool_jwt_tools.dart',
       'text_tool_models.dart',
       'text_tool_parsed_models.dart',
-      'text_tool_uuid_tools.dart',
-      'text_tool_json_tools.dart',
       'text_tool_regex_tools.dart',
-      'text_tool_custom_formula_tools.dart',
+      'text_tool_shared_text.dart',
       'text_tool_text_stats_tools.dart',
-      'text_tool_csv_tools.dart',
-      'text_tool_jwt_tools.dart',
-    };
-
-    // 中文：**还没轮到的那几个文件**，逐条写清为什么它们要整组一起改。它们今天仍是中文。
-    // English: **The files not reached yet**, each with the reason it has to change as a whole group.
-    //          They are still Chinese today.
-    const pending = <String, String>{
-      'text_tool_binary_tools.dart': 'Base64/校验和，共用 _ParsedByteInput 描述符',
-      'text_tool_integer_tools.dart': '进制与位运算，共用 _ParsedInteger 描述符',
-      'text_tool_color_tools.dart': '颜色，描述符与 CSS 命名色表混在一处',
-      'text_tool_url_codec_tools.dart': 'URL 编解码，共用 _UrlCodecResult 描述符',
-      'text_tool_url_query_tools.dart': 'Query 参数，共用 _ParsedQueryInput 描述符',
-      'text_tool_timestamp_tools.dart': '时间戳，共用 _ParsedTimestamp 描述符',
+      'text_tool_timestamp_tools.dart',
+      'text_tool_url_codec_tools.dart',
+      'text_tool_url_query_tools.dart',
+      'text_tool_uuid_tools.dart',
     };
 
     final offenders = <String>[];
+    final seen = <String>{};
     for (final entity in directory.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final name = entity.uri.pathSegments.last;
-      // 中文：**扫的是本轮已迁移的那几个文件，加上一条显式的"还没轮到"名单。**
-      //       本轮的边界是"编解码组与时间戳还没进来"（见 `text_tool_strings.dart` 的文件头），
-      //       把它们逐个列出来而不是"扫全目录然后忽略未知文件"，是为了让残留**看得见**：
-      //       下一轮把某个文件搬进 [migrated]，名单短一条，这里就会跟着动。
-      //       名单外的文件（`tool_search_*` 的双语搜索索引、`notes_controller.dart` 另一位作者的
-      //       未提交工作）根本不看。
-      // English: **the scan covers the files migrated this round, plus an explicit "not yet" list.**
-      //          This round's boundary is "the codec group and timestamps are not in yet" (see
-      //          `text_tool_strings.dart`'s file head). Listing them one by one rather than scanning
-      //          the whole directory and ignoring anything unrecognised keeps the remainder
-      //          **visible**: moving a file into [migrated] next round shortens the list and this
-      //          guard follows. Files on neither list (`tool_search_*`, the bilingual search index,
-      //          and `notes_controller.dart`, another author's uncommitted work) are not looked at.
-      if (!migrated.contains(name)) continue;
+      // 中文：**扫的是 `text_tool_*.dart` 这一族，一个不漏。** 族外的文件
+      //       （`tool_search_*` 的双语搜索索引、`tool_detail_*` 另一个工具面的控制器、
+      //       `notes_controller.dart` 另一位作者的未提交工作）根本不看。
+      // English: **the scan covers the `text_tool_*.dart` family and nothing else.** Files outside it
+      //          (`tool_search_*`, the bilingual search index; `tool_detail_*`, another tool screen's
+      //          controller; `notes_controller.dart`, another author's uncommitted work) are not
+      //          looked at.
+      if (!name.startsWith('text_tool_')) continue;
+      seen.add(name);
       final source = _stripComments(entity.readAsStringSync());
       for (final literal in _stringLiterals(source)) {
         if (!_containsCjk(literal)) continue;
@@ -492,10 +511,11 @@ void main() {
     }
 
     expect(offenders, isEmpty,
-        reason: '这些界面字面量还没走 TextToolStrings / TextToolTextStrings / '
-            'TextToolStatsStrings / TextToolDataStrings：\n${offenders.join('\n')}');
-    expect(exemptions.length, 13, reason: '豁免表变短或变长都要在这里说一声');
-    expect(pending.length, 6, reason: '残留文件表变短（完成一轮）或变长都要在这里说一声');
+        reason: '这些界面字面量还没走 TextToolStrings 那七张表：\n${offenders.join('\n')}');
+    expect(exemptions.length, 25, reason: '豁免表变短或变长都要在这里说一声');
+    expect(seen, migrated,
+        reason: '本族文件多了或少了：目录里是 $seen，名单里是 $migrated——'
+            '新加一个 `text_tool_*.dart` 时这里会红，那时请把它也搬进文案表');
   });
 
   testWidgets('没有装作用域时文本工具页仍渲染中文（默认态不变）', (tester) async {
