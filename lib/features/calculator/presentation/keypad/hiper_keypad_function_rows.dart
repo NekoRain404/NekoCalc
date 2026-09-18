@@ -29,7 +29,7 @@ part of 'hiper_keypad.dart';
 ///          `InlineKey` has to be able to point at its source.
 ///
 ///          Why the seam stays right for the rounds ahead: the last five rounds fixed things on
-///          exactly that line (`FSE`, `∠`, `logₓy`, `lim`), and the
+///          exactly that line (`FSE`, `∠`, `logₓy`, `lim`, and this round's `DRG`/`MTRX`), and the
 ///          rows with no exception are where they live; changing the two rows that carry buttons
 ///          means changing the action behind an `InlineKey` too, which is a different kind of
 ///          change. Split apart, each side has one clear reader.
@@ -147,48 +147,188 @@ const KeypadRow _modifierRow = KeypadRow(
   labels: <KeypadLabel?>[null, null, null, null, null, null],
 );
 
-  // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
-  //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
-  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**`x⇔E` 的 SHIFT 提示，
-  //       已接上**——上一轮它被做成横带里一颗可点的 `InlineKey`，本轮按来源退回提示，理由见下面
-  //       `x⇔E` 那颗键上的长注释。那一维在 HiPER 上有五档——Normal / Fixed / Scientific /
-  //       Engineering / Engineering SI，**本应用只接得上三档**（Normal / Scientific / Engineering），
-  //       缺的两档与理由写在 `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键
-  //       `x⇔E` 的**基准**管的是结果**形式**那一维，SHIFT 才是记法——两维不是一件事）、
-  //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
-  //       **已接上**：SHIFT 态下按 `∫dx` 插的是 `diff(x^2,x)`，实参顺序是引擎自己的，不是 HiPER
-  //       手册那套——两槽而不是四槽的理由在 `calculator_key_dispatch.dart` 的 `ins:diff` 那一段）、
-  //       相机键上方无标签。**📷 本身仍未点亮，理由来自 HiPER
-  //       自己的字符串**：`command.name.CAMERA` = "Expression recognition"；`cameraWindow.policy.info`
-  //       写明选区图像**会被发往服务器**、由第三方模型 Pix2Text 识别（`recognitionWindow.pix2text`），
-  //       `cameraWindow.proVersion` 说这是 Pro 专属。本机没有可分发的识别器，本机 OCR 只会产出
-  //       **看似正确、实则错误**的表达式，故保持禁用（见相机键报告 camera-key-report.md）。
-  // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
-  //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
-  //          only real band buttons are the four base pills plus hyp, so this one is a
-  //          non-tappable hint), FSE (**the SHIFT hint of `x⇔E`, wired** — the previous round made it
-  //          a tappable `InlineKey` in this band; this round puts it back to a hint per the sources,
-  //          and the reasoning is on the `x⇔E` key's long note below. On HiPER that dimension has five
-  //          positions — Normal / Fixed / Scientific / Engineering / Engineering SI — and **this app
-  //          can only reach three** (Normal / Scientific / Engineering); the two that are missing, and
-  //          why, are on the file head of `calculator_controller_notation.dart`. Missing is missing.
-  //          The **base** action of the key under it, `x⇔E`, owns the result **form** dimension; the
-  //          notation dimension sits on SHIFT — two different things), MTRX (hint of the matrix key),
-  //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now wired**: under SHIFT the `∫dx` key
-  //          inserts `diff(x^2,x)`, in the engine's own argument order rather than the manual's — the
-  //          note on `ins:diff` in `calculator_key_dispatch.dart` says why two slots and not four);
-  //          the camera key has no hint. **📷 itself stays unlit, on HiPER's own
-  //          strings**: `command.name.CAMERA` is "Expression recognition"; `cameraWindow.policy.info`
-  //          says the cropped image **is sent to a server** for the third-party Pix2Text model to
-  //          recognize (`recognitionWindow.pix2text`), and `cameraWindow.proVersion` marks it
-  //          Pro-only. No such recognizer exists here, and a local OCR would only yield a
-  //          **plausible but wrong** expression — so it stays disabled (see camera-key-report.md).
-
+// 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
+//       上方标签：DRG（**`DRG` 的 SHIFT 提示，本轮挂上、仍是禁用**——HiPER 那一格是 `TO_DRG`
+//       「换算角度单位」，与下方 `DRG` 的「切换角度单位」**是两个命令**，而应用今天没有前者；
+//       理由、来源与它为什么是禁用写在下面 `DRG` 那颗键的长注释里）、
+//       FSE（**`x⇔E` 的 SHIFT 提示，已接上**——上一轮它被做成横带里一颗可点的 `InlineKey`，
+//       本轮按来源退回提示，理由见下面 `x⇔E` 那颗键上的长注释。那一维在 HiPER 上有五档——
+//       Normal / Fixed / Scientific / Engineering / Engineering SI，**本应用只接得上三档**
+//       （Normal / Scientific / Engineering），缺的两档与理由写在
+//       `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键 `x⇔E` 的**基准**
+//       管的是结果**形式**那一维，SHIFT 才是记法——两维不是一件事）、
+//       MTRX（**矩阵键的 SHIFT 提示，本轮挂上、仍是禁用**——HiPER 那一格是 `MATRIX_MENU`
+//       「矩阵与向量菜单」，应用没有这个菜单；来源与理由写在下面矩阵键的长注释里）、
+//       Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
+//       **已接上**：SHIFT 态下按 `∫dx` 插的是 `diff(x^2,x)`，实参顺序是引擎自己的，不是 HiPER
+//       手册那套——两槽而不是四槽的理由在 `calculator_key_dispatch.dart` 的 `ins:diff` 那一段）、
+//       相机键上方无标签。**📷 本身仍未点亮，理由来自 HiPER
+//       自己的字符串**：`command.name.CAMERA` = "Expression recognition"；`cameraWindow.policy.info`
+//       写明选区图像**会被发往服务器**、由第三方模型 Pix2Text 识别（`recognitionWindow.pix2text`），
+//       `cameraWindow.proVersion` 说这是 Pro 专属。本机没有可分发的识别器，本机 OCR 只会产出
+//       **看似正确、实则错误**的表达式，故保持禁用（见相机键报告 camera-key-report.md）。
+//
+//       **一处更正（本轮实测）**：本注释过去写着「HiPER 的 `▸` 只是装饰」。**那句话不成立**，
+//       换掉它的是三条量出来的事实，写在各颗键的注释里：`▸` 是这个**换算家族**的名字的一部分
+//       （厂商自己的更新日志把 `▸BASE` 写成一个函数名，U+25B8），不是「这是一颗按钮」的记号——
+//       带它的 `►DRG` 与不带它的 `FSE`/`MTRX`/`Π`/`d/dx` 在截图上**逐像素同一种画法**
+//       （字形核心 (159,161,168)、无胶囊底），而横带里每一颗**真按钮**都戴着胶囊底。
+// English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
+//          Band above: DRG (**the SHIFT hint of `DRG`, mounted this round and still disabled** — on
+//          HiPER that cell is `TO_DRG`, "Convert Angular Units", which is **a different command**
+//          from the `DRG` key's "Switch Angular Units", and this app has no such action; the
+//          reason, the sources and why it stays disabled are in the long note on the `DRG` key
+//          below), FSE (**the SHIFT hint of `x⇔E`, wired** — the previous round made it a tappable
+//          `InlineKey` in this band; this round puts it back to a hint per the sources, and the
+//          reasoning is on the `x⇔E` key's long note below. On HiPER that dimension has five
+//          positions — Normal / Fixed / Scientific / Engineering / Engineering SI — and **this app
+//          can only reach three** (Normal / Scientific / Engineering); the two that are missing, and
+//          why, are on the file head of `calculator_controller_notation.dart`. Missing is missing.
+//          The **base** action of the key under it, `x⇔E`, owns the result **form** dimension; the
+//          notation dimension sits on SHIFT — two different things), MTRX (**the matrix key's SHIFT
+//          hint, mounted this round and still disabled** — on HiPER that cell is `MATRIX_MENU`,
+//          "Matrix and Vector Menu", which this app does not have; sources and reasoning are in the
+//          long note on the matrix key below), Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now
+//          wired**: under SHIFT the `∫dx` key inserts `diff(x^2,x)`, in the engine's own argument
+//          order rather than the manual's — the note on `ins:diff` in `calculator_key_dispatch.dart`
+//          says why two slots and not four); the camera key has no hint. **📷 itself stays unlit, on
+//          HiPER's own strings**: `command.name.CAMERA` is "Expression recognition";
+//          `cameraWindow.policy.info` says the cropped image **is sent to a server** for the
+//          third-party Pix2Text model to recognize (`recognitionWindow.pix2text`), and
+//          `cameraWindow.proVersion` marks it Pro-only. No such recognizer exists here, and a local
+//          OCR would only yield a **plausible but wrong** expression — so it stays disabled (see
+//          camera-key-report.md).
+//
+//          **One correction (measured this round)**: this note used to say "HiPER's `▸` is
+//          decoration". **That sentence does not hold**, and three measured facts replace it (they
+//          are written out on the keys themselves): `▸` is part of the **name of the conversion
+//          family** (the vendor's own release note spells the name of one of them `▸BASE`, U+25B8) —
+//          it is **not** a "this is a button" marker, because a cell carrying it (`►DRG`) and cells
+//          that do not (`FSE`/`MTRX`/`Π`/`d/dx`) are drawn **pixel for pixel the same way** (glyph
+//          core (159,161,168), no capsule), while every real band **button** wears a capsule.
 const KeypadRow _angleAndAggregateRow = KeypadRow(
   keys: <KeypadKey>[
+    // 中文：**`DRG` 的 SHIFT 功能是 `TO_DRG`「换算角度单位」——与这颗键的基准不是同一个动作。**
+    //       本轮把它按位置挂上（`dis:angleConvert`），**但它仍是禁用的**：应用今天没有这个动作，
+    //       而这一格在 HiPER 上是一颗真动作。下面按顺序说清楚三件事。
+    //
+    //       **一、HiPER 上它是 `DRG` 的第二功能，不是一颗独立的键。** 四条来源，都是本轮自己量的：
+    //       1. **位置**：1440×3200 原图（`~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`）
+    //          第 2 行横带 `y=1225..1310`，六格字形列中心 `128.0 / 364.5 / 602.0 / 838.0 / 1075.5 /
+    //          1311.5`，下方主键 `y=1314..1437` 的列中心 `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 /
+    //          1311.0`——**六格对六键，最大差 1.0 px**（列宽 238 px）。`►DRG` 与 `DRG` 差 **0.5 px**。
+    //       2. **HiPER 自己给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's
+    //          second function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517`）
+    //          "Symbols of these secondary functions are displayed above their keys."。
+    //       3. **画法**：横带里每一颗**真按钮**都戴浅色胶囊底（四个进制胶囊：字块占满整格宽，
+    //          亮像素占比 0.21–0.61），每一格**第二功能记号**都是平排文字（亮像素占比 0.02–0.09）。
+    //          `►DRG` 是平排文字（0.052），字形核心 **(159,161,168)**——与 `FSE`/`MTRX`/`Π`/`d/dx`/
+    //          `CNST`/`hyp`/`sin⁻¹`/`logₓy`/`lim`/`x³`/`n!`/`gcd` **逐个像素同值**，也就是与所有
+    //          已被认定的第二功能记号同一种画法。
+    //       4. **`▸` 不是「这是一颗按钮」的记号。** 厂商自己的更新日志把这一族的名字写成
+    //          **`▸BASE`（U+25B8）函数**（`/tmp/hiper_en.po` 第 8888 行："\\u25B8BASE function
+    //          available in custom keyboards"），而同一族在**展开布局**里是 `►DEG`/`►RAD`/`►GRAD`
+    //          三颗键——展开布局**没有 SHIFT 键、也没有第二功能**（手册 §SHIFT："Expanded and pocket
+    //          layouts do not have SHIFT key and all functions are accessible by 'one click'"）。
+    //          所以这个箭头属于**换算命令的名字**，不属于控件的种类。
+    //
+    //       **二、它是什么动作：`TO_DRG`，与 `DRG` 是两个命令。** `command.name.DRG` = "Switch
+    //       Angular Units"（手册："Use DRG key (or DEG etc. in expanded layout) to switch among these
+    //       units."、"Cycle by DRG until RAD angular unit is checked"），`command.name.TO_DRG` =
+    //       "Convert Angular Units"，手册第 678 行把后者说全了：**"►DRG key in compact layout opens
+    //       the menu to choose source and target angular units and converts the current display
+    //       number."** ——一个换的是**模式**，一个换的是**当前显示的那个数**，并且要选源与目标。
+    //       （`x⇔E`/`FSE` 是同一种「相邻两条命令」的形状，上一轮已核。）
+    //
+    //       **三、为什么挂上却是禁用：应用给不出这个动作。** 本轮用应用自己的翻译层探过（临时探针，
+    //       跑完即删）：
+    //
+    //       | 送进去的 | `engineExpressionFor` 的答复 |
+    //       |---|---|
+    //       | `90 to rad` | `TranslatedExpression`（**只有这一个方向过得去**） |
+    //       | `1.5707963268 to deg` | 不能翻译：引擎不认识这个自由变量：`deg` |
+    //       | `90 deg to rad` | 不能翻译：引擎不认识这个自由变量：`deg` |
+    //       | `90 to degrees` | 不能翻译：引擎不认识这个自由变量：`degrees` |
+    //       | `1.5707963268 to radians` | 不能翻译：引擎不认识这个自由变量：`radians` |
+    //
+    //       也就是说：**源单位说不出来**，**反方向（→ 度）不存在**，而本应用的「角度」是一个**两态
+    //       开关**（`angleMode`：DEG↔RAD，`setAngleMode`），不是一次换算。硬做出一个单向版本，
+    //       在 RAD 档下会把一个**看起来像答案的错数**印到屏幕上——比报错更糟。所以这里是 fail
+    //       closed：位置照挂（`shift`），`enabled: false`——SHIFT 态下这颗键变暗且不响应，正是
+    //       「这个动作在本应用里到不了」的诚实画法。**基准动作 `angleMode` 一格未动。**
+    //
+    //       **这条拒绝写成了断言**：`test/features/calculator_drg_matrix_band_keys_test.dart` 里
+    //       那一组把上表的实测**钉住**——哪一天应用真的有了两向换算（或那几个词进了词表），
+    //       那组会变红，那时这一格该点亮，而不是让一条过期的禁用悄悄留着。
+    // English: **`DRG`'s SHIFT function is `TO_DRG`, "Convert Angular Units" — not the same action
+    //          as this key's base.** This round mounts it at the position it occupies on HiPER
+    //          (`dis:angleConvert`) **but it stays disabled**: this app does not have that action,
+    //          while the cell is a real action on HiPER. Three things, in order.
+    //
+    //          **1. On HiPER it is `DRG`'s second function, not a key of its own.** Four sources,
+    //          all measured this round:
+    //          1. **Position**: on the 1440×3200 original cited above, the six glyph column centres
+    //             of row 2's band (`y=1225..1310`) are `128.0 / 364.5 / 602.0 / 838.0 / 1075.5 /
+    //             1311.5` and those of the keys below (`y=1314..1437`) are `127.5 / 364.0 / 601.0 /
+    //             838.0 / 1074.5 / 1311.0` — **six cells over six keys, largest gap 1.0 px** (column
+    //             width 238 px). `►DRG` sits **0.5 px** from `DRG`.
+    //          2. **HiPER defines what that position means**: `quickTour.page.SECOND_FUNCTION.text2` =
+    //             "The key's second function is displayed in the label above."; the manual's SHIFT
+    //             section (`hipercalc-manual.txt:517`) "Symbols of these secondary functions are
+    //             displayed above their keys."
+    //          3. **How it is drawn**: every real band **button** wears a light capsule (the four
+    //             base pills: the glyph block spans the whole cell, light-pixel fraction 0.21–0.61),
+    //             while every **second-function symbol** is plain text (0.02–0.09). `►DRG` is plain
+    //             text (0.052) with glyph core **(159,161,168)** — the same value, pixel for pixel, as
+    //             `FSE`/`MTRX`/`Π`/`d/dx`/`CNST`/`hyp`/`sin⁻¹`/`logₓy`/`lim`/`x³`/`n!`/`gcd`, i.e. the
+    //             drawing every already-established second-function symbol has.
+    //          4. **`▸` is not a "this is a button" marker.** The vendor's own release notes spell the
+    //             family's name as the **`▸BASE` (U+25B8) function** (`/tmp/hiper_en.po` line 8888:
+    //             "\\u25B8BASE function available in custom keyboards"), and the same family appears
+    //             in the **expanded** layout as `►DEG`/`►RAD`/`►GRAD` keys — a layout that **has no
+    //             SHIFT key and no second functions at all** (manual §SHIFT: "Expanded and pocket
+    //             layouts do not have SHIFT key and all functions are accessible by 'one click'").
+    //             The arrow belongs to the conversion commands' **names**, not to the kind of widget.
+    //
+    //          **2. What the action is: `TO_DRG`, a second command.** `command.name.DRG` = "Switch
+    //          Angular Units" (the manual: "Use DRG key (or DEG etc. in expanded layout) to switch
+    //          among these units." and "Cycle by DRG until RAD angular unit is checked"), while
+    //          `command.name.TO_DRG` = "Convert Angular Units", which the manual states in full on
+    //          line 678: **"►DRG key in compact layout opens the menu to choose source and target
+    //          angular units and converts the current display number."** — one switches the **mode**,
+    //          the other converts **the number currently displayed**, after asking for a source and a
+    //          target. (`x⇔E`/`FSE` are the same "two neighbouring commands" shape, checked last
+    //          round.)
+    //
+    //          **3. Why it is mounted but disabled: this app cannot provide the action.** Probed this
+    //          round through the app's own translation layer (temporary probe, deleted after the
+    //          run):
+    //
+    //          | input | `engineExpressionFor`'s answer |
+    //          |---|---|
+    //          | `90 to rad` | `TranslatedExpression` (**the only direction that gets through**) |
+    //          | `1.5707963268 to deg` | 不能翻译：引擎不认识这个自由变量：`deg` |
+    //          | `90 deg to rad` | 不能翻译：引擎不认识这个自由变量：`deg` |
+    //          | `90 to degrees` | 不能翻译：引擎不认识这个自由变量：`degrees` |
+    //          | `1.5707963268 to radians` | 不能翻译：引擎不认识这个自由变量：`radians` |
+    //
+    //          That is: **the source unit cannot be stated**, **the other direction (→ degrees) does
+    //          not exist**, and this app's "angle" is a **two-state switch** (`angleMode`: DEG↔RAD
+    //          through `setAngleMode`), not a conversion. A hand-rolled one-way version would print a
+    //          **plausible-looking wrong number** on screen under RAD — worse than an error. So this
+    //          fails closed: the position is mounted (`shift`) with `enabled: false` — under SHIFT the
+    //          key dims and does not respond, the honest picture of "this action is out of reach in
+    //          this app". **The base action `angleMode` has not moved a cell.**
+    //
+    //          **The refusal is written down as assertions**:
+    //          `test/features/calculator_drg_matrix_band_keys_test.dart` pins the table above — the
+    //          day the app really gains a two-way conversion (or those words enter the vocabulary),
+    //          that group goes red and this cell should light up, rather than leaving an expired
+    //          refusal quietly in place.
     KeypadKey(
       base: KeyVariant(label: 'DRG', id: 'angleMode'),
       category: KeyCategory.function,
+      shift: KeyVariant(label: 'DRG', id: 'dis:angleConvert', enabled: false),
     ),
     // 中文：**`FSE` 是这一颗键的 SHIFT 功能**——不是横带里独立的键。上一轮把它做成了横带里
     //       一颗可点的 `InlineKey`，那是错的，本轮按来源改回来。三条来源，各自独立：
@@ -242,9 +382,110 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
       category: KeyCategory.function,
       shift: KeyVariant(label: 'FSE', id: 'notationCycle'),
     ),
+    // 中文：**矩阵键的 SHIFT 功能是 `MATRIX_MENU`「矩阵与向量菜单」——与基准的「插入一个矩阵」
+    //       不是同一个动作。** 本轮把它按位置挂上（`dis:matrixMenu`），**但它仍是禁用的**：
+    //       应用今天没有这个菜单。下面按顺序说清楚三件事。
+    //
+    //       **一、HiPER 上 `MTRX` 是这颗键的第二功能，不是一颗独立的键。** 与 `DRG` 那一格同样
+    //       四条来源：位置（本格字形列中心 602.0，下方键面 601.0，差 1.0 px，与其它五格同一条
+    //       1:1 对照）、`quickTour.page.SECOND_FUNCTION.text2` 那条通则、画法（平排文字，字形核心
+    //       (159,161,168)、无胶囊底，与所有第二功能记号同值）、以及 `▸` 只属于换算命令的名字
+    //       （见 `DRG` 那颗键的注释）。**HiPER 上这颗键的键面是矩阵图标 `[▦]`，不是 `MTRX`**——
+    //       `MTRX` 是它上方那一格的字。
+    //
+    //       **二、它是什么动作：`MATRIX_MENU`，与 `MATRIX` 是两个命令。**
+    //       `command.name.MATRIX` = "Matrix"，帮助原文："Press the `<key:MATRIX>` key to insert a
+    //       matrix into an expression."；`command.name.MATRIX_MENU` = **"Matrix and Vector Menu"**，
+    //       手册第 941 行："**Press the MTRX key to open a menu with matrix functions.**"，
+    //       `quickTour.page.MATRIX.text2` = "Press the `<key:MATRIX_MENU>` key to see matrix
+    //       operations."，厂商更新日志（9.1）另有一条："Matrix inverse added to MTRX menu"。
+    //       一个把矩阵插进表达式，一个**打开一个矩阵函数的菜单**。
+    //
+    //       **三、为什么挂上却是禁用：应用给不出这个动作，而且缺的是「菜单」这一层。**
+    //       本轮用应用自己的翻译层探过（临时探针，跑完即删）——菜单里会插的那类调用，今天一条也
+    //       过不去：
+    //
+    //       | 送进去的 | `engineExpressionFor` 的答复 |
+    //       |---|---|
+    //       | `det(matrix(2,2,1,2,3,4))` | 不能翻译：标识符不在应用词汇表里，不送去让引擎猜：`det` |
+    //       | `transpose(…)` / `identity(2)` | 同上（`transpose` / `identity`） |
+    //       | `rank(…)` / `trace(…)` / `inv(…)` / `echelon(…)` | 同上（各自的名字） |
+    //
+    //       而旧解析器连被包住的那半条也读不了：`ExpressionParser('matrix(2,2,1,2,3,4)')` 抛
+    //       `FormatException: matrix needs 1 argument`（它只认 `matrix(` 里那一个子矩阵实参）。
+    //       **所以从菜单里插出去的每一条都只会得到一条错误，得不到值**；真要建这个菜单，就得先给
+    //       词表添上那几个名字（词表文件已到 799 行的上限，得先拆），那是单独一轮的活。
+    //
+    //       **引擎那一侧不是瓶颈**（宿主 libqalculate 5.12.0，与打包进 AAR 的同版本）：
+    //       `det(matrix(2,2,1,2,3,4))` = `−2`、`identity(2)` = `[1  0; 0  1]`、
+    //       `transpose(matrix(2,2,1,2,3,4))` = `[1  3; 2  4]`。缺口在**应用这一侧**，与 `∠` 那一格
+    //       同一个形状——所以禁用是 fail closed，`enabled: false`：SHIFT 态下这颗键变暗且不响应。
+    //       **基准动作 `ins:matrix` 一格未动**（仍是 `matrix(2,2,1,2,3,4)`，引擎实测印成
+    //       `[1  2; 3  4]`）。
+    //
+    //       **这条拒绝写成了断言**：`test/features/calculator_drg_matrix_band_keys_test.dart` 里
+    //       那一组把上表钉住——哪一天词表添上了这些名字、菜单真的建起来，那组会变红，那时这一格
+    //       该点亮。**本注释过去写着「已接上」，那是一句当时就不成立的话**：代码里从来没有这个
+    //       变体，本轮把它换成事实。
+    // English: **The matrix key's SHIFT function is `MATRIX_MENU`, "Matrix and Vector Menu" — not
+    //          the same action as the base "insert a matrix".** This round mounts it at the position
+    //          it occupies on HiPER (`dis:matrixMenu`) **but it stays disabled**: this app has no such
+    //          menu. Three things, in order.
+    //
+    //          **1. On HiPER `MTRX` is this key's second function, not a key of its own.** The same
+    //          four sources as the `DRG` cell: position (this cell's glyph column centre is 602.0
+    //          against the key face's 601.0, a 1.0 px gap inside the same six-over-six 1:1 mapping),
+    //          the `quickTour.page.SECOND_FUNCTION.text2` rule, the drawing (plain text, glyph core
+    //          (159,161,168), no capsule — the same values every second-function symbol has), and the
+    //          fact that `▸` belongs to the names of conversion commands only (see the `DRG` key's
+    //          note). **On HiPER this key's face is the matrix icon `[▦]`, not `MTRX`** — `MTRX` is
+    //          the text of the cell above it.
+    //
+    //          **2. What the action is: `MATRIX_MENU`, a second command.**
+    //          `command.name.MATRIX` = "Matrix" (its help: "Press the `<key:MATRIX>` key to insert a
+    //          matrix into an expression."), while `command.name.MATRIX_MENU` = **"Matrix and Vector
+    //          Menu"**, manual line 941: "**Press the MTRX key to open a menu with matrix
+    //          functions.**", `quickTour.page.MATRIX.text2` = "Press the `<key:MATRIX_MENU>` key to
+    //          see matrix operations.", and the vendor's release notes (9.1) add "Matrix inverse
+    //          added to MTRX menu". One inserts a matrix into the expression; the other **opens a menu
+    //          of matrix functions**.
+    //
+    //          **3. Why it is mounted but disabled: this app cannot provide the action, and what it
+    //          is missing is the menu layer.** Probed this round through the app's own translation
+    //          layer (temporary probe, deleted after the run) — not one of the calls such a menu would
+    //          insert gets through today:
+    //
+    //          | input | `engineExpressionFor`'s answer |
+    //          |---|---|
+    //          | `det(matrix(2,2,1,2,3,4))` | 不能翻译：标识符不在应用词汇表里，不送去让引擎猜：`det` |
+    //          | `transpose(…)` / `identity(2)` | the same refusal (`transpose` / `identity`) |
+    //          | `rank(…)` / `trace(…)` / `inv(…)` / `echelon(…)` | the same refusal (each by name) |
+    //
+    //          And the legacy parser cannot even read the wrapped half:
+    //          `ExpressionParser('matrix(2,2,1,2,3,4)')` throws
+    //          `FormatException: matrix needs 1 argument` (it knows only the single sub-matrix
+    //          argument of `matrix(`). **So everything inserted from such a menu would come back as an
+    //          error, never as a value**; building the menu for real means adding those names to the
+    //          vocabulary first (that file is at the 799-line cap and would need its own split), which
+    //          is a round of its own.
+    //
+    //          **The engine side is not the bottleneck** (host libqalculate 5.12.0, the same version as
+    //          the AAR): `det(matrix(2,2,1,2,3,4))` = `−2`, `identity(2)` = `[1  0; 0  1]`,
+    //          `transpose(matrix(2,2,1,2,3,4))` = `[1  3; 2  4]`. The gap is **on this app's side**,
+    //          the same shape as the `∠` cell — so the disabled flag is fail closed: under SHIFT the
+    //          key dims and does not respond. **The base action `ins:matrix` has not moved a cell**
+    //          (still `matrix(2,2,1,2,3,4)`, which the engine prints as `[1  2; 3  4]`).
+    //
+    //          **The refusal is written down as assertions**:
+    //          `test/features/calculator_drg_matrix_band_keys_test.dart` pins the table above — the day
+    //          those names enter the vocabulary and the menu really exists, that group goes red and
+    //          this cell should light up. **This note used to read "已接上" ("wired")**, a sentence
+    //          that was already false when it was written: the variant has never existed in the code,
+    //          and this round replaces it with the facts.
     KeypadKey(
       base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
       category: KeyCategory.function,
+      shift: KeyVariant(label: 'MTRX', id: 'dis:matrixMenu', enabled: false),
     ),
     KeypadKey(
       base: KeyVariant(label: 'Σ', id: 'ins:sum'),
