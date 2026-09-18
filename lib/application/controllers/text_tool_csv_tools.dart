@@ -7,8 +7,9 @@ extension _TextToolCsvTools on TextToolController {
 
     final table = _parseDelimitedTable(strings, input);
     final records = table.records;
-    if (records.length < 2)
+    if (records.length < 2) {
       throw FormatException(strings.data.csvNeedHeaderAndRow);
+    }
     final headers = _normalizeDelimitedHeaders(records.first);
     final inconsistentRows = <int>[];
     final rows = records.skip(1).toList().asMap().entries.map((entry) {
