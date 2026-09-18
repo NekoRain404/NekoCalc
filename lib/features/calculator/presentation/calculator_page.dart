@@ -114,8 +114,11 @@ class CalculatorPage extends StatefulWidget {
     // 变量：`Y` 一下插入 `y`（`x` 从 `X` 打开的面板里插入，那颗键走 `openVariables`）。
     'ins:y',
     // 微积分与复现：Σ / Π / ∫dx / lim / logₓy——各自插一整条引擎调用，见下面 `_pressKey` 里的
-    // 那一段注释（键盘上没有逗号键，半条调用补不完）。
-    'ins:sum', 'ins:product', 'ins:integrate', 'ins:limit', 'ins:logxy',
+    // 那一段注释（键盘上没有逗号键，半条调用补不完）。`ins:diff` 是 `∫dx` 那颗键的 SHIFT 变体
+    // （`d/dx`），它插 `diff(x^2,x)`，取舍写在 `ins:diff` 自己那一段里。
+    // English: and `ins:diff` is the SHIFT variant of the `∫dx` key (`d/dx`), inserting
+    //          `diff(x^2,x)`; the trade-off is written in that id's own note below.
+    'ins:sum', 'ins:product', 'ins:integrate', 'ins:diff', 'ins:limit', 'ins:logxy',
     // 矩阵与虚数单位：`MTRX` 插一整条 `matrix(行, 列, 元素…)`（引擎实测 `[1  2; 3  4]`），
     // `i` 插引擎认识的虚数单位（`2i+1` 实测 `1 + 2i`）。
     'ins:matrix', 'ins:i',

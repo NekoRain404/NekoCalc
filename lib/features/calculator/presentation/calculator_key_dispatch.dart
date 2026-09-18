@@ -352,6 +352,43 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _controller.append('product(x,1,5,x)');
       case 'ins:integrate':
         _controller.append('integrate(x^2,0,1,x)');
+      // 中文：**`d/dx`（`∫dx` 的 SHIFT 变体）插 `diff(x^2,x)`——两个槽，引擎自己的实参顺序。**
+      //       引擎的签名是 `diff(表达式, 对谁求导=undefined, 阶数=1, 点的值=undefined)`
+      //       （`BuiltinFunctions-calculus.cc` 的 `MathFunction("diff", 1, 4)`：第 4 个才是**点的值**）。
+      //       HiPER 手册那套「表达式 / 点 / 变量」是**反的**：宿主实测 `diff(x^2,2,x)` 被原样退回，
+      //       而把点填进第 3 格是**错值**（见下）。
+      //
+      //       **为什么不摆四槽的 `diff(x^2,x,1,2)`**：删掉 `,1` 就成了 `diff(x^2,x,2)`，引擎读成
+      //       **二阶导数**（宿主实测 `= 2`），而四槽都在时那是「在点 2 的导数」（`= 4`）——两个数
+      //       都像样，含义不同，屏幕上分不出来。两槽没有这道坎：删掉 `,x` 得到 `diff(x^2)`，引擎
+      //       自己找变量，宿主实测仍是 `= 2x`。**屏幕上的错值比报错更糟**，所以取两槽。
+      //       附带一条：`TexEmitter._derivative` 的专属模板只在 2/3 个实参时启用，四槽退回
+      //       `\operatorname{diff}{…}`，连 `d/dx` 的形状都排不出来。
+      //
+      //       宿主实测（`qalc` 5.12.0）：`diff(x^2,x)`=`2x`、`diff(x^2)`=`2x`、`diff(x^2,x,1,2)`=`4`、
+      //       `diff(x^2,x,2)`=`2`。用户改起来与上面几颗一样方便（内联编辑器里逗号是打得出的）。
+      // English: **`d/dx` (the SHIFT variant of `∫dx`) inserts `diff(x^2,x)` — two slots, in the
+      //          engine's own argument order.** The signature is
+      //          `diff(expression, with respect to=undefined, order=1, variable value=undefined)`
+      //          (`MathFunction("diff", 1, 4)` in `BuiltinFunctions-calculus.cc`: slot 4 is the
+      //          **point**). The manual's "expression / point / variable" order is the **reverse**:
+      //          `diff(x^2,2,x)` comes back unevaluated on the host, and a point in slot 3 is a
+      //          **wrong value** (below).
+      //
+      //          **Why not the four-slot `diff(x^2,x,1,2)`**: delete `,1` and `diff(x^2,x,2)` is read
+      //          as the **second derivative** (`= 2` on the host) where all four slots said "the
+      //          derivative at the point 2" (`= 4`) — both values look reasonable, they mean different
+      //          things, and the screen cannot tell you which you have. The two-slot shape has no such
+      //          cliff: delete `,x` and `diff(x^2)` lets the engine find the variable itself, still
+      //          `= 2x`. **A wrong value on screen is worse than an error**, so two slots win.
+      //          `TexEmitter._derivative`'s template only fires at 2 or 3 arguments; four fall back to
+      //          `\operatorname{diff}{…}` and cannot even typeset as `d/dx`.
+      //
+      //          Host measurements (`qalc` 5.12.0): `diff(x^2,x)`=`2x`, `diff(x^2)`=`2x`,
+      //          `diff(x^2,x,1,2)`=`4`, `diff(x^2,x,2)`=`2`. As easy to edit as the keys above (the
+      //          inline editor does accept commas).
+      case 'ins:diff':
+        _controller.append('diff(x^2,x)');
       case 'ins:limit':
         _controller.append('limit(sin(x)/x,0,x)');
       case 'ins:logxy':

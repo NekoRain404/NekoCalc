@@ -59,9 +59,9 @@ part 'hiper_keypad_number_rows.dart';
 ///       说法（「包括数字区」指的就是这两半），而**行的顺序仍由这里决定**——两半只是内容，
 ///       拼法与先后只此一处。
 ///
-///       **拆分的动因是那条 800 行上限**：单文件的它是 799 行，离上限只差一行——下一颗键哪怕只多
-///       一行 `shift:` 也会越过去。拆的是**数据**，缝落在区域之间，两半各自都有余量，下一颗键
-///       不必再拆一次。
+///       **拆分的动因是那条 800 行上限**：加 `d/dx`（`∫dx` 的 SHIFT 变体）时，还是单文件的它到了
+///       801 行（实测）。删掉过期理由、改写真理由都不是「凑行数」——拆的是**数据**，缝落在区域
+///       之间，两半各自都有余量，下一颗键不必再拆一次。
 /// English: **The table lives in three files, and the seam runs between the function half and the
 ///          number area.** The upper half (rows 1–5: modifiers and cursor, DRG/MTRX/Σ/∫dx/camera,
 ///          π and trigonometry, powers and logarithms, D°M'S/fraction/variables/memory) is in
@@ -72,10 +72,11 @@ part 'hiper_keypad_number_rows.dart';
 ///          note already draws it, and **the row order is still decided here** — the two halves are
 ///          content, and their order and assembly live in this one place.
 ///
-///          **The reason for the split is the 800-line cap**: as one file it was 799 lines, one line
-///          short of the limit — the next key would cross it even if all it added was a single
-///          `shift:` line. What got split is the **data**, along a region boundary, and each half
-///          now has room so the next key does not force another split.
+///          **The reason for the split is the 800-line cap**: adding `d/dx` (the SHIFT variant of
+///          `∫dx`) took the single-file version to 801 lines (measured). Deleting the expired
+///          rationale and writing the true one was never row-count padding — what got split is the
+///          **data**, along a region boundary, and each half now has room so the next key does not
+///          force another split.
 const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   ..._functionRows,
   ..._numberRows,

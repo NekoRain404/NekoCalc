@@ -115,10 +115,11 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   //       HiPER 上是「数字记法」那一维——Normal / Fixed / Scientific / Engineering / Engineering SI，
   //       而本应用没有这一维，所以它只是一条提示，不是承诺；上方的键 `x⇔E` 从这一步起点亮，管的是
   //       结果**形式**那一维，与 FSE 不是同一件事。SHIFT 态下按 `x⇔E` 走的是它自己的基准动作
-  //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `d/dx` 同一种情形）、
+  //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `MTRX` 同一种情形）、
   //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
-  //       仍未接上：引擎算得出符号导数，但符号结果过不了提交路径的「必须是有限十进制」那道门，
-  //       键点亮了也只会报错，见步骤 5 报告），相机键上方无标签。**📷 本身仍未点亮，理由来自 HiPER
+  //       **已接上**：SHIFT 态下按 `∫dx` 插的是 `diff(x^2,x)`，实参顺序是引擎自己的，不是 HiPER
+  //       手册那套——两槽而不是四槽的理由在 `calculator_key_dispatch.dart` 的 `ins:diff` 那一段）、
+  //       相机键上方无标签。**📷 本身仍未点亮，理由来自 HiPER
   //       自己的字符串**：`command.name.CAMERA` = "Expression recognition"；`cameraWindow.policy.info`
   //       写明选区图像**会被发往服务器**、由第三方模型 Pix2Text 识别（`recognitionWindow.pix2text`），
   //       `cameraWindow.proVersion` 说这是 Pro 专属。本机没有可分发的识别器，本机 OCR 只会产出
@@ -132,11 +133,11 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   //          lights up from this step on and owns the result **form** dimension instead, which is a
   //          different thing. Under SHIFT, `x⇔E` runs its own base action — as
   //          `CalculatorKeypad._resolve` says, a key without a shift variant falls back to the base —
-  //          exactly the situation `d/dx` is in), MTRX (hint of the matrix key),
-  //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, still unwired: the engine can produce a
-  //          symbolic derivative, but a symbolic result does not pass the submit path's "must be a
-  //          finite decimal" gate, so lighting the key up would only produce errors — see the
-  //          step 5 report); the camera key has no hint. **📷 itself stays unlit, on HiPER's own
+  //          exactly the situation `MTRX` is in), MTRX (hint of the matrix key),
+  //          Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now wired**: under SHIFT the `∫dx` key
+  //          inserts `diff(x^2,x)`, in the engine's own argument order rather than the manual's — the
+  //          note on `ins:diff` in `calculator_key_dispatch.dart` says why two slots and not four);
+  //          the camera key has no hint. **📷 itself stays unlit, on HiPER's own
   //          strings**: `command.name.CAMERA` is "Expression recognition"; `cameraWindow.policy.info`
   //          says the cropped image **is sent to a server** for the third-party Pix2Text model to
   //          recognize (`recognitionWindow.pix2text`), and `cameraWindow.proVersion` marks it
@@ -164,6 +165,7 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
       KeypadKey(
         base: KeyVariant(label: '∫dx', id: 'ins:integrate'),
         category: KeyCategory.function,
+        shift: KeyVariant(label: 'd/dx', id: 'ins:diff'),
       ),
       KeypadKey(
         base: KeyVariant(label: '📷', id: 'dis:camera', enabled: false),

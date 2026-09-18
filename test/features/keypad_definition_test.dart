@@ -62,7 +62,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "resultForm|x⇔E|on function",
     "ins:matrix|MTRX|on function",
     "ins:sum|Σ|on function shift:ins:product|Π|on",
-    "ins:integrate|∫dx|on function",
+    "ins:integrate|∫dx|on function shift:ins:diff|d/dx|on",
     "dis:camera|📷|off disabled",
   ],
   <String>[
