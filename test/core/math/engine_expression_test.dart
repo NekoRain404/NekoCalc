@@ -9,7 +9,8 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///       - `_replacePercent`：`X%` 写成 `(X)/100`，那个 `/100` 落在**整个外层项**的末尾
 ///         （`2^3%` = `2^(3)/100`）；语法树的 `PostfixNode('%')` 却绑在**原子**上，
 ///         于是翻译写出 `((2)^(((3)/100)))`——引擎读**原文**本来是对的（实测 0.08），
-///         **误读是翻译自己引进的**（1.021012125707193）。
+///         **误读是翻译自己引进的**（1.021012125707193）。紧跟除号右边是这条的一处例外
+///         （整段括成 `((X)/100)`，`100/50%` = 200），见下面那一组。
 ///       - `_normalizeGroupedNumberSeparators`：逗号是不是千分位由应用自己的实参个数表回答；
 ///         语法树没有这条规则，每一个逗号都是实参分隔符，于是 `round(1,024)` 被译成两个实参，
 ///         引擎答 `1`（应用给 1024）。
@@ -28,7 +29,9 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///            enclosing term** (`2^3%` = `2^(3)/100`), while the syntax tree's `PostfixNode('%')` binds to
 ///            the **atom**; the translation therefore wrote `((2)^(((3)/100)))` — the engine's own
 ///            reading of the **raw** text was right (measured 0.08) and **the misreading was the
-///            translation's own** (1.021012125707193).
+///            translation's own** (1.021012125707193). Immediately to the right of a division is the one
+///            exception to that rule (the whole expansion is wrapped as `((X)/100)`, `100/50%` = 200);
+///            see the group below.
 ///          - `_normalizeGroupedNumberSeparators`: whether a comma is a thousands separator is answered
 ///            by this app's own arity table; the syntax tree has no such rule and every comma is an
 ///            argument separator, so `round(1,024)` was translated as two arguments and the engine
@@ -90,12 +93,24 @@ void main() {
     });
   });
 
-  group('%：/100 落在整个外层项的末尾——三种形状', () {
+  group('%：/100 落在整个外层项的末尾——三种形状（除号右边那一处是例外）', () {
     // 中文：三条都来自修复轮 7 复审的表（`2^3%` / `3%^2` / `9^50%`），值是应用自己的解析器给的：
     //       0.08 / 0.0003 / 5.153775207320113E45。翻译后的字符串把括号写足，引擎只能按这个结构读。
+    //       **`100/50%` 那一行本轮改了**：`(X)/100` 紧跟除号右边时整段括起来，于是归一化文本是
+    //       `100/((50)/100)`、值是 200（厂商手册 12.0 的 relative 一节与 direct 的定义都给 200 的
+    //       同族答案，qalc 实测 200）。修之前这一行是 `100/(50)/100` = 0.02，本节原先把它记成
+    //       「复审 §3 的 `/` 族、既有分歧」——那条记录本轮作废，理由见
+    //       `test/core/math/percentage_expansion_test.dart` 的 `÷ 与 %` 一组。
     // English: all three come from fix round 7's review table (`2^3%` / `3%^2` / `9^50%`), and the
     //          values are this app's own: 0.08 / 0.0003 / 5.153775207320113E45. The translated string
     //          spells the brackets out so the engine can only read that structure.
+    //          **The `100/50%` line changed this round**: when `(X)/100` sits to the right of a
+    //          division the whole expansion is wrapped, so the normalised text is `100/((50)/100)` and
+    //          the value is 200 (the vendor's manual 12.0 gives the same-family answer 10 for `5÷50%` in
+    //          its relative section, direct's definition agrees, and qalc measures 200 here). Before the
+    //          fix this line read `100/(50)/100` = 0.02 and this group recorded it as "the `/` family in
+    //          the review's §3, a known divergence" — that record is void as of this round, for the
+    //          reasons in the `÷ 与 %` group of `test/core/math/percentage_expansion_test.dart`.
     test('2^3%：`/100` 在幂之外', () {
       expect(translated('2^3%'), '((((2)^((3))))/(100))');
     });
@@ -108,14 +123,17 @@ void main() {
       expect(translated('9^50%'), '((((9)^((50))))/(100))');
     });
 
-    test('2^50% 与 100/50%：另外两种形状', () {
-      // 中文：`2^50%` 与 1a 同族；`100/50%` 是**另一位**的分歧（复审 §3 的 `/` 族）——
-      //       应用读 `100/(50)/100` = 0.02，翻译后引擎读同一个结构。
-      // English: `2^50%` is the same family as 1a; `100/50%` is the **other** direction (the `/` family
-      //          in the review's §3) — this app reads `100/(50)/100` = 0.02, and after the translation
-      //          the engine reads the same structure.
+    test('2^50% 与 100/50%：另外两种形状（后者本轮变成一个原子）', () {
+      // 中文：`2^50%` 与 1a 同族（`^` 右边那个 `/100` 照旧逃到幂外——厂商的读法）；`100/50%`
+      //       现在是 `((100)/(((50))/(100)))`，即归一化文本 `100/((50)/100)` 的结构：除号右边
+      //       那个百分数是一个**原子**，引擎只能读成 `100/(50/100)` = 200。
+      // English: `2^50%` is the same family as 1a (to the right of `^` the `/100` still escapes the
+      //          power — the vendor's reading); `100/50%` is now `((100)/(((50))/(100)))`, the structure
+      //          of the normalised text `100/((50)/100)`: the percentage to the right of the division is
+      //          an **atom**, so the engine can only read `100/(50/100)` = 200.
       expect(translated('2^50%'), '((((2)^((50))))/(100))');
-      expect(translated('100/50%'), '((((100)/((50))))/(100))');
+      expect(translated('100/50%'), '((100)/(((((50))/(100)))))');
+      expect(translated('5/50%'), '((5)/(((((50))/(100)))))');
     });
 
     test('归一化之后仍然裸露的 % 一律拒绝，不替应用发明含义', () {

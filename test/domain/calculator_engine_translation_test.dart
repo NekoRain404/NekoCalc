@@ -236,6 +236,22 @@ void main() {
         asked: '((((9)^((50))))/(100))',
         broken: '3',
       ),
+      // 1c —— 除号右边那一族（本轮修的）：修之前归一化是 `5/(50)/100`，翻译成
+      //       `((((5)/((50))))/(100))`，引擎（实测 `qalc`）对它答 **0.001**，而厂商手册 12.0 的
+      //       relative 一节给这条小题的答案是 **10**（direct 的定义也给 10）。修好之后归一化是
+      //       `5/((50)/100)`，翻译成 `((5)/(((((50))/(100)))))`，引擎答 10——屏幕上的数与手册一致。
+      // English: 1c — the family to the right of a division (repaired this round): before the fix
+      //          normalisation was `5/(50)/100`, translated as `((((5)/((50))))/(100))`, and the engine
+      //          (measured: `qalc`) answers **0.001** for it, while the vendor's manual 12.0 answers
+      //          **10** for that worked example in its relative section (direct's definition gives 10 as
+      //          well). After the fix normalisation is `5/((50)/100)`, translated as
+      //          `((5)/(((((50))/(100)))))`, and the engine answers 10 — the number on screen agrees with
+      //          the manual.
+      (
+        expression: '5/50%',
+        asked: '((5)/(((((50))/(100)))))',
+        broken: '0.001',
+      ),
       // 1b —— 分组逗号：单参调用不该变成双参调用。
       (expression: 'round(1,024)', asked: 'round(1024)', broken: '1'),
       (
@@ -496,6 +512,9 @@ class _MeasuredEngine implements MathEngine {
     '((((2)^((3))))/(100))': ('0.08', 'number'),
     '(((3))/(((100)^(2))))': ('0.0003', 'number'),
     '((((9)^((50))))/(100))': ('5.153775207320113E45', 'number'),
+    // 除号右边那一族：修好的写法与修之前的写法，两份都是 `qalc` 实测。
+    '((5)/(((((50))/(100)))))': ('10', 'number'),
+    '((((5)/((50))))/(100))': ('0.001', 'number'),
     'round(1024)': ('1024', 'number'),
     'log2(1024)': ('10', 'number'),
     'sqrt(1024)': ('32', 'number'),

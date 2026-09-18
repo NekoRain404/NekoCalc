@@ -157,6 +157,8 @@ final class UntranslatableExpression extends EngineExpression {
 ///       - **`_replacePercent`**（`expression_parser.dart:957`）：应用的 `%` 不是 AST 里的后缀——
 ///         归一化把 `X%` 写成 `(X)/100`，而那个 `/100` 落在**整个外层项**的末尾：`2^3%` 是
 ///         `2^(3)/100` = 0.08、`3%^2` 是 `(3)/100^2` = 0.0003、`9^50%` 是 `9^(50)/100`。
+///         （**例外一处**：紧跟除号右边时整段括成 `((X)/100)`——`100/50%` 是
+///         `100/((50)/100)` = 200。那一族与它的取证写在 `_replacePercent` 的注释里。）
 ///         喂原文时翻译器只看得见 `PostfixNode('%')`（它绑在**原子**上），写出 `((2)^(((3)/100)))`
 ///         ——引擎（与数学）给 1.021012125707193，而**引擎读原文 `2^3%` 本来是对的**（0.08）。
 ///         归一化之后 `%` 在到达语法树之前就没有了，翻译器看到的正是应用的意思。
@@ -182,7 +184,10 @@ final class UntranslatableExpression extends EngineExpression {
 ///          - **`_replacePercent`** (`expression_parser.dart:957`): this app's `%` is not an AST postfix
 ///            — normalisation writes `X%` as `(X)/100`, and that `/100` lands at the end of the **whole
 ///            enclosing term**: `2^3%` is `2^(3)/100` = 0.08, `3%^2` is `(3)/100^2` = 0.0003, `9^50%`
-///            is `9^(50)/100`. Fed the raw text the translator only sees `PostfixNode('%')` (which binds
+///            is `9^(50)/100`. (**One exception**: to the right of a division the whole expansion is
+///            wrapped as `((X)/100)` — `100/50%` is `100/((50)/100)` = 200. That family and its evidence
+///            are in `_replacePercent`'s own comment.) Fed the raw text the translator only sees
+///            `PostfixNode('%')` (which binds
 ///            to the **atom**) and writes `((2)^(((3)/100)))` — the engine (and the mathematics) answer
 ///            1.021012125707193, while **the engine's own reading of the raw `2^3%` was right** (0.08).
 ///            After normalisation the `%` is gone before the tree is built, and the translator sees

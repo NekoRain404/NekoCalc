@@ -574,15 +574,6 @@ String _normalizeAbsoluteValueBars(String source) {
   return text;
 }
 
-String _replacePercent(String source) {
-  var text = source;
-  final pattern = RegExp('(($_decimalNumberPattern)|\\([^()]+\\))%');
-  while (pattern.hasMatch(text)) {
-    text =
-        text.replaceAllMapped(pattern, (match) => '(${match.group(1)})/100');
-  }
-  return text;
-}
 
 /// 中文：**度数记号：`30°` 是一个「角度」，而本应用把角度的数值写在当前的角度单位下。**
 ///
