@@ -313,10 +313,10 @@ void main() {
 
   test('an underflowing result never becomes a zero for Ans or the memory',
       () async {
-    // 中文：`2^-2000 ≈ 9.3e-603` 是同一根因的另一端，也是**更严重**的一端：`double.tryParse`
+    // 中文：`2^-2000 ≈ 8.709809816e-603` 是同一根因的另一端，也是**更严重**的一端：`double.tryParse`
     //       返回 `0.0`（不是 Infinity），`isFinite` 为真，于是答案被接受，而 `Ans`、`last`、
     //       记忆寄存器全部拿到 0——不抛异常、不报错，给一个错值。
-    // English: `2^-2000 ≈ 9.3e-603` is the other end of the same root cause and the worse one:
+    // English: `2^-2000 ≈ 8.709809816e-603` is the other end of the same root cause and the worse one:
     //          `double.tryParse` returns `0.0` (not Infinity) and `isFinite` is true, so the answer
     //          was accepted while `Ans`, `last` and the memory register all took 0 — nothing threw,
     //          nothing complained, and the value was wrong.
