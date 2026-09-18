@@ -140,6 +140,54 @@ extension _CalculatorPageDatasetSheet on _CalculatorPageState {
       ),
     );
   }
+
+  // 中文：**下面这两个方法是搬过来的**（纯搬动，行为一个字符没改）：它们建的是 `STAT` 面板那几格
+  //       插进表达式的调用，所以与面板住在一起；`_pressKey` 里那几个 `ins:` case 跨文件调用它们。
+  // English: **the two methods below were moved here** (a pure move, not one character of behaviour
+  //          changed): they build the calls the `STAT` sheet's cells insert, so they live with that
+  //          sheet; the `ins:` cases in `_pressKey` call them from the other part file.
+  /// 中文：双变量那三格（`pearson`/`covar`/`spearman`）共用的一条：**控制器说读不成两行就不插**。
+  ///
+  ///       为什么不让 `case` 里直接 `append(regressionCall(...)!)`：`regressionCall` 在数据集读不成
+  ///       两行时返回 `null`，而 `!` 会把它变成一个只在设备上崩的异常——那正是 `MathEngine` 契约里
+  ///       明说不许出现的形状（「实现不抛异常，调用方不能把守约当本钱」）。这里把 `null` 与「什么
+  ///       都不做」对上，判据仍然是 `regressionCall` 那一处，这里不写第二份。
+  ///
+  ///       面板上同一条判据把这三格变成禁用态，所以从界面上到不了这个 `null`；这条分支的存在是为了
+  ///       **让 id 本身不会绕过面板**去插一条引擎答不出来的调用。
+  ///
+  /// English: the one path the three two-variable cells (`pearson`/`covar`/`spearman`) share: **when
+  ///          the controller says the dataset cannot be read as two rows, nothing is inserted.**
+  ///
+  ///          Why not `append(regressionCall(...)!)` in the `case`: `regressionCall` returns `null`
+  ///          while the dataset cannot be read as two rows, and `!` would turn that into an exception
+  ///          that only ever fires on a device — exactly the shape the `MathEngine` contract forbids
+  ///          ("implementations do not throw, and the caller may not bank on that"). Here `null` maps
+  ///          to "do nothing", and the judgement still lives in `regressionCall` alone; no second copy
+  ///          is written.
+  ///
+  ///          The sheet turns these three cells into disabled ones on the same judgement, so the
+  ///          `null` is unreachable from the screen; this branch exists so that **an id cannot bypass
+  ///          the sheet** and insert a call the engine cannot answer.
+  void _appendRegressionCall(String function) {
+    final call = _controller.regressionCall(function);
+    if (call == null) return;
+    _controller.append(call);
+  }
+
+  /// 中文：三个拟合格共用的一条，与 [_appendRegressionCall] 逐字同形（判据说 `null` 就什么都不做，
+  ///       判据仍然只有 `fitCall` 一处）。**它是分开的一个方法，因为判据不同**：三个拟合各有各的
+  ///       下限，所以「哪几格亮」不是整行一个布尔。
+  /// English: the one path the three fit cells share, word for word the shape
+  ///          [_appendRegressionCall] has (the judgement says `null` ⇒ do nothing, and that judgement
+  ///          is still written once, on `fitCall`). **It is a separate method because the judgement
+  ///          differs**: each fit has its own floor, so "which cells are lit" is not one boolean for the
+  ///          whole row.
+  void _appendFitCall(String function) {
+    final call = _controller.fitCall(function);
+    if (call == null) return;
+    _controller.append(call);
+  }
 }
 
 /// 中文：`STAT` 面板的内容——**统计入口**。同样只列记号，按下去交给本页的 `_pressKey`。

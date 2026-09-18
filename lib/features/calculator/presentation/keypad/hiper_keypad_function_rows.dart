@@ -157,8 +157,10 @@ const KeypadRow _modifierRow = KeypadRow(
 //       （Normal / Scientific / Engineering），缺的两档与理由写在
 //       `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键 `x⇔E` 的**基准**
 //       管的是结果**形式**那一维，SHIFT 才是记法——两维不是一件事）、
-//       MTRX（**矩阵键的 SHIFT 提示，本轮挂上、仍是禁用**——HiPER 那一格是 `MATRIX_MENU`
-//       「矩阵与向量菜单」，应用没有这个菜单；来源与理由写在下面矩阵键的长注释里）、
+//       MTRX（**矩阵键的 SHIFT 提示，本轮真的点亮了**——HiPER 那一格是 `MATRIX_MENU`
+//       「矩阵与向量菜单」，本轮建起了这个菜单：`openMatrixMenu` 打开一个面板，面板里四项各插一条
+//       围着 `matrix(2,2,1,2,3,4)` 的完整调用；同一份实测里也量出 `rank`/`trace`/`echelon` 三个
+//       必须拒绝的名字，它们在面板里是灰的。来源、理由与被拒绝的那三个写在下面矩阵键的长注释里）、
 //       Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
 //       **已接上**：SHIFT 态下按 `∫dx` 插的是 `diff(x^2,x)`，实参顺序是引擎自己的，不是 HiPER
 //       手册那套——两槽而不是四槽的理由在 `calculator_key_dispatch.dart` 的 `ins:diff` 那一段）、
@@ -186,9 +188,12 @@ const KeypadRow _modifierRow = KeypadRow(
 //          why, are on the file head of `calculator_controller_notation.dart`. Missing is missing.
 //          The **base** action of the key under it, `x⇔E`, owns the result **form** dimension; the
 //          notation dimension sits on SHIFT — two different things), MTRX (**the matrix key's SHIFT
-//          hint, mounted this round and still disabled** — on HiPER that cell is `MATRIX_MENU`,
-//          "Matrix and Vector Menu", which this app does not have; sources and reasoning are in the
-//          long note on the matrix key below), Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now
+//          hint, really lit this round** — on HiPER that cell is `MATRIX_MENU`, "Matrix and Vector
+//          Menu", and this round builds that menu: `openMatrixMenu` opens a sheet whose four entries
+//          each insert a complete call around `matrix(2,2,1,2,3,4)`. The same set of measurements also
+//          produced the three names that must be refused, `rank`/`trace`/`echelon`, which are the sheet's
+//          grey rows. Sources, reasoning and those three are in the long note on the matrix key below),
+//          Π (hint of Σ, now wired), d/dx (hint of ∫dx, **now
 //          wired**: under SHIFT the `∫dx` key inserts `diff(x^2,x)`, in the engine's own argument
 //          order rather than the manual's — the note on `ins:diff` in `calculator_key_dispatch.dart`
 //          says why two slots and not four); the camera key has no hint. **📷 itself stays unlit, on
@@ -383,8 +388,8 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
       shift: KeyVariant(label: 'FSE', id: 'notationCycle'),
     ),
     // 中文：**矩阵键的 SHIFT 功能是 `MATRIX_MENU`「矩阵与向量菜单」——与基准的「插入一个矩阵」
-    //       不是同一个动作。** 本轮把它按位置挂上（`dis:matrixMenu`），**但它仍是禁用的**：
-    //       应用今天没有这个菜单。下面按顺序说清楚三件事。
+    //       不是同一个动作。本轮它从「挂上但禁用」变成**真的点亮**（`openMatrixMenu`）。**
+    //       下面按顺序说清楚三件事。
     //
     //       **一、HiPER 上 `MTRX` 是这颗键的第二功能，不是一颗独立的键。** 与 `DRG` 那一格同样
     //       四条来源：位置（本格字形列中心 602.0，下方键面 601.0，差 1.0 px，与其它五格同一条
@@ -399,38 +404,32 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //       手册第 941 行："**Press the MTRX key to open a menu with matrix functions.**"，
     //       `quickTour.page.MATRIX.text2` = "Press the `<key:MATRIX_MENU>` key to see matrix
     //       operations."，厂商更新日志（9.1）另有一条："Matrix inverse added to MTRX menu"。
-    //       一个把矩阵插进表达式，一个**打开一个矩阵函数的菜单**。
+    //       一个把矩阵插进表达式，一个**打开一个矩阵函数的菜单**——本应用现在打开后者
+    //       （面板在 `calculator_page_matrix_sheet.dart`，插入走主屏的 `_pressKey`）。
     //
-    //       **三、为什么挂上却是禁用：应用给不出这个动作，而且缺的是「菜单」这一层。**
-    //       本轮用应用自己的翻译层探过（临时探针，跑完即删）——菜单里会插的那类调用，今天一条也
-    //       过不去：
+    //       **三、这一格原来为什么禁用，以及本轮凭什么点亮。** 上一轮禁用是 fail closed，凭据是
+    //       一份实测：菜单里会插的那类调用，**应用自己的翻译层**一条也过不去（词表里没有那些名字），
+    //       而旧解析器连被包住的那半条也读不了（`ExpressionParser('matrix(2,2,1,2,3,4)')` 抛
+    //       `FormatException: matrix needs 1 argument`）——所以从菜单里插出去的每一条都只会得到一条
+    //       错误，得不到值。**本轮缺口补上了**：`det`/`transpose`/`inv`/`identity` 进了词表
+    //       （名字与意思都在宿主上量过，整张表在 `app_engine_vocabulary_identifiers.dart`），
+    //       引擎那一侧本来就不是瓶颈（`det(matrix(2,2,1,2,3,4))` = `−2`、`transpose(…)` =
+    //       `[1  3; 2  4]`、`inv(…)` = `[−2  1; 1.5  −0.5]`、`identity(2)` = `[1  0; 0  1]`）。
     //
-    //       | 送进去的 | `engineExpressionFor` 的答复 |
-    //       |---|---|
-    //       | `det(matrix(2,2,1,2,3,4))` | 不能翻译：标识符不在应用词汇表里，不送去让引擎猜：`det` |
-    //       | `transpose(…)` / `identity(2)` | 同上（`transpose` / `identity`） |
-    //       | `rank(…)` / `trace(…)` / `inv(…)` / `echelon(…)` | 同上（各自的名字） |
+    //       **同一份实测里也量出了三个必须拒绝的名字**（`rank`/`trace`/`echelon`，成因两种：
+    //       `rank` 是引擎里真有的函数却把矩阵原样还回来；`trace`/`echelon` 引擎里根本没有，
+    //       于是词被拆成符号、印出来带单位）。它们**不进词表**，在面板里是**灰的**、旁边写着为什么。
     //
-    //       而旧解析器连被包住的那半条也读不了：`ExpressionParser('matrix(2,2,1,2,3,4)')` 抛
-    //       `FormatException: matrix needs 1 argument`（它只认 `matrix(` 里那一个子矩阵实参）。
-    //       **所以从菜单里插出去的每一条都只会得到一条错误，得不到值**；真要建这个菜单，就得先给
-    //       词表添上那几个名字（词表文件已到 799 行的上限，得先拆），那是单独一轮的活。
-    //
-    //       **引擎那一侧不是瓶颈**（宿主 libqalculate 5.12.0，与打包进 AAR 的同版本）：
-    //       `det(matrix(2,2,1,2,3,4))` = `−2`、`identity(2)` = `[1  0; 0  1]`、
-    //       `transpose(matrix(2,2,1,2,3,4))` = `[1  3; 2  4]`。缺口在**应用这一侧**，与 `∠` 那一格
-    //       同一个形状——所以禁用是 fail closed，`enabled: false`：SHIFT 态下这颗键变暗且不响应。
     //       **基准动作 `ins:matrix` 一格未动**（仍是 `matrix(2,2,1,2,3,4)`，引擎实测印成
-    //       `[1  2; 3  4]`）。
+    //       `[1  2; 3  4]`）。**本注释过去写的是「已接上」**，那在当时是一句不成立的话（代码里从来没有
+    //       这个变体）；上一轮换成「挂上但禁用」，本轮才真的接上。
     //
-    //       **这条拒绝写成了断言**：`test/features/calculator_drg_matrix_band_keys_test.dart` 里
-    //       那一组把上表钉住——哪一天词表添上了这些名字、菜单真的建起来，那组会变红，那时这一格
-    //       该点亮。**本注释过去写着「已接上」，那是一句当时就不成立的话**：代码里从来没有这个
-    //       变体，本轮把它换成事实。
+    //       **这条拒绝写成了断言**：`test/features/calculator_drg_matrix_band_keys_test.dart` 与
+    //       `test/features/calculator_matrix_menu_test.dart` 钉住上面两张表——哪一天引擎把那三个
+    //       名字答对了，那些断言会变红。
     // English: **The matrix key's SHIFT function is `MATRIX_MENU`, "Matrix and Vector Menu" — not
-    //          the same action as the base "insert a matrix".** This round mounts it at the position
-    //          it occupies on HiPER (`dis:matrixMenu`) **but it stays disabled**: this app has no such
-    //          menu. Three things, in order.
+    //          the same action as the base "insert a matrix". This round it goes from "mounted but
+    //          disabled" to **really lit** (`openMatrixMenu`).** Three things, in order.
     //
     //          **1. On HiPER `MTRX` is this key's second function, not a key of its own.** The same
     //          four sources as the `DRG` cell: position (this cell's glyph column centre is 602.0
@@ -448,44 +447,41 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          functions.**", `quickTour.page.MATRIX.text2` = "Press the `<key:MATRIX_MENU>` key to
     //          see matrix operations.", and the vendor's release notes (9.1) add "Matrix inverse
     //          added to MTRX menu". One inserts a matrix into the expression; the other **opens a menu
-    //          of matrix functions**.
+    //          of matrix functions** — and this app now opens the latter (the sheet is in
+    //          `calculator_page_matrix_sheet.dart`, and insertion travels the screen's `_pressKey`).
     //
-    //          **3. Why it is mounted but disabled: this app cannot provide the action, and what it
-    //          is missing is the menu layer.** Probed this round through the app's own translation
-    //          layer (temporary probe, deleted after the run) — not one of the calls such a menu would
-    //          insert gets through today:
+    //          **3. Why this cell was disabled before, and what lights it now.** Last round's disabled
+    //          flag was fail closed, on a measurement: not one of the calls such a menu would insert
+    //          got through **this app's own translation layer** (the vocabulary had none of those
+    //          names), and the legacy parser cannot even read the wrapped half
+    //          (`ExpressionParser('matrix(2,2,1,2,3,4)')` throws
+    //          `FormatException: matrix needs 1 argument`) — so everything inserted from such a menu
+    //          could only come back as an error, never as a value. **This round closes that gap**:
+    //          `det`/`transpose`/`inv`/`identity` entered the vocabulary (name and meaning both
+    //          measured on the host; the whole table is on `app_engine_vocabulary_identifiers.dart`),
+    //          and the engine side was never the bottleneck (`det(matrix(2,2,1,2,3,4))` = `−2`,
+    //          `transpose(…)` = `[1  3; 2  4]`, `inv(…)` = `[−2  1; 1.5  −0.5]`, `identity(2)` =
+    //          `[1  0; 0  1]`).
     //
-    //          | input | `engineExpressionFor`'s answer |
-    //          |---|---|
-    //          | `det(matrix(2,2,1,2,3,4))` | 不能翻译：标识符不在应用词汇表里，不送去让引擎猜：`det` |
-    //          | `transpose(…)` / `identity(2)` | the same refusal (`transpose` / `identity`) |
-    //          | `rank(…)` / `trace(…)` / `inv(…)` / `echelon(…)` | the same refusal (each by name) |
+    //          **The same set of measurements also produced three names that must be refused**
+    //          (`rank`/`trace`/`echelon`, from two causes: `rank` is a real engine function that hands
+    //          the matrix straight back, while `trace`/`echelon` are not names the engine has at all,
+    //          so the word is taken apart into symbols and prints with units). They **do not enter the
+    //          vocabulary** and appear in the sheet **greyed**, with the reason on their own row.
     //
-    //          And the legacy parser cannot even read the wrapped half:
-    //          `ExpressionParser('matrix(2,2,1,2,3,4)')` throws
-    //          `FormatException: matrix needs 1 argument` (it knows only the single sub-matrix
-    //          argument of `matrix(`). **So everything inserted from such a menu would come back as an
-    //          error, never as a value**; building the menu for real means adding those names to the
-    //          vocabulary first (that file is at the 799-line cap and would need its own split), which
-    //          is a round of its own.
-    //
-    //          **The engine side is not the bottleneck** (host libqalculate 5.12.0, the same version as
-    //          the AAR): `det(matrix(2,2,1,2,3,4))` = `−2`, `identity(2)` = `[1  0; 0  1]`,
-    //          `transpose(matrix(2,2,1,2,3,4))` = `[1  3; 2  4]`. The gap is **on this app's side**,
-    //          the same shape as the `∠` cell — so the disabled flag is fail closed: under SHIFT the
-    //          key dims and does not respond. **The base action `ins:matrix` has not moved a cell**
-    //          (still `matrix(2,2,1,2,3,4)`, which the engine prints as `[1  2; 3  4]`).
+    //          **The base action `ins:matrix` has not moved a cell** (still `matrix(2,2,1,2,3,4)`, which
+    //          the engine prints as `[1  2; 3  4]`). **This note used to read "已接上" ("wired")**, a
+    //          sentence that was already false when it was written (the variant has never existed in the
+    //          code); last round replaced it with "mounted but disabled", and this round really wires it.
     //
     //          **The refusal is written down as assertions**:
-    //          `test/features/calculator_drg_matrix_band_keys_test.dart` pins the table above — the day
-    //          those names enter the vocabulary and the menu really exists, that group goes red and
-    //          this cell should light up. **This note used to read "已接上" ("wired")**, a sentence
-    //          that was already false when it was written: the variant has never existed in the code,
-    //          and this round replaces it with the facts.
+    //          `test/features/calculator_drg_matrix_band_keys_test.dart` and
+    //          `test/features/calculator_matrix_menu_test.dart` pin both tables above — the day the
+    //          engine answers those three names correctly, those assertions go red.
     KeypadKey(
       base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
       category: KeyCategory.function,
-      shift: KeyVariant(label: 'MTRX', id: 'dis:matrixMenu', enabled: false),
+      shift: KeyVariant(label: 'MTRX', id: 'openMatrixMenu'),
     ),
     KeypadKey(
       base: KeyVariant(label: 'Σ', id: 'ins:sum'),

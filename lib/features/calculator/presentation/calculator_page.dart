@@ -30,6 +30,7 @@ part 'calculator_key_dispatch.dart';
 part 'calculator_notation_dispatch.dart';
 part 'calculator_page_sheets.dart';
 part 'calculator_page_dataset_sheet.dart';
+part 'calculator_page_matrix_sheet.dart';
 part 'calculator_page_repeat_button.dart';
 
 /// 中文：计算器主界面——上半是两行显示面板（`CalculatorDisplay`），下半是 HiPER 键位表渲染出的
@@ -88,6 +89,21 @@ class CalculatorPage extends StatefulWidget {
     //          complete call handed to the controller — so "what is in the sheet" and "what the screen
     //          accepts" are one vocabulary with no second mapping (the rule `_MoreFunctionsSheet` set).
     'openComplex', 'openStatistics',
+    // 中文：`MTRX` 的第二功能打开的面板（HiPER 的 `MATRIX_MENU`）。它此前是禁用的
+    //       `dis:matrixMenu`，本轮点亮——先例与上面那三颗一样（`dis:` 前缀换成一个真正的动作 id）。
+    // English: the sheet `MTRX`'s second function opens (HiPER's `MATRIX_MENU`). It used to be the
+    //          disabled `dis:matrixMenu` and lights up this round — the same precedent as the three
+    //          above (the `dis:` prefix becomes a real action id).
+    'openMatrixMenu',
+    // 中文：矩阵菜单插的四条完整调用。与下面 `ins:sum`/`ins:mean` 同属「插一整条引擎调用」那一类：
+    //       键盘上没有逗号键，而它们都要一整个矩阵实参；插的形状（围着 `matrix(2,2,1,2,3,4)`，
+    //       不是围着用户的表达式）与理由写在 `_pressKey` 里那几个 case 的注释上。
+    // English: the four complete calls the matrix menu inserts. They belong with `ins:sum`/`ins:mean`
+    //          below in the "insert a whole engine call" class: the keypad has no comma key and each of
+    //          them needs a whole matrix argument; the shape they insert (around `matrix(2,2,1,2,3,4)`
+    //          rather than around the user's expression) and its reason are in the notes on those
+    //          cases in `_pressKey`.
+    'ins:det', 'ins:transpose', 'ins:inv', 'ins:identity',
     // 中文：`STAT` 面板插入的四个完整统计调用。它们与 `ins:sum`/`ins:product`/… 同属「插一整条引擎
     //       调用」那一类：这几个函数都要一串实参，而键盘上没有逗号键。
     // English: the four complete statistics calls the `STAT` sheet inserts. They belong with

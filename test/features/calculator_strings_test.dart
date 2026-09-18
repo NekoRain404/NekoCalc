@@ -125,6 +125,29 @@ void main() {
     expect(zh.spellingMixed, '带分数写法');
     expect(zh.spellingDms, '度分秒写法');
     expect(zh.spellingAuto, '写法');
+    // —— `MTRX` 第二功能的矩阵与向量菜单 ——
+    expect(
+      zh.matrixMenuHint,
+      '插的是完整调用：每项都围着 matrix(2,2,1,2,3,4) 转，那串数仍可在内联编辑器里改'
+      '（逗号可以打）。两个矩阵之间用 × 相乘、＋ 相加。标量不包——det(5) 引擎给 5、inv(5) 给 0.2，'
+      '都是看不出错的答案，所以这几项只围着矩阵转。',
+    );
+    expect(
+      zh.matrixMenuRankNote,
+      '引擎里有 rank 这个函数，可用本应用的矩阵写法它把矩阵原样还回来'
+      '（实测 rank(matrix(2,2,1,2,3,4)) = [1  2; 3  4]，而秩是 2）——形状对、意思错，所以本应用不做它',
+    );
+    expect(
+      zh.matrixMenuTraceNote,
+      '引擎里根本没有 trace 这个名字（实测 getFunction 返回空），它把词拆成了符号，'
+      '印出来是一个带单位的量（实测 trace(matrix(2,2,1,2,3,4)) = [(512.0295827 GGy·m·s·rad)  …]），'
+      '而迹是 5',
+    );
+    expect(
+      zh.matrixMenuEchelonNote,
+      '引擎里根本没有 echelon 这个名字（行阶梯形在引擎里叫 rref），它把词拆成了符号，'
+      '印出来是一个带单位的量（实测 echelon(matrix(2,2,1,2,3,4)) = [(0.1486441637n B·m⁴)  …]）',
+    );
     // —— 通用 ——
     expect(zh.close, '关闭');
 
@@ -198,6 +221,10 @@ void main() {
       [zh.spellingMixed, en.spellingMixed],
       [zh.spellingDms, en.spellingDms],
       [zh.spellingAuto, en.spellingAuto],
+      [zh.matrixMenuHint, en.matrixMenuHint],
+      [zh.matrixMenuRankNote, en.matrixMenuRankNote],
+      [zh.matrixMenuTraceNote, en.matrixMenuTraceNote],
+      [zh.matrixMenuEchelonNote, en.matrixMenuEchelonNote],
       [zh.close, en.close],
     ]) {
       expect(pair[0], isNot(pair[1]), reason: '「${pair[0]}」在英文表里没换');
@@ -265,6 +292,10 @@ void main() {
       'spellingMixed': en.spellingMixed,
       'spellingDms': en.spellingDms,
       'spellingAuto': en.spellingAuto,
+      'matrixMenuHint': en.matrixMenuHint,
+      'matrixMenuRankNote': en.matrixMenuRankNote,
+      'matrixMenuTraceNote': en.matrixMenuTraceNote,
+      'matrixMenuEchelonNote': en.matrixMenuEchelonNote,
       'close': en.close,
     };
     for (final entry in copy.entries) {

@@ -116,6 +116,11 @@ class CalculatorStrings {
     required this.spellingMixed,
     required this.spellingDms,
     required this.spellingAuto,
+    // —— `MTRX` 第二功能的矩阵与向量菜单 ——
+    required this.matrixMenuHint,
+    required this.matrixMenuRankNote,
+    required this.matrixMenuTraceNote,
+    required this.matrixMenuEchelonNote,
     // —— 多处共用的通用字 ——
     required this.close,
   });
@@ -192,6 +197,28 @@ class CalculatorStrings {
   final String spellingMixed;
   final String spellingDms;
   final String spellingAuto;
+
+  // —— `MTRX` 第二功能的矩阵与向量菜单 ——
+  /// 中文：菜单那一行小字。它要说清三件事：插的是完整调用、实参可以改、**标量不包**——最后一条
+  ///       是这张面板唯一拒绝掉的形状，不说用户会以为「先打一个数再按 det」也成。
+  /// English: the menu's small line. It has to say three things: a complete call is inserted, the
+  ///          arguments are editable, and **scalars are not wrapped** — the last is the one shape this
+  ///          sheet refuses, and unsaid the user would expect "type a number, press det" to work.
+  final String matrixMenuHint;
+
+  /// 中文：三行灰格各自那一句理由。**数字与调用都来自实测**（宿主 `qalc` 5.12.0，与打包进 AAR 的
+  ///       同版本），实测表在 `app_engine_vocabulary_identifiers.dart` 上。三句的形状相同：**引擎
+  ///       对那个名字的答复是什么** + **真正该得到的值/名字是什么**——不说清后者，用户只会以为
+  ///       引擎算不出来，而不是引擎答的不是那件事。
+  /// English: the sentence behind each of the three grey rows. **Every number and call is measured**
+  ///          (host `qalc` 5.12.0, the version this AAR bundles); the measurement table is on
+  ///          `app_engine_vocabulary_identifiers.dart`. All three have the same shape: **what the engine
+  ///          answers for that name** plus **what the right value/name would have been** — without the
+  ///          second half the user would think the engine simply cannot do it, rather than that it
+  ///          answered something else.
+  final String matrixMenuRankNote;
+  final String matrixMenuTraceNote;
+  final String matrixMenuEchelonNote;
 
   // —— 多处共用的通用字 ——
   final String close;
@@ -281,6 +308,16 @@ class CalculatorStrings {
     spellingMixed: '带分数写法',
     spellingDms: '度分秒写法',
     spellingAuto: '写法',
+    matrixMenuHint: '插的是完整调用：每项都围着 matrix(2,2,1,2,3,4) 转，那串数仍可在内联编辑器里改'
+        '（逗号可以打）。两个矩阵之间用 × 相乘、＋ 相加。标量不包——det(5) 引擎给 5、inv(5) 给 0.2，'
+        '都是看不出错的答案，所以这几项只围着矩阵转。',
+    matrixMenuRankNote: '引擎里有 rank 这个函数，可用本应用的矩阵写法它把矩阵原样还回来'
+        '（实测 rank(matrix(2,2,1,2,3,4)) = [1  2; 3  4]，而秩是 2）——形状对、意思错，所以本应用不做它',
+    matrixMenuTraceNote: '引擎里根本没有 trace 这个名字（实测 getFunction 返回空），它把词拆成了符号，'
+        '印出来是一个带单位的量（实测 trace(matrix(2,2,1,2,3,4)) = [(512.0295827 GGy·m·s·rad)  …]），'
+        '而迹是 5',
+    matrixMenuEchelonNote: '引擎里根本没有 echelon 这个名字（行阶梯形在引擎里叫 rref），它把词拆成了符号，'
+        '印出来是一个带单位的量（实测 echelon(matrix(2,2,1,2,3,4)) = [(0.1486441637n B·m⁴)  …]）',
     close: '关闭',
   );
 
@@ -371,6 +408,23 @@ class CalculatorStrings {
     spellingMixed: 'mixed-number spelling',
     spellingDms: 'degrees-minutes-seconds spelling',
     spellingAuto: 'spelling',
+    matrixMenuHint:
+        'A complete call is inserted: every entry wraps matrix(2,2,1,2,3,4) and those '
+        'numbers stay editable in the inline editor (commas do type). Multiply two matrices with × '
+        'and add them with ＋. Scalars are not wrapped — det(5) gives 5 and inv(5) gives 0.2, answers '
+        'that look fine, which is why these entries only wrap matrices.',
+    matrixMenuRankNote:
+        'The engine really does have a rank function, yet with this app\'s matrix '
+        'spelling it hands the matrix straight back (measured: rank(matrix(2,2,1,2,3,4)) = '
+        '[1  2; 3  4], where the rank is 2) — right shape, wrong meaning, so this app does not build it',
+    matrixMenuTraceNote:
+        'The engine has no trace at all (measured: getFunction returns nothing), so '
+        'it takes the word apart into symbols and prints a quantity carrying units (measured: '
+        'trace(matrix(2,2,1,2,3,4)) = [(512.0295827 GGy·m·s·rad)  …]), where the trace is 5',
+    matrixMenuEchelonNote:
+        'The engine has no echelon at all (row echelon form is called rref there), '
+        'so it takes the word apart into symbols and prints a quantity carrying units (measured: '
+        'echelon(matrix(2,2,1,2,3,4)) = [(0.1486441637n B·m⁴)  …])',
     close: 'Close',
   );
 }

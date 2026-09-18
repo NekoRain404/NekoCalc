@@ -126,6 +126,20 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _openComplexSheet();
       case 'openStatistics':
         _openStatisticsSheet();
+      // 中文：**`MTRX` 的第二功能打开「矩阵与向量菜单」**（HiPER 的 `MATRIX_MENU`，手册第 941 行）。
+      //       这一格原来是禁用的 `dis:matrixMenu`，本轮点亮：`dis:` 前缀换成真正的动作 id，先例与
+      //       上面三颗一样（`dis:cplx`→`openComplex` 那一批）。**面板里有什么、四项各插什么、三行
+      //       灰格（`rank`/`trace`/`echelon`）为什么灰，都在 `calculator_page_matrix_sheet.dart`
+      //       的文件头上**——长注释跟它描述的东西住在一起，这里只留一句指路的话。
+      // English: **`MTRX`'s second function opens the "Matrix and Vector Menu"** (HiPER's
+      //          `MATRIX_MENU`, manual line 941). This cell used to be the disabled `dis:matrixMenu`
+      //          and lights up this round: the `dis:` prefix becomes a real action id, the same
+      //          precedent as the three cases above (`dis:cplx`→`openComplex` and friends). **What is in
+      //          the sheet, what its four entries insert, and why three rows (`rank`/`trace`/`echelon`)
+      //          are grey all live in `calculator_page_matrix_sheet.dart`'s file head** — the long note
+      //          lives with the thing it describes, and this is only the signpost.
+      case 'openMatrixMenu':
+        _openMatrixMenuSheet();
       case 'openConstants':
         _navigate('tools');
       // 中文：**四个进制胶囊从这一步起真的做进制换算**（它们此前只是切到工具箱）。理由与代价：
@@ -397,6 +411,41 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       //          product.
       case 'ins:matrix':
         _controller.append('matrix(2,2,1,2,3,4)');
+      // 中文：**矩阵菜单那四项插的是「一条调用 + 基准动作那条矩阵」**（`openMatrixMenu` 那个面板递过来
+      //       的 id）。四条与上面几颗同一条理由：完整、立刻求得出值、键盘上没有逗号键。
+      //
+      //       **它们围着 `matrix(2,2,1,2,3,4)`，不围着用户此刻的表达式——理由是量出来的**：引擎对
+      //       **标量**不报错，它给一个看起来合理的值（宿主 `qalc` 5.12.0：`det(5)` = `5`、
+      //       `inv(5)` = `0.2`、`transpose(5)` = `5`），所以「包住光标前那一个值」是静默错值的入口。
+      //       完整插入没有这个状态——插出去的文本里**永远**含一个 `matrix(…)`。整张实测表（含四个
+      //       名字凭什么收下、以及被拒绝的 `rank`/`trace`/`echelon` 凭什么拒绝）在
+      //       `app_engine_vocabulary_identifiers.dart` 上；这个取舍的完整论证在
+      //       `calculator_page_matrix_sheet.dart` 的文件头上。
+      // English: **the four matrix-menu entries insert "a call plus the matrix the base action inserts"**
+      //          (the ids the `openMatrixMenu` sheet hands over). They share the reason the keys above
+      //          have: complete, immediately evaluable, and the keypad has no comma key.
+      //
+      //          **They wrap `matrix(2,2,1,2,3,4)`, not whatever the user currently has — and that is
+      //          measured**: the engine does not error on a **scalar**, it answers with a plausible value
+      //          (host `qalc` 5.12.0: `det(5)` = `5`, `inv(5)` = `0.2`, `transpose(5)` = `5`), so
+      //          "wrap the value before the caret" is an entrance to a silent wrong value. A complete
+      //          insertion has no such state — the inserted text **always** holds a `matrix(…)`. The
+      //          whole measurement table (why these four are admitted and why `rank`/`trace`/`echelon`
+      //          are refused) is on `app_engine_vocabulary_identifiers.dart`; the full argument for this
+      //          trade-off is in `calculator_page_matrix_sheet.dart`'s file head.
+      case 'ins:det':
+        _controller.append('det(matrix(2,2,1,2,3,4))');
+      case 'ins:transpose':
+        _controller.append('transpose(matrix(2,2,1,2,3,4))');
+      case 'ins:inv':
+        _controller.append('inv(matrix(2,2,1,2,3,4))');
+      // 中文：`identity(2)` 是构造那一个，它本来就不需要矩阵实参——**不是**上面那条规则的例外，
+      //       因为插出去的文本仍然是一条完整的、立刻求得出值的调用。
+      // English: `identity(2)` is the constructor and needs no matrix argument to begin with — **not** an
+      //          exception to the rule above, since what is inserted is still one complete, immediately
+      //          evaluable call.
+      case 'ins:identity':
+        _controller.append('identity(2)');
       case 'ins:i':
         _controller.append('i');
       // 中文：`Y`（横带那格）一下把 `y` 插进表达式——与 `i` 逐字同样的做法。`x` 的字母从 `X` 打开的
@@ -638,108 +687,6 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         );
         _controller.input(key);
     }
-  }
-
-  /// 中文：双变量那三格（`pearson`/`covar`/`spearman`）共用的一条：**控制器说读不成两行就不插**。
-  ///
-  ///       为什么不让 `case` 里直接 `append(regressionCall(...)!)`：`regressionCall` 在数据集读不成
-  ///       两行时返回 `null`，而 `!` 会把它变成一个只在设备上崩的异常——那正是 `MathEngine` 契约里
-  ///       明说不许出现的形状（「实现不抛异常，调用方不能把守约当本钱」）。这里把 `null` 与「什么
-  ///       都不做」对上，判据仍然是 `regressionCall` 那一处，这里不写第二份。
-  ///
-  ///       面板上同一条判据把这三格变成禁用态，所以从界面上到不了这个 `null`；这条分支的存在是为了
-  ///       **让 id 本身不会绕过面板**去插一条引擎答不出来的调用。
-  ///
-  /// English: the one path the three two-variable cells (`pearson`/`covar`/`spearman`) share: **when
-  ///          the controller says the dataset cannot be read as two rows, nothing is inserted.**
-  ///
-  ///          Why not `append(regressionCall(...)!)` in the `case`: `regressionCall` returns `null`
-  ///          while the dataset cannot be read as two rows, and `!` would turn that into an exception
-  ///          that only ever fires on a device — exactly the shape the `MathEngine` contract forbids
-  ///          ("implementations do not throw, and the caller may not bank on that"). Here `null` maps
-  ///          to "do nothing", and the judgement still lives in `regressionCall` alone; no second copy
-  ///          is written.
-  ///
-  ///          The sheet turns these three cells into disabled ones on the same judgement, so the
-  ///          `null` is unreachable from the screen; this branch exists so that **an id cannot bypass
-  ///          the sheet** and insert a call the engine cannot answer.
-  void _appendRegressionCall(String function) {
-    final call = _controller.regressionCall(function);
-    if (call == null) return;
-    _controller.append(call);
-  }
-
-  /// 中文：三个拟合格共用的一条，与 [_appendRegressionCall] 逐字同形（判据说 `null` 就什么都不做，
-  ///       判据仍然只有 `fitCall` 一处）。**它是分开的一个方法，因为判据不同**：三个拟合各有各的
-  ///       下限，所以「哪几格亮」不是整行一个布尔。
-  /// English: the one path the three fit cells share, word for word the shape
-  ///          [_appendRegressionCall] has (the judgement says `null` ⇒ do nothing, and that judgement
-  ///          is still written once, on `fitCall`). **It is a separate method because the judgement
-  ///          differs**: each fit has its own floor, so "which cells are lit" is not one boolean for the
-  ///          whole row.
-  void _appendFitCall(String function) {
-    final call = _controller.fitCall(function);
-    if (call == null) return;
-    _controller.append(call);
-  }
-
-  /// 中文：四个进制胶囊共用的那一条：让控制器去换算，**有事要说时**把它说的话交给用户。
-  ///       用的是提交路径同一种做法（`SnackBar`），因为两者是同一类事情——用户按了一个键，
-  ///       而这一次没成，必须有人告诉他，而不是屏幕上什么都没有、看起来像按键失灵。
-  ///
-  ///       控制器自己会在成功时点亮读数、失败时不点亮（见 `showBaseReadout`），这里只负责把
-  ///       那句话显示出来，不判断成功与否——第二个判断点迟早会与控制器那一处漂开。
-  /// English: the one path the four base pills share: let the controller convert and, **when it has
-  ///          something to say**, hand that sentence to the user. It uses the submit path's own
-  ///          device (a `SnackBar`) because the two are the same kind of event — the user pressed a
-  ///          key and this time it did not work, which someone has to say, or the screen shows
-  ///          nothing and reads as a dead key.
-  ///
-  ///          The controller lights the read-out on success and leaves it dark on failure (see
-  ///          `showBaseReadout`); this only displays the sentence and does not judge success — a
-  ///          second judgement point would sooner or later drift away from the controller's.
-  Future<void> _showBaseReadout(CalculatorBase base) async {
-    final message = await _controller.showBaseReadout(base);
-    if (!mounted || message == null) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// 中文：记忆键被拒时，把控制器那句话交给用户。通道与 [_showBaseReadout]、以及提交路径的
-  ///       `needsAttention` 是同一条（`SnackBar`），因为它们是同一类事情：用户按了一个键，而这一次
-  ///       没成——不说，屏幕上就什么都没有，看起来像按键失灵。控制器回 `null` 时这里什么都不做
-  ///       （成功是常态，不该有提示）。
-  /// English: hand the controller's sentence to the user when a memory key is refused. Same channel as
-  ///          [_showBaseReadout] and the submit path's `needsAttention` (a `SnackBar`), because they
-  ///          are the same kind of event: the user pressed a key and this time it did not work —
-  ///          unsaid, the screen shows nothing and reads as a dead key. A `null` from the controller
-  ///          does nothing here (success is the normal case and deserves no prompt).
-  void _reportMemory(String? message) {
-    if (message == null || !mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// 中文：`More...` 面板里的那两个记忆键走这一条（`MR`/`MC` 不会拒绝，走的是同一条但永远无声）。
-  ///       有话要说时**先把面板收掉**：面板盖着屏幕底部那一条，而消息落在右下角那条 `SnackBar`
-  ///       上——量过（800×600 的测试面）：面板占 y=418..600、`SnackBar` 占 y=552..600，两者重叠，
-  ///       被盖住的消息 `hitTestable()` 是 0。顶着面板说，用户根本看不见，那正是这一步要消灭的
-  ///       「按了没反应」；这与同文件 `_action` 的理由是同一个形状（面板盖着键盘，所以动作先关面板）。
-  ///       成功时面板原地留着——那正是面板自己的注释承诺的行为（读数原地更新）。
-  /// English: the path the `More...` sheet's two refusing memory keys take (`MR`/`MC` cannot refuse;
-  ///          they take it too and are simply never heard from). When there is something to say the
-  ///          sheet is **dismissed first**: it covers the bottom strip of the screen while the message
-  ///          lands on the `SnackBar` in that same strip — measured on the 800×600 test surface: the
-  ///          sheet spans y=418..600 and the `SnackBar` y=552..600, they overlap, and a covered
-  ///          message has `hitTestable()` 0. Speaking from behind the sheet means the user never sees
-  ///          it, which is exactly the "pressed it, nothing happened" this step exists to delete; it
-  ///          is the same shape as `_action`'s reason in this file (the sheet covers the keypad, so
-  ///          the action closes it first). On success the sheet stays where it is — which is what the
-  ///          sheet's own comment promises (the reading updates in place).
-  void _reportMemoryFromSheet(String? message) {
-    if (message == null) return;
-    Navigator.of(context).pop();
-    _reportMemory(message);
   }
 
   /// 中文：键面标签与解析器函数名不一致的少数几个在这里换算（`nCr` → `ncr`、`nPr` → `npr`、

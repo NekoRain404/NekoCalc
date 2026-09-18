@@ -387,6 +387,48 @@ extension _CalculatorPageSheets on _CalculatorPageState {
       SnackBar(content: Text(_controller.resultStatusMessage)),
     );
   }
+
+  // 中文：**这两个方法是搬过来的**（纯搬动，行为一个字符没改）：它们的调用点就在本文件的 `_MoreSheet`
+  //       （面板里那两个记忆键），而且 `_reportMemoryFromSheet` 的注释本来就引用着这个文件里的 `_action`。
+  // English: **the two methods below were moved here** (a pure move, not one character of behaviour
+  //          changed): their call site is this file's own `_MoreSheet` (the sheet's two memory keys), and
+  //          `_reportMemoryFromSheet`'s note already referred to `_action` in this file.
+  /// 中文：记忆键被拒时，把控制器那句话交给用户。通道与 [_showBaseReadout]、以及提交路径的
+  ///       `needsAttention` 是同一条（`SnackBar`），因为它们是同一类事情：用户按了一个键，而这一次
+  ///       没成——不说，屏幕上就什么都没有，看起来像按键失灵。控制器回 `null` 时这里什么都不做
+  ///       （成功是常态，不该有提示）。
+  /// English: hand the controller's sentence to the user when a memory key is refused. Same channel as
+  ///          [_showBaseReadout] and the submit path's `needsAttention` (a `SnackBar`), because they
+  ///          are the same kind of event: the user pressed a key and this time it did not work —
+  ///          unsaid, the screen shows nothing and reads as a dead key. A `null` from the controller
+  ///          does nothing here (success is the normal case and deserves no prompt).
+  void _reportMemory(String? message) {
+    if (message == null || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 中文：`More...` 面板里的那两个记忆键走这一条（`MR`/`MC` 不会拒绝，走的是同一条但永远无声）。
+  ///       有话要说时**先把面板收掉**：面板盖着屏幕底部那一条，而消息落在右下角那条 `SnackBar`
+  ///       上——量过（800×600 的测试面）：面板占 y=418..600、`SnackBar` 占 y=552..600，两者重叠，
+  ///       被盖住的消息 `hitTestable()` 是 0。顶着面板说，用户根本看不见，那正是这一步要消灭的
+  ///       「按了没反应」；这与同文件 `_action` 的理由是同一个形状（面板盖着键盘，所以动作先关面板）。
+  ///       成功时面板原地留着——那正是面板自己的注释承诺的行为（读数原地更新）。
+  /// English: the path the `More...` sheet's two refusing memory keys take (`MR`/`MC` cannot refuse;
+  ///          they take it too and are simply never heard from). When there is something to say the
+  ///          sheet is **dismissed first**: it covers the bottom strip of the screen while the message
+  ///          lands on the `SnackBar` in that same strip — measured on the 800×600 test surface: the
+  ///          sheet spans y=418..600 and the `SnackBar` y=552..600, they overlap, and a covered
+  ///          message has `hitTestable()` 0. Speaking from behind the sheet means the user never sees
+  ///          it, which is exactly the "pressed it, nothing happened" this step exists to delete; it
+  ///          is the same shape as `_action`'s reason in this file (the sheet covers the keypad, so
+  ///          the action closes it first). On success the sheet stays where it is — which is what the
+  ///          sheet's own comment promises (the reading updates in place).
+  void _reportMemoryFromSheet(String? message) {
+    if (message == null) return;
+    Navigator.of(context).pop();
+    _reportMemory(message);
+  }
 }
 
 /// 中文：`OTHER` 面板的内容——HiPER 网格上没有专属键位的函数与常数。每一条都按自己的 id 走

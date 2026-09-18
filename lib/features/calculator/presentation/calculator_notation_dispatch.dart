@@ -26,4 +26,33 @@ extension _CalculatorNotationDispatch on _CalculatorPageState {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  // 中文：**`_showBaseReadout` 是搬过来的**（纯搬动，行为一个字符没改）：本文件的文件头一直写着
+  //       「形状与同一文件夹里的 `_showBaseReadout` 逐条相同」，两个同形的兄弟现在住在一起——
+  //       问控制器要一句话，有话说才交给用户。
+  // English: **`_showBaseReadout` was moved here** (a pure move, not one character of behaviour
+  //          changed): this file's head has always said its shape is item-for-item that method's, and
+  //          the two siblings now live together — ask the controller for a sentence and hand it to the
+  //          user only when there is one.
+  /// 中文：四个进制胶囊共用的那一条：让控制器去换算，**有事要说时**把它说的话交给用户。
+  ///       用的是提交路径同一种做法（`SnackBar`），因为两者是同一类事情——用户按了一个键，
+  ///       而这一次没成，必须有人告诉他，而不是屏幕上什么都没有、看起来像按键失灵。
+  ///
+  ///       控制器自己会在成功时点亮读数、失败时不点亮（见 `showBaseReadout`），这里只负责把
+  ///       那句话显示出来，不判断成功与否——第二个判断点迟早会与控制器那一处漂开。
+  /// English: the one path the four base pills share: let the controller convert and, **when it has
+  ///          something to say**, hand that sentence to the user. It uses the submit path's own
+  ///          device (a `SnackBar`) because the two are the same kind of event — the user pressed a
+  ///          key and this time it did not work, which someone has to say, or the screen shows
+  ///          nothing and reads as a dead key.
+  ///
+  ///          The controller lights the read-out on success and leaves it dark on failure (see
+  ///          `showBaseReadout`); this only displays the sentence and does not judge success — a
+  ///          second judgement point would sooner or later drift away from the controller's.
+  Future<void> _showBaseReadout(CalculatorBase base) async {
+    final message = await _controller.showBaseReadout(base);
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 }

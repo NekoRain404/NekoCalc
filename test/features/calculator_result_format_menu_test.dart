@@ -121,7 +121,10 @@ void main() {
       //       `qalc` 5.12.0 实测，`-set "cplxform polar" "4+4i"`），而 HiPER 那一格是 `r∠45`
       //       （手册 p.11），`∠` 本应用的两个解析器都读不了。
       //       **哪一天本应用有了一个只改写法的极坐标印法，这一条会红**——那时这一项该点亮，
-      //       而不是让一条过期的禁用悄悄留着（与 `∠`、`MTRX` 那两格同一个做法）。
+      //       而不是让一条过期的禁用悄悄留着（与 `∠` 那一格同一个做法）。
+      //       **`MTRX` 那一格本院已经兑现了**：它的到期日断言当年钉的是「矩阵菜单要插的那类调用
+      //       一条也过不去翻译层」，矩阵那一轮词表补齐之后那几条如期变红，那一格因此点亮
+      //       （`openMatrixMenu`）——这一条就是那个做法的活例子，写在这里当参照。
       // English: **This is that entry's expiry assertion.** It holds today because the engine's polar
       //          form is an `EvaluationOptions` field that `Calculator-calculate.cc:2195` applies
       //          *during evaluation* (`complexToPolarForm`) — not a `PrintOptions` switch — so using it
@@ -131,7 +134,13 @@ void main() {
       //          `5.656854249(cos(45.00000000) + i × sin(45.00000000))` (host `qalc` 5.12.0,
       //          `-set "cplxform polar" "4+4i"`), while HiPER's cell is `r∠45`. **The day this app gains
       //          a polar spelling that changes the writing only, this goes red** — that entry should then
-      //          light up rather than an expired refusal quietly staying put.
+      //          light up rather than an expired refusal quietly staying put (the same device as the `∠`
+      //          cell).
+      //          **The `MTRX` cell's version of this has already been honoured**: its expiry assertion
+      //          pinned "not one of the calls such a menu would insert gets through the translation
+      //          layer", and the round that completed the vocabulary turned those lines red as scheduled
+      //          — so that cell lit up (`openMatrixMenu`). This is what the device looks like when it
+      //          fires, kept here as a reference.
       expect(polar.form, isNull, reason: '本应用今天没有任何一格可以落到这一项上');
       expect(polar.note, contains('极坐标'), reason: '禁用要在屏幕上说得出理由，不能是一条按下去没反应的行');
       expect(

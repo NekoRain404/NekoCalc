@@ -18,13 +18,17 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///         于是**再出现一个 `log`/`mod`，不管它落在哪个样本上，这张表都会红**——
 ///         而修法只有一条：把它标成不可信（或者改掉应用自己的语义）。
 ///
-///       覆盖面（**用脚本数出来的，不是手写的**）：词表 **47 个标识符**（41 个函数名 + 6 个常量名，
-///       常量在这一轮才进表，见词表文件头），本文的样本 **45 个**，覆盖其中 **33 个名字**，
-///       **9 个名字有 2 个以上样本**（`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`），
-///       **未覆盖 14 个**：`deg`/`fact`/`ncr`/`npr`/`rad`（引擎压根没有对应函数，由下面第二条测试与
+///       覆盖面（**用脚本数出来的，不是手写的**）：词表 **65 个标识符**（59 个函数名 + 6 个常量名，
+///       常量在修复轮 5 才进表、矩阵那一批在 `MTRX` 那一轮才进表，两处都见词表文件头），本文的样本
+///       **45 个**，覆盖其中 **33 个名字**，**9 个名字有 2 个以上样本**
+///       （`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`），
+///       **未覆盖 18 个**：`deg`/`fact`/`ncr`/`npr`/`rad`（引擎压根没有对应函数，由下面第二条测试与
 ///       原生侧检查承担）、`matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/`rand`（实参是变量与
 ///       范围，没有可直接比对的值，由形状判据承担）、`inf`/`infinity`（两边的取值都不是有限数，
-///       这个表的数值比对放不下它们）。
+///       这个表的数值比对放不下它们）、`det`/`transpose`/`inv`/`identity`（只有引擎答得出来：
+///       应用自己的解析器抛 `Unknown function …`，**没有应用侧的值可比**——这两列的值由
+///       `app_engine_vocabulary_identifiers.dart` 那两张实测表与
+///       `test/features/calculator_matrix_menu_test.dart` 承担）。
 ///       重算方式：`python3 - <<'PY' …` 见报告第 3 条（脚本与输出都在那里）。
 /// English: **the second half of the per-name check: values.** In fix round 3 the vocabulary's "may
 ///          the engine's answer for this spelling be used" column had **one sample per name and a
@@ -44,13 +48,18 @@ import 'package:nekocalc/core/math/expression_parser.dart';
 ///            that name untrusted. The metric and its blind spot are described at `_callShapes`.
 ///
 ///          Scope (**concrete numbers, from the script in the step 5 fix-round-5 report**): the
-///          vocabulary holds **47 identifiers** (41 function names + 6 constants — constants joined in
-///          round 5), this table has **45 samples** covering **33 of those names**, **9 of them with
-///          more than one sample** (`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`), and
-///          **14 are uncovered**: `deg`/`fact`/`ncr`/`npr`/`rad` (no engine counterpart at all, held by
-///          the test below and the native check), `matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/
-///          `rand` (their arguments are variables and ranges, no comparable value), and `inf`/
-///          `infinity` (neither side's value is a finite number, so this table cannot hold them).
+///          vocabulary holds **65 identifiers** (59 function names + 6 constants — constants joined in
+///          round 5 and the matrix batch in the `MTRX` round, both recounted from the table), this table
+///          has **45 samples** covering **33 of those names**, **9 of them with more than one sample**
+///          (`atan2`/`ceil`/`exp`/`floor`/`mod`/`root`/`round`/`sin`/`sqrt`), and **18 are uncovered**:
+///          `deg`/`fact`/`ncr`/`npr`/`rad` (no engine counterpart at all, held by the test below and the
+///          native check), `matrix`/`sum`/`product`/`integrate`/`diff`/`limit`/`rand` (their arguments
+///          are variables and ranges, no comparable value), `inf`/`infinity` (neither side's value is a
+///          finite number, so this table cannot hold them), and `det`/`transpose`/`inv`/`identity` (only
+///          the engine answers them: this app's own parser throws `Unknown function …`, so there is **no
+///          app-side value to compare** — those two columns are carried by the measurement tables on
+///          `app_engine_vocabulary_identifiers.dart` and by
+///          `test/features/calculator_matrix_menu_test.dart`).
 ///
 ///          **What this table is for, after round 7**: the runtime criterion is the **translation**
 ///          (`engine_expression.dart`: the expression is written the engine's way before the engine is
@@ -105,10 +114,13 @@ void main() {
     final byName = <String, List<String>>{};
     for (final entry in _engineValues.entries) {
       final expression = entry.key;
-      final name = RegExp(r'^([A-Za-z][A-Za-z0-9]*)\(').firstMatch(expression)!.group(1)!;
+      final name = RegExp(r'^([A-Za-z][A-Za-z0-9]*)\(')
+          .firstMatch(expression)!
+          .group(1)!;
       final appValue = ExpressionParser(expression, degreeMode: false).parse();
       final engineValue = _leadingNumber(entry.value);
-      final same = (appValue - engineValue).abs() <= 1e-9 * (1 + appValue.abs());
+      final same =
+          (appValue - engineValue).abs() <= 1e-9 * (1 + appValue.abs());
       byName.putIfAbsent(name, () => <String>[]);
       if (same) continue;
 
@@ -199,15 +211,20 @@ void main() {
     });
 
     test('词表里多出来的名字恰好是应用自己没有、只在引擎那边成立的那一批', () {
-      // 中文：**这是「封闭」的另一半。** 词表比解析器接受的多出七个名字：应用自己的解析器
-      //       没有实现它们（`matrix(1)` 会抛「未知函数」），它们本来就只能由引擎作答。
-      //       用集合相等而不是「包含」写出来，所以**多一个少一个都会红**——多出来一个，
+      // 中文：**这是「封闭」的另一半。** 词表比解析器接受的多出的那批名字（下面 `engineOnly` 逐字
+      //       列出来）应用自己的解析器都没有实现（`matrix(1)` 会抛「未知函数」），它们本来就只能由
+      //       引擎作答。用集合相等而不是「包含」写出来，所以**多一个少一个都会红**——多出来一个，
       //       就必须先想清楚它属于哪一类。
-      // English: **the other half of "closed".** The vocabulary has seven names the parser does not
-      //          accept: this app's own parser does not implement them (`matrix(1)` throws "unknown
-      //          function") and they can only be answered by the engine. Written as a set equality
-      //          rather than a containment, so **one more or one fewer turns it red** — a new name has
-      //          to be classified before it can be added.
+      //       **（这一段原先写着一个数「七个名字」**，那是修复轮 5 当时的数目，之后每一批新名字进表
+      //       都让它更旧一分；现在它不再数数，因为下面那个集合本身就是那张名单。）
+      // English: **the other half of "closed".** The names the vocabulary has beyond what the parser
+      //          accepts (listed verbatim as `engineOnly` below) are ones this app's own parser does not
+      //          implement (`matrix(1)` throws "unknown function"), and only the engine can answer them.
+      //          Written as a set equality rather than a containment, so **one more or one fewer turns it
+      //          red** — a new name has to be classified before it can be added.
+      //          **(This paragraph used to carry a count — "seven names"** — which was the number in fix
+      //          round 5 and grew staler with every batch that joined the table; it no longer counts,
+      //          because the set below *is* that list.)
       final parserAccepted = <String>{
         ...ExpressionParser.functionNames,
         'pi',
@@ -257,6 +274,19 @@ void main() {
         'linearfit',
         'quadraticfit',
         'cubicfit',
+        // 中文：矩阵那一批（`MTRX` 第二功能的菜单）。同上：应用自己的解析器没有实现它们
+        //       （`det(1)` 实测抛 `Unknown function det`），只有引擎答得出来。四个围着本应用自己的
+        //       矩阵写法 `matrix(…)` 转，两条实测表（收下的四个 + 拒绝的三个 `rank`/`trace`/`echelon`）
+        //       在 `app_engine_vocabulary_identifiers.dart` 上。
+        // English: the matrix batch (the `MTRX` second function's menu). As above: this app's own parser
+        //          does not implement them (`det(1)` measured throwing `Unknown function det`), so only
+        //          the engine can answer. All four revolve around this app's own matrix spelling
+        //          `matrix(…)`; the two measurement tables (the four admitted plus the three refused,
+        //          `rank`/`trace`/`echelon`) are on `app_engine_vocabulary_identifiers.dart`.
+        'det',
+        'transpose',
+        'inv',
+        'identity',
       };
       expect(
         AppEngineVocabulary.identifiers.keys.toSet().difference(parserAccepted),
@@ -371,7 +401,15 @@ void main() {
       expect(textOf('ARCsin'), 'asin');
 
       expect(reasonOf('nosuch'), contains('不在应用词汇表里'));
-      for (final name in <String>['npr', 'p', 'mod', 'deg', 'rad', 'phi', 'inf']) {
+      for (final name in <String>[
+        'npr',
+        'p',
+        'mod',
+        'deg',
+        'rad',
+        'phi',
+        'inf'
+      ]) {
         expect(reasonOf(name), contains('没有引擎写法'), reason: name);
       }
     });
@@ -405,7 +443,8 @@ void main() {
     //          `ncr`/`npr`/`fact` are neither a function, nor a variable, nor a unit in the engine.
     for (final name in <String>['ncr', 'npr', 'fact']) {
       expect(AppEngineVocabulary.unknownToEngine, contains(name));
-      expect(AppEngineVocabulary.identifiers[name]!.engineKnowsThisName, isFalse);
+      expect(
+          AppEngineVocabulary.identifiers[name]!.engineKnowsThisName, isFalse);
     }
   });
 }
@@ -431,7 +470,8 @@ List<String> _callShapes(String source) {
     if ((node is ConstantNode || node is VariableNode) &&
         node.end < source.length &&
         source[node.end] == '(') {
-      final name = node is ConstantNode ? node.name : (node as VariableNode).name;
+      final name =
+          node is ConstantNode ? node.name : (node as VariableNode).name;
       shapes.add('$name(call)');
     }
     // 中文：应用自己的归一化会把 `phi(2)` 写成 `phi*(2)`（显式乘号）——**读法没变**，所以这两种写法
@@ -463,6 +503,7 @@ List<String> _callShapes(String source) {
       walk(node.right);
     }
   }
+
   walk(const ExpressionAstParser().parse(source));
   return shapes..sort();
 }
