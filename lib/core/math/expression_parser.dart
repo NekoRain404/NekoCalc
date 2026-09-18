@@ -1,16 +1,35 @@
 import 'dart:math' as math;
 
 part 'expression_input_normalization.dart';
+part 'expression_math_helpers.dart';
+part 'percentage_expansion.dart';
 
 /// 中文：轻量级递归下降表达式解析器，覆盖计算器、图形和工具页共用的数学输入。
 /// English: Lightweight recursive-descent parser shared by calculator, graphing, and tool math inputs.
 class ExpressionParser {
-  ExpressionParser(this.source, {required this.degreeMode})
-      : text = normalizeExpressionInput(source);
+  ExpressionParser(
+    this.source, {
+    required this.degreeMode,
+    this.relativePercent = false,
+  }) : text = normalizeExpressionInput(
+          source,
+          relativePercent: relativePercent,
+        );
 
   final String source;
   final String text;
   final bool degreeMode;
+
+  /// 中文：`%` 的语义——`false` 是厂商的 **direct**（除以 100，今天的行为），`true` 是
+  ///       **relative**（按前一个值算）。取值来自设置里的 `percentage_mode`，由控制器在**两个
+  ///       求值入口**上给出；`degreeMode` 也是这个形状（一个模式参数，不是一段随模式变的文本）。
+  ///       折法与它的判据写在 `percentage_expansion.dart` 的文件头。
+  /// English: The meaning of `%` — `false` is the vendor's **direct** (divide by 100, today's
+  ///          behaviour), `true` is **relative** (taken of the preceding value). The value comes from
+  ///          the `percentage_mode` setting and is supplied by the controller at the **two evaluating
+  ///          entrances**; `degreeMode` has the same shape (a mode parameter rather than mode-varying
+  ///          text). The fold and its evidence are in `percentage_expansion.dart`'s header.
+  final bool relativePercent;
   int _index = 0;
 
   double parse() {
@@ -435,126 +454,28 @@ class ExpressionParser {
     }
   }
 
-  double _factorial(double value) {
-    if (value < 0 || value > 170 || value % 1 != 0) {
-      throw const FormatException('Factorial needs an integer from 0 to 170');
-    }
-    var result = 1.0;
-    for (var i = 2; i <= value.toInt(); i++) {
-      result *= i;
-    }
-    return result;
-  }
-
-  double _combination(double n, double r) {
-    final ni = _readNonNegativeInteger(n, 'nCr n');
-    final ri = _readNonNegativeInteger(r, 'nCr r');
-    if (ri > ni) return 0;
-    // 中文：组合数使用较小的 k 迭代，降低中间值增长速度并减少溢出风险。
-    // English: nCr iterates with the smaller k to reduce intermediate growth and overflow risk.
-    final k = math.min(ri, ni - ri);
-    var result = 1.0;
-    for (var i = 1; i <= k; i++) {
-      result = result * (ni - k + i) / i;
-    }
-    return result;
-  }
-
-  double _permutation(double n, double r) {
-    final ni = _readNonNegativeInteger(n, 'nPr n');
-    final ri = _readNonNegativeInteger(r, 'nPr r');
-    if (ri > ni) return 0;
-    var result = 1.0;
-    for (var i = 0; i < ri; i++) {
-      result *= ni - i;
-    }
-    return result;
-  }
-
-  void _validateFunctionArity(String name, List<double> args) {
-    if (const {'min', 'max', 'gcd', 'lcm'}.contains(name)) {
-      if (args.isEmpty) throw FormatException('$name needs arguments');
-      return;
-    }
-    // 中文：`log` 也收两个实参——第二个是**底**，与引擎的 `MathFunction("log", 1, 2)` 同一个含义。
-    //       它是加法：一个实参的 `log(x)` 与以前逐字节相同，而两个实参的 `log(8,2)` 以前是
-    //       「log needs 1 argument」，现在算 3。`logₓy` 那颗键因此在引擎缺席时也有答案。
-    // English: `log` takes two arguments too — the second is the **base**, the same meaning as the
-    //          engine's `MathFunction("log", 1, 2)`. This is purely additive: the one-argument
-    //          `log(x)` is byte-for-byte what it was, while `log(8,2)` used to be "log needs 1
-    //          argument" and now evaluates to 3. That gives the `logₓy` key an answer even when the
-    //          engine is absent.
-    if (_twoArgumentFunctions.contains(name)) {
-      if (args.isEmpty || args.length > 2) {
-        throw FormatException('$name needs 1 or 2 arguments');
-      }
-      return;
-    }
-    if (args.length != 1) {
-      throw FormatException('$name needs 1 argument');
-    }
-  }
-
-  double _min(List<double> values) {
-    if (values.isEmpty) throw const FormatException('min needs arguments');
-    return values.reduce(math.min);
-  }
-
-  double _max(List<double> values) {
-    if (values.isEmpty) throw const FormatException('max needs arguments');
-    return values.reduce(math.max);
-  }
-
-  double _gcdMany(List<double> values) {
-    if (values.isEmpty) throw const FormatException('gcd needs arguments');
-    return values.skip(1).fold(values.first, _gcd);
-  }
-
-  double _lcmMany(List<double> values) {
-    if (values.isEmpty) throw const FormatException('lcm needs arguments');
-    return values.skip(1).fold(values.first, _lcm);
-  }
-
-  double _gcd(double a, double b) {
-    var x = _readInteger(a, 'gcd a').abs();
-    var y = _readInteger(b, 'gcd b').abs();
-    while (y != 0) {
-      final next = x % y;
-      x = y;
-      y = next;
-    }
-    return x.toDouble();
-  }
-
-  double _lcm(double a, double b) {
-    final x = _readInteger(a, 'lcm a').abs();
-    final y = _readInteger(b, 'lcm b').abs();
-    if (x == 0 || y == 0) return 0;
-    return (x ~/ _gcd(x.toDouble(), y.toDouble()).toInt() * y).toDouble();
-  }
-
-  double _root(double value, double degree) {
-    if (degree == 0) throw const FormatException('Root degree cannot be 0');
-    if (value < 0 && degree % 2 != 1) {
-      throw const FormatException('Even root of negative number');
-    }
-    final magnitude = math.pow(value.abs(), 1 / degree).toDouble();
-    return value < 0 ? -magnitude : magnitude;
-  }
-
-  int _readNonNegativeInteger(double value, String label) {
-    final parsed = _readInteger(value, label);
-    if (parsed < 0) throw FormatException('$label must be non-negative');
-    return parsed;
-  }
-
-  int _readInteger(double value, String label) {
-    if (value % 1 != 0) throw FormatException('$label must be an integer');
-    if (value.abs() > 1000000000) throw FormatException('$label is too large');
-    return value.toInt();
-  }
-
-  static String normalizeExpressionInput(String source) {
+  /// 中文：**归一化的唯一入口。** [relativePercent] 是这一层唯一一个随设置变的参数，
+  ///       默认值 `false`（direct）让**不传它的调用点看到的文本与今天逐字节相同**——
+  ///       名字层（`AppEngineVocabulary.canRead`/`canExpress`）、变量引用、图形标签、提交去重键
+  ///       全都属于这一类，它们回答的是「这句话是什么」，不是「它等于几」。传它的只有两个
+  ///       **求值**消费者：`ExpressionParser` 的构造函数与 `engineExpressionFor`——它们必须传
+  ///       同一个值，否则「谁看到了什么」会在同一个输入上分成两半（那正是 `°` 那一轮修的东西）。
+  ///       为什么模式必须进这一层、而不像 `degangle` 那样做成一个由求值器解值的名字，
+  ///       写在 `percentage_expansion.dart` 的文件头。
+  /// English: **The one entry point for normalisation.** [relativePercent] is the only parameter here
+  ///          that follows a setting, and its default (`false`, direct) keeps **every call site that
+  ///          does not pass it seeing text byte-for-byte as today** — the name layer
+  ///          (`AppEngineVocabulary.canRead`/`canExpress`), variable references, graph labels and the
+  ///          submit de-duplication key are all of that kind: they answer "what is this sentence",
+  ///          not "what is it worth". Only the two **evaluating** consumers pass it —
+  ///          `ExpressionParser`'s constructor and `engineExpressionFor` — and they must pass the same
+  ///          value, or "who saw what" splits in two on one input (exactly what the `°` round fixed).
+  ///          Why the mode has to enter this layer instead of becoming a name the evaluator resolves,
+  ///          as `degangle` did, is in `percentage_expansion.dart`'s header.
+  static String normalizeExpressionInput(
+    String source, {
+    bool relativePercent = false,
+  }) {
     final strippedSource = _stripPastedCalculationResult(source);
     var text = _normalizeGroupedNumberSeparators(_normalizeUnicodeFractions(
             _normalizeMathSubscripts(_normalizeFullWidthAscii(strippedSource))))
@@ -593,6 +514,12 @@ class ExpressionParser {
     text = _normalizeIndexedRoots(text);
     text = _normalizeAbsoluteValueBars(text);
     text = _normalizeBareUnaryFunctionCalls(text);
+    // 中文：**相对百分比必须排在 `_replacePercent` 之前**——那一步把 `X%` 吃掉写成 `(X)/100`，
+    //       之后就没有百分数可折了。direct（默认）一次都不进这个函数，所以那条路逐字节不变。
+    // English: **The relative fold has to run before `_replacePercent`**, which eats `X%` into
+    //          `(X)/100` and leaves nothing to fold. Direct (the default) never enters this function,
+    //          so that road stays byte-for-byte identical.
+    if (relativePercent) text = _expandRelativePercent(text);
     text = _replacePercent(text);
     text = text.replaceAllMapped(
       RegExp(r'(sqrt|cbrt)((?:\d+(?:\.\d+)?)|pi|e)(?![a-z0-9_(])'),

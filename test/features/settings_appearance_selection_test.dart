@@ -256,6 +256,55 @@ void main() {
     expect(shownTitles[AppLanguage.zh], isNot(shownTitles[AppLanguage.en]));
   });
 
+  testWidgets('百分比计算在 direct / relative 之间循环，落库的是 ASCII 令牌', (tester) async {
+    // 中文：这一项的两个令牌是 ASCII（`'direct'` / `'relative'`），与主题 `id`、语言 `code`
+    //       同一类。屏幕上写的是「直接」/「相对」，库里的两个字节必须是令牌——翻译界面时
+    //       跟着翻掉，用户库里已经存好的值会静默变成默认值，没有任何报错。
+    // English: this one's two tokens are ASCII (`'direct'` / `'relative'`), the same kind of thing as a
+    //          theme `id` or a language `code`. The screen says 「直接」/「相对」 while the bytes in the
+    //          database must be the token — translated along with the interface, a stored value silently
+    //          becomes the default with no error anywhere.
+    final db = _FakeDatabase();
+    await _pumpSettings(tester, db: db, language: AppLanguage.zh);
+
+    expect(find.text('百分比计算'), findsOneWidget);
+    expect(find.text('直接'), findsOneWidget, reason: '默认是 direct');
+    expect(db.savedSettings, isEmpty, reason: '没点就不写');
+
+    await _scrollToAndTap(tester, find.text('百分比计算'));
+    expect(db.savedSettings['percentage_mode'], 'relative');
+    expect(db.savedSettings['percentage_mode'],
+        SettingsTokens.percentageRelative);
+    expect(find.text('相对'), findsOneWidget);
+
+    await _scrollToAndTap(tester, find.text('百分比计算'));
+    expect(db.savedSettings['percentage_mode'], 'direct');
+    expect(db.savedSettings['percentage_mode'], SettingsTokens.percentageDirect);
+    expect(find.text('直接'), findsOneWidget);
+  });
+
+  testWidgets('换语言只换屏幕上那句话，`percentage_mode` 的字节不动', (tester) async {
+    // 中文：round-trip 的另一半——先把 relative 落库，再用**同一份库**以英文重开设置页：
+    //       屏幕上应当是 `Relative`，而库里（以及再次写出去的）仍然是 `'relative'`。
+    // English: the other half of the round trip — store relative, then reopen the settings page in
+    //          English **against the same database**: the screen should read `Relative` while what is
+    //          in storage (and what any further write produces) stays `'relative'`.
+    final db = _FakeDatabase(settings: const {
+      'percentage_mode': SettingsTokens.percentageRelative,
+    });
+    await _pumpSettings(tester, db: db, language: AppLanguage.zh);
+    expect(find.text('相对'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await _pumpSettings(tester, db: db, language: AppLanguage.en);
+
+    expect(find.text('Percentage calculation'), findsOneWidget);
+    expect(find.text('Relative'), findsOneWidget);
+    expect(find.text('相对'), findsNothing, reason: '英文界面上不许留下中文标签');
+    expect(db.savedSettings, isEmpty, reason: '只是打开页面，没有点任何东西');
+  });
+
   testWidgets('默认态与接入前逐字节相同：不碰新选择时仍是中文 + 玫瑰奶霜', (tester) async {
     final db = _FakeDatabase();
     await _pumpSettings(tester, db: db, language: AppLanguage.zh);
@@ -292,19 +341,29 @@ void main() {
 }
 
 class _FakeDatabase implements AppDatabase {
+  /// 中文：可选地给一份不同的**已有设置**——默认那份与接入本轮之前逐字节相同，
+  ///       所以老测试走的是同一条路。
+  /// English: optionally hand in a different set of **stored settings**; the default one is
+  ///          byte-for-byte what it was before this round, so older tests take the same road.
+  _FakeDatabase({Map<String, String>? settings})
+      : _storedSettings = settings ??
+            const {
+              'haptics': 'true',
+              'haptic_strength': '标准',
+              'restore_state': 'true',
+              'auto_save': 'true',
+              'theme_mode': '跟随系统',
+              'angle_mode': '弧度',
+              'digits': '6 位',
+              'expression_display': '数学符号',
+            };
+
+  final Map<String, String> _storedSettings;
   final savedSettings = <String, String>{};
 
   @override
-  Future<Map<String, String>> settings() async => const {
-        'haptics': 'true',
-        'haptic_strength': '标准',
-        'restore_state': 'true',
-        'auto_save': 'true',
-        'theme_mode': '跟随系统',
-        'angle_mode': '弧度',
-        'digits': '6 位',
-        'expression_display': '数学符号',
-      };
+  Future<Map<String, String>> settings() async =>
+      Map<String, String>.from(_storedSettings);
 
   @override
   Future<void> setSetting(String key, String value) async {

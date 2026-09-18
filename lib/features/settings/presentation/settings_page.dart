@@ -81,7 +81,13 @@ class _SettingsPageState extends State<SettingsPage> {
   String _angleMode = SettingsTokens.angleModeRadians;
   String _digits = SettingsTokens.digits6;
   bool _groupThousands = false;
+  // 中文：`_percentageMode` 与上面六个一样是**持久化令牌**（`'direct'` / `'relative'`，ASCII），
+  //       屏幕上的那句「直接」/「相对」由 `SettingsStrings.percentageModeLabel` 换出来。
+  // English: `_percentageMode`, like the six above, holds a **persisted token** (`'direct'` /
+  //          `'relative'`, ASCII); the words "直接"/"相对" on screen come from
+  //          `SettingsStrings.percentageModeLabel`.
   String _expressionDisplay = SettingsTokens.expressionDisplaySymbols;
+  String _percentageMode = SettingsTokens.defaultPercentageMode;
   bool _backupBusy = false;
   bool _updateBusy = false;
   BackupPreview? _localBackupPreview;
@@ -160,6 +166,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 ? SettingsTokens.expressionDisplayMath
                 : settings['expression_display'] ?? _expressionDisplay;
       }
+      if (!preserveLocalEdits ||
+          !_locallyEditedSettingKeys.contains('percentage_mode')) {
+        // 中文：认不出的值回落到 `'direct'`（= `AppSettings.fromMap` 的同一条判据），
+        //       所以界面上显示的永远是两个变体之一，而不是一个待迁移的令牌。
+        // English: unrecognised values fall back to `'direct'` (the same judgement
+        //          `AppSettings.fromMap` makes), so the screen always shows one of the two variants
+        //          rather than a pending migration token.
+        _percentageMode =
+            settings['percentage_mode'] == SettingsTokens.percentageRelative
+                ? SettingsTokens.percentageRelative
+                : SettingsTokens.defaultPercentageMode;
+      }
     });
   }
 
@@ -185,144 +203,168 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = SettingsStrings.of(context);
     return Scaffold(
       body: SafeArea(
-        child: ListView(
+        // 中文：**整页一次性建出来，不用 `ListView` 的按需构建。** 这一页是固定的二十来行，
+        //       `ListView` 省下的构建成本可以忽略；而它带来的后果是**屏幕外的那几行不在控件树里**，
+        //       于是「默认态还能找到这句话吗」这类测试实际上问的是「这句话落在视口 + cacheExtent
+        //       之内吗」——**加一行新设置就能让一条与文案无关的断言变红**
+        //       （实测：百分比计算那一行加进来，`settings_appearance_selection_test.dart` 的
+        //       「默认态与接入前逐字节相同」当场找不到「触感反馈」）。那一页的每一句话本来就该
+        //       真的在树里，这条断言也才真的是在问文案。
+        // English: **the whole page is built, so no `ListView` laziness.** It is a fixed score of rows
+        //          and the build cost `ListView` saves is negligible, while its consequence is that
+        //          **rows below the fold are not in the widget tree** — so a test asking "can this
+        //          sentence still be found in the default state" is really asking "does it fall inside
+        //          the viewport plus cacheExtent", and **one added setting turns a copy-unrelated
+        //          assertion red** (measured: adding the percentage-calculation row made
+        //          `settings_appearance_selection_test.dart`'s "default state is byte-identical" stop
+        //          finding 触感反馈). Every sentence on this page belongs in the tree, and only then is
+        //          that assertion about copy.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          children: [
-            Row(
-              children: [
-                IconToolButton(
-                    icon: Icons.arrow_back_ios_new,
-                    tooltip: s.backTooltip,
-                    onTap: () => Navigator.pop(context)),
-                Expanded(child: Center(child: PageTitle(s.pageTitle))),
-                const SizedBox(width: 36),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SectionTitle(s.sectionAppearance),
-            SettingsGroup(
-              children: [
-                SettingsTile(
-                    icon: Icons.contrast,
-                    title: s.themeModeTileTitle,
-                    value: s.themeModeLabel(_themeMode),
-                    onTap: _cycleTheme),
-                SettingsTile(
-                    icon: Icons.palette_outlined,
-                    title: s.themeTileTitle,
-                    value: s.themeLabel(_themeId),
-                    onTap: _cycleCalcTheme),
-                SettingsTile(
-                    icon: Icons.translate,
-                    title: s.languageTileTitle,
-                    value: AppLanguage.fromCode(_languageCode).label,
-                    onTap: _cycleLanguage),
-                SettingsTile(
-                    icon: Icons.architecture,
-                    title: s.angleModeTileTitle,
-                    value: s.angleModeLabel(_angleMode),
-                    onTap: _cycleAngleMode),
-                SettingsTile(
-                    icon: Icons.pin,
-                    title: s.numberFormatTileTitle,
-                    // 中文：示例数字刻意不翻译——它演示的就是分组符号本身。
-                    // English: The sample number is deliberately not translated; the grouping
-                    //          separator is the thing it demonstrates.
-                    value: _groupThousands ? '1,234.56' : '1234.56',
-                    onTap: _toggleThousandsGrouping),
-                SettingsTile(
-                    icon: Icons.more_horiz,
-                    title: s.decimalPlacesTileTitle,
-                    value: s.digitsLabel(_digits),
-                    onTap: () => _cycleDigits()),
-                SettingsTile(
-                    icon: Icons.functions,
-                    title: s.expressionDisplayTileTitle,
-                    value: s.expressionDisplayLabel(_expressionDisplay),
-                    onTap: _cycleExpressionDisplay),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SectionTitle(s.sectionExperience),
-            SettingsGroup(
-              children: [
-                SwitchTile(
-                    icon: Icons.touch_app_outlined,
-                    title: s.hapticsTileTitle,
-                    value: _haptics,
-                    onChanged: (value) => _setBool('haptics', value)),
-                SettingsTile(
-                    icon: Icons.vibration,
-                    title: s.hapticStrengthTileTitle,
-                    value: _haptics
-                        ? s.hapticStrengthLabel(_hapticStrength)
-                        : s.hapticsOffLabel,
-                    onTap: _haptics ? _cycleHapticStrength : null),
-                SwitchTile(
-                    icon: Icons.history,
-                    title: s.restoreStateTileTitle,
-                    value: _restoreState,
-                    onChanged: (value) => _setBool('restore_state', value)),
-                SwitchTile(
-                    icon: Icons.save_outlined,
-                    title: s.autoSaveHistoryTileTitle,
-                    value: _autoSave,
-                    onChanged: (value) => _setBool('auto_save', value)),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SectionTitle(s.sectionData),
-            SettingsGroup(
-              children: [
-                _DataSummaryTile(
-                  preview: _localBackupPreview,
-                  busy: _backupBusy,
-                  onRefresh: _backupBusy ? null : _loadLocalBackupPreview,
-                ),
-                SettingsTile(
-                    icon: Icons.ios_share_outlined,
-                    title: s.exportBackupTitle,
-                    value: _backupBusy
-                        ? s.processing
-                        : _localBackupPreview?.totalLabel ?? s.saveFile,
-                    onTap: _backupBusy ? null : _exportBackup),
-                SettingsTile(
-                    icon: Icons.restore_page_outlined,
-                    title: s.importBackupTitle,
-                    value: _backupBusy ? s.processing : s.chooseFile,
-                    onTap: _backupBusy ? null : _importBackup),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SectionTitle(s.sectionAbout),
-            SettingsGroup(
-              children: [
-                SettingsTile(
-                    icon: Icons.info_outline,
-                    title: s.aboutTileTitle,
-                    value: AppInfo.version,
-                    onTap: _showAbout),
-                SettingsTile(
-                    icon: Icons.system_update_alt,
-                    title: s.checkUpdateTitle,
-                    // 中文：`GitHub Releases` 是产品名，不是文案，不翻译。
-                    // English: `GitHub Releases` is a product name, not copy; left untranslated.
-                    value: _updateBusy ? s.checking : 'GitHub Releases',
-                    onTap: _updateBusy ? null : _checkForUpdate),
-                SettingsTile(
-                    icon: Icons.help_outline,
-                    title: s.helpFeedbackTitle,
-                    value: s.helpFeedbackValue,
-                    onTap: _showHelpAndFeedback),
-                SettingsTile(
-                    icon: Icons.privacy_tip_outlined,
-                    title: s.privacyPolicyTitle,
-                    value: '',
-                    onTap: () =>
-                        _showInfo(s.privacyPolicyTitle, s.privacyPolicyBody)),
-              ],
-            ),
-          ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  IconToolButton(
+                      icon: Icons.arrow_back_ios_new,
+                      tooltip: s.backTooltip,
+                      onTap: () => Navigator.pop(context)),
+                  Expanded(child: Center(child: PageTitle(s.pageTitle))),
+                  const SizedBox(width: 36),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SectionTitle(s.sectionAppearance),
+              SettingsGroup(
+                children: [
+                  SettingsTile(
+                      icon: Icons.contrast,
+                      title: s.themeModeTileTitle,
+                      value: s.themeModeLabel(_themeMode),
+                      onTap: _cycleTheme),
+                  SettingsTile(
+                      icon: Icons.palette_outlined,
+                      title: s.themeTileTitle,
+                      value: s.themeLabel(_themeId),
+                      onTap: _cycleCalcTheme),
+                  SettingsTile(
+                      icon: Icons.translate,
+                      title: s.languageTileTitle,
+                      value: AppLanguage.fromCode(_languageCode).label,
+                      onTap: _cycleLanguage),
+                  SettingsTile(
+                      icon: Icons.architecture,
+                      title: s.angleModeTileTitle,
+                      value: s.angleModeLabel(_angleMode),
+                      onTap: _cycleAngleMode),
+                  SettingsTile(
+                      icon: Icons.pin,
+                      title: s.numberFormatTileTitle,
+                      // 中文：示例数字刻意不翻译——它演示的就是分组符号本身。
+                      // English: The sample number is deliberately not translated; the grouping
+                      //          separator is the thing it demonstrates.
+                      value: _groupThousands ? '1,234.56' : '1234.56',
+                      onTap: _toggleThousandsGrouping),
+                  SettingsTile(
+                      icon: Icons.more_horiz,
+                      title: s.decimalPlacesTileTitle,
+                      value: s.digitsLabel(_digits),
+                      onTap: () => _cycleDigits()),
+                  SettingsTile(
+                      icon: Icons.functions,
+                      title: s.expressionDisplayTileTitle,
+                      value: s.expressionDisplayLabel(_expressionDisplay),
+                      onTap: _cycleExpressionDisplay),
+                  SettingsTile(
+                      icon: Icons.percent,
+                      title: s.percentageModeTileTitle,
+                      value: s.percentageModeLabel(_percentageMode),
+                      onTap: _cyclePercentageMode),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SectionTitle(s.sectionExperience),
+              SettingsGroup(
+                children: [
+                  SwitchTile(
+                      icon: Icons.touch_app_outlined,
+                      title: s.hapticsTileTitle,
+                      value: _haptics,
+                      onChanged: (value) => _setBool('haptics', value)),
+                  SettingsTile(
+                      icon: Icons.vibration,
+                      title: s.hapticStrengthTileTitle,
+                      value: _haptics
+                          ? s.hapticStrengthLabel(_hapticStrength)
+                          : s.hapticsOffLabel,
+                      onTap: _haptics ? _cycleHapticStrength : null),
+                  SwitchTile(
+                      icon: Icons.history,
+                      title: s.restoreStateTileTitle,
+                      value: _restoreState,
+                      onChanged: (value) => _setBool('restore_state', value)),
+                  SwitchTile(
+                      icon: Icons.save_outlined,
+                      title: s.autoSaveHistoryTileTitle,
+                      value: _autoSave,
+                      onChanged: (value) => _setBool('auto_save', value)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SectionTitle(s.sectionData),
+              SettingsGroup(
+                children: [
+                  _DataSummaryTile(
+                    preview: _localBackupPreview,
+                    busy: _backupBusy,
+                    onRefresh: _backupBusy ? null : _loadLocalBackupPreview,
+                  ),
+                  SettingsTile(
+                      icon: Icons.ios_share_outlined,
+                      title: s.exportBackupTitle,
+                      value: _backupBusy
+                          ? s.processing
+                          : _localBackupPreview?.totalLabel ?? s.saveFile,
+                      onTap: _backupBusy ? null : _exportBackup),
+                  SettingsTile(
+                      icon: Icons.restore_page_outlined,
+                      title: s.importBackupTitle,
+                      value: _backupBusy ? s.processing : s.chooseFile,
+                      onTap: _backupBusy ? null : _importBackup),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SectionTitle(s.sectionAbout),
+              SettingsGroup(
+                children: [
+                  SettingsTile(
+                      icon: Icons.info_outline,
+                      title: s.aboutTileTitle,
+                      value: AppInfo.version,
+                      onTap: _showAbout),
+                  SettingsTile(
+                      icon: Icons.system_update_alt,
+                      title: s.checkUpdateTitle,
+                      // 中文：`GitHub Releases` 是产品名，不是文案，不翻译。
+                      // English: `GitHub Releases` is a product name, not copy; left untranslated.
+                      value: _updateBusy ? s.checking : 'GitHub Releases',
+                      onTap: _updateBusy ? null : _checkForUpdate),
+                  SettingsTile(
+                      icon: Icons.help_outline,
+                      title: s.helpFeedbackTitle,
+                      value: s.helpFeedbackValue,
+                      onTap: _showHelpAndFeedback),
+                  SettingsTile(
+                      icon: Icons.privacy_tip_outlined,
+                      title: s.privacyPolicyTitle,
+                      value: '',
+                      onTap: () =>
+                          _showInfo(s.privacyPolicyTitle, s.privacyPolicyBody)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -372,8 +414,8 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       final index =
           AppLanguage.values.indexWhere((item) => item.code == _languageCode);
-      _languageCode = AppLanguage.values[(index + 1) % AppLanguage.values.length]
-          .code;
+      _languageCode =
+          AppLanguage.values[(index + 1) % AppLanguage.values.length].code;
     });
     _settingsRepository.set('language', _languageCode);
     widget.onLanguageChanged?.call(_languageCode);
@@ -420,6 +462,17 @@ class _SettingsPageState extends State<SettingsPage> {
               : SettingsTokens.expressionDisplaySymbols;
     });
     _settingsRepository.set('expression_display', _expressionDisplay);
+  }
+
+  void _cyclePercentageMode() {
+    _feedback();
+    _locallyEditedSettingKeys.add('percentage_mode');
+    setState(() {
+      _percentageMode = _percentageMode == SettingsTokens.percentageDirect
+          ? SettingsTokens.percentageRelative
+          : SettingsTokens.percentageDirect;
+    });
+    _settingsRepository.set('percentage_mode', _percentageMode);
   }
 
   void _cycleHapticStrength() {
@@ -552,7 +605,8 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     } catch (error) {
       if (mounted) {
-        _showInfo(SettingsStrings.of(context).exportFailedTitle, error.toString());
+        _showInfo(
+            SettingsStrings.of(context).exportFailedTitle, error.toString());
       }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
@@ -608,8 +662,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Text(s.importMerge)),
               FilledButton(
                   onPressed: canReplace
-                      ? () =>
-                          Navigator.pop(dialogContext, _BackupImportMode.replace)
+                      ? () => Navigator.pop(
+                          dialogContext, _BackupImportMode.replace)
                       : null,
                   child: Text(s.importReplace)),
             ],
@@ -649,7 +703,8 @@ class _SettingsPageState extends State<SettingsPage> {
       widget.onLanguageChanged?.call(_languageCode);
     } catch (error) {
       if (mounted) {
-        _showInfo(SettingsStrings.of(context).importFailedTitle, error.toString());
+        _showInfo(
+            SettingsStrings.of(context).importFailedTitle, error.toString());
       }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
@@ -684,5 +739,4 @@ class _SettingsPageState extends State<SettingsPage> {
     if (value > 0) return '+$value';
     return value.toString();
   }
-
 }

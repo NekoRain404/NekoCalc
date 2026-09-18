@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
@@ -49,6 +50,21 @@ void main() {
     expect(zh.hapticLightLabel, '轻');
     expect(zh.hapticStandardLabel, '标准');
     expect(zh.hapticStrongLabel, '强');
+
+    // 中文：`percentage_mode` 的两个令牌是 **ASCII**（`'direct'` / `'relative'`），所以它属于
+    //       「标签与令牌本来就不等」的那一类（与主题名同形）——这里钉的是标签本身，
+    //       以及**令牌绝不会被当标签显示出去**。
+    // English: the two `percentage_mode` tokens are **ASCII** (`'direct'` / `'relative'`), so this one
+    //          belongs to the "label never equalled the token" family (the same shape as theme names);
+    //          what is pinned here is the labels themselves, and that **a token is never rendered as a
+    //          label**.
+    expect(zh.percentageDirectLabel, '直接');
+    expect(zh.percentageRelativeLabel, '相对');
+    expect(en.percentageDirectLabel, 'Direct');
+    expect(en.percentageRelativeLabel, 'Relative');
+    expect(en.percentageModeLabel(SettingsTokens.percentageRelative), 'Relative');
+    expect(zh.percentageModeLabel('库里没见过的值'), '直接',
+        reason: '认不出就回落到默认那一侧，而不是把令牌原样显示出去');
 
     // 中文：而英文侧真的换了，否则上面那些"相等"只是把令牌抄了一遍。
     // English: And the English side really differs, otherwise the equalities above would just be the
@@ -251,6 +267,9 @@ void main() {
       'digits8Label': en.digits8Label,
       'expressionSymbolsLabel': en.expressionSymbolsLabel,
       'expressionMathLabel': en.expressionMathLabel,
+      'percentageModeTileTitle': en.percentageModeTileTitle,
+      'percentageDirectLabel': en.percentageDirectLabel,
+      'percentageRelativeLabel': en.percentageRelativeLabel,
       'hapticsOffLabel': en.hapticsOffLabel,
       'hapticLightLabel': en.hapticLightLabel,
       'hapticStandardLabel': en.hapticStandardLabel,

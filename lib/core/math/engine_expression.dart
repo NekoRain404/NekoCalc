@@ -196,9 +196,20 @@ final class UntranslatableExpression extends EngineExpression {
 ///
 ///          `ans`/`last`/memory have already been replaced with decimal text by the controller before
 ///          this is called, so they need no handling here.
-EngineExpression engineExpressionFor(String source) =>
-    engineExpressionForNode(const ExpressionAstParser()
-        .parse(ExpressionParser.normalizeExpressionInput(source)));
+///
+///          中文：[relativePercent] 原样转交给归一化，取值必须与 `ExpressionParser` 的构造函数
+///          在那一次求值里拿到的**同一个**——引擎与旧解析器读的是同一句话的两个消费者，
+///          两边的模式一旦不同，同一个输入就会按模式落到两个不同的权威上（`°` 那一轮的全部内容）。
+///          `%` 的两种读法与它们的判据在 `percentage_expansion.dart`。
+/// English: [relativePercent] is handed straight to normalisation and must hold the **same** value
+///          `ExpressionParser`'s constructor gets for that same evaluation: the engine and the legacy
+///          parser are two consumers of one sentence, and if their modes differed, one input would land
+///          on two different authorities depending on the setting (the whole of the `°` round). The two
+///          readings of `%` and their evidence are in `percentage_expansion.dart`.
+EngineExpression engineExpressionFor(String source, {bool relativePercent = false}) =>
+    engineExpressionForNode(const ExpressionAstParser().parse(
+        ExpressionParser.normalizeExpressionInput(source,
+            relativePercent: relativePercent)));
 
 /// 中文：翻译一棵**已经解析好的**树。存在的理由只有一个：`UnaryNode`/`OperatorNode` 的运算符白名单
 ///       只能这样被测试到——`ExpressionAstParser` 今天只会产出 `+`/`-` 一元与 `+ - *` 独立运算符，

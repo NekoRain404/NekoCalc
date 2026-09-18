@@ -25,6 +25,20 @@ mixin _CalculatorState on ChangeNotifier {
   set _settings(AppSettings value);
   String get angleMode;
   set angleMode(String value);
+
+  /// 中文：**`%` 怎么读**——设置里的 `percentage_mode` 令牌换成一个布尔，交给两个求值消费者
+  ///       （`_askEngineTranslated` 与 `_calculateResult`），两者必须在同一次求值里拿到同一个值。
+  ///       读 `_settings` 而不是自己存一份：这一项在设置页改，改完 `updateSettings` 会重算，
+  ///       不像角度模式那样还要在计算器界面上单开一个键位状态。
+  ///       默认（令牌认不出、或没有这一项）是 `false`，也就是 direct——今天的行为。
+  /// English: **How `%` reads** — the `percentage_mode` token turned into a boolean for the two
+  ///          evaluating consumers (`_askEngineTranslated` and `_calculateResult`), which must obtain
+  ///          the same value within one evaluation. It reads `_settings` rather than keeping a copy:
+  ///          this one is changed on the settings page and `updateSettings` recomputes, unlike the
+  ///          angle mode, which also carries its own key state on the calculator screen. The default
+  ///          (unrecognised token, or a missing row) is `false`, i.e. direct — today's behaviour.
+  bool get relativePercent =>
+      _settings.percentageMode == SettingsTokens.percentageRelative;
   // 中文：下面这些方法分散在另外三个混入里，而且**互相调用**（编辑叫求值、求值叫持久化、持久化又叫
   //       回编辑），所以在这里声明成抽象成员：三个混入都看得见，实现仍旧各自留在自己的混入里。
   // English: These methods live in the other three mixins and call each other (editing calls

@@ -65,6 +65,45 @@ void main() {
       );
     });
 
+    test('`percentage_mode` 的两个令牌是 ASCII，坏值回落到 direct', () {
+      // 中文：这一项与 `theme_id` / `language` 同一类——**存进去的是 ASCII 稳定标识**，
+      //       屏幕上的「直接」/「相对」住在 `SettingsStrings` 里。厂商手册与 FAQ 都只写了两个
+      //       变体的语义、**没有写默认值**，所以默认必须是本应用今天的行为（direct）。
+      // English: this one is of the same kind as `theme_id` / `language`: what goes in the database is
+      //          a **stable ASCII identifier**, while the words "直接"/"相对" on screen live in
+      //          `SettingsStrings`. The vendor's manual and FAQ both describe the two variants'
+      //          meanings and **state no default**, so the default has to be this app's behaviour today
+      //          (direct).
+      expect(SettingsTokens.percentageDirect, 'direct');
+      expect(SettingsTokens.percentageRelative, 'relative');
+      expect(SettingsTokens.defaultPercentageMode, SettingsTokens.percentageDirect);
+      expect(
+        AppSettings.fromMap(const {'percentage_mode': 'relative'}).percentageMode,
+        SettingsTokens.percentageRelative,
+      );
+      expect(
+        AppSettings.fromMap(const {'percentage_mode': 'direct'}).percentageMode,
+        SettingsTokens.percentageDirect,
+      );
+      // 中文：缺省、空串、旧版本留下的别的值、以及**中文标签本身**——全部回落到 direct。
+      //       最后那条是这份文件存在的理由：把标签当令牌存进去，读回来会被静默当成默认值。
+      // English: a missing row, an empty string, some other value an older version left behind, and
+      //          **the Chinese label itself** — all fall back to direct. That last one is why this file
+      //          exists: storing a label as a token reads back as the default, silently.
+      for (final value in <String>['', '直接', '相对', 'DIRECT', 'percent']) {
+        expect(
+          AppSettings.fromMap({'percentage_mode': value}).percentageMode,
+          SettingsTokens.percentageDirect,
+          reason: value,
+        );
+      }
+      expect(AppSettings.fromMap(const {}).percentageMode,
+          SettingsTokens.defaultPercentageMode);
+      expect(AppSettings.fallback.percentageMode,
+          SettingsTokens.defaultPercentageMode,
+          reason: '接线的默认值也必须是 direct——它是「默认态逐字节不变」那一半');
+    });
+
     test('缺省与坏值都回落到默认令牌', () {
       final empty = AppSettings.fromMap(const {});
       expect(empty.themeModeLabel, SettingsTokens.themeModeSystem);
@@ -121,8 +160,27 @@ void main() {
       //       MaterialApp 整棵树不重建，界面停在旧配色。
       // English: `app.dart`'s "skip the rebuild when nothing changed" rests on `==`; a new field
       //          missing from it would leave the whole MaterialApp stale after a theme change.
+      const otherPercentage = AppSettings(
+        haptics: true,
+        hapticStrength: '标准',
+        restoreState: true,
+        autoSaveHistory: true,
+        angleMode: 'RAD',
+        precision: 6,
+        themeModeLabel: SettingsTokens.themeModeSystem,
+        expressionDisplayMode: SettingsTokens.expressionDisplaySymbols,
+        percentageMode: SettingsTokens.percentageRelative,
+      );
+
       expect(base == otherTheme, isFalse);
       expect(base == otherLanguage, isFalse);
+      // 中文：`percentage_mode` 漏进 `==` 的后果与主题那个不同：设置页改它之后 `app.dart`
+      //       不会重建，而**计算器那棵树也不会**——设置变了、屏幕上的结果却停在旧读法上。
+      // English: a missing `percentage_mode` in `==` fails differently from the theme's case: after the
+      //          settings page changes it, `app.dart` skips the rebuild and so does the **calculator
+      //          tree** — the setting moved while the result on screen keeps the old reading.
+      expect(base == otherPercentage, isFalse);
+      expect(base.hashCode == otherPercentage.hashCode, isFalse);
       expect(
         base ==
             AppSettings.fromMap(const {

@@ -62,6 +62,7 @@ class SettingsStrings {
     required this.numberFormatTileTitle,
     required this.decimalPlacesTileTitle,
     required this.expressionDisplayTileTitle,
+    required this.percentageModeTileTitle,
     // —— 使用体验 ——
     required this.hapticsTileTitle,
     required this.hapticStrengthTileTitle,
@@ -148,6 +149,8 @@ class SettingsStrings {
     required this.digits8Label,
     required this.expressionSymbolsLabel,
     required this.expressionMathLabel,
+    required this.percentageDirectLabel,
+    required this.percentageRelativeLabel,
     required this.hapticsOffLabel,
     required this.hapticLightLabel,
     required this.hapticStandardLabel,
@@ -173,6 +176,7 @@ class SettingsStrings {
   final String numberFormatTileTitle;
   final String decimalPlacesTileTitle;
   final String expressionDisplayTileTitle;
+  final String percentageModeTileTitle;
 
   // —— 使用体验 ——
   final String hapticsTileTitle;
@@ -266,6 +270,8 @@ class SettingsStrings {
   final String digits8Label;
   final String expressionSymbolsLabel;
   final String expressionMathLabel;
+  final String percentageDirectLabel;
+  final String percentageRelativeLabel;
   final String hapticsOffLabel;
   final String hapticLightLabel;
   final String hapticStandardLabel;
@@ -308,6 +314,7 @@ class SettingsStrings {
     numberFormatTileTitle: '数字格式',
     decimalPlacesTileTitle: '小数位数',
     expressionDisplayTileTitle: '表达式显示',
+    percentageModeTileTitle: '百分比计算',
     hapticsTileTitle: '触感反馈',
     hapticStrengthTileTitle: '触感强度',
     restoreStateTileTitle: '记住上次状态',
@@ -394,6 +401,13 @@ class SettingsStrings {
     digits8Label: '8 位',
     expressionSymbolsLabel: '数学符号',
     expressionMathLabel: '数学表达式',
+    // 中文：两个变体的名字取自厂商手册那一节的标题词（Direct / Relative）。**令牌是 ASCII**
+    //       （`'direct'` / `'relative'`），所以中文标签与它本来就不相等——与主题名同一类。
+    // English: the two variant names come from the vendor manual's own section headings
+    //          (Direct / Relative). The **tokens are ASCII** (`'direct'` / `'relative'`), so the
+    //          Chinese labels never equalled them — the same kind of thing as theme names.
+    percentageDirectLabel: '直接',
+    percentageRelativeLabel: '相对',
     hapticsOffLabel: '关闭',
     hapticLightLabel: '轻',
     hapticStandardLabel: '标准',
@@ -417,6 +431,7 @@ class SettingsStrings {
     numberFormatTileTitle: 'Number format',
     decimalPlacesTileTitle: 'Decimal places',
     expressionDisplayTileTitle: 'Expression display',
+    percentageModeTileTitle: 'Percentage calculation',
     hapticsTileTitle: 'Haptics',
     hapticStrengthTileTitle: 'Haptic strength',
     restoreStateTileTitle: 'Restore last state',
@@ -516,6 +531,8 @@ class SettingsStrings {
     digits8Label: '8 digits',
     expressionSymbolsLabel: 'Symbols',
     expressionMathLabel: 'Math expression',
+    percentageDirectLabel: 'Direct',
+    percentageRelativeLabel: 'Relative',
     hapticsOffLabel: 'Off',
     hapticLightLabel: 'Light',
     hapticStandardLabel: 'Standard',
@@ -575,6 +592,19 @@ extension SettingsTokenLabels on SettingsStrings {
       SettingsTokens.expressionDisplayFunctionLegacy => expressionMathLabel,
       _ => expressionSymbolsLabel,
     };
+  }
+
+  /// 中文：`%` 的两种读法。认不出的值（手工改库、备份来自别处）显示成 **direct** 的标签——
+  ///       与 `AppSettings.fromMap` 和设置页的读法一致：这一项只有两个变体，其余一律按默认读，
+  ///       而不是把令牌本身印到屏幕上。
+  /// English: the two readings of `%`. An unrecognised value (a hand-edited database, a backup from
+  ///          elsewhere) renders as the **direct** label — matching `AppSettings.fromMap` and the
+  ///          settings page's own read: this one has exactly two variants, everything else reads as
+  ///          the default, rather than printing the token on screen.
+  String percentageModeLabel(String token) {
+    return token == SettingsTokens.percentageRelative
+        ? percentageRelativeLabel
+        : percentageDirectLabel;
   }
 
   /// 中文：触感强度。令牌就是 `AppHaptics` 上的三个常量，直接引用它们而不是重抄一遍字面量——

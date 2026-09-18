@@ -575,7 +575,16 @@ mixin _CalculatorPersistence on _CalculatorState {
       //          [MathResult.displayTex]).
       if (_result.hasTex) return _result.decimalValue;
       return usableDouble(
-        ExpressionParser(source, degreeMode: angleMode == 'DEG').parse(),
+        ExpressionParser(
+          source,
+          degreeMode: angleMode == 'DEG',
+          // 中文：这一处也在**算值**（存进记忆寄存器的那个数），所以与两个求值入口同模式——
+          //       模式不同的话，屏幕上写着 55 而寄存器里存的是 50.1。
+          // English: this one also **computes a value** (the number stored in the memory register), so
+          //          it takes the same mode as the two evaluating entrances; a different mode would put
+          //          55 on screen and 50.1 in the register.
+          relativePercent: relativePercent,
+        ).parse(),
       );
     } catch (_) {
       return _result.decimalValue;

@@ -317,7 +317,8 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          **not asked**: that counts as "no engine answer" and the legacy parser answers (the same
   ///          route as hard boundary 1).
   Future<EngineReply> _askEngineTranslated(String source) {
-    final translated = engineExpressionFor(source);
+    final translated =
+        engineExpressionFor(source, relativePercent: relativePercent);
     if (translated is UntranslatableExpression) {
       debugPrint('$qalculateLogTag 表达式翻译不了，直接走旧解析器: $translated');
       return Future.value(EngineReply.failure('untranslatable: $translated'));
@@ -522,9 +523,13 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          the engine is absent — and whenever it cannot answer.
   MathResult _calculateResult(String source) {
     final resolvedSource = _resolveAnswerReferences(source);
-    final value =
-        ExpressionParser(resolvedSource, degreeMode: angleMode == 'DEG')
-            .parse();
+    final value = ExpressionParser(
+      resolvedSource,
+      degreeMode: angleMode == 'DEG',
+      // 中文：与 `_askEngineTranslated` 传的必须是同一个值——同一个输入的两个消费者。
+      // English: must be the same value `_askEngineTranslated` passes: two consumers of one input.
+      relativePercent: relativePercent,
+    ).parse();
     if (!value.isFinite) {
       throw const FormatException('Result is not finite');
     }

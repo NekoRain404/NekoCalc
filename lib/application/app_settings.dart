@@ -39,6 +39,20 @@ class SettingsTokens {
   ///       rather than an import, so this file stays Flutter-free and testable in plain Dart.
   static const String defaultThemeId = 'roseCream';
   static const String defaultLanguageCode = 'zh';
+
+  /// 中文：`%` 的两种读法（设置里的 `percentage_mode`）——**ASCII 稳定标识，不是标签**，
+  ///       与 `theme_id` / `language` 同一类。厂商手册与 FAQ 都只给了两个变体的名字与语义，
+  ///       **两处都没有写默认值**，所以默认沿用本应用今天的行为（direct，即 `%` 除以 100）。
+  ///       判据、手册原文出处与实测表在 `core/math/percentage_expansion.dart` 的文件头。
+  /// English: The two readings of `%` (the `percentage_mode` setting) — **stable ASCII identifiers,
+  ///          not labels**, the same kind of thing as `theme_id` / `language`. The vendor's manual and
+  ///          FAQ both name the two variants and their meanings and **neither states a default**, so
+  ///          the default stays with today's behaviour here (direct, i.e. `%` divided by 100). The
+  ///          judgement, the manual's wording and the measured table are in
+  ///          `core/math/percentage_expansion.dart`'s header.
+  static const String percentageDirect = 'direct';
+  static const String percentageRelative = 'relative';
+  static const String defaultPercentageMode = percentageDirect;
 }
 
 class AppSettings {
@@ -54,6 +68,7 @@ class AppSettings {
     this.groupThousands = false,
     this.themeId = SettingsTokens.defaultThemeId,
     this.languageCode = SettingsTokens.defaultLanguageCode,
+    this.percentageMode = SettingsTokens.defaultPercentageMode,
   });
 
   factory AppSettings.fromMap(Map<String, String> map) {
@@ -78,6 +93,15 @@ class AppSettings {
       groupThousands: map['group_thousands'] == 'true',
       themeId: map['theme_id'] ?? SettingsTokens.defaultThemeId,
       languageCode: map['language'] ?? SettingsTokens.defaultLanguageCode,
+      // 中文：认不出的值（手工改库、旧版本、备份来自别处）一律**回落到 direct**——那是
+      //       `defaultPercentageMode`，也就是今天的行为；`??` 与这里的三元是同一件事的两半。
+      // English: Anything unrecognised (a hand-edited database, an older version, a backup from
+      //          elsewhere) **falls back to direct** — which is `defaultPercentageMode`, i.e. today's
+      //          behaviour; the `??` and this ternary are two halves of the same thing.
+      percentageMode:
+          map['percentage_mode'] == SettingsTokens.percentageRelative
+              ? SettingsTokens.percentageRelative
+              : SettingsTokens.defaultPercentageMode,
     );
   }
 
@@ -114,6 +138,18 @@ class AppSettings {
   /// English: Chosen UI language code (`'zh'` / `'en'`) — again a stable identifier, not an endonym.
   final String languageCode;
 
+  /// 中文：`%` 怎么读——`SettingsTokens.percentageDirect`（除以 100）或
+  ///       `SettingsTokens.percentageRelative`（按前一个值）。**持久化令牌**，翻译界面时
+  ///       不许跟着翻；界面上的那句话由 `SettingsStrings.percentageModeLabel` 从令牌换出来。
+  ///       求值侧只认 `SettingsTokens.percentageRelative` 一个值，其余一律按 direct 读。
+  /// English: How `%` reads — `SettingsTokens.percentageDirect` (divide by 100) or
+  ///          `SettingsTokens.percentageRelative` (taken of the preceding value). A **persisted
+  ///          token**: translating the interface must not translate it, and the sentence on screen is
+  ///          produced from it by `SettingsStrings.percentageModeLabel`. The evaluating side
+  ///          recognises exactly one value, `SettingsTokens.percentageRelative`; everything else reads
+  ///          as direct.
+  final String percentageMode;
+
   @override
   bool operator ==(Object other) {
     return other is AppSettings &&
@@ -127,7 +163,8 @@ class AppSettings {
         other.expressionDisplayMode == expressionDisplayMode &&
         other.groupThousands == groupThousands &&
         other.themeId == themeId &&
-        other.languageCode == languageCode;
+        other.languageCode == languageCode &&
+        other.percentageMode == percentageMode;
   }
 
   @override
@@ -142,5 +179,6 @@ class AppSettings {
       expressionDisplayMode,
       groupThousands,
       themeId,
-      languageCode);
+      languageCode,
+      percentageMode);
 }
