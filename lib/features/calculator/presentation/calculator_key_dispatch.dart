@@ -786,5 +786,11 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         //          degrees" only holds for **the evaluation that produced it**.
         dmsText: _controller.resultDmsText,
         degreesMode: _controller.angleMode == 'DEG',
+        // 中文：这一份结果**是不是引擎算的**——菜单里那几格灰着时写哪一句话由它挑（`gapFor`；
+        //       理由在 `resultCameFromEngine` 上：它取自结果自己的形状字段，不是上面那个设置）。
+        // English: whether this result **came from the engine** — it picks which sentence the menu
+        //          writes for those grey cells (`gapFor`; the reasoning is on `resultCameFromEngine`:
+        //          it reads the result's own shape field, not the setting above).
+        engineTookPart: _controller.resultCameFromEngine,
       );
 }

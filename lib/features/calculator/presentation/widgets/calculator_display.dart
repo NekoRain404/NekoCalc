@@ -614,6 +614,8 @@ class CalculatorDisplay extends StatelessWidget {
   ///
   ///       六个入参逐字来自本组件的字段，一个都没有新加：`ResultPresentation.of` 的后两个入参
   ///       （度分秒那一格的引擎原文与角度模式）在下面写着理由，它们只影响那一格存不存在。
+  ///       **`engineTookPart` 这里不传**（取默认值），因为读它的只有 `gapFor`，而那份理由只出现在
+  ///       结果格式菜单里——结果行与状态行一个字节都不看它。
   /// English: **this result's forms, computed once.** The construction is character-for-character what
   ///          it was when these two keys landed (`build` used to inline it inside [_resultLine]); it
   ///          only moved somewhere both callers can reach: the result line uses it to decide which
@@ -623,7 +625,9 @@ class CalculatorDisplay extends StatelessWidget {
   ///
   ///          All six arguments come verbatim from this widget's fields; not one is new. The reason for
   ///          `ResultPresentation.of`'s last two (the DMS cell's engine string and the angle mode) is
-  ///          below; they only affect whether that cell exists.
+  ///          below; they only affect whether that cell exists. **`engineTookPart` is not passed here**
+  ///          (it takes its default), because `gapFor` is its only reader and that reason appears only
+  ///          in the result format menu — neither the result line nor the status row looks at it.
   ResultPresentation _presentation() {
     return ResultPresentation.of(
       resultTex: resultTex,

@@ -18,6 +18,11 @@ import 'package:nekocalc/features/calculator/presentation/widgets/result_format_
 //       2. **每一格今天做不做得出**（以及做不出的那一项的**到期日**断言）。
 //       3. **形式切换只改显示、永不改值**——同一个结果切遍几种写法，`decimalText` 与它解析出的
 //          数值一个字节都不动。
+//       4. **灰着的那几格说不说实话**（本轮补上）。引擎没有参与这一份结果时（`表达式显示` =
+//          `数学表达式` 之下边打边算根本不问引擎），那几格灰着**不是**因为这一份结果画不出来，
+//          所以每一格要写明本应用这一侧的原因，而菜单标题那句「灰掉的那一项是这一份结果画不出来
+//          的」必须消失。**按 `=` 提交不走这条 kill switch**——这一条也是本轮量出来的（见
+//          「`数学表达式` 下按 `=`」那一条），它决定理由那一行该说哪一句。
 //
 //       厂商的原文（`/tmp/hiper_en.po`，本机取回，逐行引用）：
 //
@@ -42,7 +47,13 @@ import 'package:nekocalc/features/calculator/presentation/widgets/result_format_
 //          shape and where each entry comes from; what each cell can do today (with the **expiry**
 //          assertions for the one it cannot); and **form switching changes the display and never the
 //          value** — switching one result through several spellings leaves `decimalText` and the number
-//          it parses to untouched. The vendor's strings are quoted above.
+//          it parses to untouched; and **whether the grey cells tell the truth** (added this round):
+//          with the engine taking no part in this result (under `表达式显示` = `数学表达式` as-you-type
+//          never asks it) those cells are grey **not** because the result cannot be drawn that way, so
+//          each one has to state the app-side reason and the old subtitle has to be gone. **`=` does
+//          not go through that kill switch** — also measured this round (see the "`数学表达式` 下按 `=`"
+//          case), and it decides which sentence the reason line gets. The vendor's strings are quoted
+//          above.
 void main() {
   const channel = MethodChannel('nekocalc/qalculate');
 
@@ -151,6 +162,92 @@ void main() {
       expect(ResultForm.dms.indicator, 'DMS');
       expect(ResultForm.decimal.indicator, isEmpty);
       expect(ResultForm.auto.indicator, isEmpty);
+    });
+  });
+
+  // 中文：**灰着的那几格说不说实话。** 引擎没有参与这一份结果时（边打边算在 `表达式显示` =
+  //       `数学表达式` 下根本不问引擎），`10÷4` 的分数写法**存在**——它就是 `5/2`，只是本应用没有
+  //       问过。所以那几格灰着时**不许**说成「这一份结果画不出来」，而要说成本应用这边的事。
+  // English: **whether those grey cells tell the truth.** While the engine took no part in this result
+  //          (under `表达式显示` = `数学表达式` as-you-type never asks it) `10÷4`'s fraction spelling
+  //          **exists** — it *is* `5/2`, the app simply never asked. So a grey cell there must **not**
+  //          be described as "this result cannot be drawn that way", but as something on the app's side.
+  group('灰着的那几格为什么灰（`ResultPresentation.gapFor`）', () {
+    test('引擎没参与这一份结果：四格写的是「本应用没有它的写法」，另两格一个字都不说', () {
+      // 中文：旧解析器上屏的样子——一个十进制读数，四份引擎写法一份都没有。
+      // English: what the legacy parser puts on screen — a decimal reading and not one of the four
+      //          engine spellings.
+      final p = ResultPresentation.of(
+        resultTex: '',
+        fractionTex: '',
+        resultDecimal: '2.5',
+        naturalDisplay: true,
+        engineTookPart: false,
+      );
+
+      for (final form in <ResultForm>[
+        ResultForm.exact,
+        ResultForm.fraction,
+        ResultForm.mixed,
+        ResultForm.dms,
+      ]) {
+        expect(p.canDraw(form), isFalse);
+        expect(p.gapFor(form), ResultCellGap.engineNotAsked,
+            reason: '$form 灰着的原因是「本应用还没拿到引擎的写法」，不是「这一份结果画不出来」');
+      }
+      // 中文：`默认` 恒存在；`Decimal` 那一格画的是那串读数本身，与引擎在不在无关。
+      // English: `默认` always exists; the `Decimal` cell draws that reading itself and does not care
+      //          whether the engine is there.
+      expect(p.gapFor(ResultForm.auto), ResultCellGap.none);
+      expect(p.gapFor(ResultForm.decimal), ResultCellGap.none);
+    });
+
+    test('引擎答了而这一格仍然没有：一个理由都不编', () {
+      final p = ResultPresentation.of(
+        resultTex: r'\num{0.3333333333333333}',
+        fractionTex: r'\frac{1}{3}',
+        resultDecimal: '0.3333333333333333',
+        naturalDisplay: true,
+        mixedTex: r'\frac{1}{3}',
+      );
+
+      expect(p.canDraw(ResultForm.exact), isFalse);
+      expect(p.gapFor(ResultForm.exact), ResultCellGap.none,
+          reason: '`\\num{…}` 排不出来是这一格自己的门槛，与引擎有没有参与无关——不许说成「没问过引擎」');
+      expect(p.canDraw(ResultForm.mixed), isFalse);
+      expect(p.gapFor(ResultForm.mixed), ResultCellGap.none,
+          reason: '带分数与分数逐字符相同——这一份结果本来就没有这一格，标题那句在这里是真话');
+    });
+
+    test('`表达式显示` = `数学表达式`：原因是那个设置，而且它排在「引擎没参与」之前', () {
+      // 中文：**这一份结果上四份写法全都在**——按 `=` 提交时引擎答了（提交路径**不看** kill
+      //       switch），只是 `naturalDisplay` 为假、`_accepted` 一道都不收。所以这里的正确说法是
+      //       「本应用今天印不出这一格」，不是「本应用没有它的写法」。
+      // English: **all four spellings are on this result** — the `=` submit asked the engine (the
+      //          submit path does **not** look at the kill switch); `naturalDisplay` is false, so
+      //          `_accepted` takes none of them. The right sentence here is therefore "this app cannot
+      //          print that cell today", not "this app does not have its spelling".
+      final p = ResultPresentation.of(
+        resultTex: '2.5',
+        fractionTex: r'\frac{5}{2}',
+        resultDecimal: '2.5',
+        naturalDisplay: false,
+        mixedTex: r'2 + \frac{1}{2}',
+        dmsText: '2°30′0″',
+        degreesMode: true,
+        engineTookPart: true,
+      );
+
+      for (final form in <ResultForm>[
+        ResultForm.exact,
+        ResultForm.fraction,
+        ResultForm.mixed,
+        ResultForm.dms,
+      ]) {
+        expect(p.canDraw(form), isFalse,
+            reason: '自然排版关掉时整行纯文本，一种写法都不排');
+        expect(p.gapFor(form), ResultCellGap.typesettingOff);
+      }
     });
   });
 
@@ -355,6 +452,111 @@ void main() {
       expect(_display(tester).resultForm, ResultForm.auto);
     });
 
+    testWidgets('`数学表达式` 之下那四格灰着，而且每一格自己写明了「本应用今天印不出这一格」', (tester) async {
+      reply(<String, String>{
+        'decimal': '2.5',
+        'latex': '2.5',
+        'fraction': r'\frac{5}{2}',
+        'mixed': r'2 + \frac{1}{2}',
+        'dms': "2°30′0″",
+        'kind': 'number',
+      });
+
+      await tester.pumpWidget(_page(expressionDisplay: '数学表达式'));
+      await tester.pumpAndSettle();
+      await _typeKeys(tester, <String>['1', '0', '÷', '4']);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+
+      // 中文：**边打边算在这个设置下不问引擎**（kill switch），所以结果上一个引擎写法都没有。
+      // English: **as-you-type does not ask the engine under this setting** (the kill switch), so the
+      //          result carries none of the engine's spellings.
+      expect(_display(tester).resultFractionTex, isEmpty);
+
+      await _tapKey(tester, 'x⇔E');
+
+      // 中文：**从前那句假话必须走了。** 它把「本应用没有问过引擎」说成了「这一份结果画不出来」
+      //       ——`10÷4` 就是 `5/2`。
+      // English: **the old false sentence has to be gone.** It turned "this app never asked the
+      //          engine" into "this result cannot be drawn that way" — and `10÷4` *is* `5/2`.
+      expect(find.text('结果行的写法。灰掉的那一项是这一份结果画不出来的'), findsNothing,
+          reason: '引擎没参与时这句话是假的：这一份结果画得出 5/2，只是本应用没有问过');
+      expect(
+        find.text('结果行的写法。灰掉的项按不下去：不是这一份结果没有这一格，就是本应用今天印不出这一格'),
+        findsOneWidget,
+      );
+
+      for (final label in <String>[
+        'Expression',
+        'Fraction',
+        'Mixed number',
+        'Degrees, mins, secs',
+      ]) {
+        final tile = _menuTile(tester, label);
+        expect(tile.enabled, isFalse);
+        // 中文：**先断言那一行小字在**——「灰得一句话都没有」正是从前那个缺陷，这一条红了就是它。
+        // English: **assert the small line is there first** — "grey without a word" is the defect this
+        //          round fixes, and this assertion going red is exactly that.
+        expect(tile.subtitle, isNotNull,
+            reason: '$label 灰着时必须写出理由，不能像从前那样一声不吭');
+        final note = (tile.subtitle! as Text).data!;
+        expect(note, contains('印不出'), reason: '$label 那一行要说的是本应用印不出这一格');
+        expect(note, contains('表达式显示'),
+            reason: '$label 那一行要点出是哪个设置把写法关掉的');
+        expect(note, contains('数学表达式'), reason: '$label：那一句要指名道姓');
+      }
+
+      // 中文：**亮着的两格一句话都不多说**——理由只属于灰着的那几格。
+      // English: **the two live cells say nothing extra** — reasons belong to the grey ones only.
+      expect(_menuTile(tester, '默认').enabled, isTrue);
+      expect(_menuTile(tester, 'Decimal').enabled, isTrue);
+      expect(_menuTile(tester, 'Decimal').subtitle, isNull);
+    });
+
+    testWidgets('`数学表达式` 下按 `=`：引擎答了、写法就在结果上，那几格照旧灰着且不赖引擎', (tester) async {
+      reply(<String, String>{
+        'decimal': '2.5',
+        'latex': '2.5',
+        'fraction': r'\frac{5}{2}',
+        'mixed': r'2 + \frac{1}{2}',
+        'dms': "2°30′0″",
+        'kind': 'number',
+      });
+
+      await tester.pumpWidget(_page(expressionDisplay: '数学表达式'));
+      await tester.pumpAndSettle();
+      await _typeKeys(tester, <String>['1', '0', '÷', '4']);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+      await _tapKey(tester, '✓');
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+
+      // 中文：**`=` 那条路不看 kill switch。** 这一点是本轮量出来的：同一份设置、同一个表达式，
+      //       按 `=` 之后结果上四份引擎写法**都在**（`fractionTex` 就是 `\frac{5}{2}`）。所以那几格
+      //       灰着的原因**不是**「引擎没参与」，而是这个设置让结果行一格写法都不排——理由那一行
+      //       必须说对，否则就是把一句假话换成了另一句。
+      // English: **the `=` path does not look at the kill switch.** Measured this round: same setting,
+      //          same expression, and after `=` all four engine spellings **are** on the result
+      //          (`fractionTex` *is* `\frac{5}{2}`). So those grey cells are grey because this setting
+      //          makes the result line typeset nothing — **not** because "the engine took no part". The
+      //          reason line has to get that right, or one false sentence has merely been swapped for
+      //          another.
+      expect(_display(tester).resultFractionTex, r'\frac{5}{2}');
+      expect(_display(tester).resultMixedTex, r'2 + \frac{1}{2}');
+
+      await _tapKey(tester, 'x⇔E');
+      final fraction = _menuTile(tester, 'Fraction');
+      expect(fraction.enabled, isFalse,
+          reason: '写法就在结果上，屏幕上照样不排它——灰的是本应用这一侧');
+      expect(fraction.subtitle, isNotNull, reason: '这一格灰着，它自己那一行要写明为什么');
+      final note = (fraction.subtitle! as Text).data!;
+      expect(note, contains('表达式显示'));
+      expect(note, isNot(contains('不是引擎算的')),
+          reason: '引擎这一次**算过了**：不许把这一格灰着的原因推给它');
+      // 中文：**值路径一个字节没动**——绕这一圈只改了屏幕上说不说得清，没碰过任何数。
+      // English: **the value path has not moved a byte** — this whole round is about what the screen
+      //          says, and it touched no number.
+      expect(_display(tester).resultDecimal, '2.5');
+    });
+
     testWidgets('灰掉的那一项（`Polar coordinates`）按下去什么都不做：不关面板、不改状态', (tester) async {
       reply(<String, String>{
         'decimal': '2.5',
@@ -435,12 +637,17 @@ Future<void> _typeKeys(WidgetTester tester, List<String> keys) async {
   }
 }
 
-Widget _page() => MaterialApp(
+/// 中文：主屏，`表达式显示` 可换——**它同时是 kill switch**（`kEngineBackedLiveExpressionDisplay`：
+///       `数学符号` 才让边打边算问引擎）。默认值与既有那些用例逐字符相同。
+/// English: the screen, with `表达式显示` switchable — **it is also the kill switch**
+///          (`kEngineBackedLiveExpressionDisplay`: only `数学符号` lets as-you-type ask the engine).
+///          The default is character-for-character what the existing cases used.
+Widget _page({String expressionDisplay = '数学符号'}) => MaterialApp(
       home: Scaffold(
         body: CalculatorPage(
           db: _FakeDatabase(),
           onOpenSettings: () {},
-          settings: const AppSettings(
+          settings: AppSettings(
             haptics: false,
             hapticStrength: '标准',
             restoreState: false,
@@ -448,7 +655,7 @@ Widget _page() => MaterialApp(
             angleMode: 'DEG',
             precision: 6,
             themeModeLabel: '跟随系统',
-            expressionDisplayMode: '数学符号',
+            expressionDisplayMode: expressionDisplay,
             groupThousands: false,
           ),
         ),

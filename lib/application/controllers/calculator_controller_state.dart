@@ -204,6 +204,27 @@ mixin _CalculatorState on ChangeNotifier {
   ///          **never** be fed to a numeric consumer.
   String get resultDmsText => _result.dmsText;
 
+  /// 中文：**这一份结果是不是引擎算出来的**——也就是说它身上会不会带着引擎那几份写法（精确 /
+  ///       分数 / 带分数 / 度分秒），因为那四份只有引擎印得出来。判据是结果自己的形状字段
+  ///       （`resultKind != notFromEngine`），**不是一个设置**：`表达式显示` 设成 `数学表达式` 只
+  ///       关掉**边打边算**那一路，按 `=` 的提交路径照样问引擎，所以「设置是数学表达式」与「这一份
+  ///       结果是旧解析器算的」是两句不同的话。
+  ///
+  ///       消费者只有一个：结果格式菜单用它把那几格灰着的原因写出来（`ResultPresentation.gapFor`）。
+  ///       「本应用还没拿到引擎的写法」与「这一份结果没有这一格」在那里是两种不同的说法。
+  /// English: **whether this result came from the engine** — i.e. whether it carries the engine's
+  ///          spellings at all (exact / fraction / mixed / DMS), because only the engine prints those
+  ///          four. The test is the result's own shape field (`resultKind != notFromEngine`), **not a
+  ///          setting**: `表达式显示` set to `数学表达式` switches off the **as-you-type** path only;
+  ///          the submit path (`=`) still asks the engine, so "the setting is `数学表达式`" and "this
+  ///          result came from the legacy parser" are two different statements.
+  ///
+  ///          It has exactly one consumer: the result format menu uses it to write the reason those
+  ///          cells are grey (`ResultPresentation.gapFor`). "This app has not been given the engine's
+  ///          spelling" and "this result has no such cell" are two different sentences there.
+  bool get resultCameFromEngine =>
+      _result.resultKind != EngineResultKind.notFromEngine;
+
   /// 中文：结果的十进制形态——Ans/last、记忆寄存器、继续使用、历史去重与报告里的机器可读值都从
   ///       这里取。空串表示「这一次没有十进制形态」，调用方必须照常工作而不是去解析 [result]。
   /// English: The result's decimal form — Ans/last, the memory register, continue-with-result,

@@ -1,5 +1,61 @@
 part of 'result_form.dart';
 
+/// 中文：**菜单里那一格今天为什么灰着。** 它是一句关于**本应用**的话，不是关于结果的话——
+///       而菜单从前那句「灰掉的那一项是这一份结果画不出来的」把两者当成了一件事，于是引擎没参与
+///       求值的时候它是一句假话：那一份结果画得出 `5/2`，只是本应用没有问过引擎。
+///
+///       - [none]：没有特别的话要说。**两种情形都落在这里**——这一格亮着；或者它灰着而这一份结果
+///         本来就没有这一格（`√8` 的分数印法与精确印法逐字符相同就是这一种，`2+2` 只有一种画法
+///         也是）。后一种里「这一份结果画不出来的」是**真的**，菜单标题那句管的正是它。
+///       - [engineNotAsked]：**这一份结果不是引擎算的**，所以那几种只有引擎印得出来的写法
+///         （精确 / 分数 / 带分数 / 度分秒）本应用手上一个都没有。引擎不参与有两条来路：引擎
+///         缺席、超时、答不上来（回落旧解析器）；以及 kill switch 拨到 `数学表达式`
+///         （`kEngineBackedLiveExpressionDisplay`）——那一条**只管边打边算**，按 `=` 的提交路径
+///         照旧问引擎。
+///       - [typesettingOff]：**结果行此刻不排任何写法**——`表达式显示` 设成 `数学表达式` 时，
+///         `_accepted` 对每一种写法都返回空串（那是这个设置本来的含义）。这一格里就算引擎已经把
+///         写法给了（按 `=` 那条路会给），屏幕上也不会排它。
+///
+///       **两种原因同时成立时取 [typesettingOff]**：`数学表达式` 之下，那几格**不管引擎答没答**
+///       都排不出来，所以拨回设置的提示才是对症的那一句（`= ` 那条路会问引擎，却仍然画不出来）。
+/// English: **why that cell of the menu is grey today.** It is a sentence about **this app**, not about
+///          the result — the menu's old line ("the greyed entry is one this result cannot be drawn in")
+///          treated the two as one thing, and so it was false whenever the engine took no part: that
+///          result *can* be drawn as `5/2`, the app simply never asked the engine.
+///
+///          - [none]: nothing special to say. **Both cases land here** — the cell is live; or it is grey
+///            while this result genuinely has no such cell (`√8`'s fraction print is character for
+///            character its exact one, and `2+2` has a single drawing). In the second case "this result
+///            cannot be drawn that way" is **true**, and the menu's subtitle is about exactly that.
+///          - [engineNotAsked]: **this result did not come from the engine**, so the spellings only the
+///            engine prints (exact / fraction / mixed / DMS) are ones this app never received. There are
+///            two routes into the engine not taking part: it is absent, times out or cannot answer (the
+///            legacy parser takes over), or the kill switch is set to `数学表达式`
+///            (`kEngineBackedLiveExpressionDisplay`) — and that one governs **as-you-type only**: the
+///            submit path (`=`) still asks the engine.
+///          - [typesettingOff]: **the result line typesets nothing at all right now** — with
+///            `表达式显示` set to `数学表达式`, `_accepted` returns an empty string for every spelling
+///            (which is what that setting has always meant). Even if the engine has already handed the
+///            spelling over (the `=` path will ask it), nothing of it goes on screen.
+///
+///          **When both hold, [typesettingOff] wins**: under `数学表达式` those cells cannot be drawn
+///          no matter what the engine answered, so "turn the setting back" is the sentence that fits
+///          (`=` does ask the engine, and they still are not drawn).
+enum ResultCellGap {
+  /// 中文：这一格亮着，或者这一份结果本来就没有这一格——菜单标题那句说的就是后一种。
+  /// English: the cell is live, or this result has no such cell — which is what the menu's subtitle is
+  ///          about.
+  none,
+
+  /// 中文：这一份结果不是引擎算的，那几格写法只有引擎印得出来。
+  /// English: this result did not come from the engine, and only the engine prints those spellings.
+  engineNotAsked,
+
+  /// 中文：`表达式显示` 设成了 `数学表达式`——结果行不排任何写法。
+  /// English: `表达式显示` is `数学表达式` — the result line typesets nothing.
+  typesettingOff,
+}
+
 /// 中文：**某一份结果有哪几种形态可显示**，以及每种形态各自画什么。它是这个文件里唯一做判断的地方，
 ///       结果行与主屏都读它，不各写一份。
 ///
@@ -38,6 +94,8 @@ class ResultPresentation {
     required this.dmsTex,
     required this.hasDecimal,
     required this.cycle,
+    required this.naturalDisplay,
+    required this.engineTookPart,
   });
 
   /// 中文：从结果的三形态算出来。四个入参逐字来自 `MathResult`（`displayText` / `displayTex` /
@@ -53,12 +111,23 @@ class ResultPresentation {
     String dmsText = '',
     String mixedTex = '',
     bool degreesMode = false,
+    bool engineTookPart = true,
   }) {
     // 中文：后两个入参默认成「没有这一格」——既有调用方（组件测试、老代码）一个字不改就拿到与
     //       以前逐字符相同的那一行。它们的来路是 `MathResult.dmsText` 与当前角度模式。
     // English: the last two default to "no such cell" — existing callers (widget tests, older code)
     //          get the line they had before, character for character, without one edit. They come from
     //          `MathResult.dmsText` and the current angle mode.
+    //
+    // 中文：[engineTookPart] 默认 `true`，也就是「这一次引擎答了」——既有调用方因此拿到的
+    //       `gapFor` 恒为 [ResultCellGap.none]，与加这个入参之前逐字符相同。它只喂 [gapFor]：
+    //       哪几格存在、哪一格的 TeX 是什么，一个字节都不看它（那几格存不存在只由传进来的写法
+    //       决定，这里不另立一条判据）。
+    // English: [engineTookPart] defaults to `true`, i.e. "the engine answered this time", so existing
+    //          callers get [ResultCellGap.none] from `gapFor` — character for character what they had
+    //          before this argument existed. It feeds [gapFor] alone: which cells exist and what each
+    //          one typesets do not read it at all (those are decided by the spellings handed in; no
+    //          second judgement is raised here).
     final decimal = resultDecimal.trim();
     final exactTex = _accepted(naturalDisplay, resultTex.trim(), decimal, const <String>[]);
     // 中文：`accepted` 的第三个实参是「已经收下的写法」——分数与精确写法相同就不算（见类注释）。
@@ -187,8 +256,28 @@ class ResultPresentation {
       dmsTex: dms,
       hasDecimal: hasDecimal,
       cycle: List<ResultForm>.unmodifiable(cycle),
+      naturalDisplay: naturalDisplay,
+      engineTookPart: engineTookPart,
     );
   }
+
+  /// 中文：**结果行排不排写法**——`表达式显示` 那个设置的读法（`数学符号` 才排）。它在这里被留
+  ///       下来，是因为 [gapFor] 要说清「这一格排不出来」与「本应用没有这一份写法」的区别，而那
+  ///       两句话的分岔正是它。
+  /// English: **whether the result line typesets spellings at all** — how the `表达式显示` setting
+  ///          reads (`数学符号` is what turns it on). It is kept here because [gapFor] has to tell
+  ///          "this cell cannot be typeset" apart from "this app does not have that spelling", and that
+  ///          is exactly the fork it decides.
+  final bool naturalDisplay;
+
+  /// 中文：**这一份结果是不是引擎算出来的**。调用方从结果自己的形状字段取（
+  ///       `CalculatorController.resultCameFromEngine`），不是一个设置：`数学表达式` 之下按 `=`
+  ///       提交**照样会问引擎**，所以「设置是数学表达式」并不等于「这一份结果是旧解析器算的」。
+  /// English: **whether this result came from the engine.** Callers take it from the result's own
+  ///          shape field (`CalculatorController.resultCameFromEngine`), never from a setting: under
+  ///          `数学表达式` the submit path (`=`) **still asks the engine**, so "the setting is
+  ///          `数学表达式`" is not the same statement as "this result came from the legacy parser".
+  final bool engineTookPart;
 
   /// 中文：这一份结果可以排出来的精确写法；空串表示这一次没有。
   /// English: the exact spelling this result can typeset; empty when there is none this time.
@@ -317,6 +406,57 @@ class ResultPresentation {
         ResultForm.dms => hasDms,
         ResultForm.decimal => hasDecimal,
       };
+
+  /// 中文：**这一格今天灰着，是因为什么**——结果格式菜单据此给那一行写一句实话（灰着的那几格
+  ///       从前一句话都没有，而菜单标题那句「灰掉的那一项是这一份结果画不出来的」在引擎没参与时
+  ///       是假的）。判据只有一条：这一格画不出来（[canDraw]），而且它是**引擎印出来的那四格**
+  ///       之一；原因本身见 [ResultCellGap]。
+  ///
+  ///       **只有那四格有这两个原因**：`默认` 恒存在，`十进制` 那一格画的是那串读数本身、它不靠
+  ///       任何印法（它灰着的原因只有一个——这一份结果没有读数，那是一件关于**结果**的事，标题
+  ///       那句说的正是它）。所以这两格一律回 [ResultCellGap.none]。
+  ///
+  ///       **引擎答了、而这一格仍然没有**（`√8` 的分数印法与精确印法逐字符相同、`1/3` 的带分数
+  ///       与分数相同、`2+2` 只有一种画法）时也是 [ResultCellGap.none]：那几格里「这一份结果画
+  ///       不出来的」是**真话**，不该再给它编一个理由。这一条与 [canDraw] 一样是**一处判据**：
+  ///       菜单不自己拼原因，它只问这里。
+  /// English: **why this cell is grey today** — the result format menu writes one true sentence from
+  ///          it (those grey rows used to say nothing at all, and the menu's subtitle — "the greyed
+  ///          entry is one this result cannot be drawn in" — was false whenever the engine took no
+  ///          part). There is one test: the cell cannot be drawn ([canDraw]) *and* it is one of **the
+  ///          four cells the engine prints**; the reason itself is [ResultCellGap].
+  ///
+  ///          **Only those four have these two reasons**: `默认` always exists, and the `Decimal` cell
+  ///          draws the reading itself and rests on no print at all (the only reason it is grey is that
+  ///          this result has no reading — a fact about the **result**, which is what the subtitle is
+  ///          about). Those two therefore always answer [ResultCellGap.none].
+  ///
+  ///          **The engine answered and the cell still is not there** (`√8`'s fraction print is
+  ///          character for character its exact one, `1/3`'s mixed number equals its fraction, `2+2`
+  ///          has one drawing) also answers [ResultCellGap.none]: "this result cannot be drawn that
+  ///          way" is **true** there, and no reason should be invented for it. Like [canDraw] this is
+  ///          **one judgement**: the menu does not assemble a reason of its own, it only asks here.
+  ResultCellGap gapFor(ResultForm form) {
+    if (canDraw(form)) return ResultCellGap.none;
+    final enginePrinted = switch (form) {
+      ResultForm.exact ||
+      ResultForm.fraction ||
+      ResultForm.mixed ||
+      ResultForm.dms =>
+        true,
+      ResultForm.auto || ResultForm.decimal => false,
+    };
+    if (!enginePrinted) return ResultCellGap.none;
+    // 中文：**排不排写法**在「引擎没参与」之前问。`数学表达式` 之下那几格不管引擎答没答都排不
+    //       出来（按 `=` 提交会问到引擎，屏幕上照样不排），所以那一句才是对症的。
+    // English: **whether spellings are typeset at all** is asked before "the engine took no part".
+    //          Under `数学表达式` those cells cannot be drawn whatever the engine answered (`=`
+    //          submits and does ask it, and they still are not drawn), so that is the sentence that
+    //          fits.
+    if (!naturalDisplay) return ResultCellGap.typesettingOff;
+    if (!engineTookPart) return ResultCellGap.engineNotAsked;
+    return ResultCellGap.none;
+  }
 
   /// 中文：**把请求的形态落到这个结果上**。请求的那一种在这个结果上不存在时一律回落到
   ///       [ResultForm.auto]——**这是这条路径的 fail-closed**：换了一个结果之后，上一份结果上选的

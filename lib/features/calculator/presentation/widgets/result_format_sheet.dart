@@ -129,11 +129,18 @@ const List<ResultFormatCell> kResultFormatCells = <ResultFormatCell>[
 
 /// 中文：**`x⇔E` 打开的面板**——HiPER 的 "Select Result Format" 菜单。
 ///
-///       三件事都由 [ResultPresentation] 一处回答，面板自己一个判据也不立：
+///       四件事都由 [ResultPresentation] 一处回答，面板自己一个判据也不立：
 ///       - **哪一项点得动**：`presentation.canDraw(form)`——「这一份结果有没有这一格」；
 ///       - **哪一项是当前那一项**：`presentation.resolve(current)`——请求的形态落到这一份结果上
 ///         之后的那一个（所以一份换了结果的记录不会在面板上留一个假的勾）；
-///       - **选完画什么**：那是 [ResultPresentation.texFor]，与结果行同一份。
+///       - **选完画什么**：那是 [ResultPresentation.texFor]，与结果行同一份；
+///       - **灰着的那几格为什么灰**：`presentation.gapFor(form)`——「本应用今天印不出这一格」与
+///         「这一份结果没有这一格」是两句不同的话，面板按它挑措辞（[_gapNote]），判据不在这里。
+///
+///       **后一件是本轮补上的**：那几格从前灰得**一句话都没有**，而面板顶上那句「灰掉的那一项是
+///       这一份结果画不出来的」在引擎没参与求值时是**假话**——`10÷4` 就是 `5/2`，只是本应用没有
+///       问过引擎。现在标题说的是那两件事本身，每一格灰着的原因逐行写在它自己那一行上（与
+///       `Polar coordinates` 那一项同一个形状）。
 ///
 ///       **每一项右边画的是那一格自己的写法**——这不是装饰：HiPER 的菜单项字符串本来就是
 ///       `Decimal <tabt:%0>` 这个形状（`%0` 是它当场给的预览），所以「这一项会画出什么」是那一格
@@ -151,10 +158,18 @@ const List<ResultFormatCell> kResultFormatCells = <ResultFormatCell>[
 ///       好几样的面板。
 /// English: **the sheet `x⇔E` opens** — HiPER's "Select Result Format" menu.
 ///
-///          All three questions are answered in one place, [ResultPresentation]; the sheet invents no
+///          All four questions are answered in one place, [ResultPresentation]; the sheet invents no
 ///          judgement of its own: **which entry can be pressed** (`canDraw`), **which one is the
 ///          current one** (`resolve(current)`, so a record carried over from another result cannot
-///          leave a false tick here), and **what picking draws** (`texFor`, the result line's own).
+///          leave a false tick here), and **what picking draws** (`texFor`, the result line's own) —
+///          plus, from this round on, **why a grey cell is grey** (`gapFor`): "this app cannot print
+///          that cell today" and "this result has no such cell" are two different sentences, and the
+///          sheet picks the wording for whichever applies ([_gapNote]) while the judgement stays in
+///          [ResultPresentation]. Those cells used to go grey **without a word**, and the old subtitle
+///          ("the greyed entry is one this result cannot be drawn in") was **false** whenever the
+///          engine took no part — `10÷4` *is* `5/2`, the app just never asked. The subtitle now states
+///          the two cases themselves, and each grey cell's reason is written on its own row, in the
+///          shape `Polar coordinates` already used.
 ///
 ///          **Each entry draws that cell's own spelling beside its name** — not decoration: HiPER's
 ///          menu strings already have the shape `Decimal <tabt:%0>` (`%0` is a preview supplied on the
@@ -235,8 +250,20 @@ class ResultFormatSheet extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
+            // 中文：**标题这一行从前是一句假话。** 它写的是「灰掉的那一项是这一份结果画不出来的」，
+            //       而在引擎没有参与这一份结果时（边打边算在 `表达式显示` = `数学表达式` 下根本
+            //       不问引擎）那三格灰着**不是**因为这一份结果画不出来——`10÷4` 就是 `5/2`，本应用
+            //       只是没有问过。现在它说的是那两件事本身：**不是结果没有这一格，就是本应用今天
+            //       印不出这一格**（后者逐格写在它自己那一行上，见 [_gapNote]）。
+            // English: **this line used to be false.** It said "the greyed entry is one this result
+            //          cannot be drawn in", and while the engine took no part in this result (under
+            //          `表达式显示` = `数学表达式` as-you-type never asks it) those three cells are grey
+            //          **not** because the result cannot be drawn that way — `10÷4` *is* `5/2`, this app
+            //          simply never asked. It now states the two cases themselves: **either the result
+            //          has no such cell, or this app cannot print that cell today** (the second is
+            //          written out cell by cell, see [_gapNote]).
             Text(
-              '结果行的写法。灰掉的那一项是这一份结果画不出来的',
+              '结果行的写法。灰掉的项按不下去：不是这一份结果没有这一格，就是本应用今天印不出这一格',
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -291,6 +318,17 @@ class ResultFormatSheet extends StatelessWidget {
     //          user they are one thing: it cannot be pressed now.
     final enabled = form != null && presentation.canDraw(form);
     final preview = form == null ? '' : presentation.texFor(form);
+    // 中文：**这一行的小字**——每一项自己带的那一句（`默认` 与 `Polar coordinates`），或者**它灰着
+    //       的原因**（`gapFor`）。判据在 [ResultPresentation] 一处，这里只把它翻成一句人能读的话。
+    //       灰着而没有原因的那几格（`√8` 的分数、`2+2` 的精确）小字为空，标题那一行说的正是它们。
+    // English: **this row's small line** — the one the entry itself carries (`默认` and `Polar
+    //          coordinates`), or **why it is grey** (`gapFor`). The judgement lives in one place,
+    //          [ResultPresentation]; this only turns it into a sentence a human reads. A grey cell with
+    //          no such reason (`√8`'s fraction, `2+2`'s exact) keeps an empty line, and the subtitle is
+    //          what speaks for those.
+    final note = cell.note.isNotEmpty
+        ? cell.note
+        : (form == null ? '' : _gapNote(presentation.gapFor(form), form));
     return ListTile(
       dense: true,
       enabled: enabled,
@@ -346,8 +384,59 @@ class ResultFormatSheet extends StatelessWidget {
           ),
         ],
       ),
-      subtitle: cell.note.isEmpty ? null : Text(cell.note),
+      subtitle: note.isEmpty ? null : Text(note),
       onTap: enabled ? () => onPick(form) : null,
     );
   }
+
+  /// 中文：**一格灰着的原因，翻成一句话**——[ResultCellGap] 到屏幕上的那行小字。与
+  ///       `Polar coordinates` 那一项同一个形状（灰 + 点不动 + 一行理由），理由的**判据**不在
+  ///       这里，这里只有措辞。
+  ///
+  ///       两句都要点出「这是关于本应用的话，不是关于结果的话」——那句假话的病根正在这里：
+  ///       - [ResultCellGap.engineNotAsked]：这一份结果不是引擎算的，而这一格只有引擎印得出来。
+  ///         所以本应用手上没有它，而不是这一份结果没有这一格。
+  ///       - [ResultCellGap.typesettingOff]：`表达式显示` 设成 `数学表达式` 之后结果行不排写法。
+  ///         这里**故意不写「本应用没有它的写法」**：按 `=` 提交时引擎已经把那几份写法给了
+  ///         （提交路径不看 kill switch），屏幕上仍然不排它——所以这一句说的是「不印」，不是
+  ///         「没有」。
+  /// English: **a grey cell's reason, turned into one sentence** — [ResultCellGap] to the small line on
+  ///          screen. It has the same shape as the `Polar coordinates` entry (grey + unpressable + one
+  ///          line saying why); the **judgement** is not here, only the wording.
+  ///
+  ///          Both sentences have to say "this is about the app, not about the result" — that is the
+  ///          root of the false line this replaces:
+  ///          - [ResultCellGap.engineNotAsked]: this result did not come from the engine, and only the
+  ///            engine prints this cell. So the app does not have it — the result does not lack it.
+  ///          - [ResultCellGap.typesettingOff]: with `表达式显示` on `数学表达式` the result line
+  ///            typesets nothing. It **deliberately does not say "this app has no such spelling"**:
+  ///            on the `=` path the engine has already handed those spellings over (the submit path does
+  ///            not look at the kill switch) and they still are not drawn — so the sentence says "does
+  ///            not print", not "does not have".
+  String _gapNote(ResultCellGap gap, ResultForm form) => switch (gap) {
+        ResultCellGap.none => '',
+        ResultCellGap.engineNotAsked =>
+          '本应用没有它的${_spellingName(form)}：这一份结果不是引擎算的，而这一格只有引擎印得出来',
+        ResultCellGap.typesettingOff =>
+          '本应用今天印不出它的${_spellingName(form)}：表达式显示设成了「数学表达式」，'
+              '结果行不排任何写法、边打边算也不问引擎',
+      };
+
+  /// 中文：那一格自己要的写法叫什么。点它的名是为了让四行灰格不至于读起来一模一样——它们**是**
+  ///       被同一个原因一起挡住的，但每一行都要能单独读懂。
+  /// English: the name of the spelling this cell wants. Naming it keeps those four grey rows from
+  ///          reading identically — they **are** blocked together by one cause, but each row has to be
+  ///          readable on its own.
+  String _spellingName(ResultForm form) => switch (form) {
+        ResultForm.exact => '精确写法',
+        ResultForm.fraction => '分数写法',
+        ResultForm.mixed => '带分数写法',
+        ResultForm.dms => '度分秒写法',
+        // 中文：这两格不会走到这里（`gapFor` 对它们恒回 `none`）——写出来是因为这个 `switch` 是
+        //       「每一格叫什么」这个问题**唯一**的落点，留一个 `_` 兜底就等于把那条约定废掉。
+        // English: these two cannot reach here (`gapFor` always answers `none` for them). They are
+        //          written out because this `switch` is the **only** landing place for "what is this
+        //          cell called"; a `_` catch-all would void that rule.
+        ResultForm.auto || ResultForm.decimal => '写法',
+      };
 }
