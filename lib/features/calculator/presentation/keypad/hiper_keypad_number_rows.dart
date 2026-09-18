@@ -77,12 +77,22 @@ const List<KeypadRow> _numberRows = <KeypadRow>[
   ),
 
   // 中文：行 7——数字 4 5 6 与乘除。id 用解析器友好的 `*`、`/`，键面仍显示 `×`、`÷`。
-  //       上方标签：n!、nCr、nPr 三个函数键，加上 BIN、OCT 两个进制胶囊
-  //       （label 不含 HiPER 的 `▸` 装饰）。
+  //       上方标签：n!、nCr、nPr 三个函数键，加上 BIN、OCT 两个进制胶囊。
+  //       **`▸` 本应用不画，这是一处已知的键面偏差**——HiPER 那两颗键面上写的是 `▸BIN`/`▸OCT`。
+  //       ⚠️ 这句注释过去写的是「label 不含 HiPER 的 `▸` **装饰**」，**那个理由是假的**：
+  //       `hiper_keypad_function_rows.dart` 上那一次更正量出 `▸` **不是装饰**，它是这个换算
+  //       **家族名字的一部分**（厂商自己的更新日志把 `▸BASE` 写成一个函数名，U+25B8）。
+  //       所以这里是**「刻意不画」而不是「因为它只是装饰」**；真正的取舍理由尚未写下。
   // English: Row 7 — digits 4 5 6 with multiply and divide. The ids stay parser-friendly
   //          (`*`, `/`) while the faces show `×` and `÷`.
-  //          Band above: the n!, nCr, nPr function keys plus the BIN and OCT base pills
-  //          (labels drop HiPER's decorative `▸`).
+  //          Band above: the n!, nCr, nPr function keys plus the BIN and OCT base pills.
+  //          **This app does not draw the `▸`; that is a known key-face deviation** — HiPER's
+  //          faces read `▸BIN` / `▸OCT`. ⚠️ This comment used to say the labels drop HiPER's
+  //          "decorative" `▸`, and **that reason is false**: the correction recorded on
+  //          `hiper_keypad_function_rows.dart` measured that `▸` is **not decoration** but part of
+  //          the conversion family's **name** (the vendor's own changelog writes `▸BASE` as a
+  //          function name, U+25B8). So this is "deliberately not drawn", not "drawn without a
+  //          decoration" — and the real reason for the choice has not been written down yet.
   KeypadRow(
     keys: <KeypadKey>[
       KeypadKey(
