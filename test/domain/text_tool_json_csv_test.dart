@@ -1,17 +1,21 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/text_tool_controller.dart';
+import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   const controller = TextToolController();
 
   test('json and csv tools return validation insights', () {
     final json = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input:
           '\ufeff{"name":"NekoCalc","tools":["json","csv"],"meta":{"ok":true,"none":null}}',
     );
     final csv = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: 'name,category\nNekoCalc,calculator\nGraph',
     );
@@ -26,6 +30,7 @@ void main() {
 
   test('csv json tool converts json arrays and objects to csv', () {
     final array = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: jsonEncode([
         {
@@ -41,6 +46,7 @@ void main() {
       ]),
     );
     final object = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '{"name":"NekoCalc","ok":true}',
     );
@@ -59,6 +65,7 @@ void main() {
 
   test('csv json tool flattens nested json object fields', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: jsonEncode([
         {
@@ -92,6 +99,7 @@ void main() {
 
   test('csv json tool converts json lines and json-like arrays to csv', () {
     final jsonLines = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 {"user":{"id":1,"name":"Neko"},"score":98}
@@ -99,6 +107,7 @@ void main() {
 ''',
     );
     final jsonLike = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 [
@@ -134,6 +143,7 @@ void main() {
 
   test('csv json tool accepts commented json lines', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 # exported from dev log
@@ -161,6 +171,7 @@ void main() {
 
   test('csv json tool extracts json lines from prefixed logs', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 2026-06-09T08:00:00Z INFO payload={"id":1,"name":"Neko","url":"https://example.com/a//b"} status=200
@@ -186,6 +197,7 @@ void main() {
 
   test('json formatter accepts json lines input', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '{"id":1,"name":"A"}\n{"id":2,"name":"B"}',
     );
@@ -201,6 +213,7 @@ void main() {
 
   test('json formatter accepts commented json lines input', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '''
 # exported from dev log
@@ -225,6 +238,7 @@ void main() {
 
   test('json formatter extracts json lines from prefixed logs', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '''
 2026-06-09T08:00:00Z INFO payload={"id":1,"name":"Neko","url":"https://example.com/a//b"} status=200
@@ -247,6 +261,7 @@ void main() {
 
   test('json formatter accepts common json-like object input', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '''
 {
@@ -275,15 +290,18 @@ void main() {
 
   test('json formatter unwraps escaped json strings from logs', () {
     final escaped = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: r'"{\"name\":\"NekoCalc\",\"items\":[1,2],\"ok\":true}"',
     );
     final log = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input:
           r'INFO payload="{\"name\":\"NekoCalc\",\"nested\":{\"ok\":true}}" status=200',
     );
     final singleLineJsonLike = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: "payload = {name: 'NekoCalc', flags: ['json',],};",
     );
@@ -308,6 +326,7 @@ void main() {
 
   test('json formatter extracts json from markdown code and pasted logs', () {
     final markdown = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '''
 Here is the payload:
@@ -317,6 +336,7 @@ Here is the payload:
 ''',
     );
     final assignment = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: '''
 const payload = {
@@ -326,10 +346,12 @@ const payload = {
 ''',
     );
     final log = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input: 'INFO response payload={"items":[{"id":1},{"id":2}],"ok":true};',
     );
     final trailingLog = controller.calculate(
+      strings: _strings,
       toolId: 'json_format',
       input:
           '2026-06-09T08:00:00Z INFO payload={"name":"NekoCalc","ok":true} status=200 duration_ms=8',
@@ -362,6 +384,7 @@ const payload = {
 
   test('csv tool preserves quoted commas quotes and multiline fields', () {
     final csv = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: 'name,note\n"Neko, Calc","line 1\nline 2"\nGraph,"x=""2"""',
     );
@@ -378,6 +401,7 @@ const payload = {
 
   test('csv tool normalizes duplicate headers and keeps extra columns', () {
     final csv = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: 'name,name\nA,B,C',
     );
@@ -392,10 +416,12 @@ const payload = {
 
   test('csv tool detects semicolon and pipe delimiters', () {
     final semicolon = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: 'name;score\nNeko;98\nCalc;100',
     );
     final pipe = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: 'name|note\nNeko|"line|kept"\nCalc|ok',
     );
@@ -415,6 +441,7 @@ const payload = {
 
   test('csv tool skips spreadsheet metadata comments and bom', () {
     final csv = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input:
           '\ufeff# exported from spreadsheet\nsep=;\nname;score\nNeko;98\nCalc;100',
@@ -432,6 +459,7 @@ const payload = {
 
   test('csv tool skips unit descriptor rows after headers', () {
     final csv = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 time,temp,pressure
@@ -441,6 +469,7 @@ units,s,degC,kPa
 ''',
     );
     final markdown = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 | time | 温度 | 压力 |
@@ -470,6 +499,7 @@ units,s,degC,kPa
 
   test('csv tool accepts markdown pipe tables', () {
     final markdown = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 | name | score | note |
@@ -491,6 +521,7 @@ units,s,degC,kPa
 
   test('csv tool accepts copied sql ascii tables', () {
     final psql = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
  name | score | note
@@ -501,6 +532,7 @@ units,s,degC,kPa
 ''',
     );
     final mysql = controller.calculate(
+      strings: _strings,
       toolId: 'csv_json',
       input: '''
 +------+-------+
@@ -529,3 +561,10 @@ units,s,degC,kPa
     expect(mysql.insights.join('\n'), contains('已跳过 4 行 SQL/ASCII 表格边框或尾行'));
   });
 }
+
+/// 中文：这一族测试钉的是**中文下表里的字**，所以表要显式取中文那一份——`calculate` 的
+///       `strings` 是必填的，正是在这里把它变成"漏传就编译不过"。
+/// English: These tests pin the **Chinese entries in the table**, so the table is the Chinese one
+///          explicitly — `calculate`'s `strings` is required, and this is where that turns into
+///          "forget it and the build fails".
+final _strings = TextToolStrings.forLanguage(AppLanguage.zh);

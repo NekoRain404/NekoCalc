@@ -1,21 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/text_tool_controller.dart';
+import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   const controller = TextToolController();
 
   test('text tool output builds reusable copy text and status summaries', () {
-    final output = controller.calculate(toolId: 'base64', input: 'NekoCalc');
+    final output = controller.calculate(
+        strings: _strings, toolId: 'base64', input: 'NekoCalc');
 
     expect(output.hasError, isFalse);
-    expect(output.statusTitle, '结果可复用');
-    expect(output.statusMessage, contains('主结果 12 字符'));
-    expect(output.statusMessage, contains('详细结果'));
-    expect(output.statusMessage, contains('校核提示'));
+    expect(output.statusTitle(_strings.output), '结果可复用');
+    expect(output.statusMessage(_strings.output), contains('主结果 12 字符'));
+    expect(output.statusMessage(_strings.output), contains('详细结果'));
+    expect(output.statusMessage(_strings.output), contains('校核提示'));
     expect(output.primaryCopyText, 'TmVrb0NhbGM=');
     expect(output.detailCopyText, contains('Base64URL: TmVrb0NhbGM'));
 
-    final copyText = output.copyText(title: 'Base64', input: 'NekoCalc');
+    final copyText = output.copyText(
+        strings: _strings.output, title: 'Base64', input: 'NekoCalc');
     expect(copyText, startsWith('Base64'));
     expect(copyText, contains('输入:\nNekoCalc'));
     expect(copyText, contains('状态: 结果可复用'));
@@ -25,15 +29,17 @@ void main() {
   });
 
   test('text tool output reports invalid state without hiding detail', () {
-    final output = controller.calculate(toolId: 'json_format', input: '{bad');
+    final output = controller.calculate(
+        strings: _strings, toolId: 'json_format', input: '{bad');
 
     expect(output.hasError, isTrue);
-    expect(output.statusTitle, '输入需要修正');
-    expect(output.statusMessage, contains('FormatException'));
+    expect(output.statusTitle(_strings.output), '输入需要修正');
+    expect(output.statusMessage(_strings.output), contains('FormatException'));
     expect(output.primaryCopyText, '输入无效');
     expect(output.detailCopyText, contains('FormatException'));
 
-    final copyText = output.copyText(title: 'JSON 格式化', input: '{bad');
+    final copyText = output.copyText(
+        strings: _strings.output, title: 'JSON 格式化', input: '{bad');
     expect(copyText, contains('状态: 输入需要修正'));
     expect(copyText, contains('主结果:\n输入无效'));
     expect(copyText, contains('详细结果:'));
@@ -41,6 +47,7 @@ void main() {
 
   test('custom formula accepts pasted numeric variants', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'custom_formula',
       input: '',
       formula: 'a * b + c',
@@ -57,6 +64,7 @@ void main() {
 
   test('custom formula extracts formula and variables from pasted text', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'custom_formula',
       input: '''
 formula: a^2 + sqrt(b) - c
@@ -115,6 +123,7 @@ a^2 + sqrt(b) - c
 
   test('custom formula avoids replacing letters inside function names', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'custom_formula',
       input: '',
       formula: 'abs(a) + max(b, c)',
@@ -170,6 +179,7 @@ a^2 + sqrt(b) - c
 
   test('custom formula reports invalid variable input', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'custom_formula',
       input: '',
       formula: 'a + b',
@@ -186,6 +196,7 @@ a^2 + sqrt(b) - c
 
   test('custom formula reports non finite formula results', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'custom_formula',
       input: '',
       formula: 'a / b',
@@ -199,12 +210,14 @@ a^2 + sqrt(b) - c
   });
 
   test('base converter accepts common pasted integer variants', () {
-    final hashHex = controller.calculate(toolId: 'base_convert', input: '#FF');
-    final suffixHex =
-        controller.calculate(toolId: 'base_convert', input: 'FFh');
-    final fullWidthDecimal =
-        controller.calculate(toolId: 'base_convert', input: '１_０２４');
-    final octal = controller.calculate(toolId: 'base_convert', input: '0o755');
+    final hashHex = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '#FF');
+    final suffixHex = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: 'FFh');
+    final fullWidthDecimal = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '１_０２４');
+    final octal = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '0o755');
 
     expect(hashHex.primary, '255');
     expect(hashHex.detail, contains('十六进制: FF'));
@@ -221,13 +234,14 @@ a^2 + sqrt(b) - c
   });
 
   test('base converter accepts programming suffixes and constants', () {
-    final unsignedHex =
-        controller.calculate(toolId: 'base_convert', input: '0xFFu');
-    final longDecimal =
-        controller.calculate(toolId: 'base_convert', input: '255L');
-    final binary =
-        controller.calculate(toolId: 'base_convert', input: '0b1010_0001UL');
+    final unsignedHex = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '0xFFu');
+    final longDecimal = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '255L');
+    final binary = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '0b1010_0001UL');
     final constant = controller.calculate(
+      strings: _strings,
       toolId: 'base_convert',
       input: 'Integer.MAX_VALUE',
     );
@@ -248,10 +262,12 @@ a^2 + sqrt(b) - c
 
   test('bitwise accepts labeled integer variants', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'bitwise',
       input: 'A=0xF0, B=0b1010',
     );
     final constants = controller.calculate(
+      strings: _strings,
       toolId: 'bitwise',
       input: 'A=Integer.MAX_VALUE, B=0x0Fu',
     );
@@ -270,10 +286,12 @@ a^2 + sqrt(b) - c
   });
 
   test('integer tools report actionable invalid input', () {
-    final base = controller.calculate(toolId: 'base_convert', input: '0b102');
-    final bitwise = controller.calculate(toolId: 'bitwise', input: 'A=0xF0');
-    final suffix =
-        controller.calculate(toolId: 'base_convert', input: '0xFFuu');
+    final base = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '0b102');
+    final bitwise = controller.calculate(
+        strings: _strings, toolId: 'bitwise', input: 'A=0xF0');
+    final suffix = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '0xFFuu');
 
     expect(base.primary, '输入无效');
     expect(base.detail, contains('整数格式无效'));
@@ -286,3 +304,10 @@ a^2 + sqrt(b) - c
     expect(suffix.detail, contains('整数格式无效'));
   });
 }
+
+/// 中文：这一族测试钉的是**中文下表里的字**，所以表要显式取中文那一份——`calculate` 的
+///       `strings` 是必填的，正是在这里把它变成"漏传就编译不过"。
+/// English: These tests pin the **Chinese entries in the table**, so the table is the Chinese one
+///          explicitly — `calculate`'s `strings` is required, and this is where that turns into
+///          "forget it and the build fails".
+final _strings = TextToolStrings.forLanguage(AppLanguage.zh);

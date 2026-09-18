@@ -1,13 +1,14 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolCsvTools on TextToolController {
-  TextToolOutput _csvJson(String input) {
-    final jsonCsv = _tryConvertJsonToCsv(input);
+  TextToolOutput _csvJson(TextToolStrings strings, String input) {
+    final jsonCsv = _tryConvertJsonToCsv(strings, input);
     if (jsonCsv != null) return jsonCsv;
 
-    final table = _parseDelimitedTable(input);
+    final table = _parseDelimitedTable(strings, input);
     final records = table.records;
-    if (records.length < 2) throw const FormatException('至少需要表头和一行数据。');
+    if (records.length < 2)
+      throw FormatException(strings.data.csvNeedHeaderAndRow);
     final headers = _normalizeDelimitedHeaders(records.first);
     final inconsistentRows = <int>[];
     final rows = records.skip(1).toList().asMap().entries.map((entry) {
@@ -23,31 +24,36 @@ extension _TextToolCsvTools on TextToolController {
       return row;
     }).toList();
     return TextToolOutput(
-      '${rows.length} 行',
+      strings.data.rowCount(rows.length),
       const JsonEncoder.withIndent('  ').convert(rows),
       insights: [
-        '分隔符: ${_delimiterLabel(table.delimiter)}，列数: ${headers.length}。',
-        if (table.quotedCells > 0) '已处理 ${table.quotedCells} 个带引号字段。',
-        if (table.multilineFields > 0) '已保留 ${table.multilineFields} 个包含换行的字段。',
-        if (table.skippedEmptyRows > 0) '已跳过 ${table.skippedEmptyRows} 个空行。',
+        strings.data.csvDelimiterAndColumns(
+            _delimiterLabel(strings, table.delimiter), headers.length),
+        if (table.quotedCells > 0)
+          strings.data.csvQuotedCells(table.quotedCells),
+        if (table.multilineFields > 0)
+          strings.data.csvMultilineFields(table.multilineFields),
+        if (table.skippedEmptyRows > 0)
+          strings.data.csvSkippedEmptyRows(table.skippedEmptyRows),
         if (table.skippedMetadataRows > 0)
-          '已跳过 ${table.skippedMetadataRows} 行 CSV 元数据或注释。',
+          strings.data.csvSkippedMetadataRows(table.skippedMetadataRows),
         if (table.skippedMarkdownSeparatorRows > 0)
-          '已跳过 ${table.skippedMarkdownSeparatorRows} 行 Markdown 表格分隔线。',
+          strings.data
+              .csvSkippedMarkdownRows(table.skippedMarkdownSeparatorRows),
         if (table.skippedAsciiTableRows > 0)
-          '已跳过 ${table.skippedAsciiTableRows} 行 SQL/ASCII 表格边框或尾行。',
+          strings.data.csvSkippedAsciiTableRows(table.skippedAsciiTableRows),
         if (inconsistentRows.isNotEmpty)
-          '第 ${inconsistentRows.take(6).join(', ')} 行列数与表头不一致。',
+          strings.data.csvInconsistentRows(inconsistentRows.take(6).join(', ')),
       ],
     );
   }
 
-  TextToolOutput? _tryConvertJsonToCsv(String input) {
+  TextToolOutput? _tryConvertJsonToCsv(TextToolStrings strings, String input) {
     final trimmed = input.trimLeft();
     if (!_couldBeJsonCsvInput(trimmed)) return null;
     final _ParsedJsonInput parsed;
     try {
-      parsed = _parseJsonInput(input);
+      parsed = _parseJsonInput(strings.text, input);
     } on FormatException {
       return null;
     }
@@ -55,7 +61,7 @@ extension _TextToolCsvTools on TextToolController {
 
     final rows = _jsonRowsForCsv(decoded);
     if (rows.isEmpty) {
-      throw const FormatException('JSON 转 CSV 至少需要一个对象或标量值。');
+      throw FormatException(strings.data.csvJsonNeedsValue);
     }
     final headers = _jsonCsvHeaders(rows);
     final csvLines = <String>[
@@ -64,19 +70,20 @@ extension _TextToolCsvTools on TextToolController {
         headers.map((header) => _escapeCsvCell(row[header] ?? '')).join(','),
     ];
     return TextToolOutput(
-      '${rows.length} 行',
+      strings.data.rowCount(rows.length),
       csvLines.join('\n'),
       insights: [
-        '输入识别为 JSON，已转换为 CSV。',
+        strings.data.csvFromJson,
         if (parsed.extractedDescription != null)
-          '已从${parsed.extractedDescription}中提取 JSON。',
-        if (parsed.jsonLines) '输入识别为 JSON Lines / NDJSON，已按多行记录转换。',
-        if (parsed.normalizedJsonLike) '已兼容 JS 风格对象：注释、未加引号键、单引号或尾逗号已规范化。',
-        '列数: ${headers.length}。',
-        if (decoded is List) '顶层数组元素: ${decoded.length}。',
-        if (decoded is Map) '顶层对象已作为 1 行数据处理。',
-        if (_jsonRowsContainFlattenedKeys(rows)) '嵌套对象已展开为点号列名。',
-        if (_jsonRowsContainNestedValues(rows)) '嵌套对象/数组已按 JSON 文本写入单元格。',
+          strings.text.jsonExtractedFrom(parsed.extractedDescription!),
+        if (parsed.jsonLines) strings.data.csvJsonLinesConverted,
+        if (parsed.normalizedJsonLike) strings.text.jsonJsStyleNormalized,
+        strings.data.csvColumnCount(headers.length),
+        if (decoded is List) strings.data.csvTopLevelArray(decoded.length),
+        if (decoded is Map) strings.data.csvTopLevelObject,
+        if (_jsonRowsContainFlattenedKeys(rows))
+          strings.data.csvNestedFlattened,
+        if (_jsonRowsContainNestedValues(rows)) strings.data.csvNestedAsText,
       ],
     );
   }
@@ -161,9 +168,9 @@ extension _TextToolCsvTools on TextToolController {
     return '"${value.replaceAll('"', '""')}"';
   }
 
-  _DelimitedTable _parseDelimitedTable(String input) {
+  _DelimitedTable _parseDelimitedTable(TextToolStrings strings, String input) {
     final candidates = [',', '\t', ';', '|'].map((delimiter) {
-      return _parseDelimitedRecords(input, delimiter);
+      return _parseDelimitedRecords(strings, input, delimiter);
     }).toList();
     candidates.sort((a, b) {
       final aColumns = a.records.isEmpty ? 0 : a.records.first.length;
@@ -180,7 +187,11 @@ extension _TextToolCsvTools on TextToolController {
     return candidates.first;
   }
 
-  _DelimitedTable _parseDelimitedRecords(String input, String delimiter) {
+  _DelimitedTable _parseDelimitedRecords(
+    TextToolStrings strings,
+    String input,
+    String delimiter,
+  ) {
     final records = <List<String>>[];
     var row = <String>[];
     var field = StringBuffer();
@@ -269,7 +280,7 @@ extension _TextToolCsvTools on TextToolController {
       afterClosingQuote = false;
     }
 
-    if (inQuotes) throw const FormatException('CSV 引号未闭合。');
+    if (inQuotes) throw FormatException(strings.data.csvUnclosedQuote);
     if (row.isNotEmpty || field.isNotEmpty || fieldQuoted || !atStartOfField) {
       finishRecord();
     }
@@ -380,12 +391,12 @@ extension _TextToolCsvTools on TextToolController {
     return records.skip(1).where((row) => row.length != columns).length;
   }
 
-  String _delimiterLabel(String delimiter) {
+  String _delimiterLabel(TextToolStrings strings, String delimiter) {
     return switch (delimiter) {
       '\t' => 'Tab',
-      ',' => '逗号',
-      ';' => '分号',
-      '|' => '竖线',
+      ',' => strings.data.delimiterComma,
+      ';' => strings.data.delimiterSemicolon,
+      '|' => strings.data.delimiterPipe,
       _ => delimiter,
     };
   }

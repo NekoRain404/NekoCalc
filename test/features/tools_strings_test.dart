@@ -297,7 +297,10 @@ void main() {
       'copyPrimaryResult': [zh.copyPrimaryResult, en.copyPrimaryResult],
       'statusInputInvalid': [zh.statusInputInvalid, en.statusInputInvalid],
       'statusResultCheck': [zh.statusResultCheck, en.statusResultCheck],
-      'statusResultReusable': [zh.statusResultReusable, en.statusResultReusable],
+      'statusResultReusable': [
+        zh.statusResultReusable,
+        en.statusResultReusable
+      ],
       'fixInputsFirst': [zh.fixInputsFirst, en.fixInputsFirst],
       'fixInputsFirstWith': [
         zh.fixInputsFirstWith('s'),
@@ -431,10 +434,7 @@ void main() {
         fitEn.sampleMultiColumnNote
       ],
       'fit.sampleHeader': [fitZh.sampleHeader, fitEn.sampleHeader],
-      'fit.sampleHeaderNote': [
-        fitZh.sampleHeaderNote,
-        fitEn.sampleHeaderNote
-      ],
+      'fit.sampleHeaderNote': [fitZh.sampleHeaderNote, fitEn.sampleHeaderNote],
       'fit.sampleLocalized': [fitZh.sampleLocalized, fitEn.sampleLocalized],
       'fit.sampleLocalizedNote': [
         fitZh.sampleLocalizedNote,
@@ -463,12 +463,10 @@ void main() {
     // English: the Chinese side must hold no empty string either: on screen it renders as a blank
     //          cell, the hardest kind of missing copy to notice.
     for (final entry in pairs.entries) {
-      expect(entry.value[0].trim(), isNotEmpty,
-          reason: '${entry.key} 中文侧是空的');
+      expect(entry.value[0].trim(), isNotEmpty, reason: '${entry.key} 中文侧是空的');
     }
     for (final entry in pairs.entries) {
-      expect(entry.value[1].trim(), isNotEmpty,
-          reason: '${entry.key} 英文侧是空的');
+      expect(entry.value[1].trim(), isNotEmpty, reason: '${entry.key} 英文侧是空的');
       expect(_containsCjk(entry.value[1]), isFalse,
           reason: '${entry.key} 英文侧还有汉字：${entry.value[1]}');
       expect(entry.value[0], isNot(entry.value[1]),
@@ -485,9 +483,17 @@ void main() {
     for (final entity in directory.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final name = entity.uri.pathSegments.last;
-      // 中文：两张文案表自己就是汉字住的地方，跳过它们。
-      // English: the two tables are where the Chinese is *supposed* to live; skip them.
-      if (name == 'tools_strings.dart' || name == 'data_fit_strings.dart') {
+      // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有四张
+      //       （门面 + 识别组 + 统计 + 数据组），它们和这两张一样是本目录里的"汉字之家"。
+      // English: the tables are where the Chinese is *supposed* to live; skip them. The text-tool
+      //          family has four (facade + recognition + statistics + data) and they are "Chinese
+      //          homes" in this directory just like these two.
+      if (name == 'tools_strings.dart' ||
+          name == 'data_fit_strings.dart' ||
+          name == 'text_tool_strings.dart' ||
+          name == 'text_tool_text_strings.dart' ||
+          name == 'text_tool_stats_strings.dart' ||
+          name == 'text_tool_data_strings.dart') {
         continue;
       }
       final source = _stripComments(entity.readAsStringSync());
@@ -498,7 +504,8 @@ void main() {
     }
 
     expect(offenders, isEmpty,
-        reason: '这些界面字面量还没走 ToolsStrings / DataFitStrings：\n${offenders.join('\n')}');
+        reason:
+            '这些界面字面量还没走 ToolsStrings / DataFitStrings：\n${offenders.join('\n')}');
   });
 
   testWidgets('没有装作用域时工具首页仍渲染中文（默认态不变）', (tester) async {
@@ -598,9 +605,9 @@ void main() {
   testWidgets('工具卡片上的「个工具」跟着语言走', (tester) async {
     await tester.pumpWidget(_app(
       const ToolSearchEmptyState(
-          message: 'm',
-          suggestions: <String>[],
-          examples: <String>[],
+        message: 'm',
+        suggestions: <String>[],
+        examples: <String>[],
         onQuerySelected: _noopString,
         alternatives: <Widget>[Text('alt')],
       ),

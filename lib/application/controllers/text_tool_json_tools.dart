@@ -1,13 +1,14 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolJsonTools on TextToolController {
-  TextToolOutput _jsonFormat(String input) {
-    final parsed = _parseJsonInput(input);
+  TextToolOutput _jsonFormat(TextToolTextStrings strings, String input) {
+    final parsed = _parseJsonInput(strings, input);
     const encoder = JsonEncoder.withIndent('  ');
     return TextToolOutput(
-      parsed.jsonLines ? 'JSON Lines 有效' : 'JSON 有效',
+      parsed.jsonLines ? strings.jsonLinesValid : strings.jsonValid,
       encoder.convert(parsed.value),
       insights: _jsonInsights(
+        strings,
         parsed.value,
         jsonLines: parsed.jsonLines,
         normalizedJsonLike: parsed.normalizedJsonLike,
@@ -16,13 +17,15 @@ extension _TextToolJsonTools on TextToolController {
     );
   }
 
-  _ParsedJsonInput _parseJsonInput(String input) {
-    final extracted = _extractJsonInput(input.replaceFirst('\ufeff', ''));
+  _ParsedJsonInput _parseJsonInput(TextToolTextStrings strings, String input) {
+    final extracted =
+        _extractJsonInput(strings, input.replaceFirst('\ufeff', ''));
     final normalized = extracted.value.trim();
-    if (normalized.isEmpty) throw const FormatException('请输入 JSON 文本');
+    if (normalized.isEmpty) throw FormatException(strings.jsonEmpty);
     try {
       final decoded = json.decode(normalized);
       final decodedString = _tryParseJsonStringValue(
+        strings,
         decoded,
         extracted.description,
       );
@@ -35,6 +38,7 @@ extension _TextToolJsonTools on TextToolController {
       );
     } on FormatException catch (firstError) {
       final embeddedString = _tryParseEmbeddedJsonString(
+        strings,
         normalized,
         extracted.description,
       );
@@ -109,6 +113,7 @@ extension _TextToolJsonTools on TextToolController {
   }
 
   _ParsedJsonInput? _tryParseJsonStringValue(
+    TextToolTextStrings strings,
     Object? decoded,
     String? sourceDescription,
   ) {
@@ -119,11 +124,13 @@ extension _TextToolJsonTools on TextToolController {
       value: parsed.$1,
       jsonLines: false,
       normalizedJsonLike: parsed.$2,
-      extractedDescription: _jsonStringSourceDescription(sourceDescription),
+      extractedDescription:
+          _jsonStringSourceDescription(strings, sourceDescription),
     );
   }
 
   _ParsedJsonInput? _tryParseEmbeddedJsonString(
+    TextToolTextStrings strings,
     String input,
     String? sourceDescription,
   ) {
@@ -134,7 +141,8 @@ extension _TextToolJsonTools on TextToolController {
         value: parsed.$1,
         jsonLines: false,
         normalizedJsonLike: parsed.$2,
-        extractedDescription: _jsonStringSourceDescription(sourceDescription),
+        extractedDescription:
+            _jsonStringSourceDescription(strings, sourceDescription),
       );
     }
     return null;
@@ -156,10 +164,13 @@ extension _TextToolJsonTools on TextToolController {
     }
   }
 
-  String _jsonStringSourceDescription(String? sourceDescription) {
+  String _jsonStringSourceDescription(
+    TextToolTextStrings strings,
+    String? sourceDescription,
+  ) {
     return sourceDescription == null
-        ? '转义 JSON 字符串'
-        : '$sourceDescription中的转义 JSON 字符串';
+        ? strings.jsonEscapedString
+        : strings.jsonEscapedStringIn(sourceDescription);
   }
 
   List<String> _quotedStringCandidates(String input) {
@@ -237,14 +248,16 @@ extension _TextToolJsonTools on TextToolController {
     return buffer.toString();
   }
 
-  _ExtractedJsonInput _extractJsonInput(String input) {
+  _ExtractedJsonInput _extractJsonInput(
+      TextToolTextStrings strings, String input) {
     final trimmed = input.trim();
     final fence = RegExp(
       r'```(?:json|jsonc|javascript|js)?\s*([\s\S]*?)```',
       caseSensitive: false,
     ).firstMatch(trimmed);
     if (fence != null) {
-      return _ExtractedJsonInput(fence.group(1)!.trim(), 'Markdown 代码块');
+      return _ExtractedJsonInput(
+          fence.group(1)!.trim(), strings.jsonSourceMarkdownFence);
     }
 
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -257,7 +270,7 @@ extension _TextToolJsonTools on TextToolController {
 
     final candidate = _extractBalancedJsonCandidate(trimmed);
     if (candidate != null) {
-      return _ExtractedJsonInput(candidate, '粘贴文本');
+      return _ExtractedJsonInput(candidate, strings.jsonSourcePastedText);
     }
     return _ExtractedJsonInput(trimmed, null);
   }
@@ -422,6 +435,7 @@ extension _TextToolJsonTools on TextToolController {
   }
 
   List<String> _jsonInsights(
+    TextToolTextStrings strings,
     Object? decoded, {
     required bool jsonLines,
     required bool normalizedJsonLike,
@@ -429,21 +443,22 @@ extension _TextToolJsonTools on TextToolController {
   }) {
     final stats = _collectJsonStats(decoded);
     return [
-      if (extractedDescription != null) '已从$extractedDescription中提取 JSON。',
-      if (jsonLines) '输入识别为 JSON Lines / NDJSON，已转换为数组。',
-      if (normalizedJsonLike) '已兼容 JS 风格对象：注释、未加引号键、单引号或尾逗号已规范化。',
+      if (extractedDescription != null)
+        strings.jsonExtractedFrom(extractedDescription),
+      if (jsonLines) strings.jsonLinesConverted,
+      if (normalizedJsonLike) strings.jsonJsStyleNormalized,
       switch (decoded) {
-        Map() => '顶层类型: Object，键数量: ${decoded.length}。',
-        List() => '顶层类型: Array，元素数量: ${decoded.length}。',
-        String() => '顶层类型: String。',
-        num() => '顶层类型: Number。',
-        bool() => '顶层类型: Boolean。',
-        null => '顶层类型: Null。',
-        _ => '顶层类型: ${decoded.runtimeType}。',
+        Map() => strings.jsonTopLevelObject(decoded.length),
+        List() => strings.jsonTopLevelArray(decoded.length),
+        String() => strings.jsonTopLevelString,
+        num() => strings.jsonTopLevelNumber,
+        bool() => strings.jsonTopLevelBoolean,
+        null => strings.jsonTopLevelNull,
+        _ => strings.jsonTopLevelOther('${decoded.runtimeType}'),
       },
-      '结构: Object ${stats.objects}，Array ${stats.arrays}，标量 ${stats.scalars}。',
-      '总键数: ${stats.keys}，最大深度: ${stats.maxDepth}。',
-      if (stats.nulls > 0) '包含 null 值: ${stats.nulls}。',
+      strings.jsonStructure(stats.objects, stats.arrays, stats.scalars),
+      strings.jsonKeysAndDepth(stats.keys, stats.maxDepth),
+      if (stats.nulls > 0) strings.jsonNullCount(stats.nulls),
     ];
   }
 

@@ -1,13 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/text_tool_controller.dart';
+import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   const controller = TextToolController();
 
   test('base64 tool still detects plain text and encoded text', () {
-    final encoded = controller.calculate(toolId: 'base64', input: 'NekoCalc');
-    final decoded =
-        controller.calculate(toolId: 'base64', input: encoded.primary);
+    final encoded = controller.calculate(
+        strings: _strings, toolId: 'base64', input: 'NekoCalc');
+    final decoded = controller.calculate(
+        strings: _strings, toolId: 'base64', input: encoded.primary);
 
     expect(encoded.primary, 'TmVrb0NhbGM=');
     expect(encoded.detail, contains('标准 Base64'));
@@ -25,11 +28,14 @@ void main() {
 
   test('base64 tool supports data urls url safe payloads and wrapped text', () {
     final dataUrl = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: 'data:text/plain;base64,SGVsbG8sIE5la29DYWxjIQ==',
     );
-    final urlSafe = controller.calculate(toolId: 'base64', input: '8J-RiA');
+    final urlSafe = controller.calculate(
+        strings: _strings, toolId: 'base64', input: '8J-RiA');
     final wrapped = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: 'SGVs\nbG8=',
     );
@@ -52,14 +58,17 @@ void main() {
 
   test('base64 tool extracts payloads from labeled text', () {
     final labeled = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: 'base64: SGVsbG8=',
     );
     final json = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: '{"payload":"TmVrb0NhbGM="}',
     );
     final log = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: 'decoded payload=VGVzdA== status=ok',
     );
@@ -75,6 +84,7 @@ void main() {
 
   test('base64 tool extracts payloads from pem and markdown blocks', () {
     final pem = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: '''
 -----BEGIN MESSAGE-----
@@ -83,6 +93,7 @@ SGVsbG8sIE5la29DYWxjIQ==
 ''',
     );
     final markdown = controller.calculate(
+      strings: _strings,
       toolId: 'base64',
       input: '''
 ```base64
@@ -103,22 +114,27 @@ TmVrb0NhbGM=
 
   test('url codec handles full urls query strings and encoded plus', () {
     final encodedUrl = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'https://example.com/search?q=Neko Calc&lang=中文',
     );
     final decodedQuery = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'q=Neko+Calc&lang=%E4%B8%AD%E6%96%87',
     );
     final component = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'Neko Calc/中文',
     );
     final plusOnlyQuery = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'q=Neko+Calc&tag=graph+tool',
     );
     final plusOnlyUrl = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'https://example.com/search?q=Neko+Calc&tag=graph+tool',
     );
@@ -154,33 +170,40 @@ TmVrb0NhbGM=
 
   test('url codec extracts urls from request lines and curl commands', () {
     final request = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'GET /search?q=Neko+Calc&lang=%E4%B8%AD%E6%96%87 HTTP/1.1',
     );
     final curl = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input:
           "curl 'https://example.com/search?q=Neko+Calc&lang=%E4%B8%AD%E6%96%87' -H 'Accept: application/json'",
     );
     final encodedRequest = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: 'GET /search?q=Neko Calc&lang=中文 HTTP/1.1',
     );
     final encodedCurl = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: "curl --url 'https://example.com/search?q=Neko Calc&lang=中文'",
     );
     final curlGet = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input:
           "curl -G 'https://example.com/search?page=1' --data-urlencode 'q=Neko Calc'",
     );
     final curlUrlQuery = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input:
           "curl --url 'https://example.com/search?page=1#top' --url-query 'q=Neko Calc' --url-query=lang=中文",
     );
     final curlAnsiQuoted = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input:
           r"curl $'https://example.com/search?q=Neko\x20Calc&lang=\u4e2d\u6587'",
@@ -224,10 +247,12 @@ TmVrb0NhbGM=
 
   test('url codec preserves leading question mark for query strings', () {
     final decoded = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: '?q=Neko+Calc&lang=%E4%B8%AD%E6%96%87',
     );
     final encoded = controller.calculate(
+      strings: _strings,
       toolId: 'url_codec',
       input: '?q=Neko Calc&lang=中文',
     );
@@ -239,11 +264,13 @@ TmVrb0NhbGM=
 
   test('html entity codec handles numeric entities and keeps unknown ones', () {
     final decoded = controller.calculate(
+      strings: _strings,
       toolId: 'html_entities',
       input:
           '&lt;span title=&quot;Neko&quot;&gt;&#x4E2D;&#25991;&nbsp;&unknown;</span>',
     );
     final encoded = controller.calculate(
+      strings: _strings,
       toolId: 'html_entities',
       input: '<span title="Neko">中文 & tools</span>',
     );
@@ -262,6 +289,7 @@ TmVrb0NhbGM=
 
   test('html entity codec decodes common named entities', () {
     final decoded = controller.calculate(
+      strings: _strings,
       toolId: 'html_entities',
       input:
           'Price &euro;9.99 &middot; Neko&rsquo;s &le; 10&Prime; &Alpha;&alpha; &unknown;',
@@ -274,14 +302,17 @@ TmVrb0NhbGM=
 
   test('ascii unicode analyzes characters and decodes code point notation', () {
     final analyzed = controller.calculate(
+      strings: _strings,
       toolId: 'ascii_unicode',
       input: 'A中👈',
     );
     final decoded = controller.calculate(
+      strings: _strings,
       toolId: 'ascii_unicode',
       input: r'U+0041 \u4E2D \u{1F448} &#25991;',
     );
     final decimal = controller.calculate(
+      strings: _strings,
       toolId: 'ascii_unicode',
       input: '65, 20013, 128072',
     );
@@ -307,6 +338,7 @@ TmVrb0NhbGM=
 
   test('ascii unicode reports invalid code points', () {
     final invalid = controller.calculate(
+      strings: _strings,
       toolId: 'ascii_unicode',
       input: 'U+110000',
     );
@@ -317,21 +349,27 @@ TmVrb0NhbGM=
   });
 
   test('checksum accepts text and hex byte input', () {
-    final text = controller.calculate(toolId: 'checksum', input: 'ABC');
-    final hex = controller.calculate(toolId: 'checksum', input: '41 42 43');
+    final text = controller.calculate(
+        strings: _strings, toolId: 'checksum', input: 'ABC');
+    final hex = controller.calculate(
+        strings: _strings, toolId: 'checksum', input: '41 42 43');
     final prefixedHex = controller.calculate(
+      strings: _strings,
       toolId: 'checksum',
       input: 'const uint8_t data[] = {0x41, 0x42, 0x43};',
     );
     final decimal = controller.calculate(
+      strings: _strings,
       toolId: 'checksum',
       input: '[65, 66, 67]',
     );
     final base64Bytes = controller.calculate(
+      strings: _strings,
       toolId: 'checksum',
       input: 'base64: QUJD',
     );
     final dataUrlBytes = controller.calculate(
+      strings: _strings,
       toolId: 'checksum',
       input: 'data:application/octet-stream;base64,QUJD',
     );
@@ -369,17 +407,22 @@ TmVrb0NhbGM=
   });
 
   test('fnv crc accepts hex bytes and reports invalid byte text', () {
-    final text = controller.calculate(toolId: 'fnv_crc', input: '123456789');
+    final text = controller.calculate(
+        strings: _strings, toolId: 'fnv_crc', input: '123456789');
     final hex = controller.calculate(
+      strings: _strings,
       toolId: 'fnv_crc',
       input: r'\x31 \x32 \x33 \x34 \x35 \x36 \x37 \x38 \x39',
     );
     final base64Bytes = controller.calculate(
+      strings: _strings,
       toolId: 'fnv_crc',
       input: 'base64: MTIzNDU2Nzg5',
     );
-    final invalid = controller.calculate(toolId: 'checksum', input: '0xABC');
+    final invalid = controller.calculate(
+        strings: _strings, toolId: 'checksum', input: '0xABC');
     final outOfRange = controller.calculate(
+      strings: _strings,
       toolId: 'checksum',
       input: '[65, 256]',
     );
@@ -403,8 +446,10 @@ TmVrb0NhbGM=
   });
 
   test('uuid tool generates v4 uuids and normalizes pasted values', () {
-    final generated = controller.calculate(toolId: 'uuid', input: '');
+    final generated =
+        controller.calculate(strings: _strings, toolId: 'uuid', input: '');
     final parsed = controller.calculate(
+      strings: _strings,
       toolId: 'uuid',
       input: '{550E8400E29B41D4A716446655440000}',
     );
@@ -427,14 +472,17 @@ TmVrb0NhbGM=
 
   test('uuid tool extracts guid json and byte array inputs', () {
     final guid = controller.calculate(
+      strings: _strings,
       toolId: 'uuid',
       input: 'Guid("550E8400-E29B-41D4-A716-446655440000")',
     );
     final json = controller.calculate(
+      strings: _strings,
       toolId: 'uuid',
       input: '{"requestId":"ignore","uuid":"550e8400e29b41d4a716446655440000"}',
     );
     final bytes = controller.calculate(
+      strings: _strings,
       toolId: 'uuid',
       input:
           'new byte[] { 0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00 }',
@@ -452,6 +500,7 @@ TmVrb0NhbGM=
 
   test('uuid tool rejects invalid uuid text', () {
     final invalid = controller.calculate(
+      strings: _strings,
       toolId: 'uuid',
       input: '550e8400-e29b41d4-a716-446655440000',
     );
@@ -460,3 +509,10 @@ TmVrb0NhbGM=
     expect(invalid.detail, contains('UUID 连字符位置应为 8-4-4-4-12'));
   });
 }
+
+/// 中文：这一族测试钉的是**中文下表里的字**，所以表要显式取中文那一份——`calculate` 的
+///       `strings` 是必填的，正是在这里把它变成"漏传就编译不过"。
+/// English: These tests pin the **Chinese entries in the table**, so the table is the Chinese one
+///          explicitly — `calculate`'s `strings` is required, and this is where that turns into
+///          "forget it and the build fails".
+final _strings = TextToolStrings.forLanguage(AppLanguage.zh);

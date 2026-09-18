@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:characters/characters.dart';
 
 import '../../core/math/expression_parser.dart';
+import '../../features/tools/presentation/text_tool_strings.dart';
 import 'text_tool_models.dart';
 import 'tool_detail_controller.dart';
 
@@ -95,8 +96,28 @@ class TextToolController {
     );
   }
 
+  /// 中文：**`strings` 是必填的，没有中文兜底。** 这条签名是这一族唯一一道"语言可能漏传"的
+  ///       闸门，所以它选择编译不过而不是静默回落到中文：漏传的后果是英文界面里蹦出一整屏
+  ///       中文长句，而那种事在评审里几乎看不出来。屏幕那边在 `build` 里取一次
+  ///       `TextToolStrings.of(context)` 递进来；纯 Dart 测试里用
+  ///       `TextToolStrings.forLanguage(AppLanguage.zh)`，与"默认态逐字节不变"取的是同一张表。
+  ///
+  ///       **还没有接表的几条分支**（编解码组与数据组）本轮没动，它们仍在原地产出中文，
+  ///       见 `text_tool_strings.dart` 的文件头——是已知残留，不是漏翻。
+  /// English: **`strings` is required, with no Chinese fallback.** This signature is the family's
+  ///          one gate against "the language was forgotten", so it chooses a compile error over a
+  ///          silent fall back to Chinese: forgetting it puts a screenful of Chinese sentences into
+  ///          an English interface, and that is close to invisible in review. The screen reads
+  ///          `TextToolStrings.of(context)` once in `build` and passes it in; plain Dart tests use
+  ///          `TextToolStrings.forLanguage(AppLanguage.zh)`, the same table the "default state stays
+  ///          byte-identical" rule is about.
+  ///
+  ///          **Branches that do not take a table yet** (the codec and data groups) were not touched
+  ///          this round and still produce Chinese in place — a known remainder, see
+  ///          `text_tool_strings.dart`'s file head, not a missed translation.
   TextToolOutput calculate({
     required String toolId,
+    required TextToolStrings strings,
     required String input,
     String formula = 'a * b + c',
     String a = '12',
@@ -111,48 +132,59 @@ class TextToolController {
         'color_convert' => _colorConvert(trimmed),
         'base64' => _base64(trimmed),
         'url_codec' => _urlCodec(trimmed),
-        'json_format' => _jsonFormat(trimmed),
-        'ascii_unicode' => _asciiUnicode(input),
+        'json_format' => _jsonFormat(strings.text, trimmed),
+        'ascii_unicode' => _asciiUnicode(strings.stats, input),
         'bitwise' => _bitwise(trimmed),
         'checksum' => _checksum(input),
-        'uuid' => _uuid(trimmed),
-        'jwt_decode' => _jwtDecode(trimmed),
+        'uuid' => _uuid(strings.text, trimmed),
+        'jwt_decode' => _jwtDecode(strings, trimmed),
         'query_params' => _queryParams(trimmed),
-        'html_entities' => _htmlEntities(input),
-        'regex_test' => _regexTest(input),
-        'text_stats' => _textStats(input),
-        'csv_json' => _csvJson(input),
+        'html_entities' => _htmlEntities(strings.output, input),
+        'regex_test' => _regexTest(strings.text, input),
+        'text_stats' => _textStats(strings.stats, input),
+        'csv_json' => _csvJson(strings, input),
         'fnv_crc' => _fnvCrc(input),
-        'custom_formula' =>
-          _customFormula(input: input, formula: formula, a: a, b: b, c: c),
-        _ => const TextToolOutput('不支持的文本工具', '请从工具中心打开已登记的编程与数据工具。'),
+        'custom_formula' => _customFormula(
+            strings: strings,
+            input: input,
+            formula: formula,
+            a: a,
+            b: b,
+            c: c,
+          ),
+        _ => TextToolOutput(
+            strings.output.unsupportedTool,
+            strings.output.unsupportedToolDetail,
+            hasError: true,
+          ),
       };
     } catch (error) {
       return TextToolOutput(
-        '输入无效',
+        strings.output.invalidInput,
         error.toString(),
-        insights: const ['请检查输入格式后重试。'],
+        hasError: true,
+        insights: [strings.output.retryHint],
       );
     }
   }
 
-  TextToolOutput _htmlEntities(String input) {
+  TextToolOutput _htmlEntities(TextToolOutputStrings strings, String input) {
     final decoded = _decodeHtmlEntities(input);
     if (decoded.changedCount > 0) {
       return TextToolOutput(
         decoded.value,
-        '检测为 HTML 实体文本，已解码 ${decoded.changedCount} 处实体。\n未知实体: ${decoded.unknownCount}',
+        strings.htmlEntityDecoded(decoded.changedCount, decoded.unknownCount),
         insights: [
-          '支持常见命名实体、十进制数字实体和十六进制数字实体。',
-          if (decoded.unknownCount > 0) '未知实体已保留原文，避免误改内容。',
+          strings.htmlEntitySupport,
+          if (decoded.unknownCount > 0) strings.htmlEntityUnknownKept,
         ],
       );
     }
     final encoded = _encodeHtmlEntities(input);
     return TextToolOutput(
       encoded,
-      '检测为普通文本，已编码 HTML 特殊字符。',
-      insights: const ['已转义 &、<、>、引号、撇号和不间断空格。'],
+      strings.htmlTextEncoded,
+      insights: [strings.htmlEscaped],
     );
   }
 }

@@ -1,22 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/text_tool_controller.dart';
+import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   const controller = TextToolController();
 
   test('color converter accepts shorthand rgba and argb hex', () {
-    final shortHex =
-        controller.calculate(toolId: 'color_convert', input: '#5bf');
+    final shortHex = controller.calculate(
+        strings: _strings, toolId: 'color_convert', input: '#5bf');
     final rgba = controller.calculate(
-        toolId: 'color_convert', input: 'rgba(91, 71, 255, 0.5)');
+        strings: _strings,
+        toolId: 'color_convert',
+        input: 'rgba(91, 71, 255, 0.5)');
     final cssRgb = controller.calculate(
-        toolId: 'color_convert', input: 'rgb(91 71 255 / 50%)');
+        strings: _strings,
+        toolId: 'color_convert',
+        input: 'rgb(91 71 255 / 50%)');
     final percentRgb = controller.calculate(
-        toolId: 'color_convert', input: 'rgb(100% 0% 50%)');
-    final argb =
-        controller.calculate(toolId: 'color_convert', input: '#805B47FF');
-    final prefixedArgb =
-        controller.calculate(toolId: 'color_convert', input: '0xff5b47ff');
+        strings: _strings, toolId: 'color_convert', input: 'rgb(100% 0% 50%)');
+    final argb = controller.calculate(
+        strings: _strings, toolId: 'color_convert', input: '#805B47FF');
+    final prefixedArgb = controller.calculate(
+        strings: _strings, toolId: 'color_convert', input: '0xff5b47ff');
 
     expect(shortHex.primary, 'rgb(85, 187, 255)');
     expect(shortHex.detail, contains('HEX: #55BBFF'));
@@ -44,18 +50,22 @@ void main() {
 
   test('color converter accepts mobile and labeled color formats', () {
     final flutterColor = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'Color(0x805B47FF)',
     );
     final argbTuple = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'ARGB: 128, 91, 71, 255',
     );
     final labeledRgb = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'r=91 g=71 b=255 a=50%',
     );
     final labeledHex = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: '色值: 5B47FF',
     );
@@ -80,38 +90,47 @@ void main() {
 
   test('color converter accepts hsl hsla and named colors', () {
     final hsl = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'hsl(250, 100%, 60%)',
     );
     final hsla = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'hsl(250 100% 60% / 50%)',
     );
     final turnHue = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'hsl(0.5turn 100% 50%)',
     );
     final radHue = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'hsl(3.141592653589793rad 100% 50%)',
     );
     final gradHue = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'hsl(200grad 100% 50%)',
     );
     final named = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'rebeccapurple',
     );
     final transparent = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'transparent',
     );
     final dodgerBlue = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'dodgerblue',
     );
     final slateGray = controller.calculate(
+      strings: _strings,
       toolId: 'color_convert',
       input: 'slategrey',
     );
@@ -146,22 +165,27 @@ void main() {
 
   test('timestamp converter accepts iso and local date strings', () {
     final iso = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '2026-06-08T09:30:00Z',
     );
     final local = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '2026/06/08 09:30:00',
     );
     final decimalSeconds = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000.123s',
     );
     final millis = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000123ms',
     );
     final chinese = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '2026年6月8日 09:30:00',
     );
@@ -186,22 +210,27 @@ void main() {
 
   test('timestamp converter accepts pasted labeled and compact variants', () {
     final offset = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '2026-06-08 09:30:00 +0800',
     );
     final compactDateTime = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '20260608093000',
     );
     final compactDate = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '20260608',
     );
     final labeled = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: 'created_at: 2026年6月8日 09时30分05秒',
     );
     final json = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '{"event":"login","timestamp":"1700000000.123s"}',
     );
@@ -226,22 +255,27 @@ void main() {
 
   test('timestamp converter accepts rfc and named timezone date strings', () {
     final rfc = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: 'Mon, 08 Jun 2026 09:30:00 GMT',
     );
     final labeledHeader = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: 'Date: Mon, 08 Jun 2026 09:30:00 GMT',
     );
     final gmtSuffix = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '2026-06-08 09:30:00 GMT',
     );
     final beijingPrefix = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '北京时间 2026-06-08 09:30:00',
     );
     final englishMonthOffset = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '08 Jun 2026 09:30:00 +0800',
     );
@@ -262,18 +296,22 @@ void main() {
 
   test('timestamp converter accepts microsecond and nanosecond epochs', () {
     final micro = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000123456',
     );
     final nano = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000123456789',
     );
     final explicitMicro = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000123456us',
     );
     final explicitNano = controller.calculate(
+      strings: _strings,
       toolId: 'timestamp',
       input: '1700000000123456789ns',
     );
@@ -291,3 +329,10 @@ void main() {
     expect(explicitNano.insights, contains('输入识别为带单位的纳秒时间戳。'));
   });
 }
+
+/// 中文：这一族测试钉的是**中文下表里的字**，所以表要显式取中文那一份——`calculate` 的
+///       `strings` 是必填的，正是在这里把它变成"漏传就编译不过"。
+/// English: These tests pin the **Chinese entries in the table**, so the table is the Chinese one
+///          explicitly — `calculate`'s `strings` is required, and this is where that turns into
+///          "forget it and the build fails".
+final _strings = TextToolStrings.forLanguage(AppLanguage.zh);

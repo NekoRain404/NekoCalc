@@ -1,10 +1,12 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolRegexTools on TextToolController {
-  TextToolOutput _regexTest(String input) {
+  TextToolOutput _regexTest(TextToolTextStrings strings, String input) {
     final lines = const LineSplitter().convert(input);
-    if (lines.length < 2) throw const FormatException('第一行输入正则，后续行输入测试文本。');
-    final spec = _parseRegexInput(lines);
+    if (lines.length < 2) {
+      throw FormatException(strings.regexNeedTwoLines);
+    }
+    final spec = _parseRegexInput(strings, lines);
     final regex = RegExp(
       spec.pattern,
       multiLine: spec.multiLine,
@@ -16,23 +18,26 @@ extension _TextToolRegexTools on TextToolController {
     final matches = regex.allMatches(text).toList();
     final detail = matches.take(50).map(_formatRegexMatch).join('\n');
     return TextToolOutput(
-      '${matches.length} 个匹配',
-      detail.isEmpty ? '没有匹配项' : detail,
+      strings.regexMatchCount(matches.length),
+      detail.isEmpty ? strings.regexNoMatches : detail,
       insights: [
         'Flags: ${spec.displayFlags}',
-        if (spec.labeledInput) '已识别 pattern/text 标签格式。',
-        if (spec.global) '已兼容 g/global 标志；本工具默认列出所有匹配。',
-        if (matches.length > 50) '仅展示前 50 个匹配项。',
-        if (matches.isEmpty) '当前正则没有命中测试文本。',
-        if (spec.pattern.isEmpty) '正则为空，会匹配所有位置。',
+        if (spec.labeledInput) strings.regexLabeledInput,
+        if (spec.global) strings.regexGlobalFlag,
+        if (matches.length > 50) strings.regexFirst50,
+        if (matches.isEmpty) strings.regexNoHit,
+        if (spec.pattern.isEmpty) strings.regexEmptyPattern,
         if (matches.any((match) => match.groupCount > 0))
-          '包含捕获组，详情中已列出 group 值。',
+          strings.regexHasGroups,
       ],
     );
   }
 
-  _RegexInputSpec _parseRegexInput(List<String> lines) {
-    final labeled = _parseLabeledRegexInput(lines);
+  _RegexInputSpec _parseRegexInput(
+    TextToolTextStrings strings,
+    List<String> lines,
+  ) {
+    final labeled = _parseLabeledRegexInput(strings, lines);
     if (labeled != null) return labeled;
 
     var patternLine = lines.first.trim();
@@ -53,7 +58,7 @@ extension _TextToolRegexTools on TextToolController {
     }
     final normalizedFlags = flags.toLowerCase();
     if (normalizedFlags.contains(RegExp(r'[^gimsu]'))) {
-      throw const FormatException('正则 flags 仅支持 g、i、m、s、u');
+      throw FormatException(strings.regexFlagsUnsupported);
     }
     final effectiveFlags =
         normalizedFlags.replaceAll('g', '').split('').toSet().join();
@@ -66,7 +71,10 @@ extension _TextToolRegexTools on TextToolController {
     );
   }
 
-  _RegexInputSpec? _parseLabeledRegexInput(List<String> lines) {
+  _RegexInputSpec? _parseLabeledRegexInput(
+    TextToolTextStrings strings,
+    List<String> lines,
+  ) {
     String? pattern;
     String? flags;
     var textLines = <String>[];
@@ -111,7 +119,7 @@ extension _TextToolRegexTools on TextToolController {
     final mergedFlags = flags ?? parsedPattern.$2;
     final normalizedFlags = mergedFlags.toLowerCase();
     if (normalizedFlags.contains(RegExp(r'[^gimsu]'))) {
-      throw const FormatException('正则 flags 仅支持 g、i、m、s、u');
+      throw FormatException(strings.regexFlagsUnsupported);
     }
     final effectiveFlags =
         normalizedFlags.replaceAll('g', '').split('').toSet().join();

@@ -1,24 +1,25 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolUuidTools on TextToolController {
-  TextToolOutput _uuid(String input) {
-    final parsed = input.isEmpty ? _generateUuidV4() : _parseUuid(input);
+  TextToolOutput _uuid(TextToolTextStrings strings, String input) {
+    final parsed =
+        input.isEmpty ? _generateUuidV4() : _parseUuid(strings, input);
     return TextToolOutput(
       parsed.standard,
       [
-        '标准: ${parsed.standard}',
-        '大写: ${parsed.standard.toUpperCase()}',
-        '无连字符: ${parsed.hex}',
+        strings.uuidStandard(parsed.standard),
+        strings.uuidUppercase(parsed.standard.toUpperCase()),
+        strings.uuidNoHyphens(parsed.hex),
         'URN: urn:uuid:${parsed.standard}',
-        '版本: ${parsed.versionLabel}',
-        'Variant: ${parsed.variantLabel}',
+        strings.uuidVersionLine(parsed.versionLabel(strings)),
+        strings.uuidVariantLine(parsed.variantLabel(strings)),
       ].join('\n'),
       insights: [
-        parsed.generated ? '已离线生成随机 UUID v4。' : '输入 UUID 有效，已标准化。',
+        parsed.generated ? strings.uuidGenerated : strings.uuidValid,
         if (!parsed.generated && parsed.sourceDescription != null)
-          '已从${parsed.sourceDescription}中提取 UUID。',
+          strings.uuidExtractedFrom(parsed.sourceDescription!),
         if (!parsed.generated && parsed.normalizedInput != parsed.standard)
-          '输入已规范为小写 8-4-4-4-12 格式。',
+          strings.uuidNormalized,
       ],
     );
   }
@@ -32,8 +33,8 @@ extension _TextToolUuidTools on TextToolController {
     return _ParsedUuid(hex: hex, generated: true, normalizedInput: '');
   }
 
-  _ParsedUuid _parseUuid(String input) {
-    final extracted = _extractUuidInput(input);
+  _ParsedUuid _parseUuid(TextToolTextStrings strings, String input) {
+    final extracted = _extractUuidInput(strings, input);
     var normalized = extracted.value.trim().toLowerCase();
     if (normalized.startsWith('urn:uuid:')) {
       normalized = normalized.substring('urn:uuid:'.length);
@@ -43,15 +44,14 @@ extension _TextToolUuidTools on TextToolController {
     }
     final hex = normalized.replaceAll('-', '');
     if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(hex)) {
-      throw const FormatException(
-          '请输入有效 UUID，例如 550e8400-e29b-41d4-a716-446655440000');
+      throw FormatException(strings.uuidInvalid);
     }
     final standard = _formatUuid(hex);
     final canonicalPattern = RegExp(
       r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
     );
     if (normalized.contains('-') && !canonicalPattern.hasMatch(normalized)) {
-      throw const FormatException('UUID 连字符位置应为 8-4-4-4-12。');
+      throw FormatException(strings.uuidHyphens);
     }
     return _ParsedUuid(
       hex: hex,
@@ -62,14 +62,19 @@ extension _TextToolUuidTools on TextToolController {
     );
   }
 
-  _UuidInputCandidate _extractUuidInput(String input) {
+  _UuidInputCandidate _extractUuidInput(
+    TextToolTextStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return const _UuidInputCandidate('');
 
     try {
       final decoded = json.decode(trimmed);
       final found = _findUuidInJson(decoded);
-      if (found != null) return _UuidInputCandidate(found, 'JSON 字段');
+      if (found != null) {
+        return _UuidInputCandidate(found, strings.uuidSourceJsonField);
+      }
     } catch (_) {
       // Not JSON; continue with text extraction.
     }
@@ -79,17 +84,22 @@ extension _TextToolUuidTools on TextToolController {
       caseSensitive: false,
     ).firstMatch(trimmed);
     if (guid != null) {
-      return _UuidInputCandidate(guid.group(1)!, 'Guid/UUID 调用');
+      return _UuidInputCandidate(guid.group(1)!, strings.uuidSourceGuidCall);
     }
 
     final labeled = RegExp(
       r'''\b(?:guid|uuid|id)\s*[:=]\s*["']?([^"'\s,;]+)''',
       caseSensitive: false,
     ).firstMatch(trimmed);
-    if (labeled != null) return _UuidInputCandidate(labeled.group(1)!, '标签文本');
+    if (labeled != null) {
+      return _UuidInputCandidate(
+          labeled.group(1)!, strings.uuidSourceLabelText);
+    }
 
     final bytes = _uuidHexFromByteArray(trimmed);
-    if (bytes != null) return _UuidInputCandidate(bytes, '字节数组');
+    if (bytes != null) {
+      return _UuidInputCandidate(bytes, strings.uuidSourceByteArray);
+    }
 
     return _UuidInputCandidate(trimmed);
   }

@@ -1,35 +1,35 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolTextStatsTools on TextToolController {
-  TextToolOutput _asciiUnicode(String input) {
-    final parsed = _tryParseCodePointInput(input);
+  TextToolOutput _asciiUnicode(TextToolStatsStrings strings, String input) {
+    final parsed = _tryParseCodePointInput(strings, input);
     if (parsed != null) {
       final stats = _classifyTextRunes(parsed.text);
       return TextToolOutput(
         parsed.text,
-        _formatCodePointDetails(parsed.text, includeSummary: true),
+        _formatCodePointDetails(strings, parsed.text, includeSummary: true),
         insights: [
-          '检测为 Unicode 码点/转义输入，已还原为字符。',
-          '解析到 ${parsed.count} 个码点。',
-          _codePointStatsInsight(stats),
+          strings.codePointInputDetected,
+          strings.codePointParsed(parsed.count),
+          _codePointStatsInsight(strings, stats),
         ],
       );
     }
     final stats = _classifyTextRunes(input);
     return TextToolOutput(
-      '${input.runes.length} 个码点',
+      strings.codePointPrimary(input.runes.length),
       input.isEmpty
-          ? '请输入字符'
-          : _formatCodePointDetails(input, includeSummary: true),
+          ? strings.enterCharacters
+          : _formatCodePointDetails(strings, input, includeSummary: true),
       insights: [
-        'UTF-8 字节: ${utf8.encode(input).length}。',
-        if (input.isNotEmpty) _codePointStatsInsight(stats),
-        if (input.runes.length > 24) '详情仅展示前 24 个码点。',
+        strings.utf8ByteInsight(utf8.encode(input).length),
+        if (input.isNotEmpty) _codePointStatsInsight(strings, stats),
+        if (input.runes.length > 24) strings.detailFirst24,
       ],
     );
   }
 
-  TextToolOutput _textStats(String input) {
+  TextToolOutput _textStats(TextToolStatsStrings strings, String input) {
     final visibleChars = input.characters.length;
     final codePoints = input.runes.length;
     final words = RegExp(r'[\w\u4e00-\u9fa5]+').allMatches(input).length;
@@ -44,47 +44,63 @@ extension _TextToolTextStatsTools on TextToolController {
     final latinWords = _countLatinWords(input);
     final numberTokens = _countNumberTokens(input);
     return TextToolOutput(
-      '$visibleChars 字符',
+      strings.primaryCharCount(visibleChars),
       [
-        '字符数: $visibleChars',
-        'Unicode 码点: $codePoints',
-        '词/片段: $words',
-        '英文词: $latinWords',
-        '数字片段: $numberTokens',
-        '行数: ${lineStats.lines}',
-        '非空行: ${lineStats.nonEmptyLines}',
-        '空行: ${lineStats.emptyLines}',
-        '段落: $paragraphs',
-        'UTF-8 字节: $bytes',
-        '去空白字符: $nonWhitespace',
+        strings.detailCharCount(visibleChars),
+        strings.codePointsLabel(codePoints),
+        strings.detailWordFragments(words),
+        strings.detailLatinWords(latinWords),
+        strings.detailNumberTokens(numberTokens),
+        strings.detailLines(lineStats.lines),
+        strings.detailNonEmptyLines(lineStats.nonEmptyLines),
+        strings.detailEmptyLines(lineStats.emptyLines),
+        strings.detailParagraphs(paragraphs),
+        strings.utf8BytesLabel(bytes),
+        strings.detailNonWhitespaceChars(nonWhitespace),
         if (nonWhitespaceCodePoints != nonWhitespace)
-          '去空白码点: $nonWhitespaceCodePoints',
-        '最长行: ${lineStats.longestLine} 字符',
-        '平均非空行长: ${lineStats.averageNonEmptyLineLength.toStringAsFixed(2)} 字符',
+          strings.detailNonWhitespaceCodePoints(nonWhitespaceCodePoints),
+        strings.detailLongestLine(lineStats.longestLine),
+        strings.detailAverageLineLength(
+            lineStats.averageNonEmptyLineLength.toStringAsFixed(2)),
         if (lineStats.trailingWhitespaceLines > 0)
-          '行尾空白: ${lineStats.trailingWhitespaceLines} 行',
-        '中文字符: ${charStats.cjk}',
-        '拉丁字母: ${charStats.latin}',
-        '数字: ${charStats.digits}',
-        '空白字符: ${charStats.whitespace}',
-        '标点/符号: ${charStats.punctuation}',
-        '其他字符: ${charStats.other}',
+          strings
+              .detailTrailingWhitespaceLines(lineStats.trailingWhitespaceLines),
+        strings.detailCjk(charStats.cjk),
+        strings.detailLatin(charStats.latin),
+        strings.detailDigits(charStats.digits),
+        strings.detailWhitespace(charStats.whitespace),
+        strings.detailPunctuation(charStats.punctuation),
+        strings.detailOther(charStats.other),
       ].join('\n'),
       insights: [
-        '平均每字符 ${(bytes / (visibleChars == 0 ? 1 : visibleChars)).toStringAsFixed(2)} bytes。',
-        if (visibleChars != codePoints) '已按 Unicode 可见字符聚合组合符号和 emoji。',
-        if (charStats.cjk > 0 && charStats.latin > 0) '文本包含中英文混排。',
-        if (bytes > codePoints) '包含多字节 UTF-8 字符。',
-        if (paragraphs > 1) '检测到 $paragraphs 个非空段落。',
-        if (lineStats.emptyLines > 0) '包含 ${lineStats.emptyLines} 个空行。',
+        strings.insightBytesPerChar(
+            (bytes / (visibleChars == 0 ? 1 : visibleChars))
+                .toStringAsFixed(2)),
+        if (visibleChars != codePoints) strings.insightGraphemeAggregated,
+        if (charStats.cjk > 0 && charStats.latin > 0)
+          strings.insightMixedScript,
+        if (bytes > codePoints) strings.insightMultiByte,
+        if (paragraphs > 1) strings.insightParagraphs(paragraphs),
+        if (lineStats.emptyLines > 0)
+          strings.insightEmptyLines(lineStats.emptyLines),
         if (lineStats.trailingWhitespaceLines > 0)
-          '检测到 ${lineStats.trailingWhitespaceLines} 行行尾空白。',
-        if (input.trim().isEmpty) '输入为空或仅包含空白字符。',
+          strings.insightTrailingWhitespace(lineStats.trailingWhitespaceLines),
+        if (input.trim().isEmpty) strings.insightAllWhitespace,
       ],
     );
   }
 
-  _ParsedCodePointInput? _tryParseCodePointInput(String input) {
+  /// 中文：`strings` 只为两条 `FormatException` 的正文而来——「Unicode 码点无效: …」是给人看的
+  ///       一句话，会被兜底那条接住显示在详情里。识别**是不是**码点输入的那套正则与判据
+  ///       （`U+` / `0x` / `&#x` / `\u` 前缀、逗号分隔的十进制串）一个字符都没动。
+  /// English: `strings` is here only for the body of two `FormatException`s — "Invalid Unicode code
+  ///          point: …" is a sentence for the reader, caught by the fallback and shown in the detail
+  ///          pane. The patterns and conditions that decide *whether* the input is code points
+  ///          (`U+` / `0x` / `&#x` / `\u` prefixes, comma-separated decimal runs) are untouched.
+  _ParsedCodePointInput? _tryParseCodePointInput(
+    TextToolStatsStrings strings,
+    String input,
+  ) {
     final trimmed = input.trim();
     if (trimmed.isEmpty) return null;
     final matches = RegExp(
@@ -103,7 +119,7 @@ extension _TextToolTextStatsTools on TextToolController {
                 : 16;
         final code = int.tryParse(digits, radix: radix);
         if (code == null || _safeCodePoint(code) == null) {
-          throw FormatException('Unicode 码点无效: $token');
+          throw FormatException(strings.invalidCodePoint(token));
         }
         codes.add(code);
         consumed = consumed.replaceFirst(token, ' ');
@@ -129,7 +145,7 @@ extension _TextToolTextStatsTools on TextToolController {
     for (final part in parts) {
       final code = int.parse(part);
       if (_safeCodePoint(code) == null) {
-        throw FormatException('Unicode 码点无效: $part');
+        throw FormatException(strings.invalidCodePoint(part));
       }
       codes.add(code);
     }
@@ -139,13 +155,17 @@ extension _TextToolTextStatsTools on TextToolController {
     );
   }
 
-  String _formatCodePointDetails(String input, {bool includeSummary = false}) {
+  String _formatCodePointDetails(
+    TextToolStatsStrings strings,
+    String input, {
+    bool includeSummary = false,
+  }) {
     final lines = <String>[
       if (includeSummary) ...[
-        '可见字符: ${input.characters.length}',
-        'Unicode 码点: ${input.runes.length}',
-        'UTF-8 字节: ${utf8.encode(input).length}',
-        'UTF-16 code units: ${input.codeUnits.length}',
+        strings.summaryVisibleChars(input.characters.length),
+        strings.codePointsLabel(input.runes.length),
+        strings.utf8BytesLabel(utf8.encode(input).length),
+        strings.summaryUtf16Units(input.codeUnits.length),
       ],
       ...input.runes.take(24).map((code) {
         final char = String.fromCharCode(code);
@@ -165,16 +185,19 @@ extension _TextToolTextStatsTools on TextToolController {
     return lines.join('\n');
   }
 
-  String _codePointStatsInsight(_TextCharacterStats stats) {
+  String _codePointStatsInsight(
+    TextToolStatsStrings strings,
+    _TextCharacterStats stats,
+  ) {
     final parts = <String>[
-      if (stats.cjk > 0) '中文/汉字 ${stats.cjk}',
-      if (stats.latin > 0) '拉丁字母 ${stats.latin}',
-      if (stats.digits > 0) '数字 ${stats.digits}',
-      if (stats.whitespace > 0) '空白 ${stats.whitespace}',
-      if (stats.punctuation > 0) '标点/符号 ${stats.punctuation}',
-      if (stats.other > 0) '其他 ${stats.other}',
+      if (stats.cjk > 0) strings.classCjk(stats.cjk),
+      if (stats.latin > 0) strings.classLatin(stats.latin),
+      if (stats.digits > 0) strings.classDigits(stats.digits),
+      if (stats.whitespace > 0) strings.classWhitespace(stats.whitespace),
+      if (stats.punctuation > 0) strings.classPunctuation(stats.punctuation),
+      if (stats.other > 0) strings.classOther(stats.other),
     ];
-    return parts.isEmpty ? '未检测到可分类字符。' : '字符分类: ${parts.join('，')}。';
+    return parts.isEmpty ? strings.classNone : strings.classSummary(parts);
   }
 
   _TextCharacterStats _classifyTextRunes(String input) {

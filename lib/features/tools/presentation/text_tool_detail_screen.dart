@@ -12,6 +12,8 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import '../../../l10n/app_language.dart';
+import 'text_tool_strings.dart';
 import 'tools_strings.dart';
 
 /// 中文：文本/编程类工具详情页，承载 JSON、Base64、URL、正则等输入输出型工具。
@@ -49,7 +51,25 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   late final SettingsRepository _settingsRepository =
       SettingsRepository(widget.db);
   final TextToolController _toolController = const TextToolController();
+
+  /// 中文：空壳，第一帧之前就会被 `_recalculate()` 换掉——`TextToolOutput` 自己不认字，
+  ///       状态卡上那两行要等文案表到位才算得出来。
+  /// English: An empty shell, replaced by `_recalculate()` before the first frame — a
+  ///          `TextToolOutput` knows no words of its own and the two status lines can only be worked
+  ///          out once the copy table is available.
   TextToolOutput _output = const TextToolOutput('', '');
+
+  /// 中文：当前语言的文案表。**在一个地方取**（`didChangeDependencies` 里），其余地方读它：
+  ///       `_recalculate` 要递给控制器，状态卡与复制的正文要拿它算字。这样"表从哪来"只有一个答案。
+  ///       它一开始是中文那份（与 `AppLanguage.of` 的兜底同源），`didChangeDependencies` 一跑就
+  ///       会被换成真正的当前语言。
+  /// English: The copy table for the active language, read **in one place**
+  ///          (`didChangeDependencies`) and consulted everywhere else: `_recalculate` hands it to the
+  ///          controller, and the status card and the copied report use it to produce words. That
+  ///          leaves exactly one answer to "where did the table come from". It starts as the Chinese
+  ///          one (the same source as `AppLanguage.of`'s fallback) and `didChangeDependencies`
+  ///          replaces it with the real active language as soon as it runs.
+  TextToolStrings _strings = TextToolStrings.forLanguage(AppLanguage.fallback);
   String _result = '';
   String _detail = '';
   List<String> _insights = const [];
@@ -108,7 +128,29 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_seededOnce) return;
+    // 中文：**换了语言要把结果重算一遍。** 表是 `switch` 出来的 `static final`，同一语言下每次
+    //       都是同一个实例，所以 `identical` 就是"语言变了吗"的判据；变了就重算，否则切到英文
+    //       之后主结果与详情会一直停在旧语言，直到用户碰一下输入框才跟上。
+    //       **这里不走 `_recalculate()`**：它套着 `setState`，而依赖变化本来就排好了一次重建，
+    //       再喊一次是多余的（`didChangeDependencies` 跑在 `build` 之前）。
+    // English: **Changing the language has to recompute the result.** The tables are `static final`
+    //          instances picked by a `switch`, so within one language every lookup returns the same
+    //          object and `identical` is the test for "did the language change". If it did, recompute;
+    //          otherwise switching to English leaves the primary result and detail in the old
+    //          language until the user touches an input field. **This does not go through
+    //          `_recalculate()`**: that wraps `setState`, and a dependency change has already
+    //          scheduled a rebuild (`didChangeDependencies` runs before `build`).
+    final next = TextToolStrings.of(context);
+    final languageChanged = _seededOnce && !identical(next, _strings);
+    _strings = next;
+    if (_seededOnce) {
+      if (languageChanged) {
+        _recalculateTimer?.cancel();
+        _recalculateTimer = null;
+        _applyOutput();
+      }
+      return;
+    }
     _seededOnce = true;
     _applyingDraft = true;
     try {
@@ -147,20 +189,29 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   void _recalculate() {
     _recalculateTimer?.cancel();
     _recalculateTimer = null;
-    setState(() {
-      final output = _toolController.calculate(
-        toolId: widget.tool.id,
-        input: _inputController.text,
-        formula: _formulaController.text,
-        a: _aController.text,
-        b: _bController.text,
-        c: _cController.text,
-      );
-      _output = output;
-      _result = output.primary;
-      _detail = output.detail;
-      _insights = output.insights;
-    });
+    setState(_applyOutput);
+  }
+
+  /// 中文：算一次并把结果落到字段上，**自己不喊重建**——两条路径调它：`_recalculate()`（用户改了
+  ///       输入，外面套着 `setState`）与 `didChangeDependencies`（语言变了，重建已经排在队里）。
+  /// English: Evaluates once and writes the result into the fields, **without asking for a rebuild**:
+  ///          two paths call it — `_recalculate()` when the user changed an input (wrapped in
+  ///          `setState`) and `didChangeDependencies` when the language changed (a rebuild is already
+  ///          queued).
+  void _applyOutput() {
+    final output = _toolController.calculate(
+      toolId: widget.tool.id,
+      strings: _strings,
+      input: _inputController.text,
+      formula: _formulaController.text,
+      a: _aController.text,
+      b: _bController.text,
+      c: _cController.text,
+    );
+    _output = output;
+    _result = output.primary;
+    _detail = output.detail;
+    _insights = output.insights;
   }
 
   Future<void> _loadDraft() async {
@@ -266,7 +317,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     if (_output.hasError) {
       return ToolSaveResult.inputInvalid(
         target: ToolSaveTarget.history,
-        summary: _output.statusMessage,
+        summary: _output.statusMessage(_strings.output),
       );
     }
     try {
@@ -291,13 +342,14 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     if (_output.hasError) {
       return ToolSaveResult.inputInvalid(
         target: ToolSaveTarget.note,
-        summary: _output.statusMessage,
+        summary: _output.statusMessage(_strings.output),
       );
     }
     try {
       final noteId = await _notesRepository.create(
         title: widget.tool.title,
         body: _output.copyText(
+          strings: _strings.output,
           title: widget.tool.title,
           input: _mainInputText(),
         ),
@@ -524,14 +576,14 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_output.statusTitle,
+                Text(_output.statusTitle(_strings.output),
                     style: TextStyle(
                         color: color,
                         fontSize: 14,
                         fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 Text(
-                  _output.statusMessage,
+                  _output.statusMessage(_strings.output),
                   style: TextStyle(
                       color:
                           hasError ? scheme.onSurface : scheme.onSurfaceVariant,
@@ -600,6 +652,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   Future<void> _copyResult() async {
     await Clipboard.setData(ClipboardData(
       text: _output.copyText(
+        strings: _strings.output,
         title: widget.tool.title,
         input: _mainInputText(),
       ),
@@ -676,7 +729,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text(ToolsStrings.of(context)
-              .fixInput(_output.statusMessage))),
+              .fixInput(_output.statusMessage(_strings.output)))),
     );
   }
 

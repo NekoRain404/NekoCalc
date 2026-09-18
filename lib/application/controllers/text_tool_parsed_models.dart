@@ -1,5 +1,23 @@
 part of 'text_tool_controller.dart';
 
+/// 中文：本文件里的解析结果模型。**它们大多不带语言**——`_ParsedColor.red`、`_TextLineStats.lines`
+///       是数据，不是句子。带语言的只有两处，都做成**接表的方法**而不是就地写中文的 getter：
+///       `_ParsedUuid.versionLabel(strings)` 与 `_ParsedUuid.variantLabel(strings)`。
+///
+///       **还剩两处中文留在原地**：`_ParsedInteger.description` 与 `_ParsedBase64.description`。
+///       它们属于编解码组（进制、Base64/校验和），那一组整组共用 `_ParsedByteInput` /
+///       `_ParsedInteger` 的描述符机制，要连同描述符一起改，本轮没动——**已知残留**，
+///       不是漏翻。
+/// English: The parse-result models in this file. **Most carry no language** —
+///          `_ParsedColor.red` and `_TextLineStats.lines` are data, not sentences. Only two places
+///          carry any, and both are **methods that take a table** rather than getters writing Chinese
+///          in place: `_ParsedUuid.versionLabel(strings)` and `_ParsedUuid.variantLabel(strings)`.
+///
+///          **Two places are still Chinese in place**: `_ParsedInteger.description` and
+///          `_ParsedBase64.description`. They belong to the codec group (bases, Base64/checksums),
+///          which shares the `_ParsedByteInput` / `_ParsedInteger` descriptor machinery and has to be
+///          changed together with it, so it was left alone this round — a **known remainder**, not a
+///          missed translation.
 class _ParsedInteger {
   const _ParsedInteger({
     required this.value,
@@ -83,27 +101,40 @@ class _ParsedUuid {
 
   String get standard => standardOverride ?? _standardFromHex(hex);
 
-  String get versionLabel {
+  /// 中文：版本那一行的说法。**这里取 `TextToolTextStrings` 而不是就地写中文**：整段详情会被
+  ///       复制进笔记，`版本: 4（随机）` 和 `Version: 4 (random)` 是同一件事的两种说法。
+  ///       版本号本身是数据（UUID 里第 13 个十六进制位），只有那句话走表。
+  /// English: The wording of the version line. **It reads `TextToolTextStrings` rather than writing
+  ///          Chinese in place**: the whole detail block is copied into notes, and `版本: 4（随机）`
+  ///          and `Version: 4 (random)` are two ways of saying the same thing. The version number
+  ///          itself is data (the 13th hex digit of the UUID); only the sentence goes through the
+  ///          table.
+  String versionLabel(TextToolTextStrings strings) {
     final version = int.parse(hex[12], radix: 16);
     return switch (version) {
-      1 => '1（时间/MAC）',
-      2 => '2（DCE Security）',
-      3 => '3（MD5 namespace）',
-      4 => '4（随机）',
-      5 => '5（SHA-1 namespace）',
-      6 => '6（重排时间）',
-      7 => '7（Unix 时间）',
-      8 => '8（自定义）',
-      _ => '$version（未知/保留）',
+      1 => strings.uuidVersion1,
+      2 => strings.uuidVersion2,
+      3 => strings.uuidVersion3,
+      4 => strings.uuidVersion4,
+      5 => strings.uuidVersion5,
+      6 => strings.uuidVersion6,
+      7 => strings.uuidVersion7,
+      8 => strings.uuidVersion8,
+      _ => strings.uuidVersionOther(version),
     };
   }
 
-  String get variantLabel {
+  /// 中文：变体那一行的说法，理由同 [versionLabel]。`RFC 4122 / RFC 9562` 是规范号、
+  ///       不是译文，两种语言下逐字节相同。
+  /// English: The wording of the variant line, for the same reason as [versionLabel].
+  ///          `RFC 4122 / RFC 9562` is a specification number rather than a translation, so it is
+  ///          byte-identical in both languages.
+  String variantLabel(TextToolTextStrings strings) {
     final value = int.parse(hex[16], radix: 16);
-    if ((value & 0x8) == 0) return 'NCS 兼容';
-    if ((value & 0xc) == 0x8) return 'RFC 4122 / RFC 9562';
-    if ((value & 0xe) == 0xc) return 'Microsoft 兼容';
-    return '未来保留';
+    if ((value & 0x8) == 0) return strings.uuidVariantNcs;
+    if ((value & 0xc) == 0x8) return strings.uuidVariantRfc;
+    if ((value & 0xe) == 0xc) return strings.uuidVariantMicrosoft;
+    return strings.uuidVariantFuture;
   }
 
   static String _standardFromHex(String hex) {

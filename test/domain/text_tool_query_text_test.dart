@@ -1,16 +1,20 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/text_tool_controller.dart';
+import 'package:nekocalc/features/tools/presentation/text_tool_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   const controller = TextToolController();
 
   test('query params preserve duplicate keys and bare query input', () {
     final url = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: 'https://example.com/search?q=cat&q=dog&page=1#top',
     );
     final bare = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: '?a=1&a=2&empty=',
     );
@@ -30,14 +34,17 @@ void main() {
 
   test('query params accept request lines semicolons and fragment queries', () {
     final request = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: 'GET /api/search?q=Neko+Calc&tag=a%2Fb HTTP/1.1\nHost: local',
     );
     final form = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: 'a=1;b=two+words;empty',
     );
     final fragment = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: 'https://example.com/#/tools?tab=text&id=query_params',
     );
@@ -63,6 +70,7 @@ void main() {
 
   test('query params accepts newline separated form fields', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: '''
 q=Neko+Calc
@@ -72,6 +80,7 @@ flag
 ''',
     );
     final encodedNewline = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: 'note=line1%0Aline2&tag=kept',
     );
@@ -97,6 +106,7 @@ flag
 
   test('query params accepts curl commands with url and data fields', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: r'''
 curl 'https://example.com/api/search?page=1&q=Neko+Calc' \
@@ -125,6 +135,7 @@ curl 'https://example.com/api/search?page=1&q=Neko+Calc' \
 
   test('query params treats curl get data as query parameters', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: r'''
 curl --get 'https://example.com/api/search?page=1#top' \
@@ -149,6 +160,7 @@ curl --get 'https://example.com/api/search?page=1#top' \
 
   test('query params accepts curl url-query options', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: r'''
 curl --url 'https://example.com/api/search?page=1#top' \
@@ -174,6 +186,7 @@ curl --url 'https://example.com/api/search?page=1#top' \
 
   test('query params accepts bash ansi quoted curl values', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: r'''
 curl $'https://example.com/api/search?page=1&q=Neko\x20Calc' \
@@ -197,6 +210,7 @@ curl $'https://example.com/api/search?page=1&q=Neko\x20Calc' \
 
   test('query params accepts multiline curl data fields', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'query_params',
       input: '''
 curl 'https://example.com/api/search?page=1' \\
@@ -218,6 +232,7 @@ empty='
 
   test('text stats counts non whitespace characters', () {
     final stats = controller.calculate(
+      strings: _strings,
       toolId: 'text_stats',
       input: 'A B\n\t中\n\nHi 42!',
     );
@@ -243,6 +258,7 @@ empty='
 
   test('text stats counts grapheme clusters separately from code points', () {
     final stats = controller.calculate(
+      strings: _strings,
       toolId: 'text_stats',
       input: '👨‍👩‍👧‍👦 é\n🇨🇳',
     );
@@ -259,6 +275,7 @@ empty='
 
   test('text stats reports trailing whitespace lines', () {
     final stats = controller.calculate(
+      strings: _strings,
       toolId: 'text_stats',
       input: 'alpha  \n中文\t\n42',
     );
@@ -271,6 +288,7 @@ empty='
 
   test('regex tool supports slash flags and capture groups', () {
     final output = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: r'/([a-z]+)-(?<num>\d+)/i' '\nABC-42\nno-match',
     );
@@ -285,6 +303,7 @@ empty='
 
   test('regex tool accepts labeled pattern flags and text blocks', () {
     final labeled = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: r'''
 pattern: /(?<word>[a-z]+)-(?<num>\d+)/i
@@ -294,6 +313,7 @@ xyz-7
 ''',
     );
     final chinese = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: '正则: 猫.狗\n模式: s\n文本: 猫\n狗',
     );
@@ -312,14 +332,17 @@ xyz-7
 
   test('regex tool supports explicit flags line and reports bad flags', () {
     final dotAll = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: 'a.*c\nflags: s\na\nb\nc',
     );
     final global = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: '/abc/g\nabc abc',
     );
     final invalid = controller.calculate(
+      strings: _strings,
       toolId: 'regex_test',
       input: '/abc/y\nabc',
     );
@@ -342,22 +365,27 @@ xyz-7
     const sampleToken =
         'eyJhbGciOiJub25lIiwidHlwIjoiSldUIiwia2lkIjoibG9jYWwifQ.eyJpc3MiOiJOZWtvQ2FsYyIsInN1YiI6InVzZXItMSIsImF1ZCI6WyJhcHAiLCJ0ZXN0Il0sImV4cCI6NDEwMjQ0NDgwMCwibmJmIjoxMCwiaWF0IjoxMH0.';
     final expired = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: 'eyJhbGciOiJub25lIn0.eyJleHAiOjEwLCJpYXQiOjF9.signature',
     );
     final rich = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: sampleToken,
     );
     final bearer = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: 'Authorization: Bearer $sampleToken',
     );
     final labeled = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: 'access_token="$sampleToken"',
     );
-    final invalid = controller.calculate(toolId: 'json_format', input: '{bad');
+    final invalid = controller.calculate(
+        strings: _strings, toolId: 'json_format', input: '{bad');
 
     expect(expired.insights, contains('Token 已过期。'));
     expect(expired.insights, contains('包含签发时间 iat。'));
@@ -392,14 +420,17 @@ xyz-7
         'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJOZWtvQ2FsYyIsInN1YiI6ImNsaWVudCIsImV4cCI6NDEwMjQ0NDgwMH0.';
     final encodedToken = sampleToken.replaceAll('.', '%2E');
     final url = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: 'https://example.com/callback?code=ok&id_token=$encodedToken',
     );
     final cookie = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: 'Cookie: theme=dark; access_token=$sampleToken; Path=/',
     );
     final json = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: '{"data":{"authorization":"Bearer $sampleToken"}}',
     );
@@ -421,6 +452,7 @@ xyz-7
     const sampleToken =
         'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpc3MiOiJOZWtvQ2FsYyIsInN1YiI6InVzZXItMiIsInNjb3BlIjoicmVhZDpjYWxjIHdyaXRlOm5vdGVzIiwicm9sZXMiOlsiYWRtaW4iLCJlZGl0b3IiXSwicGVybWlzc2lvbnMiOlsiZ3JhcGg6dmlldyJdLCJleHAiOjQxMDI0NDQ4MDAsImlhdCI6MTcwMDAwMDAwMH0.';
     final decoded = controller.calculate(
+      strings: _strings,
       toolId: 'jwt_decode',
       input: sampleToken,
     );
@@ -435,3 +467,10 @@ xyz-7
     expect(decoded.detail, contains('UTC 2023-11-14T22:13:20.000Z'));
   });
 }
+
+/// 中文：这一族测试钉的是**中文下表里的字**，所以表要显式取中文那一份——`calculate` 的
+///       `strings` 是必填的，正是在这里把它变成"漏传就编译不过"。
+/// English: These tests pin the **Chinese entries in the table**, so the table is the Chinese one
+///          explicitly — `calculate`'s `strings` is required, and this is where that turns into
+///          "forget it and the build fails".
+final _strings = TextToolStrings.forLanguage(AppLanguage.zh);

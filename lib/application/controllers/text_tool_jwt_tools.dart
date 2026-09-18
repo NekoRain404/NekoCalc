@@ -1,19 +1,19 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolJwtTools on TextToolController {
-  TextToolOutput _jwtDecode(String input) {
-    final extracted = _extractJwtToken(input);
+  TextToolOutput _jwtDecode(TextToolStrings strings, String input) {
+    final extracted = _extractJwtToken(strings, input);
     final parts = extracted.token.split('.');
     if (parts.length < 2 || parts.length > 3) {
-      throw const FormatException('请输入 JWT，至少包含 header.payload');
+      throw FormatException(strings.data.jwtNeedHeaderPayload);
     }
-    final headerMap = _decodeBase64UrlObject(parts[0], 'header');
-    final payloadMap = _decodeBase64UrlObject(parts[1], 'payload');
+    final headerMap = _decodeBase64UrlObject(strings, parts[0], 'header');
+    final payloadMap = _decodeBase64UrlObject(strings, parts[1], 'payload');
     final header = const JsonEncoder.withIndent('  ').convert(headerMap);
     final payload = const JsonEncoder.withIndent('  ').convert(payloadMap);
     final claimLines = _jwtClaimSummary(payloadMap);
     return TextToolOutput(
-      'JWT 已解析',
+      strings.data.jwtParsed,
       [
         'Header:\n$header',
         '',
@@ -21,28 +21,34 @@ extension _TextToolJwtTools on TextToolController {
         '',
         if (claimLines.isNotEmpty) 'Claims:\n${claimLines.join('\n')}',
         if (claimLines.isNotEmpty) '',
-        '签名段: ${parts.length > 2 && parts[2].isNotEmpty ? '${parts[2].length} chars' : '无'}',
+        strings.data.jwtSignatureSegment(parts.length > 2 && parts[2].isNotEmpty
+            ? '${parts[2].length} chars'
+            : strings.data.jwtSignatureNone),
       ].join('\n'),
       insights: [
         if (extracted.description != null) extracted.description!,
-        ..._jwtInsights(headerMap, payloadMap, parts),
+        ..._jwtInsights(strings, headerMap, payloadMap, parts),
       ],
     );
   }
 
-  Object? _decodeBase64UrlObject(String part, String label) {
+  Object? _decodeBase64UrlObject(
+    TextToolStrings strings,
+    String part,
+    String label,
+  ) {
     final normalized = base64Url.normalize(part);
     final decoded = utf8.decode(base64Url.decode(normalized));
     final jsonObject = json.decode(decoded);
     if (jsonObject is! Map<String, dynamic>) {
-      throw FormatException('JWT $label 必须是 JSON object');
+      throw FormatException(strings.data.jwtNotJsonObject(label));
     }
     return jsonObject;
   }
 
-  _ExtractedJwtToken _extractJwtToken(String input) {
+  _ExtractedJwtToken _extractJwtToken(TextToolStrings strings, String input) {
     final trimmed = input.trim();
-    if (trimmed.isEmpty) throw const FormatException('请输入 JWT');
+    if (trimmed.isEmpty) throw FormatException(strings.data.jwtEmpty);
     if (_wholeJwtTokenPattern.hasMatch(trimmed)) {
       return _ExtractedJwtToken(token: trimmed);
     }
@@ -54,17 +60,18 @@ extension _TextToolJwtTools on TextToolController {
     if (bearer != null) {
       return _ExtractedJwtToken(
         token: bearer.group(1)!,
-        description: '已从 Bearer/Authorization 文本中提取 JWT。',
+        description: strings.data.jwtFromBearer,
       );
     }
 
-    final jsonToken = _extractJwtFromJson(trimmed);
+    final jsonToken = _extractJwtFromJson(strings, trimmed);
     if (jsonToken != null) return jsonToken;
 
-    final cookieToken = _extractJwtFromCookie(trimmed);
+    final cookieToken = _extractJwtFromCookie(strings, trimmed);
     if (cookieToken != null) return cookieToken;
 
-    final urlToken = _extractJwtFromUrlQuery(trimmed, requireUrlLike: true);
+    final urlToken =
+        _extractJwtFromUrlQuery(strings, trimmed, requireUrlLike: true);
     if (urlToken != null) return urlToken;
 
     final labeled = RegExp(
@@ -74,39 +81,42 @@ extension _TextToolJwtTools on TextToolController {
     if (labeled != null) {
       return _ExtractedJwtToken(
         token: labeled.group(1)!,
-        description: '已从 token 字段中提取 JWT。',
+        description: strings.data.jwtFromTokenField,
       );
     }
 
-    final queryToken = _extractJwtFromUrlQuery(trimmed, requireUrlLike: false);
+    final queryToken =
+        _extractJwtFromUrlQuery(strings, trimmed, requireUrlLike: false);
     if (queryToken != null) return queryToken;
 
     final embedded = _jwtTokenPattern.firstMatch(trimmed);
     if (embedded != null) {
       return _ExtractedJwtToken(
         token: embedded.group(0)!,
-        description: '已从粘贴文本中提取 JWT。',
+        description: strings.data.jwtFromPastedText,
       );
     }
 
     return _ExtractedJwtToken(token: trimmed);
   }
 
-  _ExtractedJwtToken? _extractJwtFromJson(String input) {
+  _ExtractedJwtToken? _extractJwtFromJson(
+      TextToolStrings strings, String input) {
     try {
-      final parsed = _parseJsonInput(input);
+      final parsed = _parseJsonInput(strings.text, input);
       final token = _findJwtInStructuredValue(parsed.value);
       if (token == null) return null;
       return _ExtractedJwtToken(
         token: token,
-        description: '已从 JSON 字段中提取 JWT。',
+        description: strings.data.jwtFromJsonField,
       );
     } catch (_) {
       return null;
     }
   }
 
-  _ExtractedJwtToken? _extractJwtFromCookie(String input) {
+  _ExtractedJwtToken? _extractJwtFromCookie(
+      TextToolStrings strings, String input) {
     final lines = const LineSplitter().convert(input);
     final cookieHeaderPattern = RegExp(
       r'^\s*(?:Cookie|Set-Cookie)\s*:\s*(.+)$',
@@ -140,11 +150,12 @@ extension _TextToolJwtTools on TextToolController {
     if (token == null) return null;
     return _ExtractedJwtToken(
       token: token,
-      description: '已从 Cookie 字段中提取 JWT。',
+      description: strings.data.jwtFromCookie,
     );
   }
 
   _ExtractedJwtToken? _extractJwtFromUrlQuery(
+    TextToolStrings strings,
     String input, {
     required bool requireUrlLike,
   }) {
@@ -167,7 +178,7 @@ extension _TextToolJwtTools on TextToolController {
       if (token == null) return null;
       return _ExtractedJwtToken(
         token: token,
-        description: '已从 URL query 参数中提取 JWT。',
+        description: strings.data.jwtFromUrlQuery,
       );
     } catch (_) {
       return null;
@@ -308,25 +319,26 @@ extension _TextToolJwtTools on TextToolController {
   }
 
   List<String> _jwtInsights(
+    TextToolStrings strings,
     Object? headerMap,
     Object? payloadMap,
     List<String> parts,
   ) {
     final insights = <String>[
       parts.length > 2 && parts[2].isNotEmpty
-          ? '包含签名段，但未在本地校验签名。'
-          : '缺少签名段，仅能查看内容。',
+          ? strings.data.jwtHasSignature
+          : strings.data.jwtNoSignature,
     ];
     if (headerMap is Map) {
       final alg = headerMap['alg'];
       final typ = headerMap['typ'];
-      if (alg != null) insights.add('算法 alg: $alg。');
-      if (typ != null) insights.add('类型 typ: $typ。');
+      if (alg != null) insights.add(strings.data.jwtAlgorithm('$alg'));
+      if (typ != null) insights.add(strings.data.jwtType('$typ'));
       if (alg is String && alg.toLowerCase() == 'none') {
-        insights.add('alg=none，Token 不包含加密签名。');
+        insights.add(strings.data.jwtAlgNone);
       }
       final kid = headerMap['kid'];
-      if (kid != null) insights.add('包含密钥 ID kid: $kid。');
+      if (kid != null) insights.add(strings.data.jwtKeyId('$kid'));
     }
     if (payloadMap is Map) {
       final now = DateTime.now();
@@ -335,22 +347,25 @@ extension _TextToolJwtTools on TextToolController {
         final expiresAt = DateTime.fromMillisecondsSinceEpoch(
           exp.toInt() * 1000,
         ).toLocal();
-        insights.add(expiresAt.isBefore(now) ? 'Token 已过期。' : 'Token 尚未过期。');
+        insights.add(expiresAt.isBefore(now)
+            ? strings.data.jwtExpired
+            : strings.data.jwtNotExpired);
       } else {
-        insights.add('缺少过期时间 exp。');
+        insights.add(strings.data.jwtNoExpiry);
       }
       final nbf = payloadMap['nbf'];
       if (nbf is num) {
         final notBefore = DateTime.fromMillisecondsSinceEpoch(
           nbf.toInt() * 1000,
         ).toLocal();
-        insights
-            .add(notBefore.isAfter(now) ? 'Token 尚未生效。' : 'Token 已到 nbf 生效时间。');
+        insights.add(notBefore.isAfter(now)
+            ? strings.data.jwtNotYetValid
+            : strings.data.jwtNbfReached);
       }
-      if (payloadMap['iat'] is num) insights.add('包含签发时间 iat。');
-      if (payloadMap['aud'] != null) insights.add('包含受众 aud。');
-      if (payloadMap['iss'] != null) insights.add('包含签发者 iss。');
-      if (payloadMap['sub'] != null) insights.add('包含主题 sub。');
+      if (payloadMap['iat'] is num) insights.add(strings.data.jwtHasIssuedAt);
+      if (payloadMap['aud'] != null) insights.add(strings.data.jwtHasAudience);
+      if (payloadMap['iss'] != null) insights.add(strings.data.jwtHasIssuer);
+      if (payloadMap['sub'] != null) insights.add(strings.data.jwtHasSubject);
     }
     return insights;
   }

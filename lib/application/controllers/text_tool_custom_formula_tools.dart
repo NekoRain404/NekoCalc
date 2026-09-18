@@ -1,20 +1,28 @@
 part of 'text_tool_controller.dart';
 
 extension _TextToolCustomFormulaTools on TextToolController {
+  /// 中文：这里收的是**门面**（`TextToolStrings`）而不是 `TextToolTextStrings`：变量解析
+  ///       失败时兜底那句话就是全族共用的「输入无效」，而复用它比在表里再抄一份同样的字干净。
+  /// English: This takes the **facade** (`TextToolStrings`) rather than `TextToolTextStrings`: the
+  ///          fallback when a variable fails to parse is the family-wide "invalid input", and reusing
+  ///          it beats copying the same words into this table as well.
   TextToolOutput _customFormula({
+    required TextToolStrings strings,
     required String input,
     required String formula,
     required String a,
     required String b,
     required String c,
   }) {
+    final text = strings.text;
     final parsed = _parseCustomFormulaInput(
+      strings: strings,
       input: input,
       fallbackFormula: formula,
       fallbackVariables: {'a': a, 'b': b, 'c': c},
     );
     if (parsed.formula.trim().isEmpty) {
-      throw const FormatException('请输入公式，例如 a * b + c');
+      throw FormatException(text.formulaEmpty);
     }
 
     final expression = _substituteFormulaVariables(
@@ -23,7 +31,7 @@ extension _TextToolCustomFormulaTools on TextToolController {
     );
     final result = ExpressionParser(expression, degreeMode: true).parse();
     if (!result.isFinite) {
-      throw const FormatException('公式结果不是有限数值，请检查除零、对数或开方范围。');
+      throw FormatException(text.formulaNotFinite);
     }
 
     final usedVariables = _customFormulaVariables(parsed.formula);
@@ -32,32 +40,43 @@ extension _TextToolCustomFormulaTools on TextToolController {
     final missingVariables =
         usedVariables.where((name) => !parsed.variables.containsKey(name));
     if (missingVariables.isNotEmpty) {
-      throw FormatException('公式包含未赋值变量: ${missingVariables.join(', ')}');
+      throw FormatException(
+          text.formulaMissingVariables(missingVariables.join(', ')));
     }
 
     return TextToolOutput(
       _formatFormulaNumber(result),
       [
-        '公式: ${parsed.formula}',
-        '展开公式: $expression',
-        '变量:',
+        text.formulaLabel(parsed.formula),
+        text.formulaExpanded(expression),
+        text.formulaVariables,
         for (final name in ['a', 'b', 'c'])
           if (parsed.variables[name] case final value?)
-            '  $name = ${value.value}  来源: ${value.source}',
+            text.formulaVariableLine(name, '${value.value}', value.source),
       ].join('\n'),
       insights: [
-        if (parsed.extractedFormulaFromInput) '已从输入文本中提取公式。',
+        if (parsed.extractedFormulaFromInput) text.formulaExtracted,
         if (parsed.extractedVariablesFromInput.isNotEmpty)
-          '已从输入文本中提取变量: ${parsed.extractedVariablesFromInput.join(', ')}。',
+          text.formulaExtractedVariables(
+              parsed.extractedVariablesFromInput.join(', ')),
+        // 中文：这里传的是**排好序的列表本身**，不是 `join` 过的串——原文写的是
+        //       `'公式使用变量: ${list}.'`，Dart 把列表插值成 `[a, b, c]`。那是屏幕上实际出现的
+        //       字，所以照抄；`join` 会把它悄悄变成 `a, b, c`，那是改行为不是改语言。
+        // English: What is passed here is **the sorted list itself**, not a joined string: the
+        //          original read `'公式使用变量: ${list}.'` and Dart renders a list as `[a, b, c]`.
+        //          That is what actually appeared on screen, so it is reproduced verbatim; `join`
+        //          would silently turn it into `a, b, c` — a behaviour change, not a language one.
         if (usedVariables.isNotEmpty)
-          '公式使用变量: ${usedVariables.toList()..sort()}.',
-        if (unusedVariables.isNotEmpty) '未使用变量: ${unusedVariables.join(', ')}。',
-        '表达式按角度制解析三角函数，支持常量 pi/e 和常用数学函数。',
+          text.formulaUsedVariables('${usedVariables.toList()..sort()}'),
+        if (unusedVariables.isNotEmpty)
+          text.formulaUnusedVariables(unusedVariables.join(', ')),
+        text.formulaAngleNote,
       ],
     );
   }
 
   _ParsedCustomFormula _parseCustomFormulaInput({
+    required TextToolStrings strings,
     required String input,
     required String fallbackFormula,
     required Map<String, String> fallbackVariables,
@@ -73,12 +92,17 @@ extension _TextToolCustomFormulaTools on TextToolController {
       final parsed = ToolDetailController.parseNumericInputDetailed(raw);
       final value = parsed.value;
       if (value == null) {
-        throw FormatException('变量 $name: ${parsed.error ?? '输入无效'}');
+        throw FormatException(strings.text.formulaVariableError(
+          name,
+          parsed.error ?? strings.output.invalidInput,
+        ));
       }
       variables[name] = _ParsedCustomFormulaVariable(
         value: value,
         raw: raw,
-        source: fields.containsKey(name) ? '输入文本 "$raw"' : '变量框 "$raw"',
+        source: fields.containsKey(name)
+            ? strings.text.formulaSourceInput(raw)
+            : strings.text.formulaSourceField(raw),
       );
       if (fields.containsKey(name)) extractedVariables.add(name);
     }
