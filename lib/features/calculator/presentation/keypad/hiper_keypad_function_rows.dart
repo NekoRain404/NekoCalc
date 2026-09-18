@@ -272,8 +272,9 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          1311.5`，下方主键 `y=1314..1437` 的列中心 `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 /
     //          1311.0`——**六格对六键，最大差 1.0 px**（列宽 238 px）。`►DRG` 与 `DRG` 差 **0.5 px**。
     //       2. **HiPER 自己给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's
-    //          second function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517`）
-    //          "Symbols of these secondary functions are displayed above their keys."。
+    //          second function is displayed in the label above."；手册 v12.0 §SHIFT 第 517–525 行
+    //          （`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`，`pdftotext -layout`
+    //          后即此行号）"Symbols of these secondary functions are displayed above their keys."。
     //       3. **画法**：横带里每一颗**真按钮**都戴浅色胶囊底（四个进制胶囊：字块占满整格宽，
     //          亮像素占比 0.21–0.61），每一格**第二功能记号**都是平排文字（亮像素占比 0.02–0.09）。
     //          `►DRG` 是平排文字（0.052），字形核心 **(159,161,168)**——与 `FSE`/`MTRX`/`Π`/`d/dx`/

@@ -56,8 +56,9 @@ part of 'hiper_keypad.dart';
 //          的中心是 `127.5 / 364.0 / 601.0 / 838.0 / 1074.5 / 1311.0`——六格六键一一对齐
 //          （∠ 与 i 差 0.5 px，logₓy 与 e 差 5.5 px，两者都小于半格宽）。
 //       2. **HiPER 给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's second
-//          function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517-525`）
-//          "Symbols of these secondary functions are displayed above their keys."。**一个位置只有一种
+//          function is displayed in the label above."；手册 v12.0 §SHIFT 第 517–525 行
+//          （`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`）"Symbols of these secondary
+//          functions are displayed above their keys."。**一个位置只有一种
 //          含义**，它不可能既是提示又是独立按钮。
 //       3. **厂商 FAQ 把这条规则逐字应用在同一行横带上**（`https://hiperlabs.eu/help.html`，本轮
 //          联网核过原文）："To enter a number in polar coordinates, enter the radius, then
