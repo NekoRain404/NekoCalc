@@ -222,7 +222,7 @@ void main() {
     //          `find.text('1')` hits one of those first, tapping it is tapping the expression line,
     //          the inline editor opens and the whole result row leaves the tree (measured:
     //          `display=0 textfield=1`).
-    for (final key in <String>['log', '1', '0', '0']) {
+    for (final key in <String>['log₁₀', '1', '0', '0']) {
       await tester.tap(find.descendant(
         of: find.byType(CalculatorKeypad),
         matching: find.text(key, findRichText: true),

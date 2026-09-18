@@ -78,7 +78,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "ins:^2|x²|on function shift:ins:^3|x³|on",
     "sqrt|√x|on function shift:cbrt|∛x|on",
     "ins:^|xʸ|on function shift:root|ˣ√y|on",
-    "log|log|on function shift:ins:10^|10ˣ|on",
+    "log|log₁₀|on function shift:ins:10^|10ˣ|on",
     "ln|ln|on function shift:ins:e^|eˣ|on",
   ],
   <String>[

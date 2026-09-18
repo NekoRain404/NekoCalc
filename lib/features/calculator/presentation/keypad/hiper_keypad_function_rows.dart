@@ -653,8 +653,19 @@ const KeypadRow _powerAndLogRow = KeypadRow(
       category: KeyCategory.function,
       shift: KeyVariant(label: 'ˣ√y', id: 'root'),
     ),
+    // 中文：键面照 HiPER 写 **`log₁₀`**（原来写 `log`）。两者**取值相同**——应用的 `log`
+    //       本来就是常用对数，词表里 `'log': AppFunction(engineKnowsThisName: false,
+    //       engineFunction: 'log10')` 把它映到引擎的 `log10`；而引擎自己的 `log` 是**自然对数**
+    //       （宿主实测 `log(1000)` = 6.907755279），所以这一格**不能**少那层映射。
+    //       改键面只是因为它显式，与 HiPER 一致，**判据与派发一字未动**。
+    // English: the face reads **`log₁₀`** as HiPER writes it (it used to read `log`). The two are
+    //          **the same value**: this app's `log` has always been the common logarithm —
+    //          `'log': AppFunction(engineKnowsThisName: false, engineFunction: 'log10')` maps it onto
+    //          the engine's `log10`, while the engine's own `log` is the **natural** one (host:
+    //          `log(1000)` = 6.907755279), so that mapping must not be dropped. Only the face
+    //          changed, because it is explicit and matches HiPER; **no judgement or dispatch moved**.
     KeypadKey(
-      base: KeyVariant(label: 'log', id: 'log'),
+      base: KeyVariant(label: 'log₁₀', id: 'log'),
       category: KeyCategory.function,
       shift: KeyVariant(label: '10ˣ', id: 'ins:10^'),
     ),
