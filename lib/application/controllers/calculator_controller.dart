@@ -31,6 +31,7 @@ part 'calculator_controller_insertion.dart';
 part 'calculator_controller_evaluation.dart';
 part 'calculator_controller_persistence.dart';
 part 'calculator_controller_base_readout.dart';
+part 'calculator_controller_notation.dart';
 part 'calculator_controller_variables.dart';
 part 'calculator_controller_dataset.dart';
 part 'calculator_controller_fit_curve.dart';
@@ -187,6 +188,7 @@ class CalculatorController extends ChangeNotifier
         _CalculatorEvaluation,
         _CalculatorPersistence,
         _CalculatorBaseReadout,
+        _CalculatorNotation,
         _CalculatorVariables,
         _CalculatorDataset,
         // 中文：**顺序承重**。回归图那一层读 [CalculatorController.fitCall] 与那个数据集，所以它
