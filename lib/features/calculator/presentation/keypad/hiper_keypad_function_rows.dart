@@ -111,9 +111,11 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
 
   // 中文：行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / 相机。
   //       上方标签：DRG（循环 DEG↔RAD 的提示；HiPER 的 `▸` 只是装饰，而标签行里的实体键
-  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**仍未接上的**提示：
-  //       HiPER 上是「数字记法」那一维——Normal / Fixed / Scientific / Engineering / Engineering SI，
-  //       而本应用没有这一维，所以它只是一条提示，不是承诺；上方的键 `x⇔E` 从这一步起点亮，管的是
+  //       只有四个进制胶囊与 hyp 五个，所以这里是不可点的纯提示）、FSE（**已接上，现在是一个真控件**，
+  //       与四个进制胶囊同一形状：按一下把当前结果换一种数字记法，读数挂在状态行上。那一维在 HiPER 上
+  //       有五档——Normal / Fixed / Scientific / Engineering / Engineering SI，**本应用只接得上三档**
+  //       （Normal / Scientific / Engineering），缺的两档与理由写在
+  //       `calculator_controller_notation.dart` 的文件头上，缺就是缺。上方的键 `x⇔E` 管的是
   //       结果**形式**那一维，与 FSE 不是同一件事。SHIFT 态下按 `x⇔E` 走的是它自己的基准动作
   //       （`CalculatorKeypad._resolve` 写的：没有 shift 变体的键回落到基准），与 `MTRX` 同一种情形）、
   //       MTRX（矩阵键的 SHIFT 提示，已接上）、Π（Σ 的 SHIFT 提示，已接上）、d/dx（∫dx 的 SHIFT 提示，
@@ -127,10 +129,13 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   // English: Row 2 — DRG / x⇔E / matrix / summation / product / camera.
   //          Band above: DRG (a hint about cycling DEG↔RAD; HiPER's `▸` is decoration and the
   //          only real band buttons are the four base pills plus hyp, so this one is a
-  //          non-tappable hint), FSE (**still unwired**: on HiPER it is the "number notation"
-  //          dimension — Normal / Fixed / Scientific / Engineering / Engineering SI — and this app
-  //          has no such dimension, so it is a hint rather than a promise; the key under it, `x⇔E`,
-  //          lights up from this step on and owns the result **form** dimension instead, which is a
+  //          non-tappable hint), FSE (**now wired, and a real control** — the same shape as the four
+  //          base pills: one press re-spells the current result in another number notation and the
+  //          read-out hangs on the status row. On HiPER that dimension has five positions — Normal /
+  //          Fixed / Scientific / Engineering / Engineering SI — and **this app can only reach
+  //          three** (Normal / Scientific / Engineering); the two that are missing, and why, are on
+  //          the file head of `calculator_controller_notation.dart`. Missing is missing. The key
+  //          under it, `x⇔E`, owns the result **form** dimension instead, which is a
   //          different thing. Under SHIFT, `x⇔E` runs its own base action — as
   //          `CalculatorKeypad._resolve` says, a key without a shift variant falls back to the base —
   //          exactly the situation `MTRX` is in), MTRX (hint of the matrix key),
@@ -174,7 +179,29 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
     ],
     labels: <KeypadLabel?>[
       ShiftLabel('DRG'),
-      ShiftLabel('FSE'),
+      // 中文：**`FSE` 从这一步起是实体键**（原来是一行不可点的 `ShiftLabel`）。它长在标签横带里，
+      //       与四个进制胶囊同一分类、同一形状——那四颗是横带里既有的可点控件，这条横带里"看起来
+      //       像按钮"和"真的是按钮"必须是一回事。
+      //       交互：**按一下循环下一档**（Normal → SCI → ENG → Normal），与 `DRG` 一样是循环键；
+      //       否掉的是 HiPER 自己的那个五档菜单（`fseMenu.title` = "Decimal Numbers Format"）：它要
+      //       新开一层界面（面板/对话框 + 自己的测试与关闭规则），而这条横带里其它可点的格子都是
+      //       一按即得；菜单换来的"跳着选"在只剩三档时不值那层界面。
+      // English: **`FSE` is a real key from this step on** (it used to be a non-tappable
+      //          `ShiftLabel`). It sits in the label band with the four base pills' category and
+      //          shape — those four are the band's existing tappable controls, and in this band
+      //          "looks like a button" and "is a button" have to be the same thing.
+      //          Interaction: **one press cycles to the next position** (Normal → SCI → ENG →
+      //          Normal), a cycle key like `DRG`. Rejected: HiPER's own five-item menu
+      //          (`fseMenu.title` = "Decimal Numbers Format") — it needs a new UI layer (a sheet or
+      //          dialog with its own tests and dismissal rules) while every other tappable cell in
+      //          this band is one press, and the "jump straight there" a menu buys is not worth that
+      //          layer with only three positions left.
+      InlineKey(
+        KeypadKey(
+          base: KeyVariant(label: 'FSE', id: 'notationCycle'),
+          category: KeyCategory.pill,
+        ),
+      ),
       ShiftLabel('MTRX'),
       ShiftLabel('Π'),
       ShiftLabel('d/dx'),

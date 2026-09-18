@@ -133,7 +133,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
   ],
   <String>[
     "hint:DRG",
-    "hint:FSE",
+    "notationCycle|FSE|on pill",
     "hint:MTRX",
     "hint:Π",
     "hint:d/dx",

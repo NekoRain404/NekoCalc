@@ -165,6 +165,8 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         await _showBaseReadout(CalculatorBase.dec);
       case 'baseHex':
         await _showBaseReadout(CalculatorBase.hex);
+      case 'notationCycle':
+        await _cycleNotation();
       case 'backspace':
         _controller.backspace();
       case 'clear':

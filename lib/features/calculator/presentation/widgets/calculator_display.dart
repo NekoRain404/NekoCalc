@@ -46,8 +46,8 @@ const double _errorMessageFontSize = 12;
 /// 布局 / Layout（自上而下 / top to bottom）:
 /// 中文：1) 状态行：最左是抽屉按钮（`onOpenDrawer` 为空则不渲染），接着角度模式 chip、
 ///       记忆指示 `M`（`hasMemory` 为假时留空）、**结果形式指示**（`EXPR` / `DMS`，没有时整格
-///       不存在，见 [ResultForm.indicator]）、进制读数（[baseReadout] 为空时整格不存在——
-///       它只占余量，不会把 `More...` 挤出屏幕），`Spacer` 把 `More...` 推到最右
+///       不存在，见 [ResultForm.indicator]）、读数（[baseReadout] / [notationReadout]，
+///       各自为空时整格不存在）、`Spacer` 把 `More...` 推到最右
 ///       （`onMore` 为空则不渲染）；2) 表达式行：`MathExpressionView`，右对齐，外面套一圈横向
 ///       滚动，算式比屏幕宽时滚动而不是溢出；3) 结果行：右对齐，`=` 前缀 + 结果——引擎给出精确
 ///       形式且它排得出来时，那一段走 `MathExpressionView` 自然排版并在后面跟上 `≈ 近似值`，
@@ -56,8 +56,9 @@ const double _errorMessageFontSize = 12;
 /// English: 1) status row: the drawer button leftmost (not rendered when `onOpenDrawer` is null),
 ///          then the angle-mode chip, the `M` memory indicator (nothing when `hasMemory` is
 ///          false), the **result-form indicator** (`EXPR` / `DMS`; the whole cell is absent when
-///          there is none — see [ResultForm.indicator]), the base read-out (absent when
-///          [baseReadout] is empty), and a `Spacer` pushing `More...` to the right edge (not
+///          there is none — see [ResultForm.indicator]), the read-outs ([baseReadout] /
+///          [notationReadout]; each is absent while empty), and a `Spacer` pushing `More...` to the
+///          right edge (not
 ///          rendered when `onMore` is null); 2) expression line: `MathExpressionView`, right-aligned,
 ///          inside a horizontal scroll view so a long expression scrolls instead of overflowing; 3) result
 ///          line: right-aligned, an `=` prefix followed by the result — when the engine supplied an
@@ -177,6 +178,7 @@ class CalculatorDisplay extends StatelessWidget {
     this.resultForm = ResultForm.auto,
     this.resultDecimal = '',
     this.baseReadout = '',
+    this.notationReadout = '',
     this.onTapOffset,
     this.onMore,
     this.onOpenDrawer,
@@ -289,9 +291,10 @@ class CalculatorDisplay extends StatelessWidget {
   final bool hasMemory;
 
   /// 中文：**进制读数**（`HEX 64`），空串表示没有。它是四个进制胶囊那一次换算的产物，由控制器
-  ///       （`CalculatorController.baseReadout`）决定此刻还成不成立。
+  ///       （`CalculatorController.baseReadout`）决定此刻还成不成立。[notationReadout] 是它的同类，
+  ///       下面这段对两者都成立。
   ///
-  ///       它落在**状态行**上，而不是结果行上，理由有两条：
+  ///       读数落在**状态行**上，而不是结果行上，理由有两条：
   ///       - 结果行是「这一次求值的值」，而读数是**另一个写法**。两个数字并排放在同一行里，
   ///         读者无法一眼看出哪个是答案；状态行本来就在放这一类标注（`DEG`/`RAD`、记忆徽标）。
   ///       - 结果行的高度契约（见类注释）是按真实字体度量量出来的，多一行要重新量一遍；
@@ -302,8 +305,9 @@ class CalculatorDisplay extends StatelessWidget {
   /// English: **the base read-out** (`HEX 64`); an empty string means there is none. It is what the
   ///          four base pills' conversion produced, and the controller
   ///          (`CalculatorController.baseReadout`) decides whether it still holds right now.
+  ///          [notationReadout] is its sibling, and everything below holds for both.
   ///
-  ///          It sits on the **status row** rather than the result line for two reasons:
+  ///          A read-out sits on the **status row** rather than the result line for two reasons:
   ///          - the result line is "this evaluation's value" while a read-out is **another way of
   ///            writing it**. Side by side on one line, a reader cannot tell at a glance which is the
   ///            answer; the status row already carries exactly this kind of annotation (`DEG`/`RAD`,
@@ -316,6 +320,14 @@ class CalculatorDisplay extends StatelessWidget {
   ///          an ellipsis inside — **the cut is visible**, never a few digits quietly missing (which
   ///          is the same thing as a wrong value on screen).
   final String baseReadout;
+
+  /// 中文：**数字记法读数**（`SCI 1.23456789E4`），`FSE` 那一颗键按出来的。契约与 [baseReadout]
+  ///       逐条相同（空串即整格不存在、控制器决定它此刻还成不成立）；内容来自
+  ///       `CalculatorController.notationReadout`，**绝不来自 `decimalText`**。
+  /// English: **the number-notation read-out** (`SCI 1.23456789E4`), produced by the `FSE` key. Its
+  ///          contract is item-for-item [baseReadout]'s; it comes from
+  ///          `CalculatorController.notationReadout` and **never from `decimalText`**.
+  final String notationReadout;
 
   /// 中文：显示区语义色，面板里的每一个色值都取自它。
   /// English: Semantic display colours; every colour in the panel comes from here.
@@ -445,31 +457,20 @@ class CalculatorDisplay extends StatelessWidget {
     );
   }
 
-  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、**结果形式指示**、进制读数，`Spacer` 之后是
-  ///       `More...`。
-  ///
-  ///       进制读数那一格是 [Flexible]（宽松）而不是定宽：它旁边那个 `Spacer` 是 `Expanded`，
-  ///       两者按 flex 分余量，于是读数**永远放得下**——内容比份额长时是它自己按省略号收窄，
-  ///       而不是让整行报 RenderFlex 溢出。没有读数时这一格整个不存在，布局与从前逐像素相同。
-  ///
-  ///       **结果形式指示**那一格（HiPER 的 `EXPR` / `DMS`）守同一条规矩，理由也是量出来的：宽松
-  ///       `Flexible` + chip 里 `maxLines: 1`/省略号，放不下时收窄自己而不是把整行撑破（不给它
-  ///       `Flexible` 时实测报 `A RenderFlex overflowed by 30 pixels on the right.`）；空串时整格
-  ///       不存在。为什么落在这一行而不是另起一行，判据在 [ResultForm.indicator]。
+  /// 中文：状态行——抽屉按钮、角度模式 chip、记忆指示、**结果形式指示**、读数（进制 / 记法），
+  ///       `Spacer` 之后是 `More...`。两类格子都是宽松 [Flexible]：旁边的 `Spacer` 是
+  ///       `Expanded`，两者按 flex 分余量，所以格子**永远放得下**——内容比份额长时自己按省略号
+  ///       收窄而不让整行溢出（不给 `Flexible` 时实测报
+  ///       `A RenderFlex overflowed by 30 pixels on the right.`）；空串时整格不存在。
+  ///       读数为什么落在这一行见 [baseReadout]，形式指示见 [ResultForm.indicator]。
   /// English: The status row — drawer button, angle-mode chip, memory indicator, **the result-form
-  ///          indicator**, base read-out, then `More...` after a `Spacer`.
-  ///
-  ///          The base read-out's cell is a loose `Flexible` rather than a fixed width: the `Spacer`
-  ///          beside it is an `Expanded`, the two share the slack by flex, and the read-out therefore
-  ///          **always fits** — when it is longer than its share it narrows itself with an ellipsis
-  ///          instead of making the row report a RenderFlex overflow. With no read-out the cell does
-  ///          not exist at all and the layout is pixel-for-pixel what it was.
-  ///
-  ///          The **result-form indicator** cell (HiPER's `EXPR` / `DMS`) keeps the same rule for the
-  ///          same measured reason: a loose `Flexible` with `maxLines: 1` plus an ellipsis inside the
-  ///          chip, narrowing rather than overflowing the row (measured: `A RenderFlex overflowed by
-  ///          30 pixels on the right.` without it). An empty string means the whole cell is absent;
-  ///          why it lands on this row rather than a line of its own is in [ResultForm.indicator].
+  ///          indicator**, the read-outs (base / notation), then `More...` after a `Spacer`. Both
+  ///          kinds of cell are a loose `Flexible`: the `Spacer` beside them is an `Expanded`, the
+  ///          two share the slack by flex, so a cell **always fits** — longer than its share it
+  ///          narrows itself with an ellipsis rather than overflowing the row (measured: `A
+  ///          RenderFlex overflowed by 30 pixels on the right.` without it); empty means absent.
+  ///          Why the read-outs land here is in [baseReadout], the form indicator in
+  ///          [ResultForm.indicator].
   Widget _statusRow(ResultPresentation presentation) {
     // 中文：**请求的形态落到这一份结果上**之后才念名字。少了 `resolve` 这一步，上一份结果上选的
     //       形态会留在状态行上给新结果点一盏假灯——「这一份结果没有那一格」时就该一个字都不说。
@@ -499,10 +500,16 @@ class CalculatorDisplay extends StatelessWidget {
             //          `_statusRow`'s note.
             Flexible(child: StatusChips.resultForm(indicator, colors)),
           ],
-          if (baseReadout.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(width: 6),
-            Flexible(child: StatusChips.baseReadout(baseReadout, colors)),
-          ],
+          // 中文：两格读数（进制 / 记法）走同一段渲染——它们是同一类东西，形状、配色与省略规则不该
+          //       分家；各自为空时各自不存在，布局与从前逐像素相同。
+          // English: the two read-outs (base / notation) share one stretch of rendering — the same
+          //          kind of thing, with a shape and elision rule that must not drift apart. Each is
+          //          absent while empty, so the layout is pixel-for-pixel what it was.
+          for (final readout in <String>[baseReadout, notationReadout])
+            if (readout.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(width: 6),
+              Flexible(child: StatusChips.baseReadout(readout, colors)),
+            ],
           const Spacer(),
           if (onMore != null) _moreButton(),
         ],

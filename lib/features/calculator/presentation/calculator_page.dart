@@ -25,6 +25,7 @@ import 'widgets/unit_picker_sheet.dart';
 import 'widgets/variable_picker_sheet.dart';
 
 part 'calculator_key_dispatch.dart';
+part 'calculator_notation_dispatch.dart';
 part 'calculator_page_sheets.dart';
 part 'calculator_page_dataset_sheet.dart';
 part 'calculator_page_repeat_button.dart';
@@ -92,6 +93,12 @@ class CalculatorPage extends StatefulWidget {
     //          arguments and the keypad has no comma key.
     'ins:mean', 'ins:median', 'ins:stdev', 'ins:var',
     'baseDec', 'baseHex', 'baseBin', 'baseOct',
+    // 中文：`FSE`（数字记法）。它与四个进制胶囊同属「按一下把当前结果换一种写法」那一类，派发在
+    //       `calculator_notation_dispatch.dart` 里（那个文件为什么单独存在，见它的文件头）。
+    // English: `FSE` (number notation). It belongs with the four base pills in the "one press re-spells
+    //          the current result" class; its dispatch is in `calculator_notation_dispatch.dart`
+    //          (why that file exists on its own is in its file head).
+    'notationCycle',
     // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回、`D°M'S` 在度分秒写法与
     // 原来那一行之间来回。三者都只改**显示**，结果行、`Ans`/`last`、记忆寄存器、继续使用与历史
     // 一个字都不动。
@@ -334,6 +341,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          it still holds — when the generation or the source decimal no longer matches it hands
       //          back an empty string, so there is no second judgement to make here.
       baseReadout: _controller.baseReadout?.label ?? '',
+      // 中文：数字记法读数（`FSE` 按出来的那一个）。与进制读数同一条规矩：它由控制器决定此刻还成不
+      //       成立——代际或来源十进制形态对不上时控制器给的就是空串，所以这里不必再判一次。
+      // English: the number-notation read-out (what `FSE` produces). Same rule as the base read-out:
+      //          the controller decides whether it still holds — when the generation or the source
+      //          decimal no longer matches it hands back an empty string, so there is no second
+      //          judgement to make here.
+      notationReadout: _controller.notationReadout?.label ?? '',
       hasError: _controller.hasError,
       statusTitle: _controller.resultStatusTitle,
       statusMessage: _controller.resultStatusMessage,
