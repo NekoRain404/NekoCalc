@@ -1,5 +1,6 @@
 import 'keypad_definition.dart';
 
+part 'hiper_keypad_band_key_rows.dart';
 part 'hiper_keypad_function_rows.dart';
 part 'hiper_keypad_number_rows.dart';
 
@@ -51,32 +52,46 @@ part 'hiper_keypad_number_rows.dart';
 ///          disabled keys use `dis:`; page-level actions (drawer, tools, history) also carry
 ///          no prefix (`drawer`, `openTools`, …).
 
-/// 中文：**这张表住在三个文件里，缝在「功能键区」与「数字区」之间。** 上半个键区（第 1–5 行：
-///       修饰键与光标、DRG/MTRX/Σ/∫dx/相机、π 与三角函数、幂与对数、度分秒/分数/变量/记忆）在
-///       `hiper_keypad_function_rows.dart`；数字区（第 6–9 行：从 `7 8 9 ( )` 到 `0 . +/− EXP ✓`，
-///       也就是上面那段结构说明里被点名的那一块）在 `hiper_keypad_number_rows.dart`。
-///       这条缝不是按行数切的一刀：两半各自是一块**完整的键盘区域**，缝的位置取自本文件自己的
-///       说法（「包括数字区」指的就是这两半），而**行的顺序仍由这里决定**——两半只是内容，
-///       拼法与先后只此一处。
+/// 中文：**这张表住在四个文件里，有两条缝。** 第一条缝仍在「功能键区」与「数字区」之间：上半个
+///       键区（第 1–5 行：修饰键与光标、DRG/MTRX/Σ/∫dx/相机、π 与三角函数、幂与对数、
+///       度分秒/分数/变量/记忆）在 `hiper_keypad_function_rows.dart`；数字区（第 6–9 行：从
+///       `7 8 9 ( )` 到 `0 . +/− EXP ✓`，也就是上面那段结构说明里被点名的那一块）在
+///       `hiper_keypad_number_rows.dart`。这条缝不是按行数切的一刀：两半各自是一块**完整的键盘
+///       区域**，缝的位置取自本文件自己的说法（「包括数字区」指的就是这两半），而**行的顺序仍由
+///       这里决定**——两半只是内容，拼法与先后只此一处。
+///
+///       第二条缝在功能键区**内部**，落点是「横带里那一格是不是一颗按钮」（规格书第 17 行画的
+///       就是这条线）：横带只有不可点提示的行（1、2、4）留在 `hiper_keypad_function_rows.dart`，
+///       横带里放了 `InlineKey` 的两行（3、5）搬到 `hiper_keypad_band_key_rows.dart`。两处各自的
+///       文件头都写了这条缝为什么对；**那个文件里的每一条 `InlineKey` 都得指得出出处**，因为
+///       「提示被做成按钮」正是最近五轮一直在撤的形状。
 ///
 ///       **拆分的动因是那条 800 行上限**：加 `d/dx`（`∫dx` 的 SHIFT 变体）时，还是单文件的它到了
-///       801 行（实测）。删掉过期理由、改写真理由都不是「凑行数」——拆的是**数据**，缝落在区域
-///       之间，两半各自都有余量，下一颗键不必再拆一次。
-/// English: **The table lives in three files, and the seam runs between the function half and the
-///          number area.** The upper half (rows 1–5: modifiers and cursor, DRG/MTRX/Σ/∫dx/camera,
-///          π and trigonometry, powers and logarithms, D°M'S/fraction/variables/memory) is in
-///          `hiper_keypad_function_rows.dart`; the number area (rows 6–9, from `7 8 9 ( )` down to
-///          `0 . +/− EXP ✓` — the block the structure note above names) is in
-///          `hiper_keypad_number_rows.dart`. The seam is not a cut made to hit a line count: each
-///          half is one whole region of the keypad, the seam is where this file's own structure
-///          note already draws it, and **the row order is still decided here** — the two halves are
-///          content, and their order and assembly live in this one place.
+///       801 行（实测）；本轮加 `DRG`/`MTRX` 两处挂载时，功能键区文件是 787 行、只剩 13 行余量。
+///       两次拆的都是**数据**，缝落在区域之间或横带的性质之间，拆完每一半都有余量。
+/// English: **The table lives in four files, with two seams.** The first seam still runs between the
+///          function half and the number area: the upper half (rows 1–5: modifiers and cursor,
+///          DRG/MTRX/Σ/∫dx/camera, π and trigonometry, powers and logarithms,
+///          D°M'S/fraction/variables/memory) is in `hiper_keypad_function_rows.dart`; the number
+///          area (rows 6–9, from `7 8 9 ( )` down to `0 . +/− EXP ✓` — the block the structure note
+///          above names) is in `hiper_keypad_number_rows.dart`. The seam is not a cut made to hit a
+///          line count: each half is one whole region of the keypad, the seam is where this file's
+///          own structure note already draws it, and **the row order is still decided here** — the
+///          halves are content, and their order and assembly live in this one place.
 ///
-///          **The reason for the split is the 800-line cap**: adding `d/dx` (the SHIFT variant of
-///          `∫dx`) took the single-file version to 801 lines (measured). Deleting the expired
-///          rationale and writing the true one was never row-count padding — what got split is the
-///          **data**, along a region boundary, and each half now has room so the next key does not
-///          force another split.
+///          The second seam runs **inside** the function half, and its cut is "whether a band cell
+///          is a button" (the line line 17 of the spec draws): the rows whose band holds nothing but
+///          hints (1, 2, 4) stay in `hiper_keypad_function_rows.dart`, and the two rows whose band
+///          carries `InlineKey`s (3, 5) move to `hiper_keypad_band_key_rows.dart`. Each file head
+///          says why that seam is right; **every `InlineKey` over there has to point at its
+///          source**, because "a hint turned into a button" is the shape the last five rounds have
+///          been taking back out.
+///
+///          **The reason for both splits is the 800-line cap**: adding `d/dx` (the SHIFT variant of
+///          `∫dx`) took the single-file version to 801 lines (measured), and this round's two mounts
+///          (`DRG`/`MTRX`) found the function-rows file at 787 lines with 13 to spare. Both times
+///          what got split is the **data**, along a region boundary or along the nature of the band,
+///          and each half now has room.
 const KeypadDefinition hiperKeypad = KeypadDefinition(<KeypadRow>[
   ..._functionRows,
   ..._numberRows,
