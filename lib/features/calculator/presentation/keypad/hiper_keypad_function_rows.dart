@@ -280,8 +280,10 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          `CNST`/`hyp`/`sin⁻¹`/`logₓy`/`lim`/`x³`/`n!`/`gcd` **逐个像素同值**，也就是与所有
     //          已被认定的第二功能记号同一种画法。
     //       4. **`▸` 不是「这是一颗按钮」的记号。** 厂商自己的更新日志把这一族的名字写成
-    //          **`▸BASE`（U+25B8）函数**（`/tmp/hiper_en.po` 第 8888 行："\\u25B8BASE function
-    //          available in custom keyboards"），而同一族在**展开布局**里是 `►DEG`/`►RAD`/`►GRAD`
+    //          **`▸BASE`（U+25B8）函数**（`msgctxt "releaseNotes"`，厂商字符串表第 8888 行：
+    //          "\\u25B8BASE function available in custom keyboards"——本轮重新取回核对过，
+    //          地址与抄本见 `.superpowers/backup/mtrx-drg-report.md:150`；抽取文件
+    //          `/tmp/hiper_en.po` 在本机 `/tmp`、已不存在），而同一族在**展开布局**里是 `►DEG`/`►RAD`/`►GRAD`
     //          三颗键——展开布局**没有 SHIFT 键、也没有第二功能**（手册 §SHIFT："Expanded and pocket
     //          layouts do not have SHIFT key and all functions are accessible by 'one click'"）。
     //          所以这个箭头属于**换算命令的名字**，不属于控件的种类。（**`►GRAD` 那颗键的拼法正是
@@ -339,8 +341,11 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //             `FSE`/`MTRX`/`Π`/`d/dx`/`CNST`/`hyp`/`sin⁻¹`/`logₓy`/`lim`/`x³`/`n!`/`gcd`, i.e. the
     //             drawing every already-established second-function symbol has.
     //          4. **`▸` is not a "this is a button" marker.** The vendor's own release notes spell the
-    //             family's name as the **`▸BASE` (U+25B8) function** (`/tmp/hiper_en.po` line 8888:
-    //             "\\u25B8BASE function available in custom keyboards"), and the same family appears
+    //             family's name as the **`▸BASE` (U+25B8) function** (`msgctxt "releaseNotes"`, line
+    //             8888 of the vendor string table: "\\u25B8BASE function available in custom
+    //             keyboards" — re-fetched and checked this round; address and copy in
+    //             `.superpowers/backup/mtrx-drg-report.md:150`, and the extracted file
+    //             `/tmp/hiper_en.po` was on this machine's `/tmp`, gone), and the same family appears
     //             in the **expanded** layout as `►DEG`/`►RAD`/`►GRAD` keys — a layout that **has no
     //             SHIFT key and no second functions at all** (manual §SHIFT: "Expanded and pocket
     //             layouts do not have SHIFT key and all functions are accessible by 'one click'").
@@ -407,9 +412,19 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //       一颗可点的 `InlineKey`，那是错的，本轮按来源改回来。三条来源，各自独立：
     //
     //       1. **真机截图**（本机 `~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`，
-    //          裁出第 2 行的那一块是 `/tmp/hiper_row2.png`）：`FSE` 印在 `x⇔E` **正上方、水平居中对齐**；
+    //          1440×3200，今天仍在，量它）：`FSE` 印在 `x⇔E` **正上方、水平居中对齐**；
     //          同一张图上 `▸DRG`/`MTRX`/`Π`/`d/dx`/`CNST` 也各自压在 `DRG`/矩阵/`Σ`/`∫dx`/`CONV` 上方。
-    //       2. **HiPER 自己写了这条规则**（`/tmp/hiper_en.po`，`quickTour.page.SECOND_FUNCTION.text2`）：
+    //          **注意它是较早的 Version 10 键盘布局**（第 2 行第 6 格写 `CONV`/`CNST`），不是厂商
+    //          当前的键位（当前那一格是相机键，见 `keypad-fidelity-report.md` §1.2）；`FSE` 压在
+    //          `x⇔E` 正上方这一条在厂商**当前**主屏截图上同样成立——`https://hiperlabs.eu/screenshots.html`
+    //          → `assets/img/01 calculator.png`，今天仍可取回。
+    //          ⚠️ **从前这里引的是裁图 `/tmp/hiper_row2.png`：它已不存在，而且它本身是残缺的**——
+    //          `HANDOVER.md` 第五节逐字写着它「都是残缺的——里面既没有第 3 行也没有第 4 行（两轮都
+    //          踩过）」，并要人去量原始整图；要量就量上面那张原图。
+    //       2. **HiPER 自己写了这条规则**（`msgctxt "quickTour.page.SECOND_FUNCTION.text2"` 今天仍能从
+    //          `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/` 取回
+    //          自查，抄本见 `.superpowers/backup/fse-placement-report.md:33`；抽取文件 `/tmp/hiper_en.po`
+    //          在本机 `/tmp`，已不存在）：
     //          *"The key's second function is displayed in the label above."* —— 键上方的标签
     //          **就是**那颗键的第二功能。同一条 `text` 还说第二功能要靠 `SHIFT` 键进入。
     //          手册同页写着 "Symbols of these secondary functions are displayed above their keys"。
@@ -428,15 +443,29 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          previous round made it a tappable `InlineKey` in the band; that was wrong and this
     //          round puts it back where the sources put it. Three independent sources:
     //
-    //          1. **The device screenshot** (on this machine, the crop of its row 2 is
-    //             `/tmp/hiper_row2.png`): `FSE` is printed **directly above `x⇔E`, horizontally
-    //             centred on it**; the same shot puts `▸DRG`/`MTRX`/`Π`/`d/dx`/`CNST` over
-    //             `DRG`/matrix/`Σ`/`∫dx`/`CONV` the same way.
-    //          2. **HiPER states the rule itself** (`/tmp/hiper_en.po`,
-    //             `quickTour.page.SECOND_FUNCTION.text2`): *"The key's second function is displayed
-    //             in the label above."* The label above a key **is** that key's second function, and
-    //             the sibling string says the `SHIFT` key is how you reach it. The manual's own page
-    //             says "Symbols of these secondary functions are displayed above their keys".
+    //          1. **The device screenshot** (on this machine, 1440×3200, still here — measure it):
+    //             `FSE` is printed **directly above `x⇔E`, horizontally centred on it**; the same
+    //             shot puts `▸DRG`/`MTRX`/`Π`/`d/dx`/`CNST` over `DRG`/matrix/`Σ`/`∫dx`/`CONV` the
+    //             same way. **It is the older Version 10 keyboard layout** (cell 6 of row 2 reads
+    //             `CONV`/`CNST`), not the vendor's current keypad (that cell is the camera key now;
+    //             see `keypad-fidelity-report.md` §1.2) — and `FSE` above `x⇔E` holds on the
+    //             vendor's **current** main-screen shot too:
+    //             `https://hiperlabs.eu/screenshots.html` → `assets/img/01 calculator.png`, still
+    //             fetchable today.
+    //             ⚠️ **The crop cited here used to be `/tmp/hiper_row2.png`: it is gone, and it was
+    //             incomplete anyway** — section 5 of `HANDOVER.md` says of it, verbatim, that they
+    //             are all incomplete and that "里面既没有第 3 行也没有第 4 行（两轮都踩过）" (a
+    //             translation: there is neither row 3 nor row 4 in them, and two rounds were burned
+    //             on that). Measure the original above instead.
+    //          2. **HiPER states the rule itself** (`msgctxt "quickTour.page.SECOND_FUNCTION.text2"`
+    //             can still be fetched and checked today from
+    //             `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`,
+    //             with a copy in `.superpowers/backup/fse-placement-report.md:33`; the extracted file
+    //             `/tmp/hiper_en.po` was on this machine's `/tmp`, gone): *"The key's second function
+    //             is displayed in the label above."* The label above a key **is** that key's second
+    //             function, and the sibling string says the `SHIFT` key is how you reach it. The
+    //             manual's own page says "Symbols of these secondary functions are displayed above
+    //             their keys".
     //          3. **Two separate commands**: `command.name.CHANGE_EXPR` = "Result Format" (the base
     //             of `x⇔E`; `resultFormat.info2` says "press `<key:CHANGE_EXPR>` key or tap on the
     //             result") and `command.name.FSE` = "Number Notation" — adjacent ids, **two commands**.
@@ -624,7 +653,7 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
 //       4. **HiPER 自己给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's
 //          second function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517`）
 //          "Symbols of these secondary functions are displayed above their keys."
-//       5. **手册把 `lim` 叫作 "key" 不说明任何事**：同一份手册第 692 行写着 "use sin-1 , cos-1 and
+//       5. **手册把 `lim` 叫作 "key" 不说明任何事**：同一份手册第 695 行写着 "use sin-1 , cos-1 and
 //          tan-1 **keys**"——那三颗就是本行上方的横带格。第 1138 行 "Press the `lim` key" 用的是
 //          同一套措辞；帮助串里 `<key:LIMIT>` 与 `<key:ASIN>` 的形状也完全一样。
 //          `command.name.LIMIT` = "Limit"（另有 `LIMIT_MENU` = "Limit Menu"）与 `FSE`/`CHANGE_EXPR`
@@ -664,7 +693,7 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
 //             "The key's second function is displayed in the label above.", and the manual's SHIFT
 //             section (`hipercalc-manual.txt:517`) "Symbols of these secondary functions are
 //             displayed above their keys."
-//          5. **The manual calling `lim` a "key" decides nothing**: line 692 of the same manual says
+//          5. **The manual calling `lim` a "key" decides nothing**: line 695 of the same manual says
 //             "use sin-1 , cos-1 and tan-1 **keys**" — three band cells of this very row. Line 1138's
 //             "Press the `lim` key" is the same wording, and the help markup `<key:LIMIT>` has
 //             exactly the shape of `<key:ASIN>`. `command.name.LIMIT` = "Limit" (plus `LIMIT_MENU` =

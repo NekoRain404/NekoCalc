@@ -2,8 +2,12 @@ part of 'calculator_controller.dart';
 
 /// 中文：**HiPER 的 `FSE` 那一维**，只留下引擎真的给得出的那几档。
 ///
-///       **档位是从 HiPER 自己的字符串里读出来的，不是从任何转述里抄的**（`/tmp/hiper_en.po`
-///       与 `/tmp/hipercalc-manual.txt`，本机在手；命令与原文见 `fse-report.md`）：
+///       **档位是从 HiPER 自己的字符串里读出来的，不是从任何转述里抄的**（厂商字符串表
+///       `msgctxt "command.name.FSE"` 那六条今天仍能从
+///       `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`
+///       取回自查，逐字抄本在 `.superpowers/backup/fse-report.md:33-40`，手册那一栏在同文件
+///       `:45-51`；两个抽取文件 `/tmp/hiper_en.po` 与 `/tmp/hipercalc-manual.txt` 住在本机
+///       `/tmp`，已不存在）：
 ///       `command.name.FSE` = "Number Notation"，它的五档是 `FSE_NORM` "Normal Notation"、
 ///       `FSE_FIX` "Fixed Notation"、`FSE_SCI` "Scientific Notation"、`FSE_ENG`
 ///       "Engineering Notation"、`FSE_ENG_SI` "Engineering SI Notation"。
@@ -28,8 +32,12 @@ part of 'calculator_controller.dart';
 /// English: **HiPER's `FSE` dimension**, keeping only the positions the engine really produces.
 ///
 ///          **The positions were read out of HiPER's own strings, not copied from any retelling**
-///          (`/tmp/hiper_en.po` and `/tmp/hipercalc-manual.txt`, both on this machine; the commands
-///          and the original text are in `fse-report.md`): `command.name.FSE` = "Number Notation",
+///          (the six `msgctxt "command.name.FSE"` entries can still be fetched and checked today
+///          from `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`;
+///          they are quoted verbatim in `.superpowers/backup/fse-report.md:33-40`, with the manual's
+///          column at `:45-51`. The two extracted files `/tmp/hiper_en.po` and
+///          `/tmp/hipercalc-manual.txt` were on this machine's `/tmp` and are no longer present):
+///          `command.name.FSE` = "Number Notation",
 ///          whose five positions are `FSE_NORM` "Normal Notation", `FSE_FIX` "Fixed Notation",
 ///          `FSE_SCI` "Scientific Notation", `FSE_ENG` "Engineering Notation" and `FSE_ENG_SI`
 ///          "Engineering SI Notation".

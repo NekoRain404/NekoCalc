@@ -178,7 +178,9 @@ enum ResultForm {
   ///
   ///       **来源与取法**（本机实测取回，不是记忆）：上面两串取自 HiPER **自己的**帮助文本，
   ///       经项目公开的翻译 API 取回。**v12.0 手册 PDF 本轮也从厂商站点取到了**
-  ///       （`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`，55 页，落到 `/tmp`），
+  ///       （`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`，今天仍可取回；`pdfinfo`
+  ///       报 55 页——`file` 对它误报 8 页，别信那一行；`pdftotext -layout` 之后「RESULT FORMAT」
+  ///       在第 265 行。当时下载到本机 `/tmp` 的那一份已不存在，**要核就重新取这个 URL**），
   ///       逐句对过：p.7 的「RESULT FORMAT」段与上面第一句同文，四盏灯的名字也相同。
   ///
   ///       ```
@@ -247,9 +249,12 @@ enum ResultForm {
   ///          **Source and how it was fetched** (measured on this machine just now, not remembered):
   ///          the two strings above come from HiPER's **own** help text, through the project's public
   ///          translation API. The **v12.0 manual PDF was also fetched this round from the vendor's
-  ///          own site** (`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`, 55 pages,
-  ///          landed in `/tmp`) and checked sentence by sentence: its "RESULT FORMAT" section on
-  ///          p.7 carries the first string above verbatim, with the same four lamp names.
+  ///          own site** (`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`, still
+  ///          fetchable today; `pdfinfo` reports 55 pages where `file` misreports 8, and after
+  ///          `pdftotext -layout` "RESULT FORMAT" is at line 265 — the copy downloaded to this
+  ///          machine's `/tmp` that round is gone, so **re-fetch the URL to check it**) and checked
+  ///          sentence by sentence: its "RESULT FORMAT" section on p.7 carries the first string
+  ///          above verbatim, with the same four lamp names.
   ///
   ///          ```
   ///          $ curl -sS "https://weblate.a4tune.com/api/units/?q=help.numbers\

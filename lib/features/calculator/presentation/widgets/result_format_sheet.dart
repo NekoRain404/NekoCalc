@@ -42,7 +42,10 @@ class ResultFormatCell {
 
 /// 中文：**菜单的七项，按屏幕上的顺序。**
 ///
-///       **前六项的来源是厂商自己的字符串表**（`/tmp/hiper_en.po`），顺序就是它们在文件里的顺序，
+///       **前六项的来源是厂商自己的字符串表**（`msgctxt "rfMenu.*"` 那七条今天仍能从
+///       `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/` 取回
+///       自查，逐字抄本在 `.superpowers/backup/result-format-menu-report.md:43-71`；抽取文件
+///       `/tmp/hiper_en.po` 是本机 `/tmp` 上的，已不存在），顺序就是它们在文件里的顺序，
 ///       名字逐字照抄（只去掉 `<tabt:%0>` 那个预填占位符）：
 ///
 ///       | # | `msgctxt` | `msgid` |
@@ -90,7 +93,11 @@ class ResultFormatCell {
 ///       禁用悄悄留着。
 /// English: **the menu's seven entries, in on-screen order.**
 ///
-///          **The first six come from the vendor's own string table** (`/tmp/hiper_en.po`), in file
+///          **The first six come from the vendor's own string table** (the `msgctxt "rfMenu.*"`
+///          entries can still be fetched and checked today from
+///          `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`, and
+///          are quoted verbatim in `.superpowers/backup/result-format-menu-report.md:43-71`; the
+///          extracted file `/tmp/hiper_en.po` was on this machine's `/tmp` and is gone), in file
 ///          order, with names copied verbatim (only the `<tabt:%0>` pre-fill placeholder dropped) —
 ///          see the table above. The menu title is `rfMenu.title` = **'Select Result Format'**. The
 ///          vendor's own FAQ calls it that: "press the `x⇔E` key. **It opens the Select Result Format

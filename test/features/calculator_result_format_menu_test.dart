@@ -26,7 +26,10 @@ import 'package:nekocalc/l10n/app_language.dart';
 //          的」必须消失。**按 `=` 提交不走这条 kill switch**——这一条也是本轮量出来的（见
 //          「`数学表达式` 下按 `=`」那一条），它决定理由那一行该说哪一句。
 //
-//       厂商的原文（`/tmp/hiper_en.po`，本机取回，逐行引用）：
+//       厂商的原文（今天仍能从
+//       `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/` 取回自
+//       查；逐行抄本与行号在 `.superpowers/backup/result-format-menu-report.md:43-71`。抽取文件
+//       `/tmp/hiper_en.po` 在本机 `/tmp`，已不存在）：
 //
 //       ```
 //       msgctxt "rfMenu.title"       msgid "Select Result Format"
@@ -38,12 +41,15 @@ import 'package:nekocalc/l10n/app_language.dart';
 //       msgctxt "rfMenu.polar"       msgid "Polar coordinates <tabt:%0>"
 //       ```
 //
-//       厂商 FAQ（`https://hiperlabs.eu/help.html`，与 `/tmp/hiperhelp.txt` 逐字相同）：
+//       厂商 FAQ（`https://hiperlabs.eu/help.html`，本轮重新取回核对，这一句仍在页面上。
+//       从前比对的抽取文件 `/tmp/hiperhelp.txt` 在本机 `/tmp`，已不存在）：
 //       "To convert a result between the two forms, press the `x⇔E` key. **It opens the Select Result
 //       Format menu**, where you choose `Polar coordinates` for the polar form, or `Decimal` (or
 //       `Expression`) to get back to the rectangular form."
-//       手册 v12.0（`/tmp/hipercalc-manual.txt`）："press `x⇔E` and **choose** one of the following
-//       formats"；帮助文本给出的六种写法例子是 `4.505` / `2√3/5` / `11 2/7` / `4°30′20″` / `7∠45`。
+//       手册 v12.0（`https://hiperlabs.eu/assets/raw/hipercalc-manual-12.0.pdf`，今天仍可取回；
+//       `pdftotext -layout` 之后这一句在第 407 行。当时下载到本机 `/tmp/hipercalc-manual.txt`
+//       的那一份已不存在）："press `x⇔E` and **choose** one of the following formats"；
+//       帮助文本给出的六种写法例子是 `4.505` / `2√3/5` / `11 2/7` / `4°30′20″` / `7∠45`。
 //
 // English: **The "Select Result Format" menu `x⇔E` opens.** This file pins three things: the menu's
 //          shape and where each entry comes from; what each cell can do today (with the **expiry**

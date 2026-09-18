@@ -564,7 +564,9 @@ EngineExpression _call(String name, List<ExprNode> args) {
 ///       其余形状一律拒绝，理由是**量出来的**——引擎对它们答的不是这个调用，而答案照样上屏。
 ///
 ///       实测（宿主 libqalculate 5.12.0，按桥的调用序列与选项，种类判据逐行照抄
-///       `QalculateEngine.kt:386-397`，探测程序在 `/tmp/nekocalc_fit_probe/probe.cc`）：
+///       `QalculateEngine.kt:386-397`）。**探测程序本身已经核不了了**：它是临时写的，从未进过
+///       仓库，住在本机 `/tmp/nekocalc_fit_probe/probe.cc`，已不存在。下面这张表就是那次测量的
+///       读数，同一张表逐行留在 `.superpowers/backup/stat-fits-report.md:82-90`：
 ///
 ///       | 调用 | 引擎印出来 | 种类 | `isDisplayable` |
 ///       |---|---|---|---|
@@ -596,8 +598,11 @@ EngineExpression _call(String name, List<ExprNode> args) {
 ///          the engine does not answer such a call, and the answer reaches the screen anyway.
 ///
 ///          Measured (host libqalculate 5.12.0, the bridge's call sequence and options, the kind
-///          predicate copied line by line from `QalculateEngine.kt:386-397`; the probe is
-///          `/tmp/nekocalc_fit_probe/probe.cc`):
+///          predicate copied line by line from `QalculateEngine.kt:386-397`). **The probe itself
+///          can no longer be checked**: it was written ad hoc, never entered the repository, and
+///          lived at `/tmp/nekocalc_fit_probe/probe.cc` on this machine's `/tmp`, no longer present.
+///          The table below is that measurement's readings; the same table, row for row, is in
+///          `.superpowers/backup/stat-fits-report.md:82-90`:
 ///
 ///          | call | what the engine prints | kind | `isDisplayable` |
 ///          |---|---|---|---|

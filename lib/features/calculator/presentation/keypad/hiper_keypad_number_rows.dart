@@ -89,8 +89,12 @@ const List<KeypadRow> _numberRows = <KeypadRow>[
   //       2. **本机那张 1440×3200 真机截图**（`~/Downloads/04_媒体/…cz.hipercalc.p.jpg`）上同样是
   //          `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX`/`▸DRG`——两个布局版本在这一点上没有分歧。
   //       3. `▸`（U+25B8）是这个**换算家族名字的一部分**：厂商自己的更新日志把它写成
-  //          `▸BASE` 函数（`/tmp/hiper_en.po` 第 8888 行，上一轮已核），而同一个家族在展开布局里
-  //          是 `►DEG`/`►RAD`/`►GRAD` 三颗**没有第二功能、也没有 SHIFT** 的键。
+  //          `▸BASE` 函数（`msgctxt "releaseNotes"`，就在厂商字符串表的**第 8888 行**：
+  //          `msgid "\\u25B8BASE function available in custom keyboards"`。本轮从
+  //          `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`
+  //          重新取回核对，行号与原文都对得上，抄本见 `.superpowers/backup/mtrx-drg-report.md:150`；
+  //          抽取文件 `/tmp/hiper_en.po` 在本机 `/tmp`，已不存在），
+  //          而同一个家族在展开布局里是 `►DEG`/`►RAD`/`►GRAD` 三颗**没有第二功能、也没有 SHIFT** 的键。
   //
   //       ⚠️ 这条路上有两句话是假的，留在这里免得下一轮再抄一遍：**「`▸` 只是装饰」**（第一次的说法）
   //       与**「刻意不画，取舍理由尚未写下」**（第二次的说法——它写得对，但那个理由并不存在：
@@ -112,7 +116,12 @@ const List<KeypadRow> _numberRows = <KeypadRow>[
   //          2. **The device screenshot on this machine** (the 1440×3200 file cited above) reads the
   //             same `▸BIN`/`▸OCT`/`▸DEC`/`▸HEX`/`▸DRG` — on this point the two layout versions agree.
   //          3. `▸` (U+25B8) is part of the **conversion family's name**: the vendor's own release notes
-  //             spell it the `▸BASE` function (`/tmp/hiper_en.po` line 8888, checked a round earlier),
+  //             spell it the `▸BASE` function (`msgctxt "releaseNotes"`, **line 8888** of the vendor
+  //             string table: `msgid "\\u25B8BASE function available in custom keyboards"` —
+  //             re-fetched and checked this round from
+  //             `https://weblate.a4tune.com/download/hiper-scientific-calculator/application/en/`,
+  //             with a copy in `.superpowers/backup/mtrx-drg-report.md:150`; the extracted file
+  //             `/tmp/hiper_en.po` was on this machine's `/tmp` and is gone),
   //             and the same family appears in the expanded layout as `►DEG`/`►RAD`/`►GRAD` keys in a
   //             layout that **has no second functions and no SHIFT at all**.
   //
