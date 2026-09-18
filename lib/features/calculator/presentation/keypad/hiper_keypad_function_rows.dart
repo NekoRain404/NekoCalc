@@ -251,10 +251,21 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   ),
 
   // 中文：行 3——π / sin / cos / tan / i / e。
-  //       上方标签：hyp 实体修饰键（可直接点按，是可查证的刻意偏离）、sin⁻¹/cos⁻¹/tan⁻¹
-  //       三个 SHIFT 提示，以及 **∠ 与 logₓy 两个 SHIFT 提示**——后两格本轮从可点的 `InlineKey`
-  //       退回纯提示，动作分别挂到 `i` 与 `e` 的 `shift` 上（与上一轮 `FSE` 同一形状、同一类偏差）。
+  //       上方标签：hyp（**唯一剩下的可点横带格，见下**）、sin⁻¹/cos⁻¹/tan⁻¹ 三个 SHIFT 提示，
+  //       以及 **∠ 与 logₓy 两个 SHIFT 提示**——后两格是上一轮从可点的 `InlineKey` 退回提示的，动作
+  //       分别挂到 `i` 与 `e` 的 `shift` 上（与更早一轮的 `FSE` 同一形状、同一类偏差）。
   //       sin/cos/tan 同时带 SHIFT 变体（asin/acos/atan）与 hyp 变体（sinh/cosh/tanh）。
+  //
+  //       **`hyp` 按同一条通则本该是 `π` 的第二功能，本轮**没有**改它——有据的留手，不是漏看。**
+  //       HiPER 那一侧证据齐：`hyp` 量到第 1 列（中心 129.0，列中心 127.5），即 `π` 上方；本项目规格书
+  //       第 17 行写着 `π`→SHIFT→`hyp`，并把唯一例外点名为四个进制胶囊；计划书第 95 行写着「HiPER 把
+  //       `hyp` 放在 `π` 的 SHIFT 位上」。**所以它是立项时就写下的一条刻意偏离**，同段给出的理由是
+  //       「单层修饰机制即可覆盖」，并预先写下了判断有误的代价。不改的实测理由是它已经不是重挂而是
+  //       修饰态模型的重做：本应用修饰态单值（`KeypadModifier { none, shift, hyp }`），挂上去之后
+  //       `SHIFT,π` 进得了 hyp，但 `SHIFT,π,SHIFT,π` **仍在 hyp**——同一个手势退不出来，而计划书对它
+  //       的要求恰是「需再点一次退出」；且横带那颗键一撤，`_isActiveModifier` 就再没有键可亮。两条都要
+  //       改 `CalculatorPage` 的修饰态状态机，也就是改一颗**已经在工作**的键。**这条理由写成了断言**，
+  //       见 `test/features/calculator_lim_key_test.dart` 的最后一组。
   //
   //       **为什么这两格是提示而不是键**（三条来源，都是本轮自己量的）：
   //
@@ -292,12 +303,27 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   //       正是「这个动作在本应用里到不了」的诚实画法。
   //
   // English: Row 3 — π / sin / cos / tan / i / e.
-  //          Band above: the tappable `hyp` modifier key (a documented deviation from HiPER), the
-  //          sin⁻¹/cos⁻¹/tan⁻¹ SHIFT hints, and **the ∠ and logₓy SHIFT hints** — those last two cells
-  //          go back from a tappable `InlineKey` to a plain hint this round, their actions moving onto
-  //          the `shift` of `i` and `e` (the same shape, and the same class of deviation, as `FSE`).
-  //          sin/cos/tan carry both a SHIFT variant (asin/acos/atan) and a hyp variant
-  //          (sinh/cosh/tanh).
+  //          Band above: `hyp` (**the one tappable band cell left — see below**), the
+  //          sin⁻¹/cos⁻¹/tan⁻¹ hints, and **the ∠ and logₓy hints** (those two went back to hints the
+  //          round before this one, their actions moving onto the `shift` of `i` and `e` — the shape
+  //          `FSE` took a round earlier; one class of deviation). sin/cos/tan carry both a SHIFT
+  //          variant (asin/acos/atan) and a hyp variant (sinh/cosh/tanh).
+  //
+  //          **By that rule `hyp` should be `π`'s second function; this round does not move it — a
+  //          grounded refusal, not an oversight.** The HiPER side is well evidenced (`hyp` measures to
+  //          column 1, centre 129.0 against the column centre 127.5; this project's spec writes
+  //          `π`→SHIFT→`hyp` on line 17 and names the only exception as the four base pills; its plan
+  //          says on line 95 that HiPER puts `hyp` at `π`'s SHIFT position). **So it is a deliberate
+  //          deviation written down when the keypad was designed**, whose stated reason was that a
+  //          single-layer modifier covers it, and which pre-registered the price of being wrong. The
+  //          measured reason it stays: this app's modifier state is single-valued
+  //          (`KeypadModifier { none, shift, hyp }`), and with `hyp` on `π`'s `shift`, `SHIFT,π` does
+  //          enter hyp but `SHIFT,π,SHIFT,π` **stays in hyp** — the same gesture cannot leave it,
+  //          while the plan requires exactly that ("left by pressing it once more"); and once the band
+  //          key is gone `_isActiveModifier` has no key left to light. Both fixes mean changing
+  //          `CalculatorPage`'s modifier state machine — changing a key that **already works**.
+  //          **That reason is written down as assertions**, in the last group of
+  //          `test/features/calculator_lim_key_test.dart`.
   //
   //          **Why these two cells are hints, not keys** (three sources, all measured this round):
   //
@@ -406,17 +432,102 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
   ),
 
   // 中文：行 4——倒数 / 平方 / 开方 / 幂 / 对数 / 自然对数。
-  //       上方标签：lim（已启用：插引擎的 `limit(` 调用），以及 x³、∛x、ˣ√y、10ˣ、eˣ 五个
-  //       SHIFT 提示——它们分别落在下方对应主键的 `shift` 变体上。
+  //       上方标签：**六格全是 SHIFT 提示**，各自落在下方对应主键的 `shift` 变体上——
+  //       `lim`（`x⁻¹`）、x³（`x²`）、∛x（`√x`）、ˣ√y（`xʸ`）、10ˣ（`log₁₀`）、eˣ（`ln`）。
+  //
+  //       **`lim` 本轮从可点的 `InlineKey` 退回提示**（与上一轮 `FSE`、上上轮 `∠`/`logₓy` 同一类偏差、
+  //       同一种改法）。它是这一类里的最后一格，来源如下（都是本机可查的）：
+  //
+  //       1. **本行六格在真机截图上一一对齐下方六键**（1440×3200 原图
+  //          `~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`，
+  //          横带 `y=1653..1744`、主键 `y=1745..1868`，按像素量列的横向中心）：
+  //          横带 `lim/x³/∛x/ˣ√y/10ˣ/eˣ` = `130.0 / 363.0 / 602.0 / 838.0 / 1079.0 / 1313.5`，
+  //          主键 `x⁻¹/x²/√x/xʸ/log₁₀/ln` = `126.0 / 364.0 / 600.5 / 841.5 / 1078.0 / 1313.5`。
+  //          列宽 238 px，六对差值最大 5.5 px。
+  //       2. **本行已有五格在本应用里就是 `shift` 变体**（x³/∛x/ˣ√y/10ˣ/eˣ）——也就是说「这条横带是
+  //          SHIFT 带」不是外来的推断，本应用自己已经这么认了五格；`lim` 是第六格。
+  //       3. **本项目自己的规格书写着同一件事**，而且它把唯一的例外点名了
+  //          （`docs/superpowers/specs/2026-09-16-hiper-keypad-and-main-screen-design.md`，第 17 行）：
+  //          「**核心机制：矮行不是按钮，是下面那行主键的 SHIFT 功能标签**……**唯一例外**：
+  //          `▸BIN` `▸OCT` `▸DEC` `▸HEX` 是**真按钮**（白色胶囊），被特意放进标签行。」
+  //          它的 ASCII 键盘图把 `lim` 画在第 4 行 SHIFT 标签行、`x⁻¹` 正上方。
+  //       4. **HiPER 自己给这个位置下了定义**：`quickTour.page.SECOND_FUNCTION.text2` = "The key's
+  //          second function is displayed in the label above."；手册 §SHIFT（`hipercalc-manual.txt:517`）
+  //          "Symbols of these secondary functions are displayed above their keys."
+  //       5. **手册把 `lim` 叫作 "key" 不说明任何事**：同一份手册第 692 行写着 "use sin-1 , cos-1 and
+  //          tan-1 **keys**"——那三颗就是本行上方的横带格。第 1138 行 "Press the `lim` key" 用的是
+  //          同一套措辞；帮助串里 `<key:LIMIT>` 与 `<key:ASIN>` 的形状也完全一样。
+  //          `command.name.LIMIT` = "Limit"（另有 `LIMIT_MENU` = "Limit Menu"）与 `FSE`/`CHANGE_EXPR`
+  //          一样只是命令表里的一行，命令表里有没有它**不决定**它有没有自己的键。
+  //       6. **视觉上它也不是键**：同一张图上戴白色胶囊的横带格只有 `►BIN`/`►OCT`/`►DEC`/`►HEX`；
+  //          `lim` 与它旁边五格一样是平排文字。
+  //
+  //       **它插的东西一个字未动**：`ins:limit` 仍是 `limit(sin(x)/x,0,x)`（键盘上没有逗号键，半条
+  //       调用补不完，所以插完整调用）。引擎认它——宿主 libqalculate 5.12.0 实测 `limit(sin(x)/x,0,x)`
+  //       = `1`（RAD）/ `0.01745329252`（DEG，即 π/180，度制下正是这个值），翻译层原样透传成
+  //       `limit(((sin(x))/(x)),0,x)`；应用自己的旧解析器读不了它（抛 `FormatException`），所以引擎
+  //       缺席时**报错而不是猜一个值**。**基准动作 `ins:^-1` 逐字节未动。**
   // English: Row 4 — reciprocal / square / square root / power / log / ln.
-  //          Band above: an enabled lim (it inserts the engine's `limit(` call) plus the x³, ∛x,
-  //          ˣ√y, 10ˣ, eˣ SHIFT hints, each of which also lives on the matching key below as its
-  //          `shift` variant.
+  //          Band above: **all six cells are SHIFT hints**, each living on the matching key below as
+  //          its `shift` variant — `lim` (`x⁻¹`), x³ (`x²`), ∛x (`√x`), ˣ√y (`xʸ`), 10ˣ (`log₁₀`),
+  //          eˣ (`ln`).
+  //
+  //          **`lim` goes back from a tappable `InlineKey` to a hint this round** (the same class of
+  //          deviation, and the same fix, as `FSE` last round and `∠`/`logₓy` the round before). It is
+  //          the last cell in that class. The sources, all reachable on this machine:
+  //
+  //          1. **All six cells of this row line up one-to-one with the six keys below** on the device
+  //             screenshot (the 1440×3200 original cited above; band `y=1653..1744`, keys
+  //             `y=1745..1868`, measured as pixel column centres): band
+  //             `lim/x³/∛x/ˣ√y/10ˣ/eˣ` = `130.0 / 363.0 / 602.0 / 838.0 / 1079.0 / 1313.5`, keys
+  //             `x⁻¹/x²/√x/xʸ/log₁₀/ln` = `126.0 / 364.0 / 600.5 / 841.5 / 1078.0 / 1313.5`.
+  //             Column width 238 px; the largest of the six gaps is 5.5 px.
+  //          2. **Five cells of this very row are already `shift` variants here** (x³/∛x/ˣ√y/10ˣ/eˣ) —
+  //             "this band is the SHIFT band" is not an outside inference; this app already agrees
+  //             about five of the six. `lim` is the sixth.
+  //          3. **This project's own spec says the same thing and names the only exception**
+  //             (line 17 of the spec cited above): the short row is not a row of buttons but the SHIFT
+  //             function labels of the keys below, and the **only** exception is `▸BIN`/`▸OCT`/`▸DEC`/
+  //             `▸HEX`, real buttons with a white capsule deliberately placed in the band. Its ASCII
+  //             layout draws `lim` in row 4's SHIFT label row, directly over `x⁻¹`.
+  //          4. **HiPER defines what that position means**: `quickTour.page.SECOND_FUNCTION.text2` =
+  //             "The key's second function is displayed in the label above.", and the manual's SHIFT
+  //             section (`hipercalc-manual.txt:517`) "Symbols of these secondary functions are
+  //             displayed above their keys."
+  //          5. **The manual calling `lim` a "key" decides nothing**: line 692 of the same manual says
+  //             "use sin-1 , cos-1 and tan-1 **keys**" — three band cells of this very row. Line 1138's
+  //             "Press the `lim` key" is the same wording, and the help markup `<key:LIMIT>` has
+  //             exactly the shape of `<key:ASIN>`. `command.name.LIMIT` = "Limit" (plus `LIMIT_MENU` =
+  //             "Limit Menu") is one row of the command catalogue, the same trap `FSE`/`CHANGE_EXPR`
+  //             set: a row there decides nothing about whether the thing has a key.
+  //          6. **Visually it is not a key either**: the only band cells wearing a white capsule in
+  //             that screenshot are `►BIN`/`►OCT`/`►DEC`/`►HEX`; `lim` is plain text like its five
+  //             neighbours.
+  //
+  //          **What it inserts has not moved a byte**: `ins:limit` is still `limit(sin(x)/x,0,x)` (the
+  //          keypad has no comma key, so half a call can never be completed and the key inserts a
+  //          whole one). The engine knows it — host libqalculate 5.12.0 measures `limit(sin(x)/x,0,x)`
+  //          = `1` under RAD and `0.01745329252` under DEG (π/180, which is the correct value in
+  //          degree mode) — and the translator passes it through verbatim as
+  //          `limit(((sin(x))/(x)),0,x)`. This app's own legacy parser cannot read it (it throws
+  //          `FormatException`), so with no engine answer the result is **an error rather than a
+  //          guessed value**. **The base action `ins:^-1` has not moved by a byte.**
   KeypadRow(
     keys: <KeypadKey>[
+      // 中文：**`lim` 是这一颗键的第二功能**——不是横带里独立的键。上一轮它被做成横带里一颗可点的
+      //       `InlineKey`，本轮按上面那六条来源改回来。挂上去的是 `shift`，键面文字与横带里那条提示
+      //       都是 `lim`，与 `Π`/`MTRX`/`d/dx`/`FSE` 同一种形状，也同一条不变式：**横带那一格是纯
+      //       提示、不可点**，一个动作只有一个 id 入口。
+      // English: **`lim` is this key's second function** — not a key of its own in the band. Last
+      //          round it was a tappable `InlineKey` there; this round puts it back per the six
+      //          sources above. The variant goes on `shift`, with `lim` as both its face and the
+      //          band's hint — the shape `Π`/`MTRX`/`d/dx`/`FSE` already have, and the same
+      //          invariant with it: **the band cell is a plain hint and is not tappable**, one action
+      //          has exactly one id entrance.
       KeypadKey(
         base: KeyVariant(label: 'x⁻¹', id: 'ins:^-1'),
         category: KeyCategory.function,
+        shift: KeyVariant(label: 'lim', id: 'ins:limit'),
       ),
       KeypadKey(
         base: KeyVariant(label: 'x²', id: 'ins:^2'),
@@ -445,12 +556,17 @@ const List<KeypadRow> _functionRows = <KeypadRow>[
       ),
     ],
     labels: <KeypadLabel?>[
-      InlineKey(
-        KeypadKey(
-          base: KeyVariant(label: 'lim', id: 'ins:limit'),
-          category: KeyCategory.function,
-        ),
-      ),
+      // 中文：**`lim` 是一句提示，不是一颗键**——它压在 `x⁻¹` 正上方，而那正是 HiPER 自己给第二功能
+      //       定的位置（`quickTour.page.SECOND_FUNCTION.text2`）。动作挂在下面那颗键的 `shift` 上，
+      //       见它的注释。**上一轮这里是 `InlineKey`**，与 `FSE`/`∠`/`logₓy` 同一类偏差，本轮是这一类的
+      //       最后一格。同一个动作不能有两个 id 入口（键 id 全局唯一）。
+      // English: **`lim` is a hint, not a key** — it sits directly above `x⁻¹`, which is exactly where
+      //          HiPER puts a second function (`quickTour.page.SECOND_FUNCTION.text2`). The action
+      //          hangs on the `shift` variant of the key below; see that key's note. **This cell was
+      //          an `InlineKey` last round**, the same class of deviation as `FSE`/`∠`/`logₓy`, and the
+      //          last cell in that class. One action must not have two id entrances (key ids are
+      //          globally unique).
+      ShiftLabel('lim'),
       ShiftLabel('x³'),
       ShiftLabel('∛x'),
       ShiftLabel('ˣ√y'),

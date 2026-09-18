@@ -203,10 +203,12 @@ class CalculatorKeypad extends StatelessWidget {
       );
 
   /// 中文：标签行的一格——`ShiftLabel` 是不可点的纯文字提示，`InlineKey` 是真按钮
-  ///       （HiPER 只把四个进制胶囊与 `hyp` 放进标签行），空位是同宽的占位盒。
+  ///       （HiPER 只把四个进制胶囊放进标签行；本应用还多一颗 `hyp`，是立项时写下的刻意偏离，
+  ///       见 `keypad_definition.dart` 的 `InlineKey`），空位是同宽的占位盒。
   /// English: One band cell — a `ShiftLabel` is a plain, non-tappable hint, an `InlineKey` is
-  ///          a real button (HiPER only puts the four base pills and `hyp` in bands), and an
-  ///          empty slot is a same-width placeholder.
+  ///          a real button (HiPER only puts the four base pills in bands; this app adds `hyp`
+  ///          besides, a deliberate deviation recorded on `InlineKey` in `keypad_definition.dart`),
+  ///          and an empty slot is a same-width placeholder.
   Widget _bandCell(KeypadLabel? label) => switch (label) {
         null => const SizedBox.expand(),
         ShiftLabel(:final String text) => _shiftHint(text),

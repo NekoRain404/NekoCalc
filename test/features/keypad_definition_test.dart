@@ -74,7 +74,7 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "ins:e|e|on function shift:ins:logxy|logₓy|on",
   ],
   <String>[
-    "ins:^-1|x⁻¹|on function",
+    "ins:^-1|x⁻¹|on function shift:ins:limit|lim|on",
     "ins:^2|x²|on function shift:ins:^3|x³|on",
     "sqrt|√x|on function shift:cbrt|∛x|on",
     "ins:^|xʸ|on function shift:root|ˣ√y|on",
@@ -148,7 +148,7 @@ const List<List<String>> _expectedLabelGrid = <List<String>>[
     "hint:logₓy",
   ],
   <String>[
-    "ins:limit|lim|on function",
+    "hint:lim",
     "hint:x³",
     "hint:∛x",
     "hint:ˣ√y",
