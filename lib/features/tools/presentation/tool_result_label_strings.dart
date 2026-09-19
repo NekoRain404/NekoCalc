@@ -46,7 +46,8 @@
 ///       `tokenMatch`、`bestTokenMatchText`、`suggestionPhrases` 也只收那几项与别名表；
 ///       `result.label` 在这三处**一次都没出现**（本轮逐处查过）。所以命中的字符串、分数与排序
 ///       与改动前逐条相同，本轮**没有碰引擎一行**。
-///       本表**只被显示读**：`tool_widgets.dart` 的结果卡与 `tool_detail_screen.dart` 的主结果框。
+///       本表**只被显示读**：`tool_widgets.dart` 的结果卡、`tool_detail_screen.dart` 的主结果框，
+///       以及**状态卡那两句里嵌着的结果行**（补记那一轮接的，形状见下面那条 ⚠️）。
 ///
 ///       —— 四、长度是量过的（这一格是**单行截断**，与前几轮不同）——
 ///       `DetailMetric` 里那句是 `Text(result.label, maxLines: 1, overflow: ellipsis)`，
@@ -73,6 +74,17 @@
 ///       本身，一个字节没动——与上一轮"写笔记与剪贴板那几处是持久化，本轮一行未动"同一条边界。
 ///       屏幕上那句"已复制 X"里的 X 走本表（它是**渲染出来的字**），剪贴板里的 X 不走
 ///       （它是**复制出去的数据**）。英文界面下这两处因此不一致，这是本轮认下的代价。
+///
+///       ⚠️ **补记（下一轮）：状态卡那一行已经不在"不在本轮"这一侧了。** 屏幕上那句
+///       「N 个结果可复用，主结果 …」（以及"需要检查"那一支）当时也读 `result.label`，
+///       所以英文界面上嵌着一句中文——**这是那一格的修法**：屏幕侧改读本表，而数据侧
+///       （`resultSummary()` / `_resultReportLine()` / `singleResultCopyText()`：剪贴板、
+///       历史、笔记）**仍然一个字节没动**。形状**不是**"把本表递给控制器"——那会越过
+///       "本表只被显示读"那条边界（下面第 6 条测试钉的就是它，域层与控制器层一个文件都不许
+///       提本表的名字），而是**屏幕把查好的那一句递给控制器**
+///       （`resultHealthSummaryForDisplay(resultLabel:)` / `resultIssueSummary(resultLabel:)` 收的
+///       是一个 `String Function(String label)`）。中文下本表是空的、查不到原样返回，
+///       所以那一屏的中文**逐字节没有变**。
 /// English: **the result card's biggest cell** — the English of `result.label`, **715 entries**. This is
 ///          the tools subtree's last Chinese block: names, categories, chrome, match hints,
 ///          descriptions, parameter labels, units, formulas and explanations are all in tables; what is
@@ -131,8 +143,10 @@
 ///          tables; `result.label` **does not occur once** in any of the three (checked site by site
 ///          this round). So the matched strings, the scores and the ordering are exactly as before, and
 ///          **not one line of the engine was touched**.
-///          This table is **read for display only**: the result card in `tool_widgets.dart` and the
-///          primary-result box in `tool_detail_screen.dart`.
+///          This table is **read for display only**: the result card in `tool_widgets.dart`, the
+///          primary-result box in `tool_detail_screen.dart`, and **the result rows embedded in the
+///          status card's two sentences** (wired in the addendum round; the shape is under the ⚠️
+///          below).
 ///
 ///          — 4. Length is measured, and this cell is a **single truncated line** —
 ///          The sentence in `DetailMetric` is `Text(result.label, maxLines: 1, overflow: ellipsis)`, so
@@ -167,6 +181,19 @@
 ///          moved". The X in the on-screen "X copied" goes through this table (it is **rendered text**);
 ///          the X in the clipboard does not (it is **copied-out data**). In English those two therefore
 ///          disagree, and that is a cost this round knowingly accepts.
+///
+///          ⚠️ **Addendum (the next round): the status card is no longer on the "not in this round"
+///          side.** The sentence on screen ("N results are reusable; primary result …", and the
+///          needs-checking branch) read `result.label` too, so an English interface carried a Chinese
+///          phrase inside it — **that is how that cell was fixed**: the screen side reads this table,
+///          while the stored side (`resultSummary()` / `_resultReportLine()` / `singleResultCopyText()`:
+///          the clipboard, history, notes) **has still not moved by one byte**. The shape is **not**
+///          "hand this table to the controller" — that would cross the "this table is read for display
+///          only" boundary (test 6 below pins it: not one file in the domain or controller layers may
+///          mention this table's name) — but **the screen handing the sentence it looked up to the
+///          controller** (`resultHealthSummaryForDisplay(resultLabel:)` / `resultIssueSummary(resultLabel:)`
+///          take a `String Function(String label)`). In Chinese this table is empty and a miss returns
+///          its argument, so that screen's Chinese **did not move by a byte**.
 library;
 
 import 'package:flutter/widgets.dart';

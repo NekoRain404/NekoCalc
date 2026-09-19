@@ -662,11 +662,17 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         : hasResultIssues
             ? strings.statusResultCheck
             : strings.statusResultReusable;
+    // 中文：状态卡里的结果标签走结果标签表——与结果卡、主结果框同一个来源；写进库里的那份
+    //       （历史、复制正文、笔记）读的还是 `result.label` 本身，一个字节没动。
+    // English: the result labels inside the status card go through the result-label table — the same
+    //          source as the result card and the primary-result box; what is written to the database
+    //          (history, the copied body, the note body) still reads `result.label` itself.
+    final resultLabel = ToolResultLabelStrings.of(context).label;
     final details = hasInputErrors
         ? _detailController.inputErrorSummary()
         : hasResultIssues
-            ? _detailController.resultIssueSummary()
-            : _detailController.resultHealthSummary();
+            ? _detailController.resultIssueSummary(resultLabel: resultLabel)
+            : _detailController.resultHealthSummaryForDisplay(resultLabel);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: softPanel(context: context),

@@ -172,7 +172,7 @@ void main() {
         reason: '这些记号在英文里没了——记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });
 
-  testWidgets('详情页：结果卡与主结果框两种语言各是各的，英文下这两处没有汉字', (tester) async {
+  testWidgets('详情页：结果卡、主结果框与状态卡两种语言各是各的，英文下这三处没有汉字', (tester) async {
     final zhReadings = await _pumpDetail(tester, AppLanguage.zh, 'battery_life');
     final enReadings = await _pumpDetail(tester, AppLanguage.en, 'battery_life');
 
@@ -216,6 +216,29 @@ void main() {
         reason: '英文主结果框上那句不是表里那一句');
     expect(_han.hasMatch(enReadings.primaryRendered!), isFalse,
         reason: '英文主结果框上还有汉字：${enReadings.primaryRendered}');
+
+    // 中文：**第三处落点：状态卡**（`_resultStatusCard`）。这一处在下一轮之前一直是中文——
+    //       屏幕上那句话由控制器拼，而控制器不许碰这张表，所以标签由这一屏**递进去**。
+    //       判据因此有两半：屏幕上那一句**就是屏幕侧算出来的那一句**；而在中文下，它与数据侧
+    //       那一句**逐字节相同**（中文表是空表、查不到就原样返回）。
+    // English: **the third landing place: the status card** (`_resultStatusCard`). Until this round it
+    //          stayed Chinese — that sentence is put together by the controller, which may not touch
+    //          this table, so the label is **handed in** by this screen. The check therefore has two
+    //          halves: what is on screen **is what the screen side computes**, and in Chinese that is
+    //          **byte-identical** to what the stored side computes (the Chinese table is empty and a
+    //          miss returns its argument).
+    expect(zhReadings.statusRendered, isNotNull, reason: '中文状态卡上那句话没渲染出来');
+    expect(zhReadings.statusRendered, zhReadings.statusDisplay,
+        reason: '中文状态卡上那句不是屏幕侧算出来的那一句');
+    expect(zhReadings.statusDisplay, zhReadings.statusStored,
+        reason: '中文下屏幕侧与数据侧必须吐出同一根字符串');
+    expect(enReadings.statusRendered, isNotNull, reason: '英文状态卡上那句话没渲染出来');
+    expect(enReadings.statusRendered, enReadings.statusDisplay,
+        reason: '英文状态卡上那句不是屏幕侧算出来的那一句');
+    expect(enReadings.statusDisplay, isNot(enReadings.statusStored),
+        reason: '英文下屏幕侧与数据侧必须不同，否则这条断言是空转');
+    expect(_han.hasMatch(enReadings.statusDisplay), isFalse,
+        reason: '英文状态卡上还有汉字：${enReadings.statusDisplay}');
   });
 
   test('检索没动：域层与控制器层一个文件都不提这张表，中文词照旧找得到工具', () {
@@ -257,15 +280,33 @@ void main() {
   });
 }
 
-/// 中文：一次详情页读数：结果卡上每一格的"目录里那句"与"屏幕上那句"，外加主结果框那一句。
+/// 中文：一次详情页读数：结果卡上每一格的"目录里那句"与"屏幕上那句"，主结果框那一句，
+///       外加状态卡那一句的两种算法（屏幕侧与数据侧）。
 /// English: one detail-page reading: each result card cell's catalogue sentence and rendered sentence,
-///          plus the primary box's rendered sentence.
+///          the primary box's sentence, and the status card's sentence under both readings (the screen
+///          side and the stored side).
 class _ScreenReadings {
-  _ScreenReadings(this.cells, this.tool, this.primaryRendered);
+  _ScreenReadings(this.cells, this.tool, this.primaryRendered, this.statusRendered,
+      this.statusDisplay, this.statusStored);
 
   final List<_CellReading> cells;
   final ToolDefinition tool;
   final String? primaryRendered;
+
+  /// 中文：屏幕上那一句状态卡文字（找不到就是 `null`，好让断言自己红）。
+  /// English: the status-card text on screen (`null` when it is not there, so the assertion goes red
+  ///          on its own).
+  final String? statusRendered;
+
+  /// 中文：**屏幕侧**算出来的那一句（结果行左边那句话走表）。
+  /// English: the sentence the **screen side** computes (the words at the left of the result row go
+  ///          through the table).
+  final String statusDisplay;
+
+  /// 中文：**数据侧**算出来的那一句（历史、复制正文、笔记正文读的那一份）。
+  /// English: the sentence the **stored side** computes (what history, the copied body and the note
+  ///          body read).
+  final String statusStored;
 
   /// 中文：主结果框那一句在目录里是哪个标签——**从控制器问，不在测试里抄中文**。
   /// English: which catalogue label the primary box carries — **asked of the controller, never copied
@@ -285,14 +326,15 @@ class _CellReading {
 
 final RegExp _han = RegExp(r'[㐀-䶿一-鿿豈-﫿]');
 
-ToolDetailController _controllerFor(ToolDefinition tool) {
+ToolDetailController _controllerFor(ToolDefinition tool,
+    [ToolDetailStrings? strings]) {
   const db = _EmptyDatabase();
   return ToolDetailController(
     historyRepository: const HistoryRepository(db),
     notesRepository: const NotesRepository(db),
     toolUsageRepository: const ToolUsageRepository(db),
     tool: tool,
-  strings: ToolDetailStrings.toolDetailZh,
+    strings: strings ?? ToolDetailStrings.toolDetailZh,
   );
 }
 
@@ -352,9 +394,16 @@ Future<_ScreenReadings> _pumpDetail(
     cells.add(_CellReading(
         source, _renderedOrNull(tester, table.label(source)) ?? ''));
   }
+  // 中文：**状态卡那一句**：屏幕侧算一句、数据侧算一句，然后看屏幕上到底是哪一句。
+  // English: **the status-card sentence**: one computed by the screen side, one by the stored side,
+  //          and then which of them is on screen.
+  final statusController =
+      _controllerFor(tool, ToolDetailStrings.forLanguage(language));
+  final statusDisplay = statusController.resultHealthSummaryForDisplay(table.label);
+  final statusStored = statusController.resultHealthSummary();
   final primary = _controllerFor(tool).primary!;
-  return _ScreenReadings(
-      cells, tool, _renderedOrNull(tester, table.label(primary.label)));
+  return _ScreenReadings(cells, tool, _renderedOrNull(tester, table.label(primary.label)),
+      _renderedOrNull(tester, statusDisplay), statusDisplay, statusStored);
 }
 
 /// 中文：屏幕上有没有这一格文字（`Text` 的原文逐字节相同）。找不到返回 `null`，好让断言自己红。
