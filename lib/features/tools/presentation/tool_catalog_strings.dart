@@ -34,6 +34,10 @@ import '../../../l10n/app_language.dart';
 ///       空格、连字符与斜杠之后，必须能在该 id 的别名表里找到；`B` 与 `L` 的 id 则与测试里那张
 ///       逐条带理由的清单**互为全集**——多一个少一个都红。
 ///
+///       **分类那 16 条是另一码事。** 八个**英文**分类名是**按卡片宽度量出来的**——可用宽度
+///       `(W - 42) / 2 - 72`、两根来自设备的标尺、八个旧名 → 新名各自丢了什么，逐条写在
+///       [toolCatalogEn] 头上那一段里；中文那八个名字一个字都没动，说明那 8 条照旧成对进表。
+///
 ///       **中文一侧是逐条写出来的字面量，不是从目录里转引的。** 两种语言并排看得见，是这套机制的
 ///       本来面目；而 `tool_catalog_strings_test.dart` 拿 `toolCatalog` 逐条比对，**任何一条与
 ///       `tool.title` 不同就红**——那条断言在运行期读目录，所以它不是自证。认不出的 id 回落到
@@ -83,6 +87,12 @@ import '../../../l10n/app_language.dart';
 ///          of case, spaces, hyphens and slashes, must be found in that id's alias list, and the `B`
 ///          and `L` ids are **exactly** the ids on the reason-per-entry list inside the test — one
 ///          more or one fewer goes red.
+///
+///          **The sixteen category strings are a different matter.** The eight **English** category
+///          names were **measured against the card** — the available width `(W - 42) / 2 - 72`, the two
+///          rulers taken from the device, and what each of the eight gives up, are written entry by
+///          entry on [toolCatalogEn]; the eight Chinese names did not move by a character, and the 8
+///          descriptions still come in as the name's pair.
 ///
 ///          **The Chinese side is written out entry by entry rather than derived from the catalogue.**
 ///          Seeing both languages side by side is what this mechanism looks like; and
@@ -384,9 +394,122 @@ class ToolCatalogStrings {
     customSubtitle: '个人公式和专属工作流',
   );
 
-  /// 中文：英文表。每一条后面的 `A` / `B` / `L` 见文件头；`A` 的注释是那条已提交的别名原文。
-  /// English: The English table. `A` / `B` / `L` after each entry are explained on the file head; the
-  ///          comment on an `A` is the committed alias it was promoted from.
+  /// 中文：**分类名为什么这么短——八个名字是按卡片宽度量出来的，不是随手缩的。**
+  ///
+  ///       **约束是从屏幕上的两句话里量出来的。** 分类卡是两列网格里的一格（`tools_home_page.dart`
+  ///       的 `GridView.count`：`crossAxisCount: 2`、`crossAxisSpacing: 10`，外层 `ListView` 左右各
+  ///       16），格内一行是「36 的图标盒 + 10 的间距 + 文字」，`CategoryCard` 自己还有 12 的内边距
+  ///       与 1dp 的边框（`Container` 会把 `Border` 的尺寸并进 padding）。于是那行标题的可用宽度是
+  ///       **`(W - 42) / 2 - 72`**（W 是逻辑宽度）：412 宽时是 113.0dp，这一条不是推的，
+  ///       是从渲染树里读出来的（`tool_catalog_strings_test.dart` 里那条护栏读的就是它）。
+  ///       标题的字号也不是默认值：`TextStyle` 只写了 `fontWeight: w800`，其余从 `bodyMedium`
+  ///       并进来，所以是 **14px + 0.25 字距**（同样在渲染树上量过）。
+  ///
+  ///       **设备上那两根标尺**（用户报的，不是本仓库量的）：`Custom Tools` 完整显示，
+  ///       `Unit Conversion` 被截成 `Unit Convers…`。按上一条样式量这两串，分别是 **91.0dp** 与
+  ///       **105.0dp**——于是这台机器上"能放下"的门槛落在 (91.0, 105.0) 之间，而**它自己新名字的
+  ///       上限就取在这条缝里**：八个名字一律 **≤ 85dp**（= 已知能放下的那串的 93%，已知放不下的
+  ///       那串的 81%）。最宽的一个是 `Code & Data` 80.4dp，即 88.4%。
+  ///
+  ///       **这条判断不靠"我猜设备用哪个字重、哪个 dpr"。** 它靠的是一个**排序**：只要每个新名字都
+  ///       比屏幕上已经证明放得下的那串更窄，它就能放下。排序用九套互不相干的字体（SDK 的
+  ///       Roboto 三个字重、DejaVu、Liberation、Arial、Georgia、Noto Mono…）交叉验过：七改一留
+  ///       全都在 `Custom Tools` 之下（最紧的 `Code & Data` 在 DejaVu Sans Bold 下是 92.7%），
+  ///       而旧的七条在每一套字体下都是它的 113%–183%——**这正是屏幕上看到的那片截断**。
+  ///       字距与字号都是线性缩放，所以**这条排序与系统字体缩放无关**，换 dpr 也不动。
+  ///
+  ///       **八个名字的来路与代价**（`旧 → 新`，宽度是 Roboto-Black @14px+0.25 的实测值；
+  ///       Bold 比它窄不到 0.5%，取 Black 是取上限）：
+  ///         · `Equations & Math` 115.4 → **`Maths`** 40.8 —— 丢"方程"两字；`Maths` 是**英式**，
+  ///           与仓库既有的 `favourites` / `Colour` / `normalise` 同一套拼法（要美式就改 `Math`）。
+  ///         · `Circuits & Electronics` 142.0 → **`Circuits`** 51.3 —— 丢"电子"一词，电路那一半还在。
+  ///         · `Mechanical Engineering` 157.7 → **`Mechanical`** 75.3 —— 原来的第一个词，
+  ///           "工程"那一半由它代着（`Mechanics` 更短 70.9，但那是力学，会与科学分类撞）。
+  ///         · `Finance & Business` 128.3 → **`Finance`** 51.4 —— 丢"商业"一词，十二个工具里
+  ///           贷款、复利、利润、ROI、税、通胀全是财务。
+  ///         · `Physics & Science` 120.7 → **`Science`** 52.0 —— 丢"物理"一词；这一格里有 pH、
+  ///           BMI、油耗，`Science` 是那个能把它们都装下的伞（`Physics` 装不下）。
+  ///         · `Unit Conversion` 105.0 → **`Units`** 34.3 —— 丢"换算"一词；22 个工具全是换算器，
+  ///           卡片图标本来就是 `swap_horiz`。`Conversion`（74.4）会被误读成进制/时间戳换算，
+  ///           那两条在**编程**那一格。
+  ///         · `Programming & Data` 136.6 → **`Code & Data`** 80.4 —— 一词没丢，只把两半摆短；
+  ///           这是八个里最宽的一个（88.4%）。
+  ///         · `Custom Tools` 91.0 → **`Custom`** 50.5 —— 一句实话：这一串**在设备上是量过能放下的**，
+  ///           本来可以一个字节都不动。改它的唯一理由是 360dp 宽的手机上那行只有 87dp，
+  ///           91.0 会截断；改成 50.5 之后**八个名字在 ≥360dp 的屏上都完整**（320dp 上仍有
+  ///           `Mechanical` 与 `Code & Data` 两条放不下，那是更小的屏，本轮不追）。
+  ///
+  ///       **为什么不动卡片布局。** 换行（`maxLines: 2`）会吃竖直空间：卡片高度由
+  ///       `childAspectRatio: 1.85` 定死，320dp 宽时内容区只有 49.1dp，而两行标题 + 那行
+  ///       `16 tools` 要 59.2dp——**在窄屏上会从"截断"变成"溢出"**，那是更坏的失败。要让它安全就得
+  ///       同时压 `childAspectRatio`，而**卡片变高会改掉中文侧的渲染**（同样八个格、同样那行计数，
+  ///       位置全动），这正是本轮不许碰的东西。把字号调小或把图标盒改窄同样会动中文那一侧。
+  ///       **本轮一个布局字节都没改**：中文侧因此不是"验过没变"，而是**没有可变的路径**。
+  /// English: **Why the category names are this short — the eight were measured against the card, not
+  ///          trimmed by feel.**
+  ///
+  ///          **The constraint comes from two sentences measured on the screen.** A category card is one
+  ///          cell of a two-column grid (`tools_home_page.dart`'s `GridView.count`: `crossAxisCount: 2`,
+  ///          `crossAxisSpacing: 10`, inside a `ListView` with 16 on each side), and the cell is one row
+  ///          of "36 icon box + 10 gap + text"; `CategoryCard` itself carries 12 of padding and a 1dp
+  ///          border (`Container` folds a `Border`'s dimensions into its padding). The title line's
+  ///          available width is therefore **`(W - 42) / 2 - 72`** (W = logical width): 113.0dp at 412.
+  ///          That is not deduced — it is read off the render tree (the guard in
+  ///          `tool_catalog_strings_test.dart` reads exactly this). The title's type is not the default
+  ///          either: the `TextStyle` sets only `fontWeight: w800` and inherits the rest from
+  ///          `bodyMedium`, so it is **14px + 0.25 letter-spacing** (measured on the render tree too).
+  ///
+  ///          **The two rulers come from the device** (reported by the user, not measured here):
+  ///          `Custom Tools` renders in full and `Unit Conversion` is cut to `Unit Convers…`. Measured
+  ///          in the style above those two strings are **91.0dp** and **105.0dp** — so the "fits"
+  ///          threshold on that handset lies inside (91.0, 105.0), and **the new names take their ceiling
+  ///          from inside that gap**: all eight are **≤ 85dp** (93% of the string known to fit, 81% of
+  ///          the one known not to). The widest, `Code & Data`, is 80.4dp — 88.4%.
+  ///
+  ///          **This judgement does not rest on guessing the device's weight or dpr.** It rests on an
+  ///          **ordering**: if every new name is narrower than a string already proven to fit on screen,
+  ///          it fits. That ordering was cross-checked in nine unrelated typefaces (three weights of the
+  ///          SDK's Roboto, DejaVu, Liberation, Arial, Georgia, Noto Mono…): all eight stay under
+  ///          `Custom Tools` (the tightest, `Code & Data`, at 92.7% under DejaVu Sans Bold), while the
+  ///          seven old names run at 113%–183% of it in *every* one of them — **which is exactly the
+  ///          truncation seen on the screen**. Letter-spacing and font size are both linear, so **the
+  ///          ordering is independent of the system font scale** and does not move with dpr.
+  ///
+  ///          **Where each of the eight comes from, and what it gives up** (`old → new`; widths measured
+  ///          in Roboto-Black at 14px + 0.25 — Bold is under 0.5% narrower, so Black is the ceiling):
+  ///            · `Equations & Math` 115.4 → **`Maths`** 40.8 — gives up the word "equations"; `Maths` is
+  ///              **British**, matching the repository's existing `favourites` / `Colour` / `normalise`
+  ///              (`Math` if American is wanted).
+  ///            · `Circuits & Electronics` 142.0 → **`Circuits`** 51.3 — gives up "electronics"; the
+  ///              circuit half stays.
+  ///            · `Mechanical Engineering` 157.7 → **`Mechanical`** 75.3 — the original's first word,
+  ///              standing in for the "engineering" half (`Mechanics` is shorter at 70.9, but that is
+  ///              the physics term and would collide with the science category).
+  ///            · `Finance & Business` 128.3 → **`Finance`** 51.4 — gives up "business"; of the twelve
+  ///              tools, loans, interest, margin, ROI, tax and inflation are all finance.
+  ///            · `Physics & Science` 120.7 → **`Science`** 52.0 — gives up "physics"; this cell holds
+  ///              pH, BMI and fuel economy too, and `Science` is the umbrella that covers them
+  ///              (`Physics` does not).
+  ///            · `Unit Conversion` 105.0 → **`Units`** 34.3 — gives up "conversion"; all 22 tools are
+  ///              converters and the card's icon is already `swap_horiz`. `Conversion` (74.4) would read
+  ///              as base or timestamp conversion, and those two sit in the **programming** cell.
+  ///            · `Programming & Data` 136.6 → **`Code & Data`** 80.4 — not a word dropped, just the two
+  ///              halves kept short; it is the widest of the eight (88.4%).
+  ///            · `Custom Tools` 91.0 → **`Custom`** 50.5 — honestly: that string **was measured to fit
+  ///              on the device** and could have been left alone. The one reason to change it is that a
+  ///              360dp-wide handset gives that line 87dp, where 91.0 truncates; at 50.5 **all eight
+  ///              names are complete on any screen ≥360dp wide** (at 320dp `Mechanical` and
+  ///              `Code & Data` still do not fit — a smaller screen than this round chases).
+  ///
+  ///          **Why the card layout was not touched.** Wrapping (`maxLines: 2`) costs vertical space: the
+  ///          card's height is pinned by `childAspectRatio: 1.85`, at 320dp the content area is 49.1dp,
+  ///          and a two-line title plus the `16 tools` line needs 59.2dp — **on a narrow screen that
+  ///          turns a truncation into an overflow**, a worse failure. Making it safe means lowering
+  ///          `childAspectRatio` too, and **taller cards move the Chinese side's rendering** (same eight
+  ///          cells, same count line, every position shifted) — precisely what this round must not
+  ///          touch. Shrinking the face or the icon box moves the Chinese side as well. **Not one layout
+  ///          byte changed this round**: the Chinese side is therefore not "checked unchanged" but has
+  ///          **no path by which it could change**.
   static const ToolCatalogStrings toolCatalogEn = ToolCatalogStrings(
     toolNames: {
       'quadratic': 'Quadratic Equation', // B · no alias in either index
@@ -525,21 +648,22 @@ class ToolCatalogStrings {
       'fnv_crc': 'FNV/CRC32', // L · title already Latin
       'custom_formula': 'Custom Formula', // B · no alias in either index
     },
-    mathTitle: 'Equations & Math',
+    // —— 分类名：八个都是**按卡片宽度量出来的**，理由与数字见本表头上那段「分类名为什么这么短」。——
+    mathTitle: 'Maths',
     mathSubtitle: 'Polynomials, systems, statistics and matrices',
-    electronicsTitle: 'Circuits & Electronics',
+    electronicsTitle: 'Circuits',
     electronicsSubtitle: 'Dividers, filters, dBm and power calculations',
-    mechanicalTitle: 'Mechanical Engineering',
+    mechanicalTitle: 'Mechanical',
     mechanicalSubtitle: 'Gears, torque, springs and cylinders',
-    financeTitle: 'Finance & Business',
+    financeTitle: 'Finance',
     financeSubtitle: 'Loans, compound interest, margins and ROI',
-    scienceTitle: 'Physics & Science',
+    scienceTitle: 'Science',
     scienceSubtitle: 'Motion, heat, concentration and waves',
-    unitsTitle: 'Unit Conversion',
+    unitsTitle: 'Units',
     unitsSubtitle: 'Length, pressure, electrical units and frequency',
-    programmingTitle: 'Programming & Data',
+    programmingTitle: 'Code & Data',
     programmingSubtitle: 'Number bases, timestamps, encoding and data units',
-    customTitle: 'Custom Tools',
+    customTitle: 'Custom',
     customSubtitle: 'Your own formulas and workflows',
   );
 }

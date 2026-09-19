@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/tool_search_engine.dart';
@@ -21,6 +22,11 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          两处索引的并集），`B` 类与 `L` 类则必须与下面那张**逐条带理由**的清单互为全集。
 ///          这一条把"99 条是提升、14 条是新写、4 条本来就是拉丁字母"从报告里的话变成机器能验的事实。
 ///       4) **屏幕上真的换了**：主页与分类页在装作用域与否两种情况下各渲染一次。
+///       5) **分类名放得下**：分类卡标题那行的**可用宽度与字号从渲染树里读出来**，八个英文名各按
+///          一把**从真 Roboto 里量出来的尺子**（每字符 advance，见 `_robotoBlackPerMille`）算宽度，
+///          必须**全都窄于设备上量过的两根标尺**。这一条是唯一能在本机抓到"卡片上被截成
+///          `Equations & …`"的断言——`find.text` 对截断是无感的；量法与两根标尺的来路写在
+///          `toolCatalogEn` 头上那段说明里。
 ///
 /// English: Four guard rails for `ToolCatalogStrings` (the tools catalogue's name table), the same
 ///          shape as the tools subtree's other two tables. (1) **The default state is byte-identical**:
@@ -35,7 +41,13 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          reason-per-entry list below. This clause turns "99 promoted, 14 authored, 4 already
 ///          Latin" from a claim in a report into a machine-checked fact. (4) **The screen really
 ///          changed**: the tools home and the category page are each rendered twice, with and without
-///          the language scope.
+///          the language scope. (5) **The category names fit**: the title line's **available width and
+///          font size are read off the render tree**, and each of the eight English names is measured
+///          with a ruler **taken from real Roboto** (per-character advances, see
+///          `_robotoBlackPerMille`); all eight must be **narrower than both rulers measured on the
+///          device**. This is the only assertion on this machine that can catch a card cut down to
+///          `Equations & …` — `find.text` is blind to truncation. How it is measured, and where the two
+///          rulers come from, are written on `toolCatalogEn`.
 void main() {
   final zh = ToolCatalogStrings.forLanguage(AppLanguage.zh);
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
@@ -125,6 +137,100 @@ void main() {
       //          `categorySubtitle`'s docs.
       expect(title, isNot(category.title), reason: '${category.name} 的英文名没换');
       expect(subtitle, isNot(category.subtitle), reason: '${category.name} 的英文说明没换');
+    }
+  });
+
+  testWidgets('分类卡标题那一行：盒子与字号从渲染树里读，八个英文名都放得下', (tester) async {
+    // 中文：**这条是唯一能在本机抓到截断的断言。** 它做两件事：把 [_cardTitleWidth] /
+    //       [_cardTitleFontSize] / [_cardTitleLetterSpacing] 三个数**钉在真实渲染的卡片上**
+    //       （卡片的内边距、图标盒、列数一旦动过，这里先红），再拿那把从真 Roboto 里量出来的尺子
+    //       算八个英文名的宽度，要求每一个都塞得进那个盒子。
+    //       两个宽度是**按设计下限与代表值挑的**：360dp 是今天窄屏手机的地板，412dp 是 Android
+    //       上最常见的逻辑宽度。320dp 不在里面——那是更小的屏，八个名字里有两条真放不下
+    //       （`Mechanical` 75.3、`Code & Data` 80.4，而 320dp 只有 67.0），这一点写在
+    //       `toolCatalogEn` 的说明里，没有假装它不存在。
+    // English: **the only assertion on this machine that can catch a truncation.** It does two things:
+    //          it pins [_cardTitleWidth] / [_cardTitleFontSize] / [_cardTitleLetterSpacing] **to a
+    //          really-rendered card** (touch the card's padding, icon box or column count and this goes
+    //          red first), then measures the eight English names with the ruler taken from real Roboto
+    //          and requires every one of them to fit inside that box. The two widths are the **design
+    //          floor and the representative value**: 360dp is today's narrow-handset floor, 412dp is
+    //          Android's most common logical width. 320dp is deliberately absent — two names genuinely
+    //          do not fit there, which `toolCatalogEn` states rather than pretending otherwise.
+    for (final width in _cardWidthsUnderTest) {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(_app(
+        const ToolsHomePage(
+          db: _EmptyDatabase(),
+          settings: AppSettings.fallback,
+        ),
+        language: AppLanguage.en,
+      ));
+      await tester.pumpAndSettle();
+
+      // 中文：拿「自定义」那一格读几何——八格共用同一套尺寸；同名工具卡不存在（那一格叫
+      //       `Custom Formula`），所以这一串在首页上只出现一次。
+      // English: read the geometry off the custom cell — all eight cells share one size, and no tool
+      //          card carries this string (`Custom Formula` is a different one), so it appears once.
+      final probeName = en.categoryTitle(ToolCategory.custom);
+      expect(find.text(probeName), findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(probeName));
+      final style = paragraph.text.style!;
+      final available = paragraph.constraints.maxWidth;
+
+      expect(available, closeTo(_cardTitleWidth(width), 0.01),
+          reason: '${width}dp 宽时标题那行的可用宽度应当满足 (W-42)/2-72；'
+              '这条红说明卡片的内边距 / 图标盒 / 间距 / 列数动过，尺子要重新量');
+      expect(style.fontSize, _cardTitleFontSize,
+          reason: '标题字号是从 bodyMedium 并进来的，它变了这条尺子就不准了');
+      expect(style.letterSpacing, _cardTitleLetterSpacing,
+          reason: '标题字距也是从 bodyMedium 并进来的，它变了这条尺子就不准了');
+
+      for (final category in ToolCategory.values) {
+        final name = en.categoryTitle(category);
+        expect(_labelWidth(name), lessThanOrEqualTo(available),
+            reason: '${width}dp 宽时「$name」宽 ${_labelWidth(name)}dp，'
+                '塞不进 ${available}dp 那一行——卡片上会被截成带省略号的样子');
+      }
+    }
+  });
+
+  test('八个英文分类名都窄于设备上量过的那两根标尺', () {
+    // 中文：**这把尺子的刻度对不对，由那两句设备上的观测钉住**：`Custom Tools` 完整显示，
+    //       `Unit Conversion` 被截。这两条断言把「91.0 / 105.0」从报告里的数变成机器查得到的数，
+    //       也把下面那条 93% 的预算钉在它们之间。
+    // English: **the ruler's graduations are pinned by two observations made on the device**: `Custom Tools`
+    //          renders in full, `Unit Conversion` is cut. These two assertions turn "91.0 / 105.0" from
+    //          numbers in a report into numbers a machine checks, and anchor the 93% budget between them.
+    final fitsOnDevice = _labelWidth('Custom Tools');
+    final cutOnDevice = _labelWidth('Unit Conversion');
+    expect(fitsOnDevice, closeTo(91.0, 0.05),
+        reason: '设备上完整显示的是这一串；它的宽度必须与 `toolCatalogEn` 头里那个数对得上');
+    expect(cutOnDevice, closeTo(105.0, 0.05),
+        reason: '设备上被截成 Unit Convers… 的是这一串；同上');
+
+    final budget = fitsOnDevice * _budgetShare;
+    for (final category in ToolCategory.values) {
+      final name = en.categoryTitle(category);
+      expect(_labelWidth(name), lessThanOrEqualTo(budget),
+          reason: '「$name」宽 ${_labelWidth(name)}dp，超过预算 ${budget}dp —— '
+              '预算取在「设备上放得下」与「设备上放不下」两根标尺之间，改宽了就要先把设备上的证据换掉');
+    }
+
+    // 中文：**标尺的含金量**：屏幕上被截掉的那七条，在每一套字体下都比完整显示的那一条更宽。
+    //       这一条不是怀旧——它证明这两根标尺确实是**把好名字与坏名字分开的那条线**，
+    //       而不是随便挑了两串。
+    // English: **what makes the ruler worth anything**: the seven strings the screen cut are each wider
+    //          than the one it showed in full. This is not nostalgia — it shows the two rulers really
+    //          are the line that separates a good name from a bad one rather than two arbitrary strings.
+    for (final name in _committedLongNames) {
+      expect(_labelWidth(name), greaterThan(fitsOnDevice),
+          reason: '「$name」是设备上被截断的那批之一（旧表里的名字），'
+              '它应当比完整显示的那串更宽');
     }
   });
 
@@ -335,6 +441,113 @@ String _flat(String text) => text
     .toLowerCase()
     .replaceAll('colour', 'color')
     .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+/// 中文：**分类卡标题那一行按什么量**——三个数都从渲染树里读出来过，并由上面那条 `testWidgets`
+///       逐个钉住；改这里之前先去改那条用例，否则就是两处一起骗人。
+///       · **可用宽度** = `(W - 42) / 2 - 72`（W 是逻辑宽度）：`GridView.count` 两列、列间距 10，
+///         外层 `ListView` 左右各 16，所以一格是 `(W - 42) / 2`；格内是 36 的图标盒 + 10 的间距，
+///         `CategoryCard` 自己有 12 的内边距，而 `Container` 还会把 1dp 边框的尺寸并进 padding，
+///         合起来 12×2 + 1×2 + 36 + 10 = 72。
+///       · **字号 14 / 字距 0.25**：`TextStyle` 只写了 `fontWeight: w800`，其余从 `bodyMedium` 并进来。
+///       两个测试宽度：**360dp**（今天窄屏手机的地板）与 **412dp**（Android 上最常见的逻辑宽度）。
+/// English: **what the category card's title line is measured with** — all three numbers have been read
+///          off the render tree and are pinned one by one by the `testWidgets` above; change this before
+///          that test and both are lying together.
+///          · **available width** = `(W - 42) / 2 - 72` (W = logical width): `GridView.count` with two
+///            columns and 10 of spacing, inside a `ListView` padded 16 each side, so one cell is
+///            `(W - 42) / 2`; the cell is a 36 icon box + 10 gap, `CategoryCard` pads 12 of its own, and
+///            `Container` folds a 1dp border's dimensions into that padding — 12×2 + 1×2 + 36 + 10 = 72.
+///          · **font size 14 / letter-spacing 0.25**: the `TextStyle` sets only `fontWeight: w800` and
+///            inherits the rest from `bodyMedium`.
+const List<double> _cardWidthsUnderTest = <double>[360, 412];
+const double _cardTitleFontSize = 14;
+const double _cardTitleLetterSpacing = 0.25;
+double _cardTitleWidth(double screenWidth) => (screenWidth - 42) / 2 - 72;
+
+/// 中文：**两根标尺，都是用户在这台设备上量的**：`Custom Tools` 完整显示，`Unit Conversion` 被截成
+///       `Unit Convers…`。预算取在两者之间：新名字一律 ≤ 前者的 [_budgetShare]，也就是 84.6dp——
+///       比"已知放得下"的那串窄 7%，比"已知放不下"的那串窄 19%。
+/// English: **the two rulers, both measured by the user on the device**: `Custom Tools` renders in
+///          full, `Unit Conversion` is cut to `Unit Convers…`. The budget sits between them: every new
+///          name is ≤ [_budgetShare] of the former, i.e. 84.6dp — 7% under the string known to fit and
+///          19% under the one known not to.
+const double _budgetShare = 0.93;
+
+/// 中文：**旧表里那七条**（`Custom Tools` 不在内——它在设备上量过是放得下的）。它们进这个清单的
+///       用处只有一个：证明两根标尺确实分开了好名字与坏名字，见那条断言的理由。
+/// English: **the seven from the old table** (`Custom Tools` is not among them — it was measured as
+///          fitting). They are here for one purpose: to show the two rulers really do separate the good
+///          names from the bad ones, as that assertion's reason says.
+const List<String> _committedLongNames = <String>[
+  'Equations & Math',
+  'Circuits & Electronics',
+  'Mechanical Engineering',
+  'Finance & Business',
+  'Physics & Science',
+  'Unit Conversion',
+  'Programming & Data',
+];
+
+/// 中文：一串英文在分类卡标题那一行里占多宽（dp）。**不是估的**：每字符的 advance 来自真 Roboto
+///       （表见 [_robotoBlackPerMille]），字距按 Flutter 的算法**每个字符都加、含最后一个**——
+///       这一点也量过：测试字体下 `Custom Tools` 恰好是 12 × (14 + 0.25) = 171.0，而"只夹在中间"
+///       会得 170.75。**字偶距没有算**，所以这是个**上界**：真机上只会更窄。
+/// English: how wide a Latin string is on the category card's title line, in dp. **Not an estimate**:
+///          the per-character advances come from real Roboto (see [_robotoBlackPerMille]), and
+///          letter-spacing is added **per character including the last**, the way Flutter lays it out —
+///          also measured: under the test font `Custom Tools` is exactly 12 × (14 + 0.25) = 171.0,
+///          where "between characters only" would give 170.75. **Kerning is not modelled**, so this is
+///          an **upper bound**: the device renders no wider than this.
+double _labelWidth(String text) {
+  var width = 0.0;
+  for (final unit in text.codeUnits) {
+    final character = String.fromCharCode(unit);
+    final advance = _robotoBlackPerMille[character];
+    if (advance == null) {
+      fail('「$text」里有一个 ASCII 32–126 之外的字符：$character；'
+          '分类名是英文，字宽表是全量的，出现这个说明名字里进了表外的字符');
+    }
+    width += advance / 1000 * _cardTitleFontSize;
+  }
+  return width + _cardTitleLetterSpacing * text.length;
+}
+
+/// 中文：**Roboto-Black 的字宽尺**，单位是 **1/1000 em**，ASCII 32–126 全量（95 条）。生成方式
+///       （一条命令，文件是 Flutter SDK 自己那份 Roboto）：
+///
+///       `python3 -c "from fontTools.ttLib import TTFont; p='$FLUTTER_ROOT/bin/cache/artifacts/`
+///       `material_fonts/Roboto-Black.ttf'; f=TTFont(p); upm=f['head'].unitsPerEm;`
+///       `cmap=f.getBestCmap(); hmtx=f['hmtx']; print({chr(c): round(hmtx[cmap[c]][0]/upm*1000)`
+///       ` for c in cmap if 32<=c<127})"`
+///
+///       **为什么取 Black 而不是 Bold**：卡片上是 `w800`，Android 从 700 与 900 里挑哪个由系统定，
+///       Black 是更宽的那个（逐字符差 ≤ 0.5%），取它得当上限。
+///       **为什么不在测试字体里量**：`flutter_test` 的字体每个字形都是一整个 **em**（实测：测试字体下
+///       `Custom Tools` = 171.0dp，真 Roboto 只有 91.0dp），拿它当尺子会把八个名字全判死，也就是
+///       说它只能证明"截断会发生"，证明不了"多长才不截断"。这一把能。
+/// English: **a Roboto-Black width ruler**, in **1/1000 em**, all of ASCII 32–126 (95 entries).
+///          Generated with (one command; the file is Flutter SDK's own copy of Roboto):
+///          [the same command as above]
+///          **Why Black and not Bold**: the card is `w800` and Android decides between 700 and 900;
+///          Black is the wider of the two (≤ 0.5% per character), so taking it is taking the ceiling.
+///          **Why not measure in the test font**: every `flutter_test` glyph is a full **em** wide
+///          (measured: `Custom Tools` is 171.0dp there against real Roboto's 91.0dp), so as a ruler it
+///          condemns all eight names — it can show that truncation happens, never how short is short
+///          enough. This one can.
+const Map<String, int> _robotoBlackPerMille = <String, int>{
+  ' ': 249, '!': 276, '"': 317, '#': 581, r'$': 579, '%': 742, '&': 674, '\'': 154,
+  '(': 353, ')': 352, '*': 465, '+': 534, ',': 270, '-': 450, '.': 302, '/': 351,
+  '0': 579, '1': 579, '2': 579, '3': 579, '4': 579, '5': 579, '6': 579, '7': 579,
+  '8': 579, '9': 579, ':': 300, ';': 288, '<': 510, '=': 585, '>': 513, '?': 509,
+  '@': 896, 'A': 681, 'B': 645, 'C': 656, 'D': 646, 'E': 560, 'F': 547, 'G': 682,
+  'H': 703, 'I': 302, 'J': 562, 'K': 640, 'L': 542, 'M': 876, 'N': 702, 'O': 690,
+  'P': 651, 'Q': 690, 'R': 652, 'S': 626, 'T': 630, 'U': 665, 'V': 661, 'W': 869,
+  'X': 638, 'Y': 628, 'Z': 610, '[': 282, '\\': 426, ']': 282, '^': 447, '_': 441,
+  '`': 339, 'a': 531, 'b': 563, 'c': 520, 'd': 562, 'e': 544, 'f': 362, 'g': 575,
+  'h': 564, 'i': 275, 'j': 270, 'k': 547, 'l': 275, 'm': 861, 'n': 564, 'o': 562,
+  'p': 563, 'q': 562, 'r': 379, 's': 512, 't': 343, 'u': 564, 'v': 517, 'w': 726,
+  'x': 515, 'y': 518, 'z': 515, '{': 325, '|': 255, '}': 325, '~': 632,
+};
 
 /// 中文：CJK 统一表意文字区（含扩展 A）。够用了：本项目的界面文案都落在这里。
 /// English: The CJK Unified Ideographs block (plus Extension A) — enough, since this project's UI
