@@ -192,6 +192,14 @@ bool _collectTargets(
     case NumberNode():
     case ConstantNode():
     case OperatorNode():
+    // 中文：度分秒字面量里没有名字可换（三个十进制段），树是完整的。它同 `NumberNode` 一样
+    //       **到不了这里**：本函数读的是归一化之后的文本，那时字面量已经是 `degangle(…)`；
+    //       写出来是因为 `ExprNode` 是 `sealed`。
+    // English: a DMS literal holds no name to substitute (three decimal sections) and the tree is
+    //          complete. Like `NumberNode` it **cannot arrive here**: this function reads
+    //          normalised text, where the literal is already `degangle(…)`; the case is written out
+    //          because `ExprNode` is `sealed`.
+    case SexagesimalNode():
       return true;
     case ParseErrorNode():
       return false;

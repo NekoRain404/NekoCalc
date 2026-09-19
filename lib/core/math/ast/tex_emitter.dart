@@ -1,3 +1,4 @@
+import '../sexagesimal_literal.dart';
 import 'expr_node.dart';
 
 /// 中文：把语法树转成 TeX 片段。纯函数、无 Flutter 依赖，因此可以在任何环境里单测。
@@ -34,6 +35,18 @@ class TexEmitter {
         //          with one exception: in math mode `_` marks a subscript, so `1_000` would be
         //          typeset as `1` with a subscript `000`.
         NumberNode(:final literal) => literal.replaceAll('_', r'\_'),
+        // 中文：**度分秒字面量排成 `3^\circ\,30'\,0''`**——数字原样，只把三个记号换成 TeX 的写法，
+        //       段与段之间补一个细空格。这一套记号与结果行那一格（`ResultPresentation._dmsTex`）
+        //       **用的是同一份常量**（`SexagesimalMarks`），所以同一个角度在表达式行与结果行上
+        //       排出来是同一个样子。缺席的段不画记号、也不补空格（`3°` 就是 `3^\circ`）。
+        // English: **a DMS literal typesets as `3^\circ\,30'\,0''`** — the digits as they are, the
+        //          three marks swapped for their TeX spellings and a thin space between sections.
+        //          The marks are **the same constants** the result line's cell uses
+        //          (`SexagesimalMarks`, see `ResultPresentation._dmsTex`), so one angle typesets
+        //          identically on the expression line and the result line. An absent section draws
+        //          no mark and adds no space (`3°` is just `3^\circ`).
+        SexagesimalNode(:final degrees, :final minutes, :final seconds) =>
+          _sexagesimal(degrees, minutes, seconds),
         ConstantNode(:final name) => _constants[name.toLowerCase()] ?? name,
         VariableNode(:final name) => name,
         OperatorNode(:final op) => _operator(op),
@@ -54,6 +67,24 @@ class TexEmitter {
         // English: An unparseable fragment degrades to escaped literal text; never invalid TeX.
         ParseErrorNode(:final text) => '\\text{${_escapeText(text)}}',
       };
+
+  /// 中文：度分秒字面量的 TeX。**记号本身只有一份**（[SexagesimalMarks]），结果行那一格用的是
+  ///       同一份——两处排出来必须一模一样，所以这里一个字符都不另写。
+  /// English: the TeX for a DMS literal. **The marks have one copy** ([SexagesimalMarks]) and the
+  ///          result line's cell uses the same one — the two renderings must be identical, so not one
+  ///          character is written out again here.
+  String _sexagesimal(String degrees, String? minutes, String? seconds) {
+    final buffer = StringBuffer('$degrees${SexagesimalMarks.degreeTex}');
+    if (minutes != null) {
+      buffer.write('${SexagesimalMarks.texSeparator}$minutes'
+          '${SexagesimalMarks.minuteTex}');
+    }
+    if (seconds != null) {
+      buffer.write('${SexagesimalMarks.texSeparator}$seconds'
+          '${SexagesimalMarks.secondTex}');
+    }
+    return buffer.toString();
+  }
 
   /// 中文：并置乘法的拼接。TeX 把一个控制词读成"反斜杠 + 尽可能多的字母"（`\pi`、`\infty`），
   ///       于是 `\pi` 紧跟 `x` 会拼成 `\pix`——一个不存在的控制词；引擎拒收它，**整个片段**

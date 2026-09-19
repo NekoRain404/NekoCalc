@@ -1,3 +1,4 @@
+import '../sexagesimal_literal.dart';
 import 'expr_node.dart';
 
 // 中文：下游（TeX 生成、渲染组件）只 import 本文件即可拿到节点类型与 toDisplayUnits。
@@ -270,16 +271,39 @@ class _AstCursor {
     }
   }
 
-  /// 中文：原子层：括号分组、标识符（常量/变量/函数调用）或数字；其余字符无法成句。
-  /// English: Atom level: a group, an identifier (constant, variable or call) or a number;
-  ///          anything else cannot start an expression.
+  /// 中文：原子层：括号分组、标识符（常量/变量/函数调用）、**度分秒字面量**或数字；其余字符无法成句。
+  /// English: Atom level: a group, an identifier (constant, variable or call), a **DMS literal** or a
+  ///          number; anything else cannot start an expression.
   ExprNode _parsePrimary() {
     _skipSpaces();
     if (_atEnd) return _failure(_index);
     final char = source[_index];
     if (char == '(') return _parseGroup();
     if (_isLetter(char)) return _parseName();
-    if (_isDigit(char) || char == '.') return _parseNumber();
+    if (_isDigit(char) || char == '.') {
+      // 中文：**度分秒字面量先试。** 判据只有一份（`sexagesimal_literal.dart`），所以屏幕上排成
+      //       公式的字符串与求值那条路认下的字符串永远是同一个（那边调用的是同一个函数）。
+      //       不是字面量时照旧走 [_parseNumber]——`1_000°`、`.5°`、`1.5e3°` 这些形状两条路都不认，
+      //       于是它们在这里退化成错误节点，与归一化那边的拒绝一致。
+      // English: **the DMS literal is tried first.** There is one judgement (`sexagesimal_literal.dart`),
+      //          so the string that typesets as a formula and the string the value road accepts are
+      //          always the same one (that road calls the same function). When it is not a literal the
+      //          cursor falls through to [_parseNumber] — shapes such as `1_000°`, `.5°` and `1.5e3°`
+      //          are refused by both roads and degrade to an error node here, matching normalisation's
+      //          refusal.
+      final literal = readSexagesimalLiteral(source, _index);
+      if (literal != null) {
+        _index = literal.end;
+        return SexagesimalNode(
+          literal.degrees,
+          minutes: literal.minutes,
+          seconds: literal.seconds,
+          start: literal.start,
+          end: literal.end,
+        );
+      }
+      return _parseNumber();
+    }
     return _failure(_index);
   }
 

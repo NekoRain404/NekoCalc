@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'sexagesimal_literal.dart';
+
 part 'expression_input_normalization.dart';
 part 'expression_math_helpers.dart';
 part 'percentage_expansion.dart';

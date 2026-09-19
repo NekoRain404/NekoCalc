@@ -86,6 +86,45 @@ mixin _CalculatorEditing on _CalculatorState {
     notifyListeners();
   }
 
+  /// 中文：**`D°M'S` 那一颗键：在光标处插一个度分秒分隔符。**
+  ///
+  ///       它是一颗**输入键**（HiPER 手册 v12.0 `DEGREES, MINUTES, SECONDS` 那一节的原文与
+  ///       `3 D°M′S 30 D°M′S 0 D°M′S` → `3.5` 那个例子都写在
+  ///       `hiper_keypad_band_key_rows.dart` 那一格上，包括为什么结果那一半**不在**这颗键上）。
+  ///       插哪一个记号由 [_sexagesimalSeparatorBefore] 一处回答，这里只负责把它写进文本。
+  ///
+  ///       **什么都不插时一个字节都不动**：不记撤销快照、不重算、不发通知——与光标已在两端时的
+  ///       `moveCursorLeft`/`moveCursorRight` 同一条规矩。理由与四种空操作在
+  ///       [_sexagesimalSeparatorBefore] 上。
+  ///
+  ///       有选区时按**光标（选区起点）**插：与 `append`/`input` 一样走 `_insert`，选中的内容被
+  ///       这次插入替换掉。这颗键因此不需要一套自己的选区语义。
+  /// English: **the `D°M'S` key: insert one sexagesimal separator at the caret.**
+  ///
+  ///          It is an **entry key** (HiPER manual v12.0's `DEGREES, MINUTES, SECONDS` section, its
+  ///          wording and its `3 D°M′S 30 D°M′S 0 D°M′S` → `3.5` example, are on that key's cell in
+  ///          `hiper_keypad_band_key_rows.dart`, together with why the result half is **not** on this
+  ///          key). Which mark goes in is answered in one place, [_sexagesimalSeparatorBefore]; this
+  ///          method only writes it into the text.
+  ///
+  ///          **When nothing is to be inserted, not one byte moves**: no undo snapshot, no
+  ///          re-evaluation, no notification — the same rule `moveCursorLeft`/`moveCursorRight`
+  ///          follow at either end. The reasons and the four no-op cases are on
+  ///          [_sexagesimalSeparatorBefore].
+  ///
+  ///          With a selection it inserts at the **caret (the selection's start)**: it goes through
+  ///          `_insert` exactly as `append`/`input` do, so the selected text is replaced by this
+  ///          insertion. The key therefore needs no selection semantics of its own.
+  void insertSexagesimalSeparator() {
+    final mark = _sexagesimalSeparatorBefore(expressionBeforeCursor);
+    if (mark == null) return;
+    _markStateEdited();
+    _recordUndoSnapshot();
+    _insert(mark);
+    _scheduleLiveEvaluation();
+    notifyListeners();
+  }
+
   void applyUnaryFunction(String name) {
     _markStateEdited();
     _recordUndoSnapshot();

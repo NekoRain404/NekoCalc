@@ -423,7 +423,7 @@ void main() {
       }
     });
 
-    testWidgets('面板里选一项，与按 `d/c` / `D°M\'S` 落到同一个状态——两个入口，一个状态',
+    testWidgets('面板里选一项，与按 `d/c` 落到同一个状态——两个入口，一个状态；度分秒那一格从菜单进',
         (tester) async {
       reply(<String, String>{
         'decimal': '2.5',
@@ -466,15 +466,29 @@ void main() {
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
           r'\frac{5}{2}');
 
-      // 中文：**`D°M'S` 仍然工作**：DEG 之下一份度分秒写法，按一下换过去、再按一下回来。
-      // English: **`D°M'S` still works**: one DMS spelling under DEG, toggled over and back.
-      await _tapKey(tester, "D°M'S");
+      // 中文：**度分秒那一格也从这里进。** 它过去还接过键盘上的 `D°M'S`，但那一颗键自度分秒
+      //       **输入**那一轮起是**输入键**（厂商手册那一节说得清楚：`D°M'S` 是输入，转换结果
+      //       那颗键**不在内置键盘上**；见 `hiper_keypad_band_key_rows.dart` 那一格）。结果那一
+      //       半留在菜单里，一个字节都没丢——这一条钉的就是「菜单里选得到、选完真的排出来」。
+      // English: **the DMS cell is entered from here too.** It used to take the keypad's `D°M'S` as
+      //          well, but that key is an **entry** key since the DMS-input round (the manual's own
+      //          section: `D°M'S` enters, and the key that converts a result is **not on built-in
+      //          keyboards**; see that cell in `hiper_keypad_band_key_rows.dart`). The result half
+      //          stays in the menu with nothing lost, and this asserts exactly that: it can be picked
+      //          and it really does typeset.
+      await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, 'Degrees, mins, secs');
       expect(_display(tester).resultForm, ResultForm.dms);
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
           r"2^\circ\,30'\,0''");
       expect(find.text('DMS'), findsOneWidget);
-      expect(_display(tester).resultDecimal, '2.5');
-      await _tapKey(tester, "D°M'S");
+      expect(_display(tester).resultDecimal, '2.5',
+          reason: '度分秒只是同一个数的另一种写法，值不动');
+      // 中文：回默认那一格同样走菜单（`默认` 是本应用自己那一行，见 `resultFormatCells`）。
+      // English: going back to the default cell goes through the menu as well (`默认` is this app's
+      //          own row, see `resultFormatCells`).
+      await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, '默认');
       expect(_display(tester).resultForm, ResultForm.auto);
     });
 

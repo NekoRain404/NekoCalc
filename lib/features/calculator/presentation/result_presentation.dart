@@ -552,20 +552,37 @@ class ResultPresentation {
   ///          and the FRACTIONS section of manual p.6 is about entry only and says nothing about a
   ///          result. It is kept as a toggle so the key can walk itself back (`x⇔E` reaches the
   ///          decimal too).
-  /// 中文：**度分秒 ⇄ 默认那一行**——`D°M'S` 那一颗键。它是一次开关而不是循环里的一格：
-  ///       按下去换成度分秒写法，再按一次回到默认（与 `d/c` 那颗键同一种手感）。这一份结果**没有**
-  ///       度分秒写法时（引擎没答、RAD 模式、形状认不出来、串与读数相同）它是**空操作**——不是
-  ///       假装换了点什么，也不是去猜一个。
+  /// 中文：**度分秒 ⇄ 默认那一行**——这一格的「去与回」。它是一次开关而不是循环里的一格：
+  ///       换到度分秒写法，再一次回到默认（与 `d/c` 那颗键同一种手感）。这一份结果**没有**度分秒
+  ///       写法时（引擎没答、RAD 模式、形状认不出来、串与读数相同）它是**空操作**——不是假装换了
+  ///       点什么，也不是去猜一个。
   ///
   ///       它一次只跨一步，**不经过 `x⇔E` 的循环**：那一维是 `x⇔E` 的，长它一格就动了那颗键的行为。
-  /// English: **degrees-minutes-seconds ⇄ the default line** — the `D°M'S` key. It is a toggle rather
-  ///          than a cell in the cycle: a press switches to the DMS spelling, a second press returns
-  ///          to the default (the same feel as the `d/c` key). When this result has **no** DMS spelling
-  ///          (no engine answer, RAD mode, an unrecognised shape, a string equal to the reading) it is
-  ///          a **no-op** — it neither pretends something changed nor invents one.
+  ///
+  ///       **今天没有生产调用方，这是写明的、不是漏掉的。** 键盘上那一颗 `D°M'S` 从度分秒
+  ///       **输入**那一轮起是输入键（厂商手册那一节：`D°M'S` 是输入，转换结果那颗键**不在内置
+  ///       键盘上**），而这一格的入口是 `x⇔E` 的菜单——菜单是「选一格」，不是开关，它走的是
+  ///       [resolve]/[canDraw]/[texFor]，本来也不该读这个方法。留着它的理由有两条：它是这一格
+  ///       与 [toggleStandard] 对称的那一半（同一份结果上的同一个问题），以及它那几条纯逻辑断言
+  ///       仍然钉着这一格的边界（没有这一格时是空操作、从别的形态一步跨过来）。
+  /// English: **degrees-minutes-seconds ⇄ the default line** — this cell's "there and back". It is a
+  ///          toggle rather than a cell in the cycle: it switches to the DMS spelling and a second
+  ///          call returns to the default (the same feel as the `d/c` key). When this result has **no**
+  ///          DMS spelling (no engine answer, RAD mode, an unrecognised shape, a string equal to the
+  ///          reading) it is a **no-op** — it neither pretends something changed nor invents one.
   ///
   ///          It steps one cell and **never goes through `x⇔E`'s cycle**: that dimension belongs to
   ///          `x⇔E`, and lengthening it would move a key that already works.
+  ///
+  ///          **It has no production caller today, and that is written down rather than overlooked.**
+  ///          The keypad's `D°M'S` has been an entry key since the DMS-**input** round (the manual's
+  ///          own section: `D°M'S` enters, and the key that converts a result is **not on built-in
+  ///          keyboards**), and this cell's entrance is the `x⇔E` menu — a menu *picks* a cell and is
+  ///          not a toggle, so it goes through [resolve]/[canDraw]/[texFor] and should not read this
+  ///          method anyway. It is kept for two reasons: it is this cell's half of the symmetry with
+  ///          [toggleStandard] (one question asked of one result), and its pure-logic assertions still
+  ///          pin the cell's boundaries (a no-op when the cell is absent, one step across from another
+  ///          form).
   ResultForm toggleDms(ResultForm current) {
     if (!hasDms) return current; // 这一次没有这一格：空操作
     return current == ResultForm.dms ? ResultForm.auto : ResultForm.dms;
@@ -681,12 +698,18 @@ class ResultPresentation {
   static String _dmsTex(String text) {
     final match = _dmsShape.firstMatch(text.replaceAll('−', '-').trim());
     if (match == null) return '';
-    const degree = '^\\circ';
-    const prime = "'";
-    const doublePrime = "''";
+    // 中文：三个记号与中间那个细空格取自 [SexagesimalMarks]——**与表达式行排度分秒字面量用的是
+    //       同一份常量**（`tex_emitter.dart`）。同一个角度在两处排出来必须一模一样，所以记号不再
+    //       各写一套。
+    // English: the three marks and the thin space between them come from [SexagesimalMarks] — **the
+    //          same constants the expression line uses to typeset a DMS literal**
+    //          (`tex_emitter.dart`). One angle has to typeset identically in both places, so the
+    //          marks are no longer written out twice.
     final sign = match.group(1)!;
-    return '$sign${match.group(2)}$degree\\,${match.group(3)}$prime\\,'
-        '${match.group(4)}$doublePrime';
+    return '$sign${match.group(2)}${SexagesimalMarks.degreeTex}'
+        '${SexagesimalMarks.texSeparator}${match.group(3)}${SexagesimalMarks.minuteTex}'
+        '${SexagesimalMarks.texSeparator}${match.group(4)}'
+        '${SexagesimalMarks.secondTex}';
   }
 
   /// 中文：引擎那串度分秒的形状：`[符号]度°分′秒″`，三段都是十进制数（秒可以有小数）。

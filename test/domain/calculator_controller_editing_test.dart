@@ -352,7 +352,142 @@ void main() {
 
     controller.dispose();
   });
+
+  group('`D°M\'S` 的分隔符：插哪一个、什么时候什么都不插', () {
+    // 中文：**这一组钉的是 `_sexagesimalSeparatorBefore` 那一条判据**（纯函数在 part 里是私有的，
+    //       走控制器这条生产路径进来——与 `_applyPercent`/`_appendSmart` 那几条同一把尺）。
+    //       厂商原文、这颗键为什么是输入键、结果那一半去了哪里，都在
+    //       `hiper_keypad_band_key_rows.dart` 那一格上。
+    // English: **this group pins the one judgement in `_sexagesimalSeparatorBefore`** (the pure
+    //          function is private inside the part, so it is exercised through the controller — the
+    //          production path, the same instrument the `_applyPercent`/`_appendSmart` rows use). The
+    //          vendor lines, why this key is an entry key and where the result half went are all on
+    //          that cell in `hiper_keypad_band_key_rows.dart`.
+
+    test('`3` `D°M\'S` `30` `D°M\'S` `0` `D°M\'S` 一路按出 `3°30′0″`', () {
+      final controller = _controller(_FakeDatabase());
+
+      controller.input('3');
+      controller.insertSexagesimalSeparator();
+      expect(controller.expression, '3°');
+
+      controller.input('3');
+      controller.input('0');
+      controller.insertSexagesimalSeparator();
+      expect(controller.expression, '3°30′');
+
+      controller.input('0');
+      controller.insertSexagesimalSeparator();
+      expect(controller.expression, '3°30′0″');
+      expect(controller.cursorIndex, controller.expression.length,
+          reason: '光标留在插进去的记号后面，接着打字就是下一段');
+
+      // 中文：**边打边算跟着走。** 这个文件默认的 `AppSettings` 是 RAD，所以读数就是那个角度的
+      //       弧度值（0.061086523819801536，按本文件的精度设置排成 `0.061087`）——`°` 的值按当前
+      //       角度单位给，与 `30°` 那条既有断言同一个形状。
+      // English: **as-you-type follows.** The `AppSettings` this file defaults to says RAD, so the
+      //          reading is that angle's radian value (0.061086523819801536, printed `0.061087` at this
+      //          file's precision) — `°` takes its value in the current angle unit, the shape the
+      //          existing `30°` assertions have.
+      controller.evaluate();
+      expect(double.parse(controller.result), closeTo(0.061086523819801536, 1e-6));
+
+      controller.dispose();
+    });
+
+    test('同一串按键在 DEG 下读作 3.5：模式只由求值器那一侧给', () {
+      final controller = _controller(
+        _FakeDatabase(),
+        settings: const AppSettings(
+          haptics: true,
+          hapticStrength: '标准',
+          restoreState: false,
+          autoSaveHistory: false,
+          angleMode: 'DEG',
+          precision: 6,
+          themeModeLabel: '跟随系统',
+          expressionDisplayMode: '数学符号',
+        ),
+      );
+
+      for (final key in <String>['3', 'dms', '3', '0', 'dms', '0', 'dms']) {
+        if (key == 'dms') {
+          controller.insertSexagesimalSeparator();
+        } else {
+          controller.input(key);
+        }
+      }
+
+      expect(controller.expression, '3°30′0″');
+      controller.evaluate();
+      expect(controller.result, '3.5',
+          reason: '归一化写出的文本与模式无关，值由 `degangle` 那一支按当前角度单位给');
+
+      controller.dispose();
+    });
+
+    test('光标停在中间：插在光标处，右边那些字符不动', () {
+      final controller = _controller(_FakeDatabase());
+      controller.setExpression('3+45');
+      controller.setSelection(const ExpressionSelection.collapsed(3));
+      controller.insertSexagesimalSeparator();
+
+      expect(controller.expression, '3+4°5', reason: '插在光标处（`4` 与 `5` 之间）');
+      expect(controller.cursorIndex, 4);
+
+      controller.dispose();
+    });
+
+    test('四种什么都不插：没有一个字节移动，也不惊动屏幕', () {
+      // 中文：四种情况与它们的理由在 `_sexagesimalSeparatorBefore` 上。这里量的是**后果**：
+      //       文本不变、撤销栈不变（`canUndo` 仍为假）——「宁可什么都不发生」是看得见的。
+      // English: the four cases and their reasons are on `_sexagesimalSeparatorBefore`. What is
+      //          measured here is the **consequence**: the text does not move and neither does the
+      //          undo stack (`canUndo` stays false) — "better that nothing happens" is visible.
+      for (final source in <String>[
+        '', // 左边没有数字
+        '2+', // 同上：分隔的是「段」，左边没有段
+        'x5', // 那个数是一个名字的一部分（`x5°` 两条路都读不懂）
+        '3°30′0″', // 三个记号都齐了：没有第四个分隔符
+      ]) {
+        final controller = _controller(_FakeDatabase());
+        controller.setExpression(source);
+        // 中文：通知计数从 `setExpression` 那一次之后归零——下面量的是**这一次按键**有没有惊动屏幕。
+        // English: the counter is zeroed after `setExpression`'s own notification; what is measured
+        //          below is whether **this press** disturbed the screen at all.
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+
+        controller.insertSexagesimalSeparator();
+
+        expect(controller.expression, source, reason: '`$source` 之后按一下不该写出任何字符');
+        expect(controller.cursorIndex, source.length);
+        expect(notifications, 0,
+            reason: '`$source`：空操作一个字节都不动，屏幕也不该收到通知');
+
+        controller.dispose();
+      }
+    });
+
+    test('选区：在选区起点插入，选中的内容被这一次插入替换', () {
+      // 中文：与 `append`/`input` 同一条规矩（`_insert`），所以这颗键不需要一套自己的选区语义。
+      // English: the same rule `append`/`input` follow (`_insert`), so this key needs no selection
+      //          semantics of its own.
+      final controller = _controller(_FakeDatabase());
+      controller.setExpression('12+345');
+      controller.setSelection(const ExpressionSelection(5, 6));
+      controller.insertSexagesimalSeparator();
+
+      expect(controller.expression, '12+34°',
+          reason: '光标（选区起点）落在 `4` 后面，插进去的分隔符把选中的 `5` 替换掉');
+      expect(controller.cursorIndex, 6);
+
+      controller.dispose();
+    });
+  });
+
 }
+
 CalculatorController _controller(
   _FakeDatabase db, {
   AppSettings settings = const AppSettings(

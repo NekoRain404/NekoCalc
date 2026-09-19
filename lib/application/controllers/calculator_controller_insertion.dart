@@ -45,6 +45,14 @@ part of 'calculator_controller.dart';
 ///            range readers it needs ([_endsWithOpenInput], [_trailingValueRange],
 ///            [_matchingGroupStart], [_functionNameStart]).
 ///
+///          度分秒那一轮又添了一件，同样符合这条纯度线：[_sexagesimalSeparatorBefore]——`D°M'S`
+///          那颗键要插哪一个记号（`°`/`′`/`″`）的判据，吃一段光标左边的文本、回一个记号或 `null`。
+///          它是顶层纯函数，所以「不碰控制器状态」同样是编译器守着的。
+/// English: the DMS round added one more, on the same purity line:
+///          [_sexagesimalSeparatorBefore] — which mark (`°`/`′`/`″`) the `D°M'S` key inserts, taking
+///          the text left of the caret and answering a mark or `null`. It is a top-level pure function,
+///          so "touches no controller state" is enforced by the compiler here too.
+///
 ///          (They used to be instance methods of `_CalculatorEditing`; **not one of them ever used
 ///          `this`**, so for callers the move is verbatim transparent — `_startsValue(token)` is
 ///          still written the same way.)
@@ -332,3 +340,92 @@ String _applyPercent(String current) {
   final value = match.group(1)!;
   return '${current.substring(0, match.start)}($value/100)';
 }
+
+/// 中文：**`D°M'S` 那一颗键要插哪一个分隔符**——吃光标左边那一截文本，回一个记号或 `null`
+///       （`null` = 什么都不插）。这个函数只做这一件事，所以「这颗键按下会发生什么」在这里
+///       一眼读得完；厂商原文、两条角色为什么分开、结果那一半去了哪里，都写在
+///       `hiper_keypad_band_key_rows.dart` 那一格上。
+///
+///       **判据**：往左看光标前那一个数（[0-9.] 连写），再看这一整段**紧挨着的**度分秒串里
+///       已经出现过哪几个记号：
+///       - 三个记号齐全（`3°30′0″` 后面还有数字）⇒ **不插**：字面量只有三段，没有第四个分隔符；
+///       - 见过 `′` ⇒ 插 `″`；见过 `°` ⇒ 插 `′`；一个都没见过 ⇒ 插 `°`。
+///       这一条与 HiPER 那颗键逐下一致：`3` `D°M'S` `30` `D°M'S` `0` `D°M'S` 得到 `3°30′0″`。
+///
+///       **什么都不插的四种情况，每一种都有理由：**
+///       1. **光标左边没有数字**（空表达式、`2+` 之后、`(` 之后）：分隔符要分隔的是一个「段」，
+///          左边没有段可分隔。这与 `×` 按在空表达式上是同一形状的空操作——**宁可不动，也不写一个
+///          应用自己读不懂的式子**。
+///       2. **那个数其实是一个名字的一部分**（`x5`、`a2` 里的 `5`/`2`）：紧挨着的字母说明这一段是
+///          标识符，`x5°` 在应用自己的解析器里是个死状态（两条路都拒绝），所以不写。
+///       3. **三段都齐了**（见上）：没有第四个记号。
+///       4. **光标正贴在 `°`/`′` 右边**（`3°|`、`3°30′|`）：左边那一段已经以记号收尾，中间没有
+///          数字可分隔——插一个 `″` 会写出 `3°30′″` 这种谁都读不懂的形状。
+///
+///       **为什么可以只看左边这一段连写串**：用户可能在光标后面接着写（`3°30|′0″`），但那不影响
+///       这一次要插什么——键只往光标处写东西，右边那些字符是用户的事。
+/// English: **which separator the `D°M'S` key inserts** — it takes the text left of the caret and
+///          answers a mark or `null` (`null` = insert nothing). That is all this function does, so
+///          "what one press does" reads in one place; the vendor lines, why the two roles are split
+///          and where the result half went are all on that cell in `hiper_keypad_band_key_rows.dart`.
+///
+///          **The judgement**: look left at the number before the caret (`[0-9.]` run), then at which
+///          marks already appear in the **unbroken** sexagesimal run before it:
+///          - all three marks present (`3°30′0″` with more digits after it) ⇒ **insert nothing**; a
+///            literal has three sections and there is no fourth separator;
+///          - a `′` was seen ⇒ `″`; a `°` was seen ⇒ `′`; neither ⇒ `°`.
+///          That is item for item what HiPER's key does: `3` `D°M'S` `30` `D°M'S` `0` `D°M'S` gives
+///          `3°30′0″`.
+///
+///          **The four cases that insert nothing, each with its reason:**
+///          1. **no number left of the caret** (an empty expression, after `2+`, after `(`): a separator
+///             separates a *section*, and there is no section on the left. It is the same shape of
+///             no-op as `×` on an empty expression — **better to do nothing than to write something
+///             this app cannot read**.
+///          2. **the digits are part of a name** (`x5`, `a2`): a letter immediately before them means
+///             the section is an identifier, and `x5°` is a dead state in this app's own parser (both
+///             roads refuse it), so nothing is written.
+///          3. **all three marks are already there** (above): there is no fourth mark.
+///          4. **the caret sits right after a `°`/`′`** (`3°|`, `3°30′|`): the section on the left
+///             already ends with a mark and no digits sit between them — inserting `″` would write
+///             `3°30′″`, a shape nothing can read.
+///
+///          **Why looking only at the run left of the caret is enough**: the user may keep typing
+///          after the caret (`3°30|′0″`), and that does not change what this press inserts — the key
+///          writes at the caret and the characters on the right are the user's business.
+String? _sexagesimalSeparatorBefore(String current) {
+  var index = current.length;
+  var digits = 0;
+  while (index > 0 && _isSexagesimalNumberChar(current[index - 1])) {
+    index--;
+    digits++;
+  }
+  if (digits == 0) return null;
+  if (index > 0 && _isIdentifierLetter(current[index - 1])) return null;
+  var hasDegree = false;
+  var hasMinute = false;
+  var hasSecond = false;
+  var scan = index;
+  while (scan > 0) {
+    final char = current[scan - 1];
+    if (char == SexagesimalMarks.degree) {
+      hasDegree = true;
+    } else if (char == SexagesimalMarks.minute) {
+      hasMinute = true;
+    } else if (char == SexagesimalMarks.second) {
+      hasSecond = true;
+    } else if (!_isSexagesimalNumberChar(char)) {
+      break;
+    }
+    scan--;
+  }
+  if (hasSecond) return null;
+  if (hasMinute) return SexagesimalMarks.second;
+  if (hasDegree) return SexagesimalMarks.minute;
+  return SexagesimalMarks.degree;
+}
+
+bool _isSexagesimalNumberChar(String char) =>
+    char == '.' || RegExp(r'[0-9]').hasMatch(char);
+
+bool _isIdentifierLetter(String char) => RegExp(r'[A-Za-z_]').hasMatch(char);

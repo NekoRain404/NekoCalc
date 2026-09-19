@@ -14,6 +14,7 @@ import '../../core/math/app_unit_catalog.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
 import '../../core/math/quantity_display.dart';
+import '../../core/math/sexagesimal_literal.dart';
 import '../../core/math/variable_references.dart';
 import '../../core/platform/qalculate_channel.dart';
 import '../../core/platform/qalculate_math_engine.dart';

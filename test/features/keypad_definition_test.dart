@@ -87,6 +87,24 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     "ln|ln|on function shift:ins:e^|eˣ|on",
   ],
   <String>[
+    // 中文：**度分秒那一轮改的是这一格的「做什么」，不是这一格的签名。** `D°M'S` 从「结果的度分秒
+    //       写法 ⇄ 原来那一行」换成**输入键**（在光标处插 `°`/`′`/`″`），而 id、键面文字、分类与
+    //       启用态一个都没动——所以这一行**逐字符与上一轮相同**，这是**量过之后故意留着的**，
+    //       不是漏改：快照钉的是「这一格是哪一颗键」，而这一轮没有换键。
+    //       键的行为钉在 `calculator_dms_key_test.dart`（端到端）与
+    //       `calculator_controller_editing_test.dart`（判据与四种空操作）上；它为什么是输入键、
+    //       结果那一半去了哪里，写在那颗键的格子 `hiper_keypad_band_key_rows.dart` 上。
+    //       **`dmsForm` 没有第二种行为**，所以 id 的故事没有变：一个动作一个 id，没有新 id。
+    // English: **the DMS round changed what this cell does, not this cell's signature.** `D°M'S` went
+    //          from "the result's DMS spelling ⇄ the line it had" to an **entry** key (inserting
+    //          `°`/`′`/`″` at the caret) while its id, face, category and enabled state all stayed put —
+    //          so this row is **character for character the previous round's**, deliberately kept after
+    //          measuring it rather than forgotten: the snapshot pins *which key this cell is*, and no
+    //          key was swapped. The key's behaviour is pinned in `calculator_dms_key_test.dart`
+    //          (end to end) and `calculator_controller_editing_test.dart` (the judgement and the four
+    //          no-ops); why it is an entry key and where the result half went are on that cell in
+    //          `hiper_keypad_band_key_rows.dart`. **`dmsForm` has no second behaviour**, so the id
+    //          story is unchanged: one action, one id, no new id.
     "dmsForm|D°M'S|on function",
     "fractionForm|d/c|on function",
     "openVariables|X|on variable",

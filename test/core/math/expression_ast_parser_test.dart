@@ -169,4 +169,60 @@ void main() {
           toDisplayUnits(p('2*3+1')).length);
     });
   });
+
+  group('度分秒字面量', () {
+    // 中文：**这一个节点是表达式行排得出 `3°30′0″` 的原因**——从前 `°` 会让整段降级成
+    //       `ParseErrorNode`（TeX 变成一段 `\text{…}` 字面文本）。判据与取值那条路共用同一个函数
+    //       （`sexagesimal_literal.dart`），所以屏幕上排成公式的字符串与算得出值的字符串永远是同一个。
+    // English: **this node is why the expression line can typeset `3°30′0″`** — `°` used to degrade
+    //          the whole string to a `ParseErrorNode` (TeX became a `\text{…}` blob). The judgement is
+    //          shared with the value road (one function, `sexagesimal_literal.dart`), so the string that
+    //          typesets as a formula and the one that evaluates are always the same string.
+    test('三段：一个节点覆盖整段，区间含三个记号', () {
+      final n = p('3°30′0″') as SexagesimalNode;
+      expect(n.degrees, '3');
+      expect(n.minutes, '30');
+      expect(n.seconds, '0');
+      expect(n.start, 0);
+      expect(n.end, 7);
+    });
+
+    test('缺席的段是 `null`（`3°0′` 的分在场且是 `0`，`3°` 的分不在场）', () {
+      final withZero = p('3°0′') as SexagesimalNode;
+      expect(withZero.minutes, '0');
+      expect(withZero.seconds, isNull);
+      final degreesOnly = p('3°') as SexagesimalNode;
+      expect(degreesOnly.degrees, '3');
+      expect(degreesOnly.minutes, isNull);
+      expect(degreesOnly.end, 2);
+    });
+
+    test('字面量在整条表达式里：外面照旧是隐式乘法与运算符', () {
+      final product = p('2 3°30′') as ImplicitProductNode;
+      expect((product.right as SexagesimalNode).minutes, '30');
+      // 中文：`3°30′5` **仍然是一个字面量**：秒那一段的记号可以省（`3°30′5` = `3°30′5″`，
+      //       与归一化的 `degangle(3+30/60+5/3600)` 是同一句话）。**`″` 之后字面量才关上**，
+      //       再跟一个数就是另一个因子（隐式乘法）：`3°30′0″5`。
+      // English: `3°30′5` **is still one literal**: the seconds section may drop its mark (`3°30′5` =
+      //          `3°30′5″`, the same sentence normalisation writes as `degangle(3+30/60+5/3600)`).
+      //          **`″` is what closes the literal**, so a number after it is another factor (an
+      //          implicit product): `3°30′0″5`.
+      final unmarkedSeconds = p('3°30′5') as SexagesimalNode;
+      expect(unmarkedSeconds.minutes, '30');
+      expect(unmarkedSeconds.seconds, '5');
+      final trailing = p('3°30′0″5') as ImplicitProductNode;
+      expect((trailing.left as SexagesimalNode).seconds, '0');
+      expect((trailing.right as NumberNode).literal, '5');
+    });
+
+    test('不是字面量的形状照旧降级（与归一化的拒绝同一份判据）', () {
+      for (final source in <String>['30′', '3°′30″', '3°30′″', '1_000°30′']) {
+        expect(p(source), isA<ParseErrorNode>(),
+            reason: '`$source` 不是字面量：取值那条路也拒绝它，两边必须一致');
+      }
+      // 中文：`30° 2` —— 空格断开，`30°` 是一个字面量，`2` 是另一个因子（隐式乘法）。
+      // English: `30° 2` — the space breaks it: `30°` is one literal and `2` another factor.
+      expect(p('30° 2'), isA<ImplicitProductNode>());
+    });
+  });
 }

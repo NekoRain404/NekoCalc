@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/math/sexagesimal_literal.dart';
 import 'widgets/math_expression_view.dart';
 
 part 'result_presentation.dart';
@@ -109,27 +110,32 @@ enum ResultForm {
   ///
   ///       **它不在 [ResultPresentation.cycle] 里，这是本应用的画法选择**——**不是因为 HiPER 那一格
   ///       不在这套结果格式里**，恰恰相反：`rfMenu.dms` = 'Degrees, mins, secs' 正是那个菜单的六格
-  ///       之一（见文件头）。本应用把它单独交给 `D°M'S` 那一颗键，是因为这一格在这里**有自己的
-  ///       印法也有自己的键**，加进循环会**改掉一颗已经工作的键的行为**（本项目不许做的事）。
-  ///       （另一处不再成立的说法：HiPER 内置键盘上那颗 `D°M'S` 在 HiPER 自己是**输入键**
-  ///       （`command.name.DMS` = 'Insert Degrees, Mins, Secs'），换结果格式的是 `REDMS`——
-  ///       手册 p.7 明说它「不在内置键盘上」。见 `hiper_keypad.dart` 里同一件事的记法。）
-  ///       两颗键共用的只有「当前是哪一格」这一个状态（[ResultPresentation.resolve] 一处收口）。
+  ///       之一（见文件头）。加进循环会**改掉一颗已经工作的键的行为**（`x⇔E` 的循环，本项目不许做
+  ///       的事），所以它的入口是**菜单里那一项**。
+  ///
+  ///       **从前它还接过键盘上那一颗 `D°M'S`，那一半从度分秒输入那一轮起不在了**：内置键盘上
+  ///       那颗 `D°M'S` 在 HiPER 自己是**输入键**（`command.name.DMS` = 'Insert Degrees, Mins,
+  ///       Secs'），换结果格式的是 `REDMS`——手册明说它「不在内置键盘上」。本应用照着归位：
+  ///       键输入，这一格从菜单进（见 `keypad/hiper_keypad_band_key_rows.dart` 那一格）。
+  ///       两个入口共用的只有「当前是哪一格」这一个状态（[ResultPresentation.resolve] 一处收口）。
   ///       English: the **degrees-minutes-seconds spelling** alone (HiPER's `DMS` cell in the result
   ///              format system: `12°34′55.92″`).
   ///
   ///              **It is not in [ResultPresentation.cycle], and that is this app's drawing choice**
   ///              — **not because HiPER's cell is outside the result-format system**; the opposite:
   ///              `rfMenu.dms` = 'Degrees, mins, secs' is one of that menu's six entries (see the file
-  ///              header). This app hands it to the `D°M'S` key alone because here that cell **has its
-  ///              own printer and its own key**, and adding it to the cycle would **change the
-  ///              behaviour of a key that already works** (something this project does not do).
-  ///              (A second claim that no longer holds: HiPER's built-in `D°M'S` is an **entry** key
-  ///              on HiPER itself (`command.name.DMS` = 'Insert Degrees, Mins, Secs'); the one that
-  ///              changes the result format is `REDMS`, which manual p.7 says "is not present on
-  ///              built-in keyboards". See the same record in `hiper_keypad.dart`.)
-  ///              All the two keys share is the single "which cell is current" state, funnelled
-  ///              through one place ([ResultPresentation.resolve]).
+  ///              header). Adding it to the cycle would **change the behaviour of a key that already
+  ///              works** (`x⇔E`'s cycle, something this project does not do), so its entrance is **the
+  ///              menu entry itself**.
+  ///
+  ///              **It used to take the keypad's `D°M'S` as well, and that half went with the DMS-input
+  ///              round**: HiPER's built-in `D°M'S` is an **entry** key on HiPER itself
+  ///              (`command.name.DMS` = 'Insert Degrees, Mins, Secs'); the one that changes the result
+  ///              format is `REDMS`, which the manual says "is not present on built-in keyboards". This
+  ///              app follows suit: the key enters and this cell is entered from the menu (see that
+  ///              cell in `keypad/hiper_keypad_band_key_rows.dart`). What the two entrances share is the
+  ///              single "which cell is current" state, through one place
+  ///              ([ResultPresentation.resolve]).
   dms,
 
   /// 中文：只要十进制读数（HiPER 的 `FIX` / `SCI` 那一侧，也就是没有 `EXPR` 指示器时的默认）。
@@ -173,7 +179,7 @@ enum ResultForm {
   ///         （`rfMenu.mixedNumber` = 'Mixed number'）。本应用从前**印不出带分数**，所以这盏灯一直
   ///         没有主人——上面 [fraction] 那一条记的正是「宁可沉默」；本轮引擎那一份印法接上之后，
   ///         灯与格才对上：只有真的画出 `2 + \frac{1}{2}` 时才点 `MIXED`。
-  ///       - [dms]：`DMS`。HiPER 的 sexagesimal 格式，`D°M'S` / `x⇔E` 那一格。
+  ///       - [dms]：`DMS`。HiPER 的 sexagesimal 格式，`x⇔E` 菜单里 `Degrees, mins, secs` 那一格。
   ///       - [decimal]：**不点灯**——HiPER 那一格本来就没有灯（四盏灯对五种格式）。
   ///
   ///       **来源与取法**（本机实测取回，不是记忆）：上面两串取自 HiPER **自己的**帮助文本，
@@ -243,7 +249,8 @@ enum ResultForm {
   ///            print a mixed number**, so that lamp had no owner — which is what the [fraction] note
   ///            above records as "silence wins"; now that the engine's print is wired in, lamp and cell
   ///            finally correspond: `MIXED` lights only when `2 + \frac{1}{2}` is really drawn.
-  ///          - [dms]: `DMS`. HiPER's sexagesimal format, the `D°M'S` / `x⇔E` cell.
+  ///          - [dms]: `DMS`. HiPER's sexagesimal format, the `Degrees, mins, secs` entry of the `x⇔E`
+  ///            menu.
   ///          - [decimal]: **lights nothing** — that HiPER cell has no lamp (four lamps, five formats).
   ///
   ///          **Source and how it was fetched** (measured on this machine just now, not remembered):

@@ -241,95 +241,99 @@ const KeypadRow _trigonometryRow = KeypadRow(
 //          with no engine answer it is a no-op rather than a guessed fraction.
 const KeypadRow _formatAndMemoryRow = KeypadRow(
   keys: <KeypadKey>[
-    // 中文：**`D°M'S` 从这一步起点亮：它把当前结果换成度分秒写法**（`12°34′55.92″`），再按一次
-    //       回到原来那一行。它与右边的 `d/c` 同一条路（结果格式那一维的又一格），只改**显示**。
+    // 中文：**`D°M'S` 是一颗输入键：它在光标处插一个度分秒分隔符**——`3` `D°M'S` `30` `D°M'S`
+    //       `0` `D°M'S` 按出 `3°30′0″`，值 3.5。插哪一个记号（`°`/`′`/`″`）由
+    //       `_sexagesimalSeparatorBefore` 一处判；这一格说的是**这颗键是哪一颗键**。
     //
-    //       **HiPER 那一颗键做的是「输入」，这里做的为什么是「显示」——依据与取舍都写在这里：**
+    //       **厂商原文（手册 v12.0，`DEGREES, MINUTES, SECONDS` 一节，`pdftotext -layout`
+    //       第 246–253 行，逐字）：**
     //
-    //       HiPER 自己的帮助原文（HiPER Scientific Calculator 的翻译源串，本机可查：
-    //       `weblate.a4tune.com` 的公开 API，`help.numbers.contents` 与 `quickTour.page.DMS.*`）
-    //       把它分成了三件**互不相同**的事：
-    //       - `DMS` 键："If you want to enter a number as degrees, minutes and seconds (a
-    //         sexagesimal number), use <key:DMS> key." —— **输入**（命令名
-    //         `command.name.DMS` = "Insert Degrees, Mins, Secs"）。
-    //       - `REDMS` 键："<key:REDMS> key converts the result into degrees, minutes and seconds.
-    //         The key is not present on built-in keyboards…" —— **结果转度分秒**，而它
-    //         **不在内置键盘上**（命令名 `command.name.REDMS` = "Display as Degrees, Mins, Secs"）。
-    //       - `CHANGE_EXPR`（就是 `x⇔E`）：切换结果格式，其中一档是 sexagesimal，指示器 `DMS`。
+    //       > 「If you want to enter a number as degrees, minutes and seconds (a sexagesimal
+    //       > number), use `D°M′S` key.」`3 D°M′S 30 D°M′S 0 D°M′S` → **`3.5`**
+    //       > 「…key converts the result into degrees, minutes and seconds. **The key is not
+    //       > present on built-in keyboards** but you can place it on your own keyboard.」
+    //       > `3.5` → `3°30´ 0´´`
     //
-    //       所以内置键盘上那一颗 `D°M'S` 在 HiPER 上是**输入键**，而不是结果格式键。本项目**没有**
-    //       照搬输入那一半，理由是实测的三条，全部在应用这一侧：
-    //       1. **表达式行排不出 `°`**：`ExpressionAstParser` 遇到 `°` 会整段降级成 `ParseErrorNode`，
-    //          TeX 变成 `\text{30°}`（一段字面文本）。按一下键就让整行表达式不再排版，是可见的退化。
-    //       2. **旧解析器算不对中间态**：`12°34` 今天是 `7.12`（`degangle(12)*34` 的隐式乘法），
-    //          `12°34′56″` 直接 FormatException——按出来的每一串都会先经过这些中间态。
-    //       3. **（本条已失效，原样留着记录）`°` 在 DEG 下曾经是活的错值**：`sin 30°` 在 RAD 下
-    //          0.5、在 DEG 下 0.009138——解析器把它改写成 `rad(30)`，而 DEG 的三角函数再把实参乘
-    //          一次 π/180。**这一条本轮修好了**：`°` 现在归一化写成内部名字 `degangle(30)`，值按
-    //          当前角度单位给（DEG 下 30、RAD 下 0.5235987755982988），两种模式下 `sin(30°)` 都是
-    //          0.5（设备 `d87f1aa3` 实测，参考 `qalc` 5.12.0 两个角度模式都是 0.5）。
-    //          它因此**不再是**这颗键不做的理由；上面两条仍然是，而且都是输入文法本身的问题
-    //          （排版与中间态），与 `°` 的含义无关。
-    //       要照搬输入那一半，仍得同时给两个地方（语法树、TeX 生成）加一套度分秒字面量语法，
-    //       而且按到一半的 `12°34` 必须先有一个说得通的值——*`°` 在 DEG 下是什么意思*这一半本轮
-    //       已经定了，但「度分秒字面量」那一半没有。
-    //       而结果这一半**今天就能做对**：引擎真的印得出度分秒（`BASE_SEXAGESIMAL`，见
-    //       `printOptions` 那一段；上一轮记的「引擎没有度分秒换算」是**实测错误**——它叫
-    //       sexagesimal，`grep -rni dms` 当然搜不到），而且印的是**同一个已求值结构**，
-    //       所以值逐位相同，与 `d/c` 是同一个形状。**谁按这一颗键，谁按的就是 HiPER 的 `DMS`
-    //       那一格结果格式**（HiPER 屏幕上唯一写着 DMS 的东西），而 HiPER 把它放在自定义键盘上的
-    //       那一颗 `REDMS` 做的事。
-    // English: **`D°M'S` lights up from this step on: it switches the current result to its
-    //          degrees-minutes-seconds spelling** (`12°34′55.92″`), and a second press returns to
-    //          the line it had. It travels the same road as `d/c` beside it (another cell of the
-    //          result-format dimension) and changes **display only**.
+    //       **那两句话说的是两颗不同的键，手册把这一节并排写在一起。** 第二句的主语那个记号
+    //       `pdftotext` 抄不出来（它是一个按键图标），但同一句自己说了「**内置键盘上没有这一颗**，
+    //       要自己摆到自定义键盘上」——所以**内置键盘上这一颗 `D°M'S` 只做第一件事：输入**。
+    //       厂商字符串表也把两条命令分得清清楚楚（`command.name.DMS` = "Insert Degrees, Mins,
+    //       Secs"、`command.name.REDMS` = "Display as Degrees, Mins, Secs"；完整原文记在上一轮的
+    //       `.superpowers/backup/dms-report.md`）。第三件事是 `x⇔E`：结果格式菜单里那一格
+    //       `Degrees, mins, secs`（`rfMenu.dms`）。
     //
-    //          **HiPER's key inserts; why this one displays — the evidence and the trade-off:**
+    //       **所以上一轮把这一格接成「结果的度分秒写法」，做的是 `REDMS` 那颗键的事**——而那道
+    //       转换从来不属于内置键盘这一格。本轮把两个角色各归其位：
+    //       - **这一格**：输入（厂商的原样，见上）；
+    //       - **结果那一半**：**留在 `x⇔E` 的菜单里**（`Degrees, mins, secs` 那一项），一个字节都
+    //         没丢。那条路由 `ResultFormatSheet` + `ResultPresentation` 接到结果行上，测试钉在
+    //         `calculator_result_format_menu_test.dart` 与 `calculator_dms_form_test.dart`。
     //
-    //          HiPER's own help text (the app's translation source strings, reachable from this
-    //          machine: the public API at `weblate.a4tune.com`, `help.numbers.contents` and
-    //          `quickTour.page.DMS.*`) splits it into three **different** things:
-    //          - the `DMS` key: "If you want to enter a number as degrees, minutes and seconds (a
-    //            sexagesimal number), use <key:DMS> key." — **entry** (command name
-    //            `command.name.DMS` = "Insert Degrees, Mins, Secs").
-    //          - the `REDMS` key: "<key:REDMS> key converts the result into degrees, minutes and
-    //            seconds. The key is not present on built-in keyboards…" — **converting a result**,
-    //            and it is **not on the built-in keypad** (its command name is
-    //            `command.name.REDMS` = "Display as Degrees, Mins, Secs").
-    //          - `CHANGE_EXPR` (that is `x⇔E`): cycles the result format, one stop of which is
-    //            sexagesimal, with the `DMS` indicator.
+    //       **上一轮列的三条「不照搬输入那一半」的理由，逐条的下场：**
+    //       1. **表达式行排不出 `°`**（`ExpressionAstParser` 整段降级成 `\text{30°}`）——**已修**：
+    //          语法树多了一个度分秒字面量节点，TeX 排成 `3^\circ\,30'\,0''`（记号与结果行那一格
+    //          同一份）。判据只有一份，写在 `sexagesimal_literal.dart`。
+    //       2. **旧解析器算不对中间态**（那时 `12°34` 是 `7.12`）——**已修**：算子没变，变的是
+    //          **归一化**按整段字面量读（`12°34` = 12.5666…，`12°34′56″` 不再抛异常）。按到一半的
+    //          状态因此都有一个说得通的值，这一条的理由**不再成立**。
+    //       3. **`°` 在 DEG 下曾经是活的错值**——两轮前（`cc6ce91`）就修好了，当时已标注为「已
+    //          失效」；`30°` 单用今天仍是 DEG 下 30、RAD 下 0.5235987755982988，本轮**一个字节
+    //          都没动它**（回归断言在 `expression_parser_test.dart`）。
     //
-    //          So the `D°M'S` cell on HiPER's built-in keypad is an **entry** key, not a result
-    //          format key. This project did **not** copy the entry half, for three reasons that were
-    //          all measured on the app side:
-    //          1. **the expression line cannot typeset `°`**: `ExpressionAstParser` degrades the whole
-    //             string to a `ParseErrorNode` and the TeX becomes `\text{30°}`, a literal text blob.
-    //             One press would stop the entire expression line from being typeset — a visible
-    //             degradation.
-    //          2. **the legacy parser misreads the intermediate states**: `12°34` is `7.12` today
-    //             (an implicit multiplication with `degangle(12)`), and `12°34′56″` throws outright —
-    //             every string the key can build passes through states like those.
-    //          3. **(this one has lapsed and is kept as a record) `°` used to be a live wrong value
-    //             under DEG**: `sin 30°` was 0.5 under RAD and 0.009138 under DEG — the parser rewrote
-    //             it to `rad(30)` and DEG's trig multiplied the argument by π/180 again. **That was
-    //             fixed this round**: `°` now normalises to the internal name `degangle(30)` and takes
-    //             its value from the current angle unit (30 under DEG, 0.5235987755982988 under RAD),
-    //             so `sin(30°)` is 0.5 in both modes (measured on device `d87f1aa3`; the reference
-    //             `qalc` 5.12.0 answers 0.5 in both angle modes). It is therefore **no longer** a
-    //             reason for this key not to exist; the two above still are, and both belong to the
-    //             entry grammar itself (typesetting and intermediate states) rather than to what `°`
-    //             means.
-    //          Copying the entry half would still mean adding a degrees-minutes-seconds literal to two
-    //          places at once (the syntax tree, the TeX emitter), and a half-typed `12°34` would need
-    //          a defensible value first — *what `°` means under DEG* was settled this round, but the
-    //          "degrees-minutes-seconds literal" half was not. The result half **can be done correctly
-    //          today**: the engine really does print degrees-minutes-seconds (`BASE_SEXAGESIMAL`, see
-    //          the note on `printOptions`; the previous round's "the engine has no DMS conversion" is
-    //          **measurably wrong** — it is called *sexagesimal*, so `grep -rni dms` was never going
-    //          to find it), and it prints **one already evaluated structure**, so the value is digit
-    //          for digit the same, in the same shape as `d/c`. **Whoever presses this key presses
-    //          HiPER's `DMS` result-format cell** — the only thing HiPER writes DMS on, on screen —
-    //          which on HiPER lives on the `REDMS` key a custom keyboard can carry.
+    //       **值从哪来**：`°` 那条路一直没变——归一化把字面量写成内部名字
+    //       `degangle(度+分/60+秒/3600)`，交给应用自己的求值器，所以含 `°` 的表达式**一次都不送去
+    //       让引擎猜**，两个角度模式的差异只由 `degangle` 那一支给。**中间态为什么不照参考实现的
+    //       读法**（宿主 `qalc` 5.12.0 实测 `3°30` = `90°`、`3°30′0` = `0°`）写在
+    //       `sexagesimal_literal.dart` 的文件头上——那是本轮**唯一**一处故意偏离参考实现的读法。
+    // English: **`D°M'S` is an entry key: it inserts one sexagesimal separator at the caret** —
+    //          `3` `D°M'S` `30` `D°M'S` `0` `D°M'S` builds `3°30′0″`, value 3.5. Which mark goes in
+    //          (`°`/`′`/`″`) is judged in one place, `_sexagesimalSeparatorBefore`; what this cell
+    //          documents is **which key this is**.
+    //
+    //          **The vendor lines** (manual v12.0, `DEGREES, MINUTES, SECONDS`, `pdftotext -layout`
+    //          lines 246–253) are quoted verbatim above the Chinese note: the first names the `D°M′S`
+    //          key and shows **entry** (`3 D°M′S 30 D°M′S 0 D°M′S` → `3.5`); the second is about a key
+    //          whose own sentence says it is **not on built-in keyboards** (result conversion;
+    //          `3.5` → `3°30´ 0´´`).
+    //
+    //          **Those two sentences name two different keys; the manual prints them side by side.**
+    //          The mark that is the subject of the second one cannot be extracted by `pdftotext` (it
+    //          is a key icon), but that sentence says it itself: **it is not on built-in keyboards;
+    //          you place it on your own.** So the `D°M'S` cell on the built-in keypad does **the first
+    //          thing only: entry**. The vendor's string table splits the two commands cleanly as well
+    //          (`command.name.DMS` = "Insert Degrees, Mins, Secs", `command.name.REDMS` = "Display as
+    //          Degrees, Mins, Secs"; the full text is recorded in last round's
+    //          `.superpowers/backup/dms-report.md`). The third thing is `x⇔E`: the result format
+    //          menu's `Degrees, mins, secs` cell (`rfMenu.dms`).
+    //
+    //          **So last round's wiring of this cell as "the result's DMS spelling" was doing the
+    //          `REDMS` key's job** — a conversion that never belonged to this built-in cell. This
+    //          round gives each role its own place: **this cell enters** (the vendor's own role) and
+    //          **the result half stays in the `x⇔E` menu** (`Degrees, mins, secs`), with nothing
+    //          lost — that road runs `ResultFormatSheet` + `ResultPresentation` into the result line,
+    //          pinned by `calculator_result_format_menu_test.dart` and `calculator_dms_form_test.dart`.
+    //
+    //          **What became of last round's three reasons for not copying the entry half:**
+    //          1. **the expression line could not typeset `°`** (`ExpressionAstParser` degraded the
+    //             whole string to `\text{30°}`) — **fixed**: the syntax tree has a DMS literal node
+    //             and the TeX is `3^\circ\,30'\,0''` (the marks the result line's cell uses, one copy
+    //             of them). The judgement has one copy too, in `sexagesimal_literal.dart`.
+    //          2. **the legacy parser misread the intermediate states** (`12°34` was `7.12`) —
+    //             **fixed**: the evaluator did not change, **normalisation** did; it now reads the
+    //             whole literal (`12°34` = 12.5666…, `12°34′56″` no longer throws). Every half-typed
+    //             state therefore has a defensible value, so this reason **no longer holds**.
+    //          3. **`°` used to be a live wrong value under DEG** — fixed two rounds earlier
+    //             (`cc6ce91`) and already marked lapsed then. `30°` alone is still 30 under DEG and
+    //             0.5235987755982988 under RAD, and **this round does not move a byte of it** (the
+    //             regression assertions are in `expression_parser_test.dart`).
+    //
+    //          **Where the value comes from**: the `°` road is unchanged — normalisation writes the
+    //          literal as the internal name `degangle(degrees+minutes/60+seconds/3600)` and hands it
+    //          to this app's own evaluator, so an expression holding `°` is **never sent to the engine
+    //          to guess at**, and the two angle modes differ only through `degangle`'s arm. **Why the
+    //          intermediate states cannot follow the reference** (host `qalc` 5.12.0 measures `3°30`
+    //          = `90°` and `3°30′0` = `0°`) is on `sexagesimal_literal.dart`'s header — the one place
+    //          this round **deliberately** reads differently from the reference.
     KeypadKey(
       base: KeyVariant(label: "D°M'S", id: 'dmsForm'),
       category: KeyCategory.function,

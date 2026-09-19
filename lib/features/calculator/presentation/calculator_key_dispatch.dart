@@ -312,15 +312,17 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
         _openResultFormatSheet();
       case 'fractionForm':
         _setResultForm(_resultPresentation.toggleStandard(_resultForm));
-      // 中文：`D°M'S`——**度分秒写法 ⇄ 原来那一行**，与 `d/c` 同一个形状（也是只改显示、值一个
-      //       都不碰），只是走 `toggleDms` 而不经过菜单。没有度分秒写法时（没引擎、RAD 模式、
-      //       形状认不出）是同样的空操作。
-      // English: `D°M'S` — **the DMS spelling ⇄ the line it had**, the same shape as `d/c` (display
-      //          only, not one value touched), except that it goes through `toggleDms` and never
-      //          through the menu. With no DMS spelling (no engine, RAD mode, an unrecognised shape)
-      //          it is the same honest no-op.
+      // 中文：**`D°M'S` 是一颗输入键：在光标处插一个度分秒分隔符**（`3` `D°M'S` `30` … 一路按出
+      //       `3°30′0″`）。厂商原文、它与「把结果转成度分秒」为什么是两颗键、结果那一半现在
+      //       住在哪里（`x⇔E` 菜单的 `Degrees, mins, secs` 那一项），都写在
+      //       `hiper_keypad_band_key_rows.dart` 那一格上——这里只留指路的话。
+      // English: **`D°M'S` is an entry key: it inserts one sexagesimal separator at the caret**
+      //          (`3` `D°M'S` `30` … on to `3°30′0″`). The vendor lines, why it and "convert the
+      //          result into degrees, minutes and seconds" are two keys, and where the result half
+      //          lives now (the `x⇔E` menu's `Degrees, mins, secs` entry) are all on that cell in
+      //          `hiper_keypad_band_key_rows.dart` — this is only the signpost.
       case 'dmsForm':
-        _setResultForm(_resultPresentation.toggleDms(_resultForm));
+        _controller.insertSexagesimalSeparator();
       // 中文：`ins:` 前缀 = 插入这段文本。三处落点比裸插入更贴切：`%` 走控制器的百分号运算（`50+10%`
       //       会被折算），`exp` 走一元函数（它插入 `exp(`，裸插的 `exp` 会被解析器拒绝），`inf` 是
       //       解析器承认的常数。

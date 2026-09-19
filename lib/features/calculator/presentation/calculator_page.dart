@@ -141,9 +141,11 @@ class CalculatorPage extends StatefulWidget {
     //          the current result" class; its dispatch is in `calculator_notation_dispatch.dart`
     //          (why that file exists on its own is in its file head).
     'notationCycle',
-    // 结果行的形态：`x⇔E` 循环、`d/c` 在标准写法与十进制之间来回、`D°M'S` 在度分秒写法与
-    // 原来那一行之间来回。三者都只改**显示**，结果行、`Ans`/`last`、记忆寄存器、继续使用与历史
-    // 一个字都不动。
+    // 结果行的形态：`x⇔E` 打开结果格式菜单、`d/c` 在标准写法与十进制之间来回。两者都只改
+    // **显示**，结果行、`Ans`/`last`、记忆寄存器、继续使用与历史一个字都不动。
+    // **`D°M'S` 从度分秒输入那一轮起不在这一组里**：它是**输入键**（在光标处插 `°`/`′`/`″`），
+    // 而结果行的度分秒写法在 `x⇔E` 的菜单里（`Degrees, mins, secs` 那一项）——理由写在那颗键的
+    // 格子 `keypad/hiper_keypad_band_key_rows.dart` 上。
     'resultForm', 'fractionForm', 'dmsForm',
     // 编辑与结果
     'backspace', 'clear', 'equals', 'angleMode', 'negate', 'ans',
@@ -397,10 +399,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
       //          `Mixed number` entry of the result format menu needs). An empty string means there is
       //          no such cell this time and that entry cannot be pressed — the same road as `d/c`.
       resultMixedTex: _controller.resultMixedTex,
-      // 中文：度分秒写法（引擎那一串原文，`D°M'S` 那一颗键要的东西）。空串表示这一次没有，
-      //       那一颗键于是是空操作——与 `d/c` 同一条路。
-      // English: the DMS spelling (the engine's own string — what the `D°M'S` key needs). An empty
-      //          string means there is none this time and that key is a no-op, exactly as with `d/c`.
+      // 中文：度分秒写法（引擎那一串原文，`x⇔E` 菜单里 `Degrees, mins, secs` 那一项要的东西）。
+      //       空串表示这一次没有，菜单里那一项于是点不动——与 `d/c` 同一条路。
+      // English: the DMS spelling (the engine's own string — what the `Degrees, mins, secs` entry of
+      //          the `x⇔E` menu needs). An empty string means there is none this time and that entry
+      //          cannot be pressed, exactly as with `d/c`.
       resultDmsText: _controller.resultDmsText,
       // 中文：请求的形态（`x⇔E` / `d/c` 按出来的那一个）。`CalculatorDisplay` 拿它对照这一份结果
       //       真正有的形态，没有的回落 `auto`——判断那一处只有一份，在 `ResultPresentation`。

@@ -610,6 +610,19 @@ String _normalizeAbsoluteValueBars(String source) {
 ///
 ///       同一个函数里别的改写都不是这个形状：`%`、上下标、根号、LaTeX、千分位全都只产出
 ///       **纯算术**，`degreeMode` 对它们没有任何影响——只有这一个产出的东西带着「角度」这个量纲。
+///
+///       **本函数从度分秒那一轮起读的是整个字面量，不只是 `N°`**：`3°30′0″` 一次读成
+///       `degangle(3+30/60+0/3600)`。文法的**唯一一份**在 `sexagesimal_literal.dart`（每一条
+///       决定、厂商原文与参考实现的实测都在那里），显示那条路（`ExpressionAstParser`）读的是
+///       同一个函数——所以「哪一串算字面量」在取值与排版两边永远是同一个答案。两条不变量：
+///       **只有度时输出逐字节不变**（`30°` 仍是 `degangle(30)`），**文本仍不随角度模式变化**。
+/// English: **from the DMS round this function reads a whole literal, not just `N°`**: `3°30′0″`
+///          comes out as `degangle(3+30/60+0/3600)` in one piece. The grammar's **single copy** is
+///          `sexagesimal_literal.dart` (every decision, the vendor lines and the reference
+///          measurements live there) and the display road (`ExpressionAstParser`) calls the same
+///          function — so "which string counts as a literal" answers the same on the value and the
+///          typesetting side. Two invariants: **degrees alone is byte for byte unchanged** (`30°` is
+///          still `degangle(30)`) and **the text still does not vary with the angle mode**.
 /// English: **the degree mark: `30°` is an *angle*, and this app writes an angle's value in the
 ///          current angle unit.**
 ///
@@ -654,10 +667,34 @@ String _normalizeAbsoluteValueBars(String source) {
 ///          digit grouping all produce **plain arithmetic**, and `degreeMode` has nothing to say
 ///          about any of them — this is the only one whose product carries the dimension "angle".
 String _replaceDegreeSign(String source) {
-  return source.replaceAllMapped(
-    RegExp(r'(?<![a-z0-9_.])(\d+(?:\.\d+)?)°'),
-    (match) => 'degangle(${match.group(1)})',
-  );
+  // 中文：从前这是一个 `replaceAllMapped` + 一条 `(\d+(?:\.\d+)?)°` 正则，只吃得下 `30°`。
+  //       度分秒那一轮把判据换成**共享的那一个读法**（`readSexagesimalLiteral`），因为同一条
+  //       文法在显示那条路上也要用，而两条路各写一套正则就一定会漂。这里因此是手写的一趟扫描：
+  //       命中就写 `degangle(…)` 并跳到区间末尾，没命中就前进一个字符。
+  //       区间与判据**全部**来自那个函数，这里只负责拼接——没有第二处 `°` 的形状判断。
+  // English: this used to be a `replaceAllMapped` with one `(\d+(?:\.\d+)?)°` regex, able to read
+  //          `30°` and nothing else. The DMS round swapped the judgement for the **shared reader**
+  //          (`readSexagesimalLiteral`) because the same grammar is needed on the display road and
+  //          two hand-written regexes would inevitably drift. So this is a scan: on a hit it writes
+  //          `degangle(…)` and jumps past the span, otherwise it advances one character. The span
+  //          and the judgement **all** come from that function; this only joins the pieces — there
+  //          is no second test of the `°` shape anywhere.
+  final output = StringBuffer();
+  var copied = 0;
+  var index = 0;
+  while (index < source.length) {
+    final literal = readSexagesimalLiteral(source, index);
+    if (literal == null) {
+      index++;
+      continue;
+    }
+    output
+      ..write(source.substring(copied, index))
+      ..write(literal.normalizedCall);
+    index = literal.end;
+    copied = literal.end;
+  }
+  return (output..write(source.substring(copied))).toString();
 }
 
 String _normalizeScientificNotation(String source) {

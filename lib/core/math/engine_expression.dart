@@ -368,6 +368,28 @@ EngineExpression _translate(ExprNode node) {
         (l as TranslatedExpression).text,
         (r as TranslatedExpression).text,
       ));
+    case SexagesimalNode():
+      // 中文：**度分秒字面量在这里一律拒绝。** 归一化已经把它写成 `degangle(…)`（见
+      //       `expression_input_normalization.dart` 的 `_replaceDegreeSign`），所以**生产路径上
+      //       这个节点根本到不了翻译层**——[engineExpressionFor] 先归一化再建树。这一支存在是
+      //       因为 `ExprNode` 是 `sealed`（穷尽性由类型系统保证），而它必须是**拒绝**：
+      //       「这个角度在当前角度单位下是多少」是应用自己的规则，翻译这一层没有模式，引擎也没有
+      //       它的写法。若哪一天有人绕过归一化把原文送到这里，宁可回落旧解析器，也不许把
+      //       `°`/`′`/`″` 原样丢给引擎去猜（那正是 [`_translate`] 头部第 2、3 条要挡的形状）。
+      // English: **a DMS literal is refused here, always.** Normalisation has already written it as
+      //          `degangle(…)` (see `_replaceDegreeSign` in `expression_input_normalization.dart`), so
+      //          **this node cannot reach the translator on the production path at all** —
+      //          [engineExpressionFor] normalises before it builds a tree. The case exists because
+      //          `ExprNode` is `sealed` (the type system guarantees exhaustiveness), and it has to be a
+      //          **refusal**: "what is this angle in the current angle unit" is this app's own rule,
+      //          this layer has no mode, and the engine has no spelling for it. If someone ever sends
+      //          raw source past normalisation, falling back to the legacy parser is better than
+      //          handing `°`/`′`/`″` to the engine to guess at (exactly the shape header items 2 and 3
+      //          of [`_translate`] exist to stop).
+      return const UntranslatableExpression(
+        '应用自己的度分秒字面量（`3°30′0″`）：归一化已经把它写成 `degangle(…)`，'
+        '这一层没有它的引擎写法',
+      );
     case ParseErrorNode(:final text):
       return UntranslatableExpression('解析器读不懂 `$text`');
   }

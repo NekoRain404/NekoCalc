@@ -28,6 +28,41 @@ final class NumberNode extends ExprNode {
   final String literal;
 }
 
+/// 中文：**度分秒字面量**，例如 `3°30′0″`（HiPER 的 `D°M′S` 键在表达式里按出来的那个形状）。
+///       [degrees]/[minutes]/[seconds] 是**原样的数字文本**，`null` 表示那一段不在场；
+///       区间覆盖整个字面量（含三个记号），所以渲染层的点击定位整块落在它上面。
+///
+///       它为什么是一个**独立节点**、而不是一个 `literal` 特别的 [NumberNode]：
+///       - 它的 TeX **不是**原文（`3^\circ\,30'\,0''`），而 [NumberNode] 的约定是「原文照排」；
+///       - 它**没有引擎写法**：`_translate` 对它一律拒绝（归一化已经把字面量写成 `degangle(…)`，
+///         走到翻译层的字面量本来就不该存在），而 `NumberNode` 是会原样送去引擎的。
+///       - 判据（哪一串算字面量）只有一份，在 `sexagesimal_literal.dart`。
+/// English: **a degrees-minutes-seconds literal**, e.g. `3°30′0″` (the shape HiPER's `D°M′S` key
+///          builds inside an expression). [degrees]/[minutes]/[seconds] are the **digit text
+///          verbatim** and `null` means that part is absent; the span covers the whole literal (all
+///          three marks), so a tap anywhere on it lands inside its source region.
+///
+///          Why a **node of its own** rather than a [NumberNode] with a special `literal`:
+///          - its TeX is **not** the source text (`3^\circ\,30'\,0''`) while [NumberNode] promises
+///            "the text, typeset as written";
+///          - it has **no engine spelling**: `_translate` refuses it outright (normalisation has
+///            already written the literal as `degangle(…)`, so one reaching the translator should not
+///            exist at all), whereas a [NumberNode] is forwarded to the engine verbatim;
+///          - the judgement (which string is a literal) has one copy, in `sexagesimal_literal.dart`.
+final class SexagesimalNode extends ExprNode {
+  const SexagesimalNode(
+    this.degrees, {
+    required super.start,
+    required super.end,
+    this.minutes,
+    this.seconds,
+  });
+
+  final String degrees;
+  final String? minutes;
+  final String? seconds;
+}
+
 /// 中文：内置常量，例如 pi、e、tau。
 /// English: Built-in constant such as pi, e or tau.
 final class ConstantNode extends ExprNode {
@@ -252,6 +287,13 @@ bool namesSomethingOutsideTheAppLanguage(ExprNode node) {
     case ConstantNode():
     case OperatorNode():
     case ParseErrorNode():
+      return false;
+    // 中文：**度分秒字面量是应用自己的东西，不点名任何东西**——它是应用自己的记号（键位插得出来、
+    //       值由应用自己的求值器给），与 [NumberNode] 同一条判据。
+    // English: **a DMS literal is this app's own construct and names nothing** — it is this app's
+    //          own notation (a key inserts it and this app's evaluator gives its value), the same
+    //          judgement as a [NumberNode].
+    case SexagesimalNode():
       return false;
     case VariableNode():
       return true;

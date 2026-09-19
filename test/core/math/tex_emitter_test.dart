@@ -244,4 +244,15 @@ void main() {
       expect(t('mod(7,3)'), r'\operatorname{mod}{\left(7, 3\right)}');
     });
   });
+
+  test('度分秒字面量：数字原样，三个记号换成 TeX 的写法（与结果行同一份常量）', () {
+    // 中文：与结果行 `ResultPresentation._dmsTex` 排出来的记号逐字符相同——同一个角度在屏幕上
+    //       两处必须长得一样，所以记号（`SexagesimalMarks`）只有一份。
+    // English: character for character the marks the result line's `_dmsTex` emits — one angle has to
+    //          look the same in both places, so the marks (`SexagesimalMarks`) have one copy.
+    expect(t('3°30′0″'), r"3^\circ\,30'\,0''");
+    expect(t('3°30′'), r"3^\circ\,30'");
+    expect(t('3°30″'), r"3^\circ\,30''");
+    expect(t('3°'), r'3^\circ');
+  });
 }

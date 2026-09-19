@@ -9,6 +9,7 @@ import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keyp
 import 'package:nekocalc/features/calculator/presentation/result_form.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/calculator_display.dart';
 import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/result_format_sheet.dart';
 
 // 中文：`D°M'S` 那一颗键——结果行的**度分秒写法**（HiPER 的 `DMS` 那一格）。与 `d/c`/`x⇔E`
 //       同一个形状，也分两层钉：
@@ -254,8 +255,27 @@ void main() {
     });
   });
 
-  group("端到端：`D°M'S` 把结果换成度分秒写法", () {
-    testWidgets('DEG 下按一下：结果行排出度分秒，数字真的换了，再按一次回到原来那一行', (tester) async {
+  group('端到端：度分秒那一格从 `x⇔E` 的菜单进', () {
+    // 中文：**这一组从前按的是键盘上那一颗 `D°M'S`。** 那颗键自度分秒**输入**那一轮起是**输入键**
+    //       （厂商手册 `DEGREES, MINUTES, SECONDS` 一节：`D°M'S` 是输入，转换结果那颗键**不在
+    //       内置键盘上**；依据写在那颗键的格子 `hiper_keypad_band_key_rows.dart` 上，
+    //       键的行为钉在 `calculator_dms_key_test.dart`）。
+    //
+    //       结果那一半**一个字节都没丢**：它落在厂商自己的位置——结果格式菜单里那一项
+    //       `Degrees, mins, secs`（`rfMenu.dms`）。这一组钉的就是「菜单里进得去、进去之后与从前
+    //       按那颗键的结果逐字符相同」：同一段 TeX、同一个 `DMS` 指示器、同样的空操作。
+    // English: **this group used to press the keypad's `D°M'S`.** Since the DMS-**input** round that
+    //          key is an **entry** key (the manual's `DEGREES, MINUTES, SECONDS` section: `D°M'S`
+    //          enters, and the key that converts a result is **not on built-in keyboards**; the
+    //          evidence is on the key's own cell in `hiper_keypad_band_key_rows.dart` and the key's
+    //          behaviour is pinned in `calculator_dms_key_test.dart`).
+    //
+    //          The result half has **not lost one byte**: it sits where the vendor puts it — the
+    //          result format menu's `Degrees, mins, secs` entry (`rfMenu.dms`). What this group pins
+    //          is that the menu is reachable and that going through it lands character for character
+    //          where the key used to: the same TeX, the same `DMS` indicator, the same no-ops.
+
+    testWidgets('DEG 下从菜单选它：结果行排出度分秒，读数不动；回默认那一格也走菜单', (tester) async {
       // 中文：`12.5822` 那一行 —— `decimal`/`latex`/`dms` 三串都是宿主实测的引擎输出。
       // English: the `12.5822` row — all three strings are host-measured engine output.
       reply(<String, String>{
@@ -271,22 +291,25 @@ void main() {
       await _typeKeys(tester, <String>['1', '2', '.', '5', '8', '2', '2']);
       await tester.pumpAndSettle();
 
-      // 中文：**按之前**：精确印法 `\num{…}` 排不出来，结果行是一行纯文本读数。
-      // English: **before the press**: the exact print `\num{…}` does not typeset, and the result
-      //          line is a plain reading.
+      // 中文：**选之前**：精确印法 `\num{…}` 排不出来，结果行是一行纯文本读数。
+      // English: **before picking**: the exact print `\num{…}` does not typeset, and the result line
+      //          is a plain reading.
       expect(_typesetResult(), findsNothing);
       expect(_display(tester).result, '12.5822');
       expect(_display(tester).resultDecimal, '12.5822');
 
-      await _tapKey(tester, "D°M'S");
+      await _tapKey(tester, 'x⇔E');
+      expect(_menuTile(tester, 'Degrees, mins, secs').enabled, isTrue,
+          reason: 'DEG 下这一份结果有度分秒那一格，菜单里那一项点得动');
+      await _pickInMenu(tester, 'Degrees, mins, secs');
 
       // 中文：**排出来了**，而且不是降级成字面文本：树里是一棵真的公式（`flutter_math_fork` 的
-      //       `Math`），`\circ` 这些记号一个字符都不许作为文本出现。同时——这一颗是**格式键**——
-      //       数字必须真的换了：原来那行纯文本读数不再出现在结果行上。
+      //       `Math`），`\circ` 这些记号一个字符都不许作为文本出现。同时——这一格是**写法**——
+      //       结果行的读数没有跟着变，值一个字节都没动。
       // English: **it typeset**, and not by degrading to literal text: the tree holds a real formula
       //          (`flutter_math_fork`'s `Math`) and none of the `\circ` markup may appear on screen as
-      //          text. And — this is a **format** key — the digits really changed: the plain reading
-      //          the line had is no longer drawn on the result line.
+      //          text. And — this is a **spelling** — the line's reading did not follow it: not one
+      //          byte of the value moved.
       expect(_typesetResult(), findsOneWidget);
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
           r"12^\circ\,34'\,55.92''");
@@ -300,11 +323,14 @@ void main() {
           reason: '引擎的 LaTeX 那一份是 `\\text{12o34\'55.92"}`，那一段不许上屏');
       expect(_display(tester).resultDecimal, '12.5822',
           reason: '值一个字节都没动——度分秒只是同一个数的另一种写法');
+      expect(find.text('DMS'), findsOneWidget, reason: '结果格式指示器');
 
-      await _tapKey(tester, "D°M'S");
+      // 中文：回默认那一格同样走菜单（`默认` 是本应用自己那一行），回到原来那一行，逐字符相同。
+      // English: going back to the default cell goes through the menu too (`默认` is this app's own
+      //          row) and returns to the line it had, character for character.
+      await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, '默认');
 
-      // 中文：再按一次回到原来那一行，与按之前逐字符相同。
-      // English: a second press returns to the line it had, character for character.
       expect(_typesetResult(), findsNothing);
       expect(
         find.descendant(
@@ -316,7 +342,8 @@ void main() {
       expect(_display(tester).resultDecimal, '12.5822');
     });
 
-    testWidgets('RAD 下按一下：屏幕上什么都不变（老实的空操作，不是假装换了点什么）', (tester) async {
+    testWidgets('RAD 下菜单里那一项是灰的：屏幕上什么都不变（老实的空操作，不是假装换了点什么）',
+        (tester) async {
       // 中文：原生侧照样把 `dms` 送上来（它不管角度模式），画不画由 Dart 侧那一处判据决定。
       // English: the native side sends `dms` regardless (it does not look at the angle mode); whether
       //          it is drawn is decided by the one judgement on the Dart side.
@@ -336,9 +363,26 @@ void main() {
       expect(_display(tester).resultDmsText, '12°34′55.92″',
           reason: '字段确实传到了显示区——不画它是因为角度模式，不是因为没收到');
 
-      await _tapKey(tester, "D°M'S");
+      await _tapKey(tester, 'x⇔E');
 
+      // 中文：**面板里那一项灰着、点不动**；面板自己也不会因此改任何状态。
+      // English: **the entry is grey and cannot be pressed**, and the sheet changes no state by
+      //          being opened.
+      expect(_menuTile(tester, 'Degrees, mins, secs').enabled, isFalse);
+      // 中文：**这一格灰着**（RAD 之下「这个数是若干度」这句话不成立，这一份结果就是没有这一格），
+      //       而它**没有**自己的那一行小字——这不是「一声不吭」：那一行只属于「本应用今天印不出」
+      //       与「引擎没参与」两种情况（`ResultCellGap`），而这里引擎答了、印法本应用也有，
+      //       只是这一份结果没有它。标题那一句说的正是这一种。
+      // English: **the cell is grey** (under RAD the claim "this number is so many degrees" does not
+      //          hold, so this result simply has no such cell) and it carries **no** note of its own —
+      //          which is not "silence": that line belongs to the two cases "this app cannot print it
+      //          today" and "the engine took no part" (`ResultCellGap`), while here the engine answered
+      //          and this app does have the print — this result just has no such cell. The subtitle is
+      //          what speaks for that case.
+      expect(_menuTile(tester, 'Degrees, mins, secs').subtitle, isNull);
       expect(tester.takeException(), isNull);
+      expect(find.byType(ResultFormatSheet), findsOneWidget,
+          reason: '面板还开着：灰着的那一项点不动，这一份结果也没有因此换一个形态');
       expect(_typesetResult(), findsNothing);
       expect(
         find.descendant(
@@ -349,7 +393,7 @@ void main() {
       );
     });
 
-    testWidgets('引擎没答上来（旧解析器上屏）：空操作，也不去猜一个', (tester) async {
+    testWidgets('引擎没答上来（旧解析器上屏）：菜单里那一项是灰的，也不去猜一个', (tester) async {
       // 中文：回执里没有 `dms` 字段——原生侧版本不匹配就是这一种，旧解析器上屏也是这一种。
       // English: the receipt has no `dms` field — a native version mismatch, or the legacy parser on
       //          screen; they are the same case here.
@@ -362,9 +406,11 @@ void main() {
 
       expect(_display(tester).resultDmsText, isEmpty);
 
-      await _tapKey(tester, "D°M'S");
-
+      await _tapKey(tester, 'x⇔E');
+      expect(_menuTile(tester, 'Degrees, mins, secs').enabled, isFalse);
       expect(tester.takeException(), isNull);
+      expect(find.byType(ResultFormatSheet), findsOneWidget,
+          reason: '面板还开着：灰着的那一项点不动，这一份结果也没有因此换一个形态');
       expect(_typesetResult(), findsNothing);
       expect(
         find.descendant(
@@ -389,7 +435,8 @@ void main() {
       await _typeKeys(tester, <String>['1', '2', '.', '5', '8', '2', '2']);
       await tester.pumpAndSettle();
 
-      await _tapKey(tester, "D°M'S");
+      await _tapKey(tester, 'x⇔E');
+      await _pickInMenu(tester, 'Degrees, mins, secs');
       expect(tester.widget<MathExpressionView>(_typesetResult()).tex,
           r"12^\circ\,34'\,55.92''");
 
@@ -403,6 +450,33 @@ void main() {
           reason: '写法绝不进表达式——那一串不是应用语法里的数');
     });
   });
+}
+
+/// 中文：菜单里那一项（结果格式面板里的一个 `ListTile`）——`enabled` 与 `subtitle` 是这一组
+///       关心的两样：点不点得动、灰着时有没有写明原因。与 `calculator_result_format_menu_test.dart`
+///       用的是同一把尺。
+/// English: one entry of the result format sheet (a `ListTile` inside it). `enabled` and `subtitle`
+///          are what this group asks about: can it be pressed, and does a grey one say why. The same
+///          instrument `calculator_result_format_menu_test.dart` uses.
+ListTile _menuTile(WidgetTester tester, String label) => tester.widget<ListTile>(
+      find.ancestor(
+        of: find.descendant(
+          of: find.byType(ResultFormatSheet),
+          matching: find.text(label),
+        ),
+        matching: find.byType(ListTile),
+      ),
+    );
+
+/// 中文：在面板里选一项。面板自己关自己，所以选完它必须不在树里。
+/// English: pick one entry in the sheet. The sheet closes itself, so it must be gone afterwards.
+Future<void> _pickInMenu(WidgetTester tester, String label) async {
+  await tester.tap(find.descendant(
+    of: find.byType(ResultFormatSheet),
+    matching: find.text(label),
+  ));
+  await tester.pumpAndSettle();
+  expect(find.byType(ResultFormatSheet), findsNothing, reason: '选完一项面板该关掉');
 }
 
 /// 中文：结果行里那一个**直入 TeX** 的排版视图（与 `calculator_result_form_test.dart` 同一把尺）。
