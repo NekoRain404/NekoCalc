@@ -7,6 +7,42 @@ import 'category_visuals.dart';
 import 'tool_catalog_strings.dart';
 import 'tools_strings.dart';
 
+/// 中文：**一张工具卡上说明最多占几行**——两种语言、浏览态与检索态、每一处表面都是这一个数。
+///
+///       **为什么是 4：它是从最窄的那处表面倒推出来的，不是拍的。** 说明那一格在 360dp 手机上
+///       有三种宽度：工具首页的搜索卡片 **162dp**、分类页 **170dp**、而"其它分类"那张面板
+///       （`ToolSearchEmptyState` 的 `Container(padding: 14)`）只有 **140dp**。取最窄的 140dp：
+///       `4 × 140 = 560dp` ≥ 两种语言里最长的那条描述（中文 `flow_unit` 449.5dp、英文 357.0dp），
+///       所以 117 条在**每一处表面上**都读得全。
+///
+///       **在 162dp / 170dp 这两处，第 4 行一条都用不到**（真字体实测：两种语言、浏览态与检索态，
+///       最多只到 3 行），也就是这个上限在用户真正浏览的地方是空着的——它只在 140dp 那张面板上
+///       被 3 条中文用到（`flow_unit`、`torque_unit`、`energy_unit` 那一类单位表）。
+///       行数上限从 3 抬到 4 在这两处**一条行的高度都不改**：`Text` 只用它需要的行数。
+///
+///       为什么要有这个数、改之前的缺陷是什么、代价是几 dp，写在 [ToolListTile] 的注释里；
+///       这里是它唯一的定义处，测试直接引用它，免得断言写出一个和卡片不一致的行数。
+/// English: **how many lines a description may occupy on one tool card** — one number for both
+///          languages, for the browse and search states, and for every surface.
+///
+///          **Why 4: it is derived from the narrowest surface, not picked.** On a 360dp phone the
+///          description cell has three widths — **162dp** in the tools home's search card, **170dp** on
+///          the category page, and only **140dp** in the "other categories" panel
+///          (`ToolSearchEmptyState`'s `Container(padding: 14)`). Taking the narrowest, 140dp:
+///          `4 × 140 = 560dp` ≥ the longest description in either language (Chinese `flow_unit` at
+///          449.5dp, English at 357.0dp), so all 117 read in full **on every surface**.
+///
+///          **At 162dp and 170dp the fourth line is never used** (measured with the real fonts: two
+///          languages, browse and search states, three lines at most), i.e. the cap sits unused where
+///          people actually browse — only three Chinese rows reach it on the 140dp panel (`flow_unit`,
+///          `torque_unit`, `energy_unit` and their like, the unit tables). Raising the cap from 3 to 4
+///          **changes no row's height** on those two surfaces: a `Text` only takes the lines it needs.
+///
+///          Why this number exists, what the defect was before, and what it costs in dp, are written on
+///          [ToolListTile]; this is its only definition, and tests reference it directly so that no
+///          assertion can name a line count the card does not use.
+const int toolDescriptionMaxLines = 4;
+
 class HorizontalToolList extends StatelessWidget {
   const HorizontalToolList({
     required this.tools,
@@ -173,9 +209,21 @@ class ToolListTile extends StatelessWidget {
       //       既丢了说明、提示还照样被截。见 `tools_match_hint_visible_test.dart` 里那几条按真
       //       Roboto 字宽量出来的断言。
       //
-      //       高度：浏览态那一格一个字节没动（实测仍是 72dp——`matchLabel` 是 null 时这里是原来那
-      //       一个 `Text`）；搜索时最低 88dp（`isThreeLine` 抬的 +16dp），提示长到两行时到 124dp。
+      //       高度：搜索时最低 88dp（`isThreeLine` 抬的 +16dp），提示长到两行时到 124dp。
       //       卡片里是 `Column`，没有写死的高度可撑破（整轮全套测试没有一条 overflow）。
+      //
+      //       **说明那一格现在可以换行**（`toolDescriptionMaxLines`，默认语言下这一条是主因）：
+      //       改之前它写死一行，而 360dp 上只有 162dp / 170dp 宽，**117 条中文里 94 条在省略号处
+      //       截断**（英文 74 条）——中文是默认语言，也就是说五分之四的描述读不到。
+      //       修法只是把行数放开，**一个字都没改**。三种盒子宽度（162 / 170 / 140dp）上逐条量
+      //       （真 Roboto + 真 Noto Sans，`RenderParagraph.didExceedMaxLines`，117 × 2 语言 ×
+      //       2 状态）：**改之前 94 / 93 / 102 条截断，改之后 0 / 0 / 0**。
+      //
+      //       代价（同一把尺子，逐条加总）：浏览态那一格中文平均 **72.0 → 81.1dp**（+12.7%）、
+      //       英文 73.3 → 79.4（+8.2%）；搜索态中文 87.1 → 100.1（+14.9%）、英文 89.8 → 98.1（+9.3%）。
+      //       涨的只有那些本来要被吃掉的尾巴：**中文 23 条仍然 72dp**（与改动前一模一样，它们本来就
+      //       读得全），83 条到 80–84dp，11 条到 102–104dp。最窄的那张 140dp 面板上最高 124dp
+      //       （检索态 164dp，3 条中文）。
       //
       //       仍然读不全的那一截在**末尾**：标签（最宽的 `Matched: Parameter · x` 实测约 151dp）
       //       永远落在第一行之内，被省略号吃掉的只可能是后面的命中原文，而它通常就是用户刚敲进去
@@ -196,10 +244,25 @@ class ToolListTile extends StatelessWidget {
       //          still cut the hint. See the assertions measured with real Roboto advances in
       //          `tools_match_hint_visible_test.dart`.
       //
-      //          Height: the browse-state cell is untouched (still 72dp measured — with a null
-      //          `matchLabel` this is the same single `Text` as before); while searching the floor is
-      //          88dp (the +16dp `isThreeLine` adds), rising to 124dp when a hint wraps. The card holds
-      //          a `Column`, so there is no fixed height to break (no overflow anywhere in the suite).
+      //          Height: while searching the floor is 88dp (the +16dp `isThreeLine` adds), rising to
+      //          124dp when a hint wraps. The card holds a `Column`, so there is no fixed height to
+      //          break (no overflow anywhere in the suite).
+      //
+      //          **The description may now wrap** (`toolDescriptionMaxLines`; in the default language
+      //          this is the main event): it used to be pinned to one line, only 162dp / 170dp wide on a
+      //          360dp phone, and **94 of the 117 Chinese entries were cut at the ellipsis** (74 English)
+      //          — Chinese being the default language, four descriptions in five could not be read. The
+      //          fix only opens the line count up; **not one word of the copy changed**. Measured entry by
+      //          entry at three box widths (162 / 170 / 140dp, real Roboto + real Noto Sans,
+      //          `RenderParagraph.didExceedMaxLines`, 117 × 2 languages × 2 states): **94 / 93 / 102 rows
+      //          clipped before, 0 / 0 / 0 after**.
+      //
+      //          What it costs (same ruler, summed per row): in the browse state the cell's Chinese
+      //          average goes **72.0 → 81.1dp** (+12.7%) and English 73.3 → 79.4 (+8.2%); in the search
+      //          state Chinese 87.1 → 100.1 (+14.9%) and English 89.8 → 98.1 (+9.3%). Only the tails that
+      //          were being eaten grew: **23 Chinese rows are still 72dp** (exactly what they were, they
+      //          always read in full), 83 land at 80–84dp and 11 at 102–104dp. On the narrowest, 140dp
+      //          panel the tallest is 124dp (164dp in its search state, for three Chinese rows).
       //
       //          What still cannot be read in full is the tail: the label (the widest being
       //          `Matched: Parameter · x` at about 151dp) always lands inside the first line, so only
@@ -209,12 +272,16 @@ class ToolListTile extends StatelessWidget {
       //          truncated alias.
       isThreeLine: matchLabel != null,
       subtitle: matchLabel == null
-          ? Text(description, maxLines: 1, overflow: TextOverflow.ellipsis)
+          ? Text(description,
+              maxLines: toolDescriptionMaxLines,
+              overflow: TextOverflow.ellipsis)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(description,
+                    maxLines: toolDescriptionMaxLines,
+                    overflow: TextOverflow.ellipsis),
                 Text(matchLabel,
                     maxLines: 2, overflow: TextOverflow.ellipsis),
               ],

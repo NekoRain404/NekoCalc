@@ -100,20 +100,25 @@ void main() {
     }
   });
 
-  testWidgets('浏览态那一格与改动前相同：一行说明、没有提示、不是三行项', (tester) async {
-    // 中文：**默认态不许动。** 不搜索时 `matchLabel` 是 null，副标题必须还是那一个
-    //       `maxLines: 1` 的 `Text`（数据就是 `tool.description`），`isThreeLine` 必须是 false——
-    //       改动前的高度与逐像素外观都靠这两条保持。
-    // English: **the default state must not move.** With no search, `matchLabel` is null, so the
-    //          subtitle must still be that one `maxLines: 1` `Text` (whose data is `tool.description`)
-    //          and `isThreeLine` must be false — those two keep the old height and the old pixels.
+  testWidgets('浏览态那一格：说明还是那一个 Text、不是三行项，行数上限是卡片那一个数', (tester) async {
+    // 中文：**默认态只有一个数变了**：副标题从写死的 `maxLines: 1` 改成 `toolDescriptionMaxLines`
+    //       （中文 94 条本来在省略号处截断，见 `tool_description_lines_test.dart`）。结构没变——
+    //       不搜索时 `matchLabel` 是 null，副标题**还是那一个** `Text`（数据就是 `tool.description`），
+    //       `isThreeLine` **还是 false**（浏览态的卡片几何没被抬成三行项）。
+    // English: **exactly one number moved in the default state**: the subtitle's hard-wired
+    //          `maxLines: 1` became `toolDescriptionMaxLines` (94 Chinese entries used to stop at the
+    //          ellipsis; see `tool_description_lines_test.dart`). Nothing else did — with no search,
+    //          `matchLabel` is null, so the subtitle is **still that one** `Text` (whose data is
+    //          `tool.description`) and `isThreeLine` is **still false** (the browse-state card's
+    //          geometry was not lifted to a three-line tile).
     final tiles = await _categoryTiles(tester);
     expect(tiles, isNotEmpty, reason: '分类页上一个工具都没有，这条断言会空转');
     for (final listTile in tiles) {
       expect(listTile.isThreeLine, isFalse, reason: '浏览态不该是三行项');
       final subtitle = listTile.subtitle;
       expect(subtitle, isA<Text>(), reason: '浏览态副标题应当还是一个 Text');
-      expect((subtitle! as Text).maxLines, 1, reason: '浏览态副标题还是一行');
+      expect((subtitle! as Text).maxLines, toolDescriptionMaxLines,
+          reason: '浏览态副标题的行数上限与卡片不是同一个数');
       expect((subtitle as Text).overflow, TextOverflow.ellipsis);
     }
   });

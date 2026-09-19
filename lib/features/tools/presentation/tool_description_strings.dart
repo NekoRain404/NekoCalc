@@ -24,11 +24,15 @@
 ///       `tool.description` 本身也只有中文一份。所以这一轮**没有可对照的东西**：
 ///       `.superpowers/backup/tool-descriptions-report.md` 里那张逐条对照表是它唯一的复核面。
 ///
-///       **长度是有规矩的，而且量过。** 卡片上那一行（`ToolListTile` 的 subtitle，360dp 手机上
-///       **162dp** 宽、`maxLines: 1`）装不下今天任何一句长描述：**117 条中文里只有 23 条完整显示**，
-///       其余 94 条都在省略号处截断（`齿轮传动比、转速、扭矩和功率损耗` 就是这么被截成
-///       `齿轮传动比、转速、扭矩和功…` 的）。所以本轮的判据不是"英文不超过中文的**字数**"
-///       （一个汉字约 14dp、一个小写拉丁字母约 7.4dp，字数根本不可比），而是**屏上宽度**：
+///       **长度是有规矩的，而且量过。** 卡片上那一格（`ToolListTile` 的 subtitle）在 360dp 手机上
+///       只有 **162dp** 宽（分类页 170dp、"其它分类"那张面板 140dp），一个汉字约 14dp、一个小写拉丁
+///       字母约 7.4dp，所以**中文比英文宽得多**——本表落地时它还是 `maxLines: 1`，**117 条中文里
+///       只有 23 条完整显示**，其余 94 条在省略号处截断（`齿轮传动比、转速、扭矩和功率损耗` 就是
+///       这么被截成 `齿轮传动比、转速、扭矩和功…` 的）。**那一轮之后，卡片改成让说明换行**
+///       （`toolDescriptionMaxLines`，见 `tool_widgets.dart`）：今天两种语言的 117 条在四种表面、
+///       两种状态下都完整显示，一个字的文案都没动。
+///
+///       规矩仍然是这一条，因为它管的是**宽度**——英文比中文宽出去的那一截，最终要从行数里出：
 ///
 ///           **英文字串宽 ≤ max(中文字串宽, 162dp)**
 ///
@@ -36,8 +40,9 @@
 ///       那些，英文**也必须读得全**。宽度用真 Roboto-Regular 的逐字符 advance 表量（尺子在
 ///       `test/shared/roboto_regular_advances.dart`，与命中提示那条护栏共用一把）。实测结果：
 ///       **英文 117 条一条都不违反**，其中 **42 条完整落在 162dp 那一行之内**——中文只有 23 条。
-///       换句话说英文那 42 条读得全，剩下 75 条与中文一样在省略号处停下，但**没有一条比中文停得早**。
-///       逐条的字数、屏上宽度、以及 11 条"比中文宽、但仍完整落在一行内"的例外，都在上面那份报告里。
+///       换句话说英文那 42 条一行读得全，剩下 75 条与中文一样要换行（换行之后两种语言都读得全），
+///       但**没有一条比中文占得宽**。逐条的字数、屏上宽度、以及 11 条"比中文宽、但仍完整落在一行内"
+///       的例外，都在上面那份报告里。
 ///
 ///       **数学记号逐字符活着，而且是机器查的。** 中文描述里带着与语言无关的记号——`ax² + bx + c = 0`、
 ///       `x^y`、`y^x`、`a:b = c:x`、`2x2`、`A(n,k)`、`PV=nRT`、`V/I/R/P`、`50Ω`、`kN·m`、`℃`/`℉`/`°R`、
@@ -83,13 +88,18 @@
 ///          against**: the entry-by-entry table in `.superpowers/backup/tool-descriptions-report.md`
 ///          is its only review surface.
 ///
-///          **Length is a rule, and it was measured.** The card's line (`ToolListTile`'s subtitle,
-///          **162dp** wide on a 360dp phone, `maxLines: 1`) does not hold any long description today:
-///          **only 23 of the 117 Chinese lines render in full**; the other 94 stop at the ellipsis
-///          (`齿轮传动比、转速、扭矩和功率损耗` is cut to `齿轮传动比、转速、扭矩和功…` that way). So the
-///          rule here is not "English no longer than the Chinese **character count**" (one CJK glyph is
-///          about 14dp and one lowercase Latin letter about 7.4dp — the counts are not comparable); it
-///          is **on-screen width**:
+///          **Length is a rule, and it was measured.** The card's cell (`ToolListTile`'s subtitle) is
+///          only **162dp** wide on a 360dp phone (170dp on the category page, 140dp in the "other
+///          categories" panel); one CJK glyph is about 14dp and one lowercase Latin letter about 7.4dp,
+///          so **the Chinese runs far wider than the English** — when this table landed the cell was
+///          still `maxLines: 1`, and **only 23 of the 117 Chinese entries rendered in full**; the other
+///          94 stopped at the ellipsis (`齿轮传动比、转速、扭矩和功率损耗` is cut to
+///          `齿轮传动比、转速、扭矩和功…` that way). **Since that round the card lets the description
+///          wrap** (`toolDescriptionMaxLines`, see `tool_widgets.dart`): today all 117 render in full in
+///          both languages, on all four surfaces and in both states, with not one word of copy changed.
+///
+///          The rule still stands because it governs **width** — whatever the English is wider by has to
+///          come out of the line count:
 ///
 ///              **English width ≤ max(Chinese width, 162dp)**
 ///
@@ -98,10 +108,10 @@
 ///          Widths come from real Roboto-Regular per-character advances (the ruler lives in
 ///          `test/shared/roboto_regular_advances.dart`, shared with the match-hint guard). Measured:
 ///          **not one of the 117 English lines violates it**, and **42 of them fit the 162dp line
-///          entirely** — against 23 for Chinese. Those 42 read in full; the remaining 75 stop at the
-///          ellipsis like their Chinese, but **not one stops earlier**. Per-line character counts,
-///          on-screen widths and the 11 exceptions ("wider than the Chinese yet still wholly inside
-///          one line") are all in that report.
+///          entirely** — against 23 for Chinese. Those 42 read in a single line; the remaining 75 wrap
+///          like their Chinese (and both languages read in full once wrapped), but **not one of them
+///          takes more width than its Chinese**. Per-line character counts, on-screen widths and the 11
+///          exceptions ("wider than the Chinese yet still wholly inside one line") are in that report.
 ///
 ///          **The mathematical notation survives character for character, and a machine checks it.**
 ///          The Chinese carries notation that is language-neutral — `ax² + bx + c = 0`, `x^y`, `y^x`,
