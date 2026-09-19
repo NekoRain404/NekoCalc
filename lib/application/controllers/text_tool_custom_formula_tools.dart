@@ -92,9 +92,16 @@ extension _TextToolCustomFormulaTools on TextToolController {
       final parsed = ToolDetailController.parseNumericInputDetailed(raw);
       final value = parsed.value;
       if (value == null) {
+        // 中文：解析器只回判据（`NumericInputIssue`），说的话在这里渲染——用的是
+        //       `TextToolStrings.numericInput` 那张**两家共用**的表，不是别人家的表。
+        // English: the parser returns only a verdict (`NumericInputIssue`); the words are rendered
+        //          here from `TextToolStrings.numericInput`, the table **both families share**,
+        //          rather than from a sibling family's table.
         throw FormatException(strings.text.formulaVariableError(
           name,
-          parsed.error ?? strings.output.invalidInput,
+          parsed.issue == null
+              ? strings.output.invalidInput
+              : parsed.issueMessage(strings.numericInput),
         ));
       }
       variables[name] = _ParsedCustomFormulaVariable(

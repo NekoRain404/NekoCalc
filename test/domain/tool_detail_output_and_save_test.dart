@@ -6,6 +6,7 @@ import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
 import 'package:nekocalc/domain/usecases/tool_save_result.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
 
 void main() {
   test('copy text includes inputs, results, and insights', () {
@@ -15,6 +16,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     final text = controller.copyText();
@@ -38,6 +40,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValue('current', '0.1+0.2');
@@ -72,6 +75,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -101,6 +105,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -131,6 +136,7 @@ void main() {
       notesRepository: NotesRepository(db),
       toolUsageRepository: ToolUsageRepository(db),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     final history = await controller.saveResult(controller.inputSummary());
@@ -154,6 +160,7 @@ void main() {
       notesRepository: NotesRepository(db),
       toolUsageRepository: ToolUsageRepository(db),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValue('resistance', 'bad value');
@@ -179,6 +186,7 @@ void main() {
       notesRepository: NotesRepository(db),
       toolUsageRepository: ToolUsageRepository(db),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     final missingHistory =
@@ -198,6 +206,7 @@ void main() {
       notesRepository: NotesRepository(failureDb),
       toolUsageRepository: ToolUsageRepository(failureDb),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
     final failedHistory =
         await failureController.saveResult(failureController.inputSummary());

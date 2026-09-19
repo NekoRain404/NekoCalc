@@ -158,9 +158,9 @@ mixin _CalculatorPersistence on _CalculatorState {
 
     try {
       final noteId = await notesRepository.create(
-        title: '计算结果',
+        title: strings.savedNoteTitle,
         body: noteBody(),
-        description: '由计算器保存，${_angleModeLabel()}',
+        description: strings.savedNoteDescription(_angleModeLabel()),
       );
       if (noteId <= 0) return const CalculatorSaveNoteResult.notWritten();
       unawaited(_persistState());
@@ -283,7 +283,7 @@ mixin _CalculatorPersistence on _CalculatorState {
   ///          range: what lives in this register is "a number", and it either fits or it does not.
   ///          "The register is unchanged" is the part the user acts on (whether to press `MR` to look,
   ///          or to bring that value back into the expression with "continue with result").
-  String get _memoryRefusalMessage => '当前值放不进记忆寄存器，寄存器未改动';
+  String get _memoryRefusalMessage => strings.memoryRefusal;
 
   void memoryRecall() {
     _markStateEdited();
@@ -318,8 +318,11 @@ mixin _CalculatorPersistence on _CalculatorState {
 
   String _resultReportText({DateTime? savedAt}) {
     final lines = <String>[
-      if (expression.trim().isEmpty) '当前值: $result' else '表达式: $expression',
-      if (expression.trim().isNotEmpty) '结果: $result',
+      if (expression.trim().isEmpty)
+        strings.reportCurrentValue(result)
+      else
+        strings.reportExpression(expression),
+      if (expression.trim().isNotEmpty) strings.reportResult(result),
       // 中文：显示文本本身不是可解析的十进制时（引擎给出 `4√2` 这类精确形式），报告补一行十进制：
       //       粘贴路径优先读它，否则「复制结果再粘回计算器」这条往返会在精确形式上悄悄断掉。旧求值
       //       器下这一行永不出现，报告文本与拆分前逐字符一致。
@@ -329,19 +332,23 @@ mixin _CalculatorPersistence on _CalculatorState {
       //          Under the legacy evaluator this line never appears, so the report text stays
       //          character-for-character what it was.
       if (_result.decimalText.isNotEmpty && !_result.displayTextIsParseable)
-        '十进制: ${_result.decimalText}',
-      '状态: $resultStatusTitle',
+        strings.reportDecimal(_result.decimalText),
+      strings.reportStatus(resultStatusTitle),
       resultStatusMessage,
-      '角度模式: ${_angleModeLabel()}',
+      strings.reportAngleMode(_angleModeLabel()),
       if (memoryValue != 0)
-        '记忆值: ${formatNumber(memoryValue, precision: _settings.precision, groupThousands: _settings.groupThousands)}',
-      if (hasError && errorMessage != null) '错误: $errorMessage',
-      if (savedAt != null) '保存时间: ${_formatReportTime(savedAt)}',
+        strings.reportMemory(formatNumber(memoryValue,
+            precision: _settings.precision,
+            groupThousands: _settings.groupThousands)),
+      if (hasError && errorMessage != null) strings.reportError(errorMessage!),
+      if (savedAt != null) strings.reportSavedAt(_formatReportTime(savedAt)),
     ];
     return lines.join('\n');
   }
 
-  String _angleModeLabel() => angleMode == 'DEG' ? '角度 DEG' : '弧度 RAD';
+  String _angleModeLabel() => angleMode == 'DEG'
+      ? strings.angleModeDegrees
+      : strings.angleModeRadians;
 
   String _formatReportTime(DateTime value) {
     final local = value.toLocal();
@@ -353,15 +360,32 @@ mixin _CalculatorPersistence on _CalculatorState {
   @override
   String _friendlyCalculationError(Object error) {
     final message = error.toString().replaceFirst('FormatException: ', '');
-    if (message.contains('Missing )')) return '缺少右括号';
-    if (message.contains('Expected number')) return '需要输入数字';
-    if (message.contains('Unexpected token')) return '存在无法识别的内容';
-    if (message.contains('needs (')) return '函数需要括号';
-    if (message.contains('Unknown function')) return '未知函数';
-    if (message.contains('Factorial needs')) return '阶乘只支持 0 到 170 的整数';
-    if (message.contains('Root degree cannot be 0')) return '根指数不能为 0';
-    if (message.contains('Even root of negative')) return '负数不能开偶次根';
-    if (message.contains('Result is not finite')) return '结果不是有限数值';
+    // 中文：**左边是判据，右边是文案。** 判据是引擎与旧解析器抛出的 `FormatException` 的
+    //       **英文**原文（`Missing )`、`Expected number`…），它们不是界面上的字，所以留在源码里
+    //       不动；被翻的只有右边这十一句。这就是判据与文案分家的地方，别把 `contains` 的入参
+    //       换成表里的东西。
+    // English: **the left side is the verdict, the right side is the wording.** The verdicts are the
+    //          **English** text of the `FormatException`s the engine and the legacy parser throw
+    //          (`Missing )`, `Expected number`, …); they are not on-screen words and stay in the
+    //          source. Only the eleven sentences on the right are translated. This is where verdict and
+    //          wording part company — do not swap the `contains` arguments for anything from a table.
+    if (message.contains('Missing )')) return strings.friendlyMissingParen;
+    if (message.contains('Expected number')) {
+      return strings.friendlyExpectedNumber;
+    }
+    if (message.contains('Unexpected token')) {
+      return strings.friendlyUnexpectedToken;
+    }
+    if (message.contains('needs (')) return strings.friendlyFunctionNeedsParen;
+    if (message.contains('Unknown function')) return strings.friendlyUnknownFunction;
+    if (message.contains('Factorial needs')) return strings.friendlyFactorialRange;
+    if (message.contains('Root degree cannot be 0')) {
+      return strings.friendlyRootDegreeZero;
+    }
+    if (message.contains('Even root of negative')) {
+      return strings.friendlyEvenRootNegative;
+    }
+    if (message.contains('Result is not finite')) return strings.friendlyNotFinite;
     // 中文：引擎明确回答「这次换算没发生」（见 [_submittedResult] 里那一支的注释）。文案说的是
     //       真正的原因——两个单位量纲不相容——而不是「存在无法识别的内容」那句会让人以为
     //       `km` 打错了的话。
@@ -369,8 +393,8 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          branch in [_submittedResult]). The wording names the real cause — the two units are
     //          not commensurable — instead of "unrecognised content", which reads as "you mistyped
     //          `km`".
-    if (message.contains('Unit mismatch')) return '单位不匹配：这两个单位不能互相换算';
-    return '表达式错误';
+    if (message.contains('Unit mismatch')) return strings.friendlyUnitMismatch;
+    return strings.friendlyGeneric;
   }
 
   @override

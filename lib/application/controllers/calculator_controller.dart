@@ -26,6 +26,7 @@ import '../../domain/usecases/calculator_paste_result.dart';
 import '../../domain/usecases/calculator_save_result.dart';
 import '../../domain/usecases/calculator_submit_result.dart';
 import '../../domain/usecases/expression_editing.dart';
+import '../../features/calculator/presentation/calculator_controller_strings.dart';
 import '../app_settings.dart';
 import 'expression_selection.dart';
 
@@ -196,7 +197,18 @@ const Duration kLiveEngineFollowUpDelay = Duration(milliseconds: 120);
 ///          cost is that it also decides the expression line's natural typesetting (`数学符号` is
 ///          what turns that on), so flipping the switch changes that line's appearance too — a known
 ///          price of reusing the existing setting.
-const String kEngineBackedLiveExpressionDisplay = '数学符号';
+///
+///          中文：**值引用 `SettingsTokens`，不再抄一遍字面量。** 它就是存进
+///          `app_settings.expression_display` 的那个令牌，与设置页写下去的是同一个常量；把字面量
+///          抄在这里，翻界面时就会有第二个地方需要人去判断"这个能不能翻"，而判断错一次就是
+///          kill switch 静默失效。**单源化之后这个文件里一条中文字面量都没有了。**
+/// English: **the value references `SettingsTokens` instead of copying the literal again.** It is the
+///          token stored under `app_settings.expression_display`, the same constant the settings page
+///          writes; copying the literal here would leave a second place where a human has to judge
+///          "may this be translated?", and one wrong judgement silently kills the kill switch. **After
+///          single-sourcing, this file holds no Chinese literal at all.**
+const String kEngineBackedLiveExpressionDisplay =
+    SettingsTokens.expressionDisplaySymbols;
 /// 中文：计算器页面的应用层状态控制器，负责表达式编辑、实时计算、历史保存和状态恢复。
 /// English: Application-layer controller for the calculator page; owns expression editing, live evaluation, history saving, and state restore.
 class CalculatorController extends ChangeNotifier

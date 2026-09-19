@@ -1,5 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/tool_detail_controller.dart';
+import 'package:nekocalc/application/controllers/tool_detail_models.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
+
+/// 中文：中文那一侧的表。断言里那条 `contains('无法解析')` 量的是**屏幕上那句话有没有变**，
+///       与判据（`NumericInputIssue.unparsable`）分开写：判据住了，渲染也住了。
+/// English: the Chinese side's table. The `contains('无法解析')` assertion measures **whether the
+///          sentence on screen changed**, written separately from the verdict
+///          (`NumericInputIssue.unparsable`): the verdict is pinned, and so is the rendering.
+final zhNumericInput = NumericInputStrings.numericInputZh;
 
 void main() {
   test('parses common engineering unit aliases for mechanical fields', () {
@@ -509,12 +518,14 @@ void main() {
     final invalid =
         ToolDetailController.parseNumericInputForUnit('1:90:00', 's');
     expect(invalid.value, isNull);
-    expect(invalid.error, contains('无法解析'));
+    expect(invalid.issue, NumericInputIssue.unparsable);
+    expect(invalid.issueMessage(zhNumericInput), contains('无法解析'));
 
     final invalidMinuteSecond =
         ToolDetailController.parseNumericInputForUnit('1:90', 's');
     expect(invalidMinuteSecond.value, isNull);
-    expect(invalidMinuteSecond.error, contains('无法解析'));
+    expect(invalidMinuteSecond.issue, NumericInputIssue.unparsable);
+    expect(invalidMinuteSecond.issueMessage(zhNumericInput), contains('无法解析'));
   });
 
   test('parses electronic component markings for passive parts', () {
@@ -553,7 +564,8 @@ void main() {
 
     final length = ToolDetailController.parseNumericInputForUnit('4k7', 'm');
     expect(length.value, isNull);
-    expect(length.error, contains('无法解析'));
+    expect(length.issue, NumericInputIssue.unparsable);
+    expect(length.issueMessage(zhNumericInput), contains('无法解析'));
   });
 
   test('parses AWG wire gauge as conductor area', () {
@@ -572,7 +584,8 @@ void main() {
 
     final length = ToolDetailController.parseNumericInputForUnit('AWG18', 'm');
     expect(length.value, isNull);
-    expect(length.error, contains('无法解析'));
+    expect(length.issue, NumericInputIssue.unparsable);
+    expect(length.issueMessage(zhNumericInput), contains('无法解析'));
   });
 
   test('parses conductor diameter and stranded wire as area', () {
@@ -599,16 +612,19 @@ void main() {
 
     final length = ToolDetailController.parseNumericInputForUnit('φ1.0mm', 'm');
     expect(length.value, isNull);
-    expect(length.error, contains('无法解析'));
+    expect(length.issue, NumericInputIssue.unparsable);
+    expect(length.issueMessage(zhNumericInput), contains('无法解析'));
 
     final diameterLength =
         ToolDetailController.parseNumericInputForUnit('直径1mm', 'm');
     expect(diameterLength.value, isNull);
-    expect(diameterLength.error, contains('无法解析'));
+    expect(diameterLength.issue, NumericInputIssue.unparsable);
+    expect(diameterLength.issueMessage(zhNumericInput), contains('无法解析'));
 
     final slashedLength =
         ToolDetailController.parseNumericInputForUnit('7/0.2mm', 'm');
     expect(slashedLength.value, isNull);
-    expect(slashedLength.error, contains('无法解析'));
+    expect(slashedLength.issue, NumericInputIssue.unparsable);
+    expect(slashedLength.issueMessage(zhNumericInput), contains('无法解析'));
   });
 }

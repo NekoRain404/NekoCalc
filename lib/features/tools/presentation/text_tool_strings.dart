@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../l10n/app_language.dart';
+import 'numeric_input_strings.dart';
 import 'text_tool_codec_strings.dart';
 import 'text_tool_data_strings.dart';
 import 'text_tool_stats_strings.dart';
@@ -13,6 +14,7 @@ import 'text_tool_web_strings.dart';
 // English: `TextToolController`'s `part` files need to see these tables; being `part of` the
 //          controller they inherit only the controller's imports, so the sibling tables are
 //          re-exported here rather than each part carrying an import line of its own.
+export 'numeric_input_strings.dart';
 export 'text_tool_codec_strings.dart';
 export 'text_tool_data_strings.dart';
 export 'text_tool_stats_strings.dart';
@@ -135,6 +137,7 @@ class TextToolStrings {
     required this.codec,
     required this.web,
     required this.timestamp,
+    required this.numericInput,
   });
 
   final TextToolOutputStrings output;
@@ -144,6 +147,17 @@ class TextToolStrings {
   final TextToolCodecStrings codec;
   final TextToolWebStrings web;
   final TextToolTimestampStrings timestamp;
+
+  /// 中文：**数值解析失败那四句**——自定义公式工具拿 `a`/`b`/`c` 三个变量去问
+  ///       `ToolDetailController.parseNumericInputDetailed`，那个解析器不认字，只回一个判据，
+  ///       渲染要用这张表。它由工程工具与文本工具**两家共用**，所以单独一张、单独一个字段，
+  ///       理由与实测写在 `numeric_input_strings.dart` 的文件头上。
+  /// English: **the four sentences for a failed numeric parse** — the custom-formula tool hands its
+  ///          `a`/`b`/`c` variables to `ToolDetailController.parseNumericInputDetailed`, and that
+  ///          parser knows no words: it returns a verdict, and rendering it takes this table. Two
+  ///          families share it (engineering tools and text tools), hence a field of its own; the
+  ///          reasoning and measurements are on `numeric_input_strings.dart`'s head.
+  final NumericInputStrings numericInput;
 
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
@@ -172,6 +186,7 @@ class TextToolStrings {
     codec: TextToolCodecStrings.codecZh,
     web: TextToolWebStrings.webZh,
     timestamp: TextToolTimestampStrings.timestampZh,
+    numericInput: NumericInputStrings.numericInputZh,
   );
 
   static final TextToolStrings textToolEn = TextToolStrings(
@@ -182,6 +197,7 @@ class TextToolStrings {
     codec: TextToolCodecStrings.codecEn,
     web: TextToolWebStrings.webEn,
     timestamp: TextToolTimestampStrings.timestampEn,
+    numericInput: NumericInputStrings.numericInputEn,
   );
 }
 

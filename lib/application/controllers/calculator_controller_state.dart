@@ -26,6 +26,36 @@ mixin _CalculatorState on ChangeNotifier {
   String get angleMode;
   set angleMode(String value);
 
+  /// 中文：**这个控制器写的每一句人话都从这张表来**（状态卡、复制/笔记/历史正文的标签、记忆键的
+  ///       拒绝语、引擎错误翻译、数据集与拟合读数、进制与记法读数）。
+  ///
+  ///       源码里没有构造参数，也**没有中文兜底**：表顺着**已经在手上**的 `_settings.languageCode`
+  ///       取，与 [relativePercent] 读 `_settings.percentageMode` 同一条路。`forLanguage` 的 switch
+  ///       必须穷尽 `AppLanguage`，加一种语言时编译不过；`AppLanguage.fromCode` 认不出代码时回落
+  ///       到 `zh` 是语言解析的既有约定，不是这张表造的第二套兜底。
+  ///
+  ///       **每次取一次，不缓存**：用户在设置页换语言之后，外壳会用新的 `AppSettings` 重建页面并
+  ///       走 `updateSettings`，于是下一次取就是新语言的；缓存一份就等于要求每一处改设置的地方都
+  ///       记得来刷新它。理由与实测写在 `calculator_controller_strings.dart` 的文件头。
+  /// English: **every human sentence this controller writes comes from this table** (the status card,
+  ///          the labels inside the copied/noted/history body, the memory key's refusal, the engine
+  ///          error translation, the dataset and fit readings, the base and notation readings).
+  ///
+  ///          There is no constructor parameter and **no Chinese fallback**: the table is resolved from
+  ///          the `_settings.languageCode` **already in hand**, the same route [relativePercent] takes
+  ///          to `_settings.percentageMode`. `forLanguage`'s switch must exhaust `AppLanguage`, so
+  ///          adding a language breaks the build; `AppLanguage.fromCode` falling back to `zh` for an
+  ///          unrecognised code is the existing language-resolution convention, not a second fallback
+  ///          invented here.
+  ///
+  ///          **Resolved per call, never cached**: after the user changes the language the shell
+  ///          rebuilds the page with the new `AppSettings` and goes through `updateSettings`, so the
+  ///          next lookup is already the new language; caching one copy would mean every place that
+  ///          changes a setting has to remember to refresh it. The reasoning and measurements are on
+  ///          `calculator_controller_strings.dart`'s head.
+  CalculatorControllerStrings get strings =>
+      CalculatorControllerStrings.forCode(_settings.languageCode);
+
   /// 中文：**`%` 怎么读**——设置里的 `percentage_mode` 令牌换成一个布尔，交给两个求值消费者
   ///       （`_askEngineTranslated` 与 `_calculateResult`），两者必须在同一次求值里拿到同一个值。
   ///       读 `_settings` 而不是自己存一份：这一项在设置页改，改完 `updateSettings` 会重算，
@@ -301,21 +331,23 @@ mixin _CalculatorState on ChangeNotifier {
       expression.trim().isNotEmpty && canContinueWithResult;
 
   String get resultStatusTitle {
-    if (hasError) return '表达式需要修正';
-    if (expression.trim().isEmpty) return '当前值可继续使用';
-    return '结果可继续使用';
+    if (hasError) return strings.statusNeedsFix;
+    if (expression.trim().isEmpty) return strings.statusCurrentReusable;
+    return strings.statusResultReusable;
   }
 
   String get resultStatusMessage {
     if (hasError) {
       final message = errorMessage?.trim();
-      return message == null || message.isEmpty ? '请检查表达式后重试。' : message;
+      return message == null || message.isEmpty
+          ? strings.statusRetryHint
+          : message;
     }
     if (expression.trim().isEmpty) {
-      return '当前值 $result 可复制或作为下一次计算起点。';
+      return strings.statusCurrentValueMessage(result);
     }
     final reusable = reusableResult;
-    return '继续使用会把 $reusable 写回表达式，Ans/last 仍可引用上一次有限结果。';
+    return strings.statusReuseMessage(reusable);
   }
 
   bool get canUndo => _undoStack.isNotEmpty;

@@ -5,6 +5,7 @@ import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
 
 void main() {
   test('encodes decodes and applies per tool input drafts', () {
@@ -43,6 +44,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: ohms,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     final applied = controller.applyRawInputValues(decoded!);
@@ -65,6 +67,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: dividerTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     divider.updateValues({
@@ -85,6 +88,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: rcTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     rc.updateValues({
@@ -104,6 +108,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: dbmTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     dbm.updateValue('dbm', '1W');
@@ -123,6 +128,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -146,6 +152,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -168,6 +175,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -194,6 +202,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: motionTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     motion.updateValues({
@@ -212,6 +221,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: forceTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     force.updateValues({
@@ -231,6 +241,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: temperatureTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     temperature.updateValue('value', '77华氏度');
@@ -250,6 +261,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: materialTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     material.updateValues({
@@ -274,6 +286,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: flowTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     flow.updateValues({
@@ -303,6 +316,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: pressureTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     pressure.updateValues({
@@ -322,6 +336,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: torqueTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     torque.updateValues({
@@ -339,6 +354,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: ldoTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     ldo.updateValues({
@@ -371,6 +387,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: thermalTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     thermal.updateValues({
@@ -395,6 +412,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: beamTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     beam.updateValues({
@@ -420,6 +438,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: batteryTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     battery.updateValues({
@@ -458,6 +477,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: adcTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     adc.updateValues({
@@ -477,6 +497,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: discountTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     discount.updateValues({
@@ -496,6 +517,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: dataTool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     dataSize.updateValue('value', '1.5 MiB');

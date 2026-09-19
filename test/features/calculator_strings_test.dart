@@ -320,9 +320,17 @@ void main() {
     for (final entity in directory.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final name = entity.uri.pathSegments.last;
-      // 中文：文案表自己就是汉字住的地方，跳过它。
-      // English: the table is where the Chinese is *supposed* to live; skip it.
+      // 中文：文案表自己就是汉字住的地方，跳过它们。**两张**：界面那张
+      //       （`calculator_strings.dart`）与控制器合成句子那张
+      //       （`calculator_controller_strings.dart`，本轮新增）。**这一串只加表名，不给非表文件
+      //       开口子**：界面文件仍然照扫不误。
+      // English: the tables are where the Chinese is *supposed* to live; skip them. **Two**: the
+      //          interface's (`calculator_strings.dart`) and the one holding the sentences the
+      //          controller composes (`calculator_controller_strings.dart`, added this round). **Only
+      //          table names go on this list, never a non-table file**: interface files are still
+      //          scanned like everything else.
       if (name == 'calculator_strings.dart') continue;
+      if (name == 'calculator_controller_strings.dart') continue;
       // 中文：**用户未提交的那个文件**——本轮一个字都没动，所以它里面那两条（「粘贴计算详情」/
       //       「复制计算详情」）仍在源码里。这是**已知的残留**，不是漏翻；等用户那笔改动落地后，
       //       这一条应当撤掉，那时它会被下面这条扫描逼着走表。

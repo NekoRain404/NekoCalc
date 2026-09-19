@@ -536,7 +536,7 @@ mixin _CalculatorDataset on _CalculatorState {
   ///          on, and written twice they would drift. What differs is the tail — that sheet **inserts
   ///          nothing**, so it does not append the call.
   String get fitStatusMessage {
-    final head = _fitPairFloorsReading(_dataset);
+    final head = _fitPairFloorsReading(strings, _dataset);
     for (final function in kFitMinimumPairs.keys) {
       final call = fitCall(function);
       if (call != null) return '$head → $call';
@@ -552,24 +552,22 @@ mixin _CalculatorDataset on _CalculatorState {
   ///          grey cells, and a grey cell does not say why it is grey. **The refusal is not silent**
   ///          (the same rule as [addDatasetValue]'s return value).
   String get regressionUnavailableMessage => _dataset.isEmpty
-      ? '两变量函数把数据集读成两行（前一半 X、后一半 Y），'
-          '现在数据集是空的，先加至少 $kMinRegressionPairs 对值'
+      ? strings.regressionEmpty(kMinRegressionPairs)
       : _dataset.length.isOdd
-          ? '两变量函数把数据集读成两行，需要偶数个值，'
-              '现在有 ${_dataset.length} 个'
-          : '两变量函数把数据集读成两行，每行至少 $kMinRegressionPairs 个值，'
-              '现在有 ${_dataset.length} 个';
+          ? strings.regressionOddCount(_dataset.length)
+          : strings.regressionTooFewPairs(
+              kMinRegressionPairs,
+              _dataset.length,
+            );
 
   /// 中文：数据集拒绝一个值时的两句话。它们是**说给用户听的**（与记忆寄存器那句同一种），所以
   ///       说的是真正的原因与后果，不是「错误」两个字。
   /// English: the two sentences the dataset gives when it refuses a value. They are **written for the
   ///          user** (the same kind as the memory register's), so they name the real cause and the
   ///          consequence rather than saying "error".
-  String get _datasetValueRefusalMessage =>
-      '当前值放不进数据集（需要一个有限的十进制结果），数据集未改动';
+  String get _datasetValueRefusalMessage => strings.datasetValueRefusal;
 
-  String get _datasetFullMessage =>
-      '数据集最多 $kMaxDatasetValues 个值，这一个没有加进去';
+  String get _datasetFullMessage => strings.datasetFull(kMaxDatasetValues);
 }
 
 /// 中文：数据集**落盘的那一串文本**，以及**读回来**的那一处（两处都只有一份）。

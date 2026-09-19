@@ -2,7 +2,10 @@ part of 'tool_detail_controller.dart';
 
 NumericInputParseResult _parsePlainNumericInput(String normalized) {
   if (normalized.isEmpty) {
-    return const NumericInputParseResult(value: null, error: '请输入数值');
+    return const NumericInputParseResult(
+      value: null,
+      issue: NumericInputIssue.empty,
+    );
   }
   if (normalized.endsWith('%')) {
     final value =
@@ -16,11 +19,17 @@ NumericInputParseResult _parsePlainNumericInput(String normalized) {
   try {
     final value = ExpressionParser(normalized, degreeMode: true).parse();
     if (!value.isFinite) {
-      return const NumericInputParseResult(value: null, error: '结果不是有限数值');
+      return const NumericInputParseResult(
+        value: null,
+        issue: NumericInputIssue.notFinite,
+      );
     }
     return NumericInputParseResult(value: value);
   } catch (_) {
-    return const NumericInputParseResult(value: null, error: '无法解析数值或表达式');
+    return const NumericInputParseResult(
+      value: null,
+      issue: NumericInputIssue.unparsable,
+    );
   }
 }
 
@@ -96,7 +105,9 @@ NumericInputParseResult _parseNumericInputForUnitNormalized(
     if (value == null) {
       return NumericInputParseResult(
         value: null,
-        error: parsed.error ?? '无法解析数值或表达式',
+        issue: parsed.issue ?? NumericInputIssue.unparsable,
+        unitLabel: parsed.unitLabel,
+        targetUnit: parsed.targetUnit,
       );
     }
     final converted =
@@ -104,14 +115,19 @@ NumericInputParseResult _parseNumericInputForUnitNormalized(
     if (converted == null) {
       return NumericInputParseResult(
         value: null,
-        error: '单位 ${prefixedUnit.unitLabel} 与 $targetUnit 不匹配',
+        issue: NumericInputIssue.unitMismatch,
+        unitLabel: prefixedUnit.unitLabel,
+        targetUnit: targetUnit,
       );
     }
     return NumericInputParseResult(value: converted);
   }
 
   if (_looksLikeConductorAreaInput(normalized)) {
-    return const NumericInputParseResult(value: null, error: '无法解析数值或表达式');
+    return const NumericInputParseResult(
+      value: null,
+      issue: NumericInputIssue.unparsable,
+    );
   }
 
   final unitSuffix = ToolUnitConversion.splitUnitSuffix(normalized, targetUnit);
@@ -132,7 +148,9 @@ NumericInputParseResult _parseNumericInputForUnitNormalized(
     if (value == null) {
       return NumericInputParseResult(
         value: null,
-        error: parsed.error ?? '无法解析数值或表达式',
+        issue: parsed.issue ?? NumericInputIssue.unparsable,
+        unitLabel: parsed.unitLabel,
+        targetUnit: parsed.targetUnit,
       );
     }
     final converted =
@@ -140,7 +158,9 @@ NumericInputParseResult _parseNumericInputForUnitNormalized(
     if (converted == null) {
       return NumericInputParseResult(
         value: null,
-        error: '单位 ${unitSuffix.unitLabel} 与 $targetUnit 不匹配',
+        issue: NumericInputIssue.unitMismatch,
+        unitLabel: unitSuffix.unitLabel,
+        targetUnit: targetUnit,
       );
     }
     return NumericInputParseResult(value: converted);
@@ -163,7 +183,9 @@ NumericInputParseResult _parseNumericInputForUnitNormalized(
   if (mismatchedUnit != null) {
     return NumericInputParseResult(
       value: null,
-      error: '单位 ${mismatchedUnit.unitLabel} 与 $targetUnit 不匹配',
+      issue: NumericInputIssue.unitMismatch,
+      unitLabel: mismatchedUnit.unitLabel,
+      targetUnit: targetUnit,
     );
   }
   return ToolDetailController.parseNumericInputDetailed(normalized);

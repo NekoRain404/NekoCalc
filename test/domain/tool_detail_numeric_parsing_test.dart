@@ -1,10 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/tool_detail_controller.dart';
+import 'package:nekocalc/application/controllers/tool_detail_models.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
+
+/// 中文：中文那一侧的表，见 `tool_detail_unit_alias_parsing_test.dart` 里同一段的理由。
+/// English: the Chinese side's table; the reasoning is the paragraph with the same job in
+///          `tool_detail_unit_alias_parsing_test.dart`.
+final zhNumericInput = NumericInputStrings.numericInputZh;
 
 void main() {
   test('parses pasted numeric input variants', () {
@@ -138,7 +145,10 @@ void main() {
 
     final mismatch = ToolDetailController.parseNumericInputForUnit('12 V', 'A');
     expect(mismatch.value, isNull);
-    expect(mismatch.error, contains('单位 V 与 A 不匹配'));
+    expect(mismatch.issue, NumericInputIssue.unitMismatch);
+    expect(mismatch.unitLabel, 'V');
+    expect(mismatch.targetUnit, 'A');
+    expect(mismatch.issueMessage(zhNumericInput), '单位 V 与 A 不匹配');
   });
 
   test('parses common Chinese unit aliases for numeric fields', () {
@@ -332,6 +342,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValue('current', '2*3');
@@ -356,6 +367,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -467,7 +479,7 @@ unused = 123
       'tol': '1%',
     });
     expect(jsonResult.hasIssues, isFalse);
-    expect(jsonResult.summaryForTool(tool), '已粘贴 3 个参数');
+    expect(jsonResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), '已粘贴 3 个参数');
 
     final mixedResult = ToolDetailController.inputPasteResultFromPastedText(
       tool: tool,
@@ -486,10 +498,10 @@ unused = 123
     expect(mixedResult.duplicateKeys, {'current'});
     expect(mixedResult.ignoredSegments, contains('未知参数: 123'));
     expect(mixedResult.ambiguousSegments, contains('5'));
-    expect(mixedResult.summaryForTool(tool), contains('已粘贴 2 个参数'));
-    expect(mixedResult.summaryForTool(tool), contains('重复字段已取最后值：电流 I'));
-    expect(mixedResult.summaryForTool(tool), contains('跳过 1 条歧义值'));
-    expect(mixedResult.summaryForTool(tool), contains('忽略 1 条未匹配值'));
+    expect(mixedResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('已粘贴 2 个参数'));
+    expect(mixedResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('重复字段已取最后值：电流 I'));
+    expect(mixedResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('跳过 1 条歧义值'));
+    expect(mixedResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('忽略 1 条未匹配值'));
   });
 
   test('batch updates keep valid fields when another pasted field is invalid',
@@ -500,6 +512,7 @@ unused = 123
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -524,6 +537,7 @@ unused = 123
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     final pasteResult = ToolDetailController.inputPasteResultFromPastedText(
@@ -544,8 +558,8 @@ unused = 123
     expect(controller.values['current'], closeTo(0.01, 1e-12));
     expect(controller.values['resistance'], 220);
     expect(controller.inputErrors['resistance'], contains('单位 V 与 Ω 不匹配'));
-    expect(applyResult.summaryForTool(tool), contains('已应用 1 个参数'));
-    expect(applyResult.summaryForTool(tool), contains('需修正：电阻 R'));
-    expect(applyResult.summaryForTool(tool), contains('忽略 1 条未匹配值'));
+    expect(applyResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('已应用 1 个参数'));
+    expect(applyResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('需修正：电阻 R'));
+    expect(applyResult.summaryForTool(tool, ToolDetailStrings.toolDetailZh), contains('忽略 1 条未匹配值'));
   });
 }

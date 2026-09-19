@@ -5,6 +5,7 @@ import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
 
 void main() {
   test('optional empty inputs are omitted from numeric tool values', () {
@@ -14,6 +15,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -46,6 +48,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     expect(controller.values.keys, contains('volume'));
@@ -73,6 +76,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -97,6 +101,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -120,6 +125,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -144,6 +150,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -185,6 +192,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -236,6 +244,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -276,6 +285,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -314,6 +324,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -353,6 +364,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -393,6 +405,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -430,6 +443,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -467,6 +481,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({
@@ -507,6 +522,7 @@ void main() {
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
       tool: tool,
+    strings: ToolDetailStrings.toolDetailZh,
     );
 
     controller.updateValues({

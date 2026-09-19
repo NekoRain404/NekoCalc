@@ -15,6 +15,7 @@ import '../../domain/usecases/tool_save_result.dart';
 import '../../domain/usecases/tool_insights.dart';
 
 import '../../core/units/tool_unit_conversion.dart';
+import '../../features/tools/presentation/tool_detail_strings.dart';
 import 'tool_detail_models.dart';
 part 'tool_detail_paste_parser.dart';
 part 'tool_detail_input_parsing.dart';
@@ -25,6 +26,7 @@ class ToolDetailController extends ChangeNotifier {
     required this.notesRepository,
     required this.toolUsageRepository,
     required this.tool,
+    required this.strings,
   }) {
     _values = _defaultValues(tool);
     _recalculate();
@@ -34,6 +36,42 @@ class ToolDetailController extends ChangeNotifier {
   final NotesRepository notesRepository;
   final ToolUsageRepository toolUsageRepository;
   final ToolDefinition tool;
+
+  /// 中文：**这个控制器写的每一句人话都从这张表来**（状态卡、复制正文、粘贴摘要、错误行）。
+  ///       必填、没有中文兜底：忘了递表的调用点编译不过，而不是在英文界面上悄悄吐中文。
+  ///       为什么表住在 `features/`、为什么不挂在 `BuildContext` 上，见
+  ///       `tool_detail_strings.dart` 的文件头。
+  ///
+  ///       **它可以被换掉，而且必须被换掉。** 界面在 `didChangeDependencies` 里把它换成作用域中
+  ///       **当场生效**的那一张：控制器是 `initState` 里造的、之后一直活着，而用户换语言时
+  ///       `app.dart` 只换内存里的 `_language`（不重载设置记录），所以只按构造时的设置取值，
+  ///       会让"设置页还开着、底下的详情页已经该换语言了"这一种停在旧语言上。字段可变正是为此，
+  ///       与 [tool] / 三个仓库那种一辈子不动的字段不是一回事。
+  /// English: **every human sentence this controller writes comes from this table** (the status card,
+  ///          the copied body, paste summaries, error lines). Required, with no Chinese fallback: a
+  ///          call site that forgets it fails to compile rather than quietly emitting Chinese into an
+  ///          English interface. Why the table lives under `features/` and why it is not read from a
+  ///          `BuildContext` is on `tool_detail_strings.dart`'s head.
+  ///
+  ///          **It is reassignable, and it has to be.** The screen replaces it in
+  ///          `didChangeDependencies` with the scope's **immediately effective** table: the controller
+  ///          is built in `initState` and then lives on, while a language change makes `app.dart` swap
+  ///          only the in-memory `_language` (the settings record is not reloaded), so reading the
+  ///          construction-time setting alone would leave "the settings page is still open but the
+  ///          detail screen underneath should already have changed language" stuck in the old one. The
+  ///          mutability is for exactly that, unlike [tool] and the three repositories, which never
+  ///          move.
+  ToolDetailStrings strings;
+
+  /// 中文：输入框下那一行的文案。**`issue` 为空时才是 `'输入无效'`**——与改动前
+  ///       `parsed.error ?? '输入无效'` 逐字节同一条。
+  /// English: the wording of the line under an input. **`'输入无效'` only when `issue` is null** —
+  ///          byte-for-byte the old `parsed.error ?? '输入无效'`.
+  String inputErrorText(NumericInputParseResult parsed) {
+    return parsed.issue == null
+        ? strings.invalidInput
+        : parsed.issueMessage(strings.numericInput);
+  }
 
   Map<String, double> _values = const {};
   List<ToolResult> _results = const [];
@@ -104,7 +142,10 @@ class ToolDetailController extends ChangeNotifier {
   ) {
     final normalized = ToolUnitConversion.normalizeNumericText(rawValue);
     if (normalized.isEmpty) {
-      return const NumericInputParseResult(value: null, error: '请输入数值');
+      return const NumericInputParseResult(
+        value: null,
+        issue: NumericInputIssue.empty,
+      );
     }
     if (targetUnit.trim().isEmpty) return parseNumericInputDetailed(rawValue);
     if (ToolUnitConversion.normalizeUnitToken(targetUnit) == '%') {
@@ -294,7 +335,7 @@ class ToolDetailController extends ChangeNotifier {
     final parsed = _parseInputValue(key, rawValue, _values);
     final nextErrors = {..._inputErrors};
     if (parsed.value == null) {
-      nextErrors[key] = parsed.error ?? '输入无效';
+      nextErrors[key] = inputErrorText(parsed);
       _inputErrors = nextErrors;
       notifyListeners();
       return;
@@ -347,7 +388,7 @@ class ToolDetailController extends ChangeNotifier {
       }
       final parsed = _parseInputValue(entry.key, entry.value, nextValues);
       if (parsed.value == null) {
-        nextErrors[entry.key] = parsed.error ?? '输入无效';
+        nextErrors[entry.key] = inputErrorText(parsed);
         continue;
       }
       final next = parsed.value!;
@@ -467,29 +508,33 @@ class ToolDetailController extends ChangeNotifier {
   }
 
   String inputSummary() {
-    if (tool.inputs.isEmpty) return '无需输入参数';
+    if (tool.inputs.isEmpty) return strings.noInputsNeeded;
     return tool.inputs.map(_inputReportLine).join('\n');
   }
 
   String resultSummary() {
-    if (_results.isEmpty) return '暂无结果';
+    if (_results.isEmpty) return strings.noResults;
     return _results.map(_resultReportLine).join('\n');
   }
 
   String primaryResultLine() {
     final item = primary;
-    return item == null ? '暂无结果' : _resultReportLine(item);
+    return item == null ? strings.noResults : _resultReportLine(item);
   }
 
   String resultHealthSummary() {
-    if (_results.isEmpty) return '暂无计算结果';
+    if (_results.isEmpty) return strings.noComputedResults;
     final issues = issueResults;
     if (issues.isNotEmpty) {
-      final visible = issues.take(3).map((result) => result.label).join('、');
-      final suffix = issues.length > 3 ? ' 等 ${issues.length} 项' : '';
-      return '$visible$suffix 需要检查，请结合输入参数和校核提示确认。';
+      final visible = issues
+          .take(3)
+          .map((result) => result.label)
+          .join(strings.listSeparator);
+      final suffix =
+          issues.length > 3 ? strings.issueOverflowSuffix(issues.length) : '';
+      return strings.resultIssuesNeedCheck(visible, suffix);
     }
-    return '${usableResults.length} 个结果可复用，主结果 ${primaryResultLine()}';
+    return strings.resultsReusable(usableResults.length, primaryResultLine());
   }
 
   String resultIssueSummary({int limit = 4}) {
@@ -499,11 +544,11 @@ class ToolDetailController extends ChangeNotifier {
     final visible = issues.take(visibleLimit).map(_resultReportLine).join('\n');
     final remaining = issues.length - visibleLimit;
     if (remaining <= 0) return visible;
-    return '$visible\n另有 $remaining 项结果需要检查';
+    return strings.moreIssuesNeedCheck(visible, remaining);
   }
 
   String insightSummary() {
-    if (_insights.isEmpty) return '暂无校核提示';
+    if (_insights.isEmpty) return strings.noCheckNotes;
     return _insights.join('\n');
   }
 
@@ -514,10 +559,11 @@ class ToolDetailController extends ChangeNotifier {
     };
     return _inputErrors.entries.map((entry) {
       final input = byKey[entry.key];
-      final label = input?.label ?? entry.key;
-      final unit = input?.unit ?? '';
-      final suffix = unit.isEmpty ? '' : '（$unit）';
-      return '$label$suffix: ${entry.value}';
+      return strings.inputErrorLine(
+        input?.label ?? entry.key,
+        input?.unit ?? '',
+        entry.value,
+      );
     }).join('\n');
   }
 
@@ -526,41 +572,49 @@ class ToolDetailController extends ChangeNotifier {
       tool.title,
       tool.description,
       '',
-      if (tool.inputs.isNotEmpty) ...['输入参数:', inputSummary(), ''],
-      '计算结果:',
+      if (tool.inputs.isNotEmpty) ...[
+        strings.copyInputsLabel,
+        inputSummary(),
+        '',
+      ],
+      strings.copyResultsLabel,
       resultSummary(),
       '',
-      '结果状态:',
+      strings.copyResultStatusLabel,
       resultHealthSummary(),
       '',
-      '校核:',
+      strings.copyChecksLabel,
       insightSummary(),
       '',
-      '公式: ${tool.formula}',
+      strings.copyFormula(tool.formula),
     ].join('\n');
   }
 
   String inputCopyText() {
     return [
       tool.title,
-      if (tool.inputs.isNotEmpty) ...['输入参数:', inputSummary()] else '无需输入参数',
+      if (tool.inputs.isNotEmpty) ...[
+        strings.copyInputsLabel,
+        inputSummary(),
+      ] else
+        strings.noInputsNeeded,
     ].join('\n');
   }
 
   String noteBody() {
     return [
       tool.description,
-      if (tool.inputs.isNotEmpty) ...['输入参数:', inputSummary()],
+      if (tool.inputs.isNotEmpty) ...[strings.copyInputsLabel, inputSummary()],
       if (tool.inputs.isNotEmpty) '',
-      '计算结果:',
+      strings.copyResultsLabel,
       resultSummary(),
       '',
-      '结果状态:',
+      strings.copyResultStatusLabel,
       resultHealthSummary(),
       '',
-      '校核:',
+      strings.copyChecksLabel,
       insightSummary(),
-      '公式: ${tool.formula}',
+      strings.copyFormula(tool.formula),
     ].join('\n');
   }
 
@@ -568,12 +622,16 @@ class ToolDetailController extends ChangeNotifier {
     return [
       tool.title,
       _resultReportLine(result),
-      if (tool.inputs.isNotEmpty) ...['', '输入参数:', inputSummary()],
+      if (tool.inputs.isNotEmpty) ...[
+        '',
+        strings.copyInputsLabel,
+        inputSummary(),
+      ],
       '',
-      '公式: ${tool.formula}',
+      strings.copyFormula(tool.formula),
       if (_insights.isNotEmpty) ...[
         '',
-        '校核:',
+        strings.copyChecksLabel,
         _insights.take(3).join('\n'),
       ],
     ].join('\n');
@@ -581,7 +639,9 @@ class ToolDetailController extends ChangeNotifier {
 
   String _inputReportLine(ToolInputDefinition input) {
     final value = _values[input.key];
-    if (value == null && input.optional) return '${input.label}: 未填写';
+    if (value == null && input.optional) {
+      return strings.inputNotFilled(input.label);
+    }
     final formatted = formatNumber(value ?? 0, precision: 8);
     return '${input.label}: $formatted${input.unit}';
   }

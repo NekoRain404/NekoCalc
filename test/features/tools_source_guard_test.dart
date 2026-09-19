@@ -102,7 +102,9 @@ void main() {
           name == 'text_tool_data_strings.dart' ||
           name == 'text_tool_codec_strings.dart' ||
           name == 'text_tool_web_strings.dart' ||
-          name == 'text_tool_timestamp_strings.dart') {
+          name == 'text_tool_timestamp_strings.dart' ||
+          name == 'tool_detail_strings.dart' ||
+          name == 'numeric_input_strings.dart') {
         continue;
       }
       final source = stripComments(entity.readAsStringSync());

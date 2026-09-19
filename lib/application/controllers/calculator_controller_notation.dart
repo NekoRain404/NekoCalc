@@ -238,7 +238,7 @@ mixin _CalculatorNotation on _CalculatorState {
     final source = _result;
     if (hasError || !source.hasFiniteDecimal) {
       if (cleared) notifyListeners();
-      return '当前没有可换记法的数值结果';
+      return strings.notationNoValue;
     }
     if (cleared) notifyListeners();
     final generation = _stateRevision;
@@ -257,10 +257,10 @@ mixin _CalculatorNotation on _CalculatorState {
         converted == null ||
         converted.resultKind != EngineResultKind.conversion ||
         !converted.isDisplayable) {
-      return '引擎没有给出这一档记法';
+      return strings.notationNoAnswer;
     }
     final spelling = converted.displayText.trim();
-    if (spelling.isEmpty) return '引擎没有给出这一档记法';
+    if (spelling.isEmpty) return strings.notationNoAnswer;
     _notationReadout = NotationReadout(
       notation: target,
       spelling: spelling,

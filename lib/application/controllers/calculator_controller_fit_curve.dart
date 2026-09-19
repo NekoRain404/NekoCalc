@@ -131,15 +131,18 @@ class RegressionCurveOutcome {
 ///          the regression graph sheet's row (which must **not** append it — that sheet inserts
 ///          nothing). Writing it twice would drift, and what would drift is exactly the pair counts
 ///          the user needs in order to add the data that lights the cell up.
-String _fitPairFloorsReading(List<String> values) {
+String _fitPairFloorsReading(
+  CalculatorControllerStrings strings,
+  List<String> values,
+) {
   final floors = kFitMinimumPairs.entries
-      .map((entry) => '${entry.key} 要 ${entry.value} 对')
-      .join('、');
-  if (values.isEmpty) return '拟合把数据集读成两行（前一半 X、后一半 Y）：$floors；数据集是空的';
+      .map((entry) => strings.fitPairRequirement(entry.key, entry.value))
+      .join(strings.listSeparator);
+  if (values.isEmpty) return strings.fitPairFloorsEmpty(floors);
   if (values.length.isOdd) {
-    return '拟合把数据集读成两行（需要偶数个值）：$floors；当前有 ${values.length} 个';
+    return strings.fitPairFloorsOdd(floors, values.length);
   }
-  return '拟合把数据集读成两行：$floors；当前有 ${values.length} 个值';
+  return strings.fitPairFloorsReady(floors, values.length);
 }
 
 /// 中文：**回归图（HiPER 的「回归图」那条计算细节）在控制器这一侧的那一半**：图上那些点从哪儿
@@ -335,7 +338,8 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
   ///          something that will not happen. The first half is shared ([_fitPairFloorsReading]), so
   ///          the pair counts — the one number the user can act on — are byte-for-byte the same in
   ///          both places.
-  String get regressionGraphFitReading => _fitPairFloorsReading(_dataset);
+  String get regressionGraphFitReading =>
+      _fitPairFloorsReading(strings, _dataset);
 
   /// 中文：**某一条拟合为什么画不出来**——对数不够时的那一句话。
   ///
@@ -352,10 +356,13 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
   ///          more data would make it appear.
   String fitCurveUnavailableMessage(String function) {
     final minimum = kFitMinimumPairs[function];
-    if (minimum == null) return '`$function` 不是这个应用里的拟合函数，没有曲线可画';
-    final pairCount = datasetPairCount;
-    return '$function 的曲线没画：它要 $minimum 对值，'
-        '数据集现在有 $pairCount 对（${_dataset.length} 个值）';
+    if (minimum == null) return strings.curveNotAFitFunction(function);
+    return strings.curveNotEnoughPairs(
+      function,
+      minimum,
+      datasetPairCount,
+      _dataset.length,
+    );
   }
 
   /// 中文：**要一条拟合曲线**：在 `[xMin, xMax]` 上等距取
@@ -437,13 +444,13 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
     }
     final translated = engineExpressionFor(call);
     if (translated is! TranslatedExpression) {
-      return const RegressionCurveOutcome.refused(_kCurveNoEngineAnswer);
+      return RegressionCurveOutcome.refused(strings.curveIncomplete);
     }
     final xs = _curveSampleXs(xMin, xMax);
     final literals = <String>[];
     for (final x in xs) {
       final literal = _curveXLiteral(x);
-      if (literal == null) return const RegressionCurveOutcome.refused(_kCurveNoEngineAnswer);
+      if (literal == null) return RegressionCurveOutcome.refused(strings.curveIncomplete);
       literals.add(literal);
     }
     final generation = _stateRevision;
@@ -451,13 +458,13 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
     for (final literal in literals) {
       final reply = await _askEngine('replace(${translated.text},x,$literal)');
       if (_disposed || generation != _stateRevision) {
-        return const RegressionCurveOutcome.refused(_kCurveStaleError);
+        return RegressionCurveOutcome.refused(strings.curveStale);
       }
       final value = reply.ok
           ? decimalValueOf(reply.result?.decimalText ?? '')
           : null;
       if (value == null) {
-        return const RegressionCurveOutcome.refused(_kCurveNoEngineAnswer);
+        return RegressionCurveOutcome.refused(strings.curveIncomplete);
       }
       ys.add(value);
     }
@@ -525,21 +532,26 @@ mixin _CalculatorFitCurve on _CalculatorState, _CalculatorDataset {
   }
 }
 
-/// 中文：**曲线画不出来时那两句话**（第三、四种失败）。它们是**说给用户听的**，所以说的是真正
-///       的原因与后果，不是「错误」两个字——与数据集那两句同一种。
+/// 中文：**曲线画不出来时那两句话**（第三、四种失败）**已经搬进表里**——
+///       `CalculatorControllerStrings.curveIncomplete` / `.curveStale`。它们是**说给用户听的**，
+///       所以说的是真正的原因与后果，不是「错误」两个字——与数据集那两句同一种。
+///       原先它们住在这里，是两条库级 `const`，因为 `RegressionCurveOutcome.refused` 当时在
+///       `const` 上下文里被调用。搬走的代价就是那四处不再 `const`（值一样，构造一样），
+///       换来的是这两句话在英文界面上会跟着变。
 ///
-///       第四句**把动作说出来**（「再按一次」）：那不是装饰。取样中途数据集被改过时屏幕上的点已经
-///       是新的了，用户唯一能得到曲线的办法就是重新选一次这条拟合——不说，他看到的只是一个没有
-///       曲线的图，而没有任何线索。
+///       第四条（`curveStale`）**把动作说出来**（「再按一次」）：那不是装饰。取样中途数据集被改过时
+///       屏幕上的点已经是新的了，用户唯一能得到曲线的办法就是重新选一次这条拟合——不说，
+///       他看到的只是一个没有曲线的图，而没有任何线索。
 ///
-/// English: **the two sentences for a curve that cannot be drawn** (the third and fourth failures).
-///          They are **written for the user**, so they name the real cause and consequence rather than
-///          saying "error" — the same kind as the dataset's two.
+/// English: **the two sentences for a curve that cannot be drawn** (the third and fourth failures)
+///          **have moved into the table** — `CalculatorControllerStrings.curveIncomplete` and
+///          `.curveStale`. They are **written for the user**, so they name the real cause and
+///          consequence rather than saying "error" — the same kind as the dataset's two. They used to
+///          live here as two library-level `const`s, because `RegressionCurveOutcome.refused` was
+///          called in `const` contexts at the time. The move cost those four sites their `const` (same
+///          value, same construction) and bought these two sentences a life in the English interface.
 ///
-///          The fourth one **names the action** ("press it again"), and that is not decoration: when
-///          the dataset was edited mid-sampling, the points on screen are already the new ones, and the
-///          only way for the user to get a curve is to pick that fit again — unsaid, all they see is a
-///          plot with no curve and no clue why.
-const String _kCurveNoEngineAnswer = '曲线没画：引擎没有给出这条曲线上的全部点，只画了数据集里的点';
-
-const String _kCurveStaleError = '曲线没画：取样期间数据集变过，再按一次这条拟合';
+///          The fourth (`curveStale`) **names the action** ("press it again"), and that is not
+///          decoration: when the dataset was edited mid-sampling, the points on screen are already the
+///          new ones, and the only way for the user to get a curve is to pick that fit again — unsaid,
+///          all they see is a plot with no curve and no clue why.

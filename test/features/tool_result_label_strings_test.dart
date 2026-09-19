@@ -12,6 +12,7 @@ import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/entities/tool_definition.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
 import 'package:nekocalc/features/tools/presentation/tool_detail_screen.dart';
+import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
 import 'package:nekocalc/features/tools/presentation/tool_result_label_strings.dart';
 import 'package:nekocalc/features/tools/presentation/tool_result_label_strings_electronics.dart';
 import 'package:nekocalc/features/tools/presentation/tool_result_label_strings_finance.dart';
@@ -291,6 +292,7 @@ ToolDetailController _controllerFor(ToolDefinition tool) {
     notesRepository: const NotesRepository(db),
     toolUsageRepository: const ToolUsageRepository(db),
     tool: tool,
+  strings: ToolDetailStrings.toolDetailZh,
   );
 }
 

@@ -298,7 +298,7 @@ mixin _CalculatorBaseReadout on _CalculatorState {
     final cleared = _clearBaseReadout();
     if (hasError || !source.hasFiniteDecimal) {
       if (cleared) notifyListeners();
-      return '当前没有可换算的数值结果';
+      return strings.baseReadoutNoValue;
     }
     if (cleared) notifyListeners();
     final generation = _stateRevision;
@@ -317,7 +317,7 @@ mixin _CalculatorBaseReadout on _CalculatorState {
         converted == null ||
         converted.resultKind != EngineResultKind.conversion ||
         !converted.isDisplayable) {
-      return '引擎没有给出换算结果';
+      return strings.baseReadoutNoAnswer;
     }
     _baseReadout = BaseReadout(
       base: base,

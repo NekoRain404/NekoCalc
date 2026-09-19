@@ -14,6 +14,7 @@ import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_catalog_strings.dart';
+import 'tool_detail_strings.dart';
 import 'tool_field_strings.dart';
 import 'tool_result_label_strings.dart';
 import 'tool_widgets.dart';
@@ -58,6 +59,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       notesRepository: NotesRepository(widget.db),
       toolUsageRepository: ToolUsageRepository(widget.db),
       tool: widget.tool,
+      strings: ToolDetailStrings.forCode(widget.settings.languageCode),
     )..addListener(_onControllerChanged);
     _controllers = {
       for (final entry
@@ -82,6 +84,12 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _detailController.strings = ToolDetailStrings.of(context);
   }
 
   void _onControllerChanged() {
@@ -513,7 +521,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     );
     if (!pasteResult.hasValues) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(pasteResult.summaryForTool(widget.tool))),
+        SnackBar(content: Text(pasteResult.summaryForTool(widget.tool, _detailController.strings))),
       );
       return;
     }
@@ -522,7 +530,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     _locallyEditedInputKeys.addAll(applyResult.filledKeys);
     _scheduleDraftSave();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(applyResult.summaryForTool(widget.tool))),
+      SnackBar(content: Text(applyResult.summaryForTool(widget.tool, _detailController.strings))),
     );
   }
 
