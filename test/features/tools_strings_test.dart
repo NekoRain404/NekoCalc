@@ -13,13 +13,16 @@ import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
 
-/// 中文：工具子树两张文案表（`ToolsStrings` + `DataFitStrings`）的三条护栏，形状与设置页 /
-///       计算页那两张表的护栏相同。
+/// 中文：工具子树**各**文案表（`ToolsStrings` + `DataFitStrings` + `ToolCatalogStrings`…）的
+///       三条护栏，形状与设置页 / 计算页那几张表的护栏相同。
+///       ⚠️ 这句原先写「**两张**文案表」并逐个点名——**那个数字从 `bbd2d25` 起就不准了**
+///       （表数已经涨到十张）。改成不写数字的说法：**一个会过期的数字挂在文件头上，
+///       下一个人会以为守卫的范围没变过。** 真实边界是上面的三条护栏本身。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
 ///          每一个字都得和接入多语言之前一模一样。逐条写出来而不是抽查几条：这一份就是"默认态
 ///          不变"的**证据本身**。
 ///       2) 英文表里不许出现汉字、也不许出现空串，而且要真的与中文不同。
-///       3) `lib/features/tools/presentation` 里（除了这两张表）不许再留中文字符串字面量。
+///       3) `lib/features/tools/presentation` 里（除了各文案表）不许再留中文字符串字面量。
 ///
 ///       **第 3 条本轮多出四处例外，都在 `_punctuationOnlyLiterals` 上、逐条带理由**：判据
 ///       放宽之后本目录新露出来的只有四条，没有一条是句子。工具子树里那些成百上千条中文

@@ -43,7 +43,14 @@ import '../shared/source_scan.dart';
 ///          under `lib/features/tools/presentation`, and so the assertion below did not go one byte
 ///          slacker.
 void main() {
-  test('工具子树源码里除了两张文案表再没有中文字符串字面量', () {
+  // 中文：**测试名里不写表数。** 它原先叫「除了**两张**文案表」，而表数从九张一路涨到十张——
+  //       名字不是断言，但一个会过期的数字挂在名字上，下一个人会以为守卫的范围没变过。
+  //       豁免表与判据都在下面，那才是这条测试真实的边界。
+  // English: **the name carries no table count.** It used to read "except **two** copy tables", while
+  //          the count went from nine to ten; a name is not an assertion, but an expiring number in
+  //          one reads as "the guard's scope never moved". The exemption table and the ruler below are
+  //          this test's real boundary.
+  test('工具子树源码里除了各文案表再没有中文字符串字面量', () {
     final directory = Directory('lib/features/tools/presentation');
     expect(directory.existsSync(), isTrue, reason: '测试的工作目录应当是包的根目录');
 

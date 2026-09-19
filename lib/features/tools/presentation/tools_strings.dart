@@ -8,12 +8,18 @@ import '../../../l10n/app_language.dart';
 ///       `const`）与设置页那张表共用一套理由，写在 `settings_strings.dart` 的文件头上，这里不重抄。
 ///
 ///       **本表只装"给人看的字"。** 两条口径值得写下来：
-///       1. **工具的目录数据不进来。** 工具名、描述、公式、参数标签、单位、分类名
-///          （`widget.tool.title`、`input.label`、`tool.description`、`widget.category.title`、
-///          `result.label`、`FitModel.label`…）全部来自 `lib/domain/usecases/tool_catalog*.dart`
-///          与 `lib/application/controllers/tool_search_*.dart`，那里的中文以**千条**计
+///       1. **工具的目录数据不进来。** 描述、公式、参数标签、单位
+///          （`input.label`、`tool.description`、`result.label`、`FitModel.label`…）全部来自
+///          `lib/domain/usecases/tool_catalog*.dart` 与
+///          `lib/application/controllers/tool_search_*.dart`，那里的中文以**千条**计
 ///          （`lib/domain/usecases` 1982 条、`lib/application/controllers` 1393 条去重字面量），
-///          是内容数据不是界面文案，本轮一条都没动。本表只翻包在它们外面的壳。
+///          是内容数据不是界面文案。本表只翻包在它们外面的壳。
+///
+///          ⚠️ **这一条原先还把「工具名」与「分类名」列在里面，那句话从 `bbd2d25` 起不再成立**：
+///          117 个工具名与 8 个分类名（含 8 条分类说明）现在有**自己的表**——
+///          `tool_catalog_strings.dart`，那边的文件头正面写着这条新分界。
+///          留这段话是因为**一句话被推翻时该在这里说一声**，免得下一轮的读者照着旧边界去找。
+///          （分类说明进表是因为**检索打分**要读它，屏幕上没有读者。）
 ///       2. **工具页拿到的动态摘要也不进来。** `paste.summary`、`result.message`、
 ///          `_output.statusTitle` / `statusMessage`、`_detailController.inputErrorSummary()` /
 ///          `resultIssueSummary()` / `resultHealthSummary()` / `insights` 都是控制器与领域层产出的
