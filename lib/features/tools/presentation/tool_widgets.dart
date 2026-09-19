@@ -148,6 +148,16 @@ class ToolListTile extends StatelessWidget {
     // English: the tile's title comes from the same source as the cards above — the catalogue table,
     //          not `tool.title`.
     final catalog = ToolCatalogStrings.of(context);
+    // 中文：副标题是**目录表里的描述**，与标题同一次 `of(context)`——名字与描述在同一张卡片上，
+    //       两张表就会有两个 switch，语言分叉时会出现「英文名 + 中文描述」。理由写在
+    //       `tool_description_strings.dart` 的文件头上；`tool.description` 那个字段仍是检索用的
+    //       中文，本轮一个字节都没动。
+    // English: the subtitle is the **catalogue table's description**, from the same `of(context)` call
+    //          as the title — name and description sit on one card, and two tables mean two switches,
+    //          where a language split puts an English name over a Chinese description. The reason is on
+    //          `tool_description_strings.dart`'s file head; the `tool.description` field is still the
+    //          Chinese that search reads, and not one byte of it moved this round.
+    final description = catalog.toolDescription(tool.id);
     final matchLabel = this.matchLabel;
     return ListTile(
       onTap: onTap,
@@ -199,14 +209,12 @@ class ToolListTile extends StatelessWidget {
       //          truncated alias.
       isThreeLine: matchLabel != null,
       subtitle: matchLabel == null
-          ? Text(tool.description,
-              maxLines: 1, overflow: TextOverflow.ellipsis)
+          ? Text(description, maxLines: 1, overflow: TextOverflow.ellipsis)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(tool.description,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(description, maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(matchLabel,
                     maxLines: 2, overflow: TextOverflow.ellipsis),
               ],

@@ -292,10 +292,13 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = DataFitStrings.of(context);
-    // 中文：页头那行是**目录表里的名字**，不是 `widget.tool.title`——后者是内容数据。
+    // 中文：页头那行是**目录表里的名字**，不是 `widget.tool.title`——后者是内容数据；下面那行说明
+    //       同理走目录表，与名字取自同一次 `of(context)`。
     // English: the page head shows the **catalogue table’s name**, not `widget.tool.title` —
-    //          the latter is content data.
-    final toolTitle = ToolCatalogStrings.of(context).toolName(widget.tool.id);
+    //          the latter is content data; the description below it comes from the catalogue table too,
+    //          out of the same `of(context)` call as the name.
+    final catalog = ToolCatalogStrings.of(context);
+    final toolTitle = catalog.toolName(widget.tool.id);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -318,7 +321,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            Text(widget.tool.description,
+            Text(catalog.toolDescription(widget.tool.id),
                 style: TextStyle(color: scheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             _inputCard(),

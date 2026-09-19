@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../domain/entities/tool_category.dart';
 import '../../../domain/usecases/tool_catalog.dart';
 import '../../../l10n/app_language.dart';
+import 'tool_description_strings.dart';
 
 /// 中文：**工具目录的名字表**——117 个工具的名字，加上 8 个分类的名字与说明（16 条）。
 ///       机制本身（为什么是手写分表而不是 ARB / `gen-l10n`、为什么**兄弟表**是 `static final`
@@ -44,9 +45,14 @@ import '../../../l10n/app_language.dart';
 ///       `toolById(id)?.title`，也就是今天屏幕上的字：**默认态因此连"表漏一条"都改不动**；
 ///       英文下这种漏会以中文的样子露出来（而不是静默给个别的英文），同时测试已经红了。
 ///
-///       **本表只管名字。** 描述、公式、参数标签、单位、分组名（`tool.description`、`input.label`、
-///       `tool.group`…）仍住在 `tool_catalog*.dart`，今天仍是中文——**已知的残留**，与
-///       `tools_strings.dart` 文件头列的那几条同类。
+///       **本表装名字与描述两样，别的仍不住在这里。** 描述本来也留在这里（当时文件头上写着
+///       "本表只管名字"），本轮接进来时**另起了一个文件**——`tool_description_strings.dart`，
+///       理由只有一条行数硬线，写在那个文件的头上；两张表由本类**同一个 switch** 分派，
+///       所以卡片上的名字与描述不可能来自两种语言。**公式、参数标签、单位、分组名**
+///       （`tool.formula`、`input.label`、`input.unit`、`input.key`、`result.label`、`tool.group`）
+///       仍住在 `tool_catalog*.dart` 与 `tool_insights_*.dart`，今天仍是中文——**已知的残留**，
+///       与 `tools_strings.dart` 文件头列的那几条同类，规模量在
+///       `.superpowers/backup/tool-descriptions-report.md` 里。
 ///
 ///       ⚠️ **这里原先把检索结果那行"匹配到 XXX"也列作"没动"，那句话此后不再成立。** 那行现在
 ///       分两半：**外壳**（`标题`、`别名`、`关键词`…十个）成了 `ToolMatchTokens` 里的 ASCII 令牌，
@@ -118,16 +124,23 @@ import '../../../l10n/app_language.dart';
 ///          move even if the table misses an entry**; in English such a miss shows up as Chinese
 ///          (rather than quietly rendering some other English) while the test is already red.
 ///
-///          **This table holds names only.** Descriptions, formulas, parameter labels, units and
-///          group names (`tool.description`, `input.label`, `tool.group`, …) still live in
-///          `tool_catalog*.dart` and are still Chinese today — a **known remainder**, of the same kind
-///          as the ones listed on `tools_strings.dart`'s file head. The "matched …" line in a search
-///          result (`ToolSearchResult.matchLabel` / `matchText`) is untouched too: it is part of
-///          search matching itself, which this round does not touch.
+///          **This table holds names and descriptions, and nothing else moved in.** Descriptions used
+///          to be left out of it (the file head read "this table holds names only"); they arrive this
+///          round from **a file of their own** — `tool_description_strings.dart`, split off for the
+///          one reason of the line-count limit, written on that file's head. Both tables are
+///          dispatched by **this class's single switch**, so the name and the description on one card
+///          cannot come from two languages. **Formulas, parameter labels, units, group names**
+///          (`tool.formula`, `input.label`, `input.unit`, `input.key`, `result.label`, `tool.group`)
+///          still live in `tool_catalog*.dart` and `tool_insights_*.dart` and are still Chinese today —
+///          a **known remainder**, of the same kind as the ones listed on `tools_strings.dart`'s file
+///          head, and its size is measured in `.superpowers/backup/tool-descriptions-report.md`. The
+///          "matched …" line in a search result (`ToolSearchResult.matchLabel` / `matchText`) is
+///          untouched too: it is part of search matching itself, which this round does not touch.
 @immutable
 class ToolCatalogStrings {
   const ToolCatalogStrings({
     required this.toolNames,
+    required this.toolDescriptions,
     required this.mathTitle,
     required this.mathSubtitle,
     required this.electronicsTitle,
@@ -158,6 +171,15 @@ class ToolCatalogStrings {
   ///          walks `toolCatalog` — the same trick `settings_strings_test.dart` uses for `CalcTheme.all`.
   final Map<String, String> toolNames;
 
+  /// 中文：**工具 id → 描述**。与 [toolNames] 同一批 id、同一条回落、同一次分派；两张表住在两个
+  ///       文件里只是为了行数，理由写在 `tool_description_strings.dart` 的文件头上。
+  ///       完整性同样交给 `tool_description_strings_test.dart` 里那条遍历 `toolCatalog` 的断言。
+  /// English: **tool id → description.** The same ids, the same fallback and the same dispatch as
+  ///          [toolNames]; the two tables live in two files purely for the line limit, and the reason
+  ///          is on `tool_description_strings.dart`'s file head. Completeness is carried by the
+  ///          assertion in `tool_description_strings_test.dart` that walks `toolCatalog`.
+  final Map<String, String> toolDescriptions;
+
   // —— 分类：八个，封闭集合，所以用命名字段：加第九个分类会让下面两个 switch 编译不过。——
   final String mathTitle;
   final String mathSubtitle;
@@ -181,6 +203,18 @@ class ToolCatalogStrings {
   ///          catalogue, and only then to the id itself — see the file head.
   String toolName(String toolId) {
     return toolNames[toolId] ?? toolById(toolId)?.title ?? toolId;
+  }
+
+  /// 中文：工具描述，卡片上名字下面那一行。回落到目录里那一条的 `description`（今天屏幕上的中文），
+  ///       再不行才回落到空串——**名字有 id 可以回落到最后，描述没有**，一句空话好过把 id 印在
+  ///       说明的位置上。理由与 [toolName] 那条同。
+  /// English: A tool's description, the line under the name on a card. It falls back to that entry's
+  ///          `description` in the catalogue (the Chinese on screen today) and only then to the empty
+  ///          string — **a name can fall back to the id as a last resort, a description cannot**; an
+  ///          empty sentence beats printing an id where a description belongs. Same reasoning as
+  ///          [toolName].
+  String toolDescription(String toolId) {
+    return toolDescriptions[toolId] ?? toolById(toolId)?.description ?? '';
   }
 
   /// 中文：分类名。**switch 必须穷尽 `ToolCategory`**——加第九个分类时这里编译不过，而不是静默
@@ -391,6 +425,10 @@ class ToolCatalogStrings {
       'fnv_crc': 'FNV/CRC32',
       'custom_formula': '自定义公式',
     },
+    // 中文：描述那 117 条住在 `tool_description_strings.dart`，理由见文件头。
+    // English: the 117 descriptions live in `tool_description_strings.dart`; the reason is on the file
+    //          head.
+    toolDescriptions: toolDescriptionsZh,
     mathTitle: '方程与数学',
     mathSubtitle: '多项式、方程组、统计与矩阵',
     electronicsTitle: '电路与电子',
@@ -663,6 +701,7 @@ class ToolCatalogStrings {
       'fnv_crc': 'FNV/CRC32', // L · title already Latin
       'custom_formula': 'Custom Formula', // B · no alias in either index
     },
+    toolDescriptions: toolDescriptionsEn,
     // —— 分类名：八个都是**按卡片宽度量出来的**，理由与数字见本表头上那段「分类名为什么这么短」。——
     mathTitle: 'Maths',
     mathSubtitle: 'Polynomials, systems, statistics and matrices',

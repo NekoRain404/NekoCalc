@@ -11,6 +11,8 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/roboto_regular_advances.dart';
+
 /// 中文：**命中提示在 360dp 手机上读不读得到**——这一轮修的缺陷靠这四条护栏钉住。
 ///
 ///       那个缺陷是：`ToolListTile` 把提示**接在说明后面**，拼成
@@ -22,7 +24,7 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///       **为什么这里不能拿测试字体当尺子。** `flutter_test` 的字体每个字形都占**一整个 em**，
 ///       于是 `Matched: Tool ID` 在测试字体里是 15 × 14 = 210dp，在真 Roboto 里只有约 110dp——
 ///       拿它当尺子会把每一条英文断言都判死（实测：`labelVisibleTest` 在英文下 0/115，中文下
-///       115/115，同一批行）。所以宽度一律用 [_advanceWidth]，即**真 Roboto-Regular 的逐字符
+///       115/115，同一批行）。所以宽度一律用 [advanceWidth]，即**真 Roboto-Regular 的逐字符
 ///       advance 表**（ASCII 32–126 全量）+ CJK/全角按 1em；下面每一条宽度断言都在 360dp 的
 ///       副标题盒子里成立。
 ///
@@ -46,7 +48,7 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          full **em**, so `Matched: Tool ID` is 15 × 14 = 210dp there against about 110dp in real
 ///          Roboto — as a ruler it condemns every English assertion (measured: `labelVisibleTest` is
 ///          0/115 in English and 115/115 in Chinese on the same rows). Every width below therefore comes
-///          from [_advanceWidth]: **real Roboto-Regular per-character advances** (all of ASCII 32–126)
+///          from [advanceWidth]: **real Roboto-Regular per-character advances** (all of ASCII 32–126)
 ///          plus 1em for CJK/full-width glyphs, checked against the 360dp subtitle box.
 ///
 ///          The ruler has one **device-measured** witness for its graduations: last round's
@@ -89,7 +91,7 @@ void main() {
           expect(style.fontSize, _fontSize, reason: '尺子的字号是从这里读的，主题动过就要重量');
           expect(style.letterSpacing, _letterSpacing, reason: '同上，字距也是尺子的刻度');
           final label = row.data.split(' · ').first;
-          final width = _advanceWidth(label, style.fontSize!, style.letterSpacing!);
+          final width = advanceWidth(label, style.fontSize!, style.letterSpacing!);
           expect(width, lessThanOrEqualTo(row.paragraph.constraints.maxWidth),
               reason: '「$label」宽 ${width.toStringAsFixed(1)}dp，'
                   '塞不进 ${row.paragraph.constraints.maxWidth.toStringAsFixed(1)}dp 那一行');
@@ -141,7 +143,7 @@ void main() {
         //          the matched text. If that fits, the reader always sees which field matched; whether
         //          the tail falls to the ellipsis only affects the matched text.
         final probe = strings.matchWithText(token, 'x');
-        final width = _advanceWidth(probe, _fontSize, _letterSpacing);
+        final width = advanceWidth(probe, _fontSize, _letterSpacing);
         expect(width, lessThanOrEqualTo(box),
             reason: '${strings.match(token)}（$token）宽 ${width.toStringAsFixed(1)}dp，'
                 '塞不进 ${box.toStringAsFixed(1)}dp 那一行——标签都会被截');
@@ -167,7 +169,7 @@ void main() {
       final row = rows.single;
       expect(row.data, contains('gear ratio'), reason: '命中原文没了');
       final box = row.paragraph.constraints.maxWidth;
-      final width = _advanceWidth(row.data, _fontSize, _letterSpacing);
+      final width = advanceWidth(row.data, _fontSize, _letterSpacing);
       expect(width, lessThanOrEqualTo(box * row.paragraph.maxLines!),
           reason: '「${row.data}」宽 ${width.toStringAsFixed(1)}dp，'
               '${row.paragraph.maxLines} 行 ${(box * row.paragraph.maxLines!).toStringAsFixed(1)}dp '
@@ -193,27 +195,6 @@ class _HintRow {
 ///          re-measured). The category page's 170dp box is read off the render tree too, by [_hintBox].
 const double _fontSize = 14;
 const double _letterSpacing = 0.25;
-
-/// 中文：按真 Roboto 的字宽（见文件头）算宽度，外加逐字符的字距——Flutter 连**最后一个字符**
-///       也加字距，与 `tool_catalog_strings_test.dart` 里那把尺子同一套量法。
-/// English: width in real Roboto advances (see the file head) plus per-character letter spacing — Flutter
-///          adds the spacing after the **last** character too, the same way the ruler in
-///          `tool_catalog_strings_test.dart` measures.
-double _advanceWidth(String text, double fontSize, double letterSpacing) {
-  var width = 0.0;
-  for (final rune in text.runes) {
-    final character = String.fromCharCode(rune);
-    final advance = _robotoRegularPerMille[character] ??
-        _nonAsciiPerMille[character] ??
-        // 中文：表外的字符按 1em：提示里剩下的是 CJK 与全角标点（含 `：`），
-        //       而 Noto Sans CJK 的全宽字形 advance 就是一个 em。
-        // English: anything off-table counts as 1em: what remains in a hint is CJK and full-width
-        //          punctuation (`：`), and a full-width glyph in Noto Sans CJK advances exactly one em.
-        1000;
-    width += advance / 1000 * fontSize;
-  }
-  return width + letterSpacing * text.runes.length;
-}
 
 /// 中文：把工具首页渲染起来、敲进 `query`，返回这一屏上每一行提示（两种语言各一条）。
 /// English: renders the tools home, types `query`, and returns every hint row on screen.
@@ -289,47 +270,6 @@ Future<List<ListTile>> _categoryTiles(WidgetTester tester) async {
       widget,
   ];
 }
-
-/// 中文：**Roboto-Regular 的字宽尺**，单位是 **1/1000 em**，ASCII 32–126 全量（95 条）。生成方式
-///       与 `tool_catalog_strings_test.dart` 里那张 Black 表完全相同，只是把文件换成
-///       `Roboto-Regular.ttf`（副标题是 w400）：
-///
-///       `python3 -c "from fontTools.ttLib import TTFont; p='$FLUTTER_ROOT/bin/cache/artifacts/`
-///       `material_fonts/Roboto-Regular.ttf'; f=TTFont(p); upm=f['head'].unitsPerEm;`
-///       `cmap=f.getBestCmap(); hmtx=f['hmtx']; print({chr(c): round(hmtx[cmap[c]][0]/upm*1000)`
-///       ` for c in cmap if 32<=c<127})"`
-///
-///       **不共用旁边那张 Black 表**：副标题是 400、分类卡标题是 800，一个字重一把尺；共用会把
-///       英文标签量宽 5% 以上（`Custom Tools` 上 Black 90.3 / Regular 87.3）。
-/// English: **The Roboto-Regular ruler**, in **1/1000 em**, all of ASCII 32–126 (95 entries). Generated
-///          exactly like the Black table next door, only over `Roboto-Regular.ttf` (the subtitle is
-///          w400). It is **not shared with that Black table**: the subtitle is 400 and the category
-///          card title is 800, one ruler per weight; sharing would over-measure an English label by
-///          more than 5% (`Custom Tools`: 90.3 Black against 87.3 Regular).
-const Map<String, int> _robotoRegularPerMille = {
-  ' ': 248, '!': 257, '"': 320, '#': 616, '\$': 562, '%': 732, '&': 622,
-  "'": 174, '(': 342, ')': 348, '*': 431, '+': 567, ',': 196, '-': 276,
-  '.': 263, '/': 412, '0': 562, '1': 562, '2': 562, '3': 562, '4': 562,
-  '5': 562, '6': 562, '7': 562, '8': 562, '9': 562, ':': 242, ';': 211,
-  '<': 508, '=': 549, '>': 522, '?': 472, '@': 898, 'A': 652, 'B': 623,
-  'C': 651, 'D': 656, 'E': 568, 'F': 553, 'G': 681, 'H': 713, 'I': 272,
-  'J': 552, 'K': 627, 'L': 538, 'M': 873, 'N': 713, 'O': 688, 'P': 631,
-  'Q': 688, 'R': 616, 'S': 593, 'T': 597, 'U': 648, 'V': 636, 'W': 887,
-  'X': 627, 'Y': 601, 'Z': 599, '[': 265, '\\': 410, ']': 265, '^': 418,
-  '_': 451, '`': 309, 'a': 544, 'b': 561, 'c': 523, 'd': 564, 'e': 530,
-  'f': 347, 'g': 561, 'h': 551, 'i': 243, 'j': 239, 'k': 507, 'l': 243,
-  'm': 876, 'n': 552, 'o': 570, 'p': 561, 'q': 568, 'r': 338, 's': 516,
-  't': 327, 'u': 551, 'v': 484, 'w': 751, 'x': 496, 'y': 473, 'z': 496,
-  '{': 338, '|': 244, '}': 338, '~': 680,
-};
-
-/// 中文：提示里会出现、又不在 ASCII 那 95 条里的几个字形；CJK 与全角不列，按 1em 记。
-/// English: the few non-ASCII glyphs a hint can carry; CJK and full-width are not listed and count as
-///          1em.
-const Map<String, int> _nonAsciiPerMille = {
-  '·': 375, '°': 463, '±': 583, '×': 584, '÷': 584, 'Ω': 736, 'μ': 583,
-  '²': 351, '³': 351, 'Δ': 733, '→': 793, '′': 275, '″': 275, '…': 1000,
-};
 
 class _EmptyDatabase implements AppDatabase {
   const _EmptyDatabase();
