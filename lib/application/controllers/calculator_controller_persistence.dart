@@ -450,12 +450,35 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          type is that an empty string means "no decimal form"; that invariant has to survive
     //          a restart.
     final hasDecimalField = settings.containsKey('calculator_result_decimal');
+    // 中文：**全应用唯一一处拿那句占位文本当判据的地方，而这里它是存储层的令牌。**
+    //       盘上存的是一列文本，没有别的可读；上一次会话若在一条算不出来的表达式上结束，
+    //       那一列里写着的就是 `MathResult.pending` 的文本。此时立起 [MathResult.isPlaceholder]，
+    //       三处判据（`reusableResult` / `canContinueWithResult` / `continueWithResult`）看到的
+    //       与盘上那一刻相同——**判据本身不再读文案**（理由见那个字段的注释）。
+    //       比的是 [MathResult.pending] 那一份**自身**的文本，不是这个文件里另抄的一遍字面量；
+    //       三格文本原样带上（哪怕盘上的行是手改出来的），显示与数值消费者读到的因此一个字都不动。
+    //       **策略 (A)（`engineOnly`）下这一格是能观察到的**：那时 `evaluate()` 不上旧解析器的
+    //       结果，盘上这一份会一直留在屏幕上直到引擎回答。
+    // English: **the one place in the app that reads that placeholder sentence as a token, and here it
+    //          is a storage-layer token.** What is on disk is a row of text and nothing else can be
+    //          read from it; if the last session ended on an expression that cannot be evaluated,
+    //          that row carries `MathResult.pending`'s text. [MathResult.isPlaceholder] is raised
+    //          then, so the three judgements (`reusableResult` / `canContinueWithResult` /
+    //          `continueWithResult`) see what they saw at the moment it was written — **the
+    //          judgements themselves no longer read copy** (why: see that field's note). The
+    //          comparison is against [MathResult.pending]'s **own** text rather than a second copy of
+    //          the literal in this file; the three text cells travel as they are (even for a
+    //          hand-edited row), so what the display and the numeric consumers read does not move by
+    //          one character. **Under policy (A) (`engineOnly`) this cell is observable**: there
+    //          `evaluate()` does not put the legacy result up, so the stored one stays on screen
+    //          until the engine answers.
     return MathResult(
       displayText: displayText,
       displayTex: settings['calculator_result_tex'] ?? '',
       decimalText: hasDecimalField
           ? (settings['calculator_result_decimal'] ?? '')
           : decimalTextOf(displayText),
+      isPlaceholder: displayText == MathResult.pending.displayText,
     );
   }
 

@@ -19,6 +19,9 @@ import '../shared/source_scan.dart';
 ///
 ///       `lib/application/controllers/` 里还有没有**没走文案表的界面文案**？这一轮的答案是
 ///       "没有，除了下面那张豁免表点名的那些"——它们不是句子，是**输入文法、判据与日志**。
+///       （上一轮那张豁免表里还有**与结果比较的哨兵** `'等待输入'`一条；本轮三处判据改读
+///       `MathResult.isPlaceholder`，哨兵字面量在控制器目录里一条不剩，那一条豁免因此被拆掉，
+///       总数从 53 变成 52——**理由被删掉时该说一声**，见「占位由身份回答」那条测试。）
 ///       三张表（`ToolDetailStrings` / `NumericInputStrings` / `CalculatorControllerStrings`）里
 ///       "表里的字对不对"的断言在各自的测试文件里；这一份只问"源码里还剩什么"。
 ///
@@ -52,7 +55,11 @@ import '../shared/source_scan.dart';
 ///          Is there **interface copy that never went through a table** left in
 ///          `lib/application/controllers/`? This round's answer is "no, apart from what the exemption
 ///          table below names" — those are not sentences but **input grammar, branch conditions and
-///          logs**. The "are the tables' words right" assertions live in each table's own test file;
+///          logs**. (Last round's table also held a sixth entry, **the sentinel compared against
+///          results**, `'等待输入'`; this round the three judgements read `MathResult.isPlaceholder`
+///          instead, not one sentinel literal is left in the controllers directory, and that
+///          exemption was therefore removed — the total goes from 53 to 52. **A reason that is
+///          removed should say so**; see the "占位由身份回答" test.) The "are the tables' words right" assertions live in each table's own test file;
 ///          this one asks only what is left in the source.
 ///
 ///          ### The ruler and the coverage
@@ -103,8 +110,7 @@ void main() {
       for (final literal in stringLiterals(source)) {
         if (!containsWideOrFullwidth(literal)) continue;
         if (_dataLiterals.contains(literal) ||
-            _logLiterals.contains(literal) ||
-            _sentinelLiterals.contains(literal)) {
+            _logLiterals.contains(literal)) {
           used.add(literal);
           continue;
         }
@@ -120,44 +126,84 @@ void main() {
         reason: '豁免表里这些条目一条都没用到，是死条目：${dead.join(' | ')}');
   });
 
-  // 中文：**名字里的分组数就是每一组的实测条数**，加起来是 53：输入文法 21、粘贴 JSON 键与正则 17、
-  //       检索归一化 10、截断省略号 2、日志 2、哨兵 1。名字写错一个数不会让测试变红，所以下面那条
-  //       断言量的是**总数**——分组数靠这一段与源码里的注释对齐。
-  // English: **the group counts in the name are the measured counts**, and they add up to 53: input
+  // 中文：**名字里的分组数就是每一组的实测条数**，加起来是 52：输入文法 21、粘贴 JSON 键与正则 17、
+  //       检索归一化 10、截断省略号 2、日志 2。**哨兵那一条本轮拆掉了**（53 → 52）：三处判据改读
+  //       `MathResult.isPlaceholder` 之后，`'等待输入'` 在控制器目录里一个字符串字面量都不剩，
+  //       留着它就成了一条永远不生效的死豁免。名字写错一个数不会让测试变红，所以下面那条断言量的
+  //       是**总数**——分组数靠这一段与源码里的注释对齐。
+  // English: **the group counts in the name are the measured counts**, and they add up to 52: input
   //          grammar 21, paste JSON keys and regexes 17, search normalisation 10, truncation ellipses
-  //          2, logs 2, sentinel 1. A wrong number in a name does not turn the test red, so what the
-  //          assertion below measures is the **total** — the group counts are kept honest by this
-  //          paragraph and the comments in the source.
+  //          2, logs 2. **The sentinel entry was removed this round** (53 → 52): once the three
+  //          judgements read `MathResult.isPlaceholder`, not one `'等待输入'` string literal is left in
+  //          the controllers directory, so keeping it would have been a permanently idle exemption. A
+  //          wrong number in a name does not turn the test red, so what the assertion below measures
+  //          is the **total** — the group counts are kept honest by this paragraph and the comments in
+  //          the source.
   test('豁免表逐条命中：输入文法 21 条、粘贴 JSON 键与正则 17 条、检索归一化 10 条、'
-      '截断省略号 2 条、日志 2 条、哨兵 1 条', () {
+      '截断省略号 2 条、日志 2 条', () {
     // 中文：**这一条量的是"豁免表的形状没变"。** 数字会随中文措辞与新增文件一起动，所以它的用处
-    //       不是"证明 53 这个数很对"，而是"豁免表没有空转、也没有在没人看的时候长胖"。
+    //       不是"证明 52 这个数很对"，而是"豁免表没有空转、也没有在没人看的时候长胖"。
     //       上面那条测试已经在数量上钉住了"没有死条目"，这一条钉住的是总量。
     // English: **this measures the shape of the exemption table.** The number moves with Chinese wording
-    //          and new files, so its job is not "53 is the right number" but "the table is neither
+    //          and new files, so its job is not "52 is the right number" but "the table is neither
     //          idling nor quietly fattening when nobody is looking". The test above already pins "no
     //          dead entry"; this one pins the total.
-    expect(_allExemptions.length, 53);
+    expect(_allExemptions.length, 52);
   });
 
-  test('`等待输入` 是哨兵不是文案：判据读的是 MathResult.pending，不是一句话', () {
-    // 中文：**这是本轮最该记住的一条。** `reusableResult` / `continueWithResult` 原先写的是
-    //       `result == '等待输入'`——拿一句**要显示给用户的话**当判据。那句话住在
-    //       `MathResult.pending.displayText` 里（`lib/core/math/math_result.dart`），
-    //       与 `TextToolOutput.hasError` 当初那一份是同一种病：翻译它，判据就永远为假。
-    //       **本轮的处置是"不动它"**：它仍然住在 `lib/core/`（本轮范围之外），三条比较原样留着，
-    //       被下面的豁免表点名。这里钉住的是**它的身份**——它是 `MathResult.pending`，
-    //       而不是屏幕上那句话。
-    // English: **the one thing to remember from this round.** `reusableResult` / `continueWithResult`
-    //          used to read `result == '等待输入'` — a **sentence meant for the user** doubling as a
-    //          branch condition. That sentence lives in `MathResult.pending.displayText`
-    //          (`lib/core/math/math_result.dart`), the same disease `TextToolOutput.hasError` had:
-    //          translate it and the condition is forever false. **This round's disposal is to leave it
-    //          alone**: it still lives in `lib/core/` (outside this round's scope), the three
-    //          comparisons stay as they are, and the exemption table below names it. What is pinned
-    //          here is its **identity** — it is `MathResult.pending`, not a sentence on screen.
+  test('占位由身份回答：三处判据读 isPlaceholder，不拿那句话去比', () {
+    // 中文：**上一轮记下、这一轮拆掉的那一条。** `reusableResult` / `canContinueWithResult` /
+    //       `continueWithResult` 原先写的是 `result == '等待输入'`——拿一句**要显示给用户的话**当
+    //       判据。与 `TextToolOutput.hasError` 当初那一份是同一种病：翻译它，判据就永远为假。
+    //       现在的处置是给它一个真正的答案：`MathResult.isPlaceholder`（身份是字段，那句话只是
+    //       它印出来的样子）。这条测试从**行为**那一侧钉住它，不钉源码的字形：
+    //       1. 占位本身：身份为真，而印出来的那句话**一字未动**（显示没有跟着改）；
+    //       2. 只是印出同一句话、身份却是「值」的结果**不是**占位——这正是"判据不读文案"的含义；
+    //       3. 三处判据在控制器上一起动：不能继续、写回 `0`、按下「继续使用」表达式不动。
+    // English: **the row this round removes, recorded last round.** `reusableResult` /
+    //          `canContinueWithResult` / `continueWithResult` used to read `result == '等待输入'` — a
+    //          **sentence meant for the user** doubling as a branch condition, the same disease
+    //          `TextToolOutput.hasError` had: translate it and the condition is forever false. The
+    //          disposal is to give that question a real answer — `MathResult.isPlaceholder` (the
+    //          identity is a field; the sentence is only how it prints). This test pins it **from the
+    //          behaviour side**, not by matching source shapes:
+    //          1. the placeholder itself: the flag is true while the sentence it prints is **not moved
+    //             by one character** (the display did not change with the judgement);
+    //          2. a result that merely prints the same sentence but is a *value* is **not** the
+    //             placeholder — which is exactly what "the judgement does not read the copy" means;
+    //          3. all three judgements move together on a controller: not continuable, writes `0`
+    //             back, and pressing continue-with-result leaves the expression alone.
+    expect(MathResult.pending.isPlaceholder, isTrue);
     expect(MathResult.pending.displayText, '等待输入');
     expect(MathResult.pending.decimalText, isEmpty);
+    expect(MathResult.zero.isPlaceholder, isFalse);
+    expect(MathResult.legacy('等待输入').isPlaceholder, isFalse);
+
+    final db = DatasetFakeDatabase();
+    final controller = CalculatorController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+      settingsRepository: SettingsRepository(db),
+      settings: AppSettings.fallback,
+      engine: DatasetFakeMathEngine(datasetEngineUnavailable),
+      liveEvaluationDelay: const Duration(minutes: 10),
+      liveEngineFollowUpDelay: const Duration(minutes: 10),
+    );
+    addTearDown(controller.dispose);
+    controller.applyMathResult(MathResult.pending);
+    expect(controller.result, '等待输入');
+    expect(controller.canContinueWithResult, isFalse);
+    expect(controller.reusableResult, '0');
+    controller.continueWithResult();
+    expect(controller.expression, isEmpty);
+    // 中文：有结果时三处照旧——判据只换了个问法，没有变宽也没有变窄。
+    // English: with a result on screen all three are what they were — the judgement changed its
+    //          question, not its width.
+    controller.applyMathResult(MathResult.legacy('5'));
+    expect(controller.canContinueWithResult, isTrue);
+    expect(controller.reusableResult, '5');
+    controller.continueWithResult();
+    expect(controller.expression, '5');
   });
 
   test('持久化令牌 `数学符号` 只有一处：`SettingsTokens`，kill switch 直接引用它', () {
@@ -275,15 +321,6 @@ const Set<String> _bilingualSearchIndex = <String>{
   'tool_search_data.dart',
 };
 
-/// 中文：**与输入比较的判据**——`'等待输入'` 是 `MathResult.pending.displayText`，三条比较读的是
-///       那个哨兵。理由见文件头与 `tool_detail_strings.dart` 第 3 条。
-/// English: **the sentinel compared against results** — `'等待输入'` is
-///          `MathResult.pending.displayText`, and the three comparisons read that sentinel. See the file
-///          head and item 3 on `tool_detail_strings.dart`.
-const Set<String> _sentinelLiterals = <String>{
-  '等待输入',
-};
-
 /// 中文：**写给开发者看的日志**。两条 `debugPrint` 的正文；用户看不到，而且日志保持一种语言才好
 ///       grep。理由见 `tool_detail_strings.dart` 第 4 条。
 /// English: **logs written for developers.** The bodies of two `debugPrint`s; they never reach a user,
@@ -338,5 +375,4 @@ final Set<String> _dataLiterals = <String>{
   r'${normalized.substring(0, 33)}…',
 };
 
-Set<String> get _allExemptions =>
-    _dataLiterals.union(_logLiterals).union(_sentinelLiterals);
+Set<String> get _allExemptions => _dataLiterals.union(_logLiterals);

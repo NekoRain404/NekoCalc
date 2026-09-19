@@ -197,4 +197,36 @@ void main() {
     expect(MathResult.zero.decimalText, '0');
     expect(MathResult.pending.decimalText, isEmpty);
   });
+
+  test('the placeholder is an identity, not a sentence', () {
+    // 中文：**占位由 [MathResult.isPlaceholder] 回答。** 那句话（`等待输入`）是**显示**，不是判据：
+    //       控制器三处判据（`reusableResult` / `canContinueWithResult` / `continueWithResult`）
+    //       现在读这个字段——翻译那句话、改一个标点、换一种界面语言，都不会让判据变成永远为假。
+    //       所以这里钉两件事：占位那一份为真，**印着同一句话的普通结果为假**。
+    //       （`MathResult.legacy('等待输入')` 是后者的构造实例：旧求值器其实产出不了它——
+    //       `formatNumber` 只会给数字——所以那是一个测试才造得出的状态，而 `==` 与它必须说"不相等"：
+    //       一份是占位、一份是值，行为不同。）
+    // English: **the placeholder is answered by [MathResult.isPlaceholder].** The sentence (`等待输入`)
+    //          is the **display**, not the judgement: the controller's three judgements
+    //          (`reusableResult` / `canContinueWithResult` / `continueWithResult`) read this field now,
+    //          so translating the sentence, moving a punctuation mark or switching the interface
+    //          language cannot make the judgement permanently false. Two things are pinned here: the
+    //          placeholder's flag is true, and **an ordinary result printing the same sentence is
+    //          false**. (`MathResult.legacy('等待输入')` builds the latter: the legacy evaluator
+    //          cannot really produce it — `formatNumber` only ever yields numbers — so that state is
+    //          one only a test can build, and `==` has to call it *unequal*: one is a placeholder,
+    //          the other a value, and they behave differently.)
+    expect(MathResult.pending.isPlaceholder, isTrue);
+    expect(MathResult.pending.displayText, '等待输入');
+    expect(MathResult.pending.decimalText, isEmpty);
+    expect(MathResult.legacy('等待输入').isPlaceholder, isFalse);
+    expect(MathResult.legacy('等待输入'), isNot(MathResult.pending));
+    expect(MathResult.zero.isPlaceholder, isFalse);
+    expect(MathResult.legacy('5').isPlaceholder, isFalse);
+    // 中文：字段是构造时就定下的，不是算出来的——两"份"占位相等（值相等），而它与一份普通结果不等。
+    // English: the cell is set at construction rather than computed — two placeholders are equal (value
+    //          equality), and neither equals an ordinary result.
+    expect(const MathResult(displayText: '等待输入', isPlaceholder: true),
+        MathResult.pending);
+  });
 }

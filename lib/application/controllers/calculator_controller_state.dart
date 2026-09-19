@@ -314,18 +314,29 @@ mixin _CalculatorState on ChangeNotifier {
   /// 中文：「继续使用」写回表达式的那份文本：**十进制形态**优先，没有十进制形态时才退回显示
   ///       文本（去掉千分位）——与拆分前的 `result.replaceAll(',', '')` 逐字节一致，因此现有输入
   ///       的行为一字未变；而精确引擎接入后，写回的是十进制近似，不是 `4√2`。
+  ///
+  ///       **「有没有可用的结果」这个问题由结果自己的字段回答**（[MathResult.isPlaceholder]），
+  ///       不再拿屏幕上那句话去比。判据与文案为什么必须分家、以及这一路上确诊的四处病史，写在
+  ///       那个字段的注释里；这一条与下面的 [canContinueWithResult]、`continueWithResult` 是同
+  ///       一处判据的三张脸，三处读的都是同一个字段。
   /// English: The text "continue with result" writes back into the expression: the decimal form
   ///          first, the display text with its grouping separators stripped only when there is no
   ///          decimal form — byte-for-byte what `result.replaceAll(',', '')` produced before the
   ///          split, so every existing input behaves exactly as it did. Once the exact engine lands,
   ///          what gets written back is the decimal approximation rather than `4√2`.
+  ///
+  ///          **"Is there a usable result" is answered by the result's own field**
+  ///          ([MathResult.isPlaceholder]) rather than by comparing the sentence on screen. Why
+  ///          verdict and wording have to part company, and the four confirmed cases of that disease
+  ///          along the way, are on that field's own note; this getter, [canContinueWithResult] and
+  ///          `continueWithResult` are three faces of one judgement and read one field.
   String get reusableResult {
-    if (hasError || result == '等待输入') return '0';
+    if (hasError || _result.isPlaceholder) return '0';
     return _result.reusableText;
   }
 
   bool get canContinueWithResult =>
-      !hasError && result.trim().isNotEmpty && result != '等待输入';
+      !hasError && result.trim().isNotEmpty && !_result.isPlaceholder;
 
   bool get canSaveCurrentExpression =>
       expression.trim().isNotEmpty && canContinueWithResult;

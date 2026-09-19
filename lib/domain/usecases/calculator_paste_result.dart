@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../core/math/math_result.dart';
 import '../../core/utils/number_formatter.dart';
+import 'calculator_report_labels.dart';
 
 enum CalculatorPasteStatus {
   empty,
@@ -29,14 +30,24 @@ class CalculatorPasteResult {
   factory CalculatorPasteResult.fromText(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return const CalculatorPasteResult.empty();
+    // 中文：**三组标签从产出方那张表取**（`CalculatorReportLabels`）：报告上的词跟着界面语言走，
+    //       而剪贴板里那一份可能是另一种语言下复制出来的，所以要的是**每一种语言**的写法——
+    //       `spellingsOf` 拼的就是那个并集。源码里不再另抄一份词。
+    // English: **three label sets come from the producer's table** (`CalculatorReportLabels`): a
+    //          report's words follow the interface language and the clipboard's copy may have been
+    //          taken under another one, so what is needed is the spelling in **every** language —
+    //          which is the union `spellingsOf` builds. No second copy of the words stays in this
+    //          file.
     final fromReport = _looksLikeCalculatorReport(trimmed);
-    final labeledExpression =
-        _labeledValue(trimmed, const ['表达式', 'expression']);
-    final currentValue = _labeledValue(trimmed, const ['当前值', 'current value']);
+    final labeledExpression = _labeledValue(
+        trimmed, CalculatorReportLabels.spellingsOf((labels) => labels.expression));
+    final currentValue = _labeledValue(trimmed,
+        CalculatorReportLabels.spellingsOf((labels) => labels.currentValue));
     // 中文：报告在显示文本不是可解析十进制时（精确形式 `4√2`）会额外写一行十进制，粘贴时它优先。
     // English: When the report's display text is not a parseable decimal (an exact form such as
     //          `4√2`) it carries an extra decimal line, and that line wins on paste.
-    final decimalValue = _labeledValue(trimmed, const ['十进制', 'decimal']);
+    final decimalValue = _labeledValue(
+        trimmed, CalculatorReportLabels.spellingsOf((labels) => labels.decimal));
     final restoredCurrentValue = labeledExpression == null &&
         (currentValue != null || decimalValue != null);
     final expression = labeledExpression ??
@@ -199,6 +210,56 @@ class CalculatorPasteResult {
     return pattern.firstMatch(text)?.group(1)?.trim();
   }
 
+  /// 中文：**报告标签行的全部写法**——「这一行是不是报告自己写的那几个标签之一」这道判据的词，
+  ///       从产出方那张表（[CalculatorReportLabels]）取，源码里不再另抄一份。
+  ///
+  ///       **它原先抄了一份**，于是报告的词与这里的词是两份；词一改（或者报告跟着界面语言换一套），
+  ///       这里就悄悄对不上，`状态: …` 那一行会被当成"像表达式"的一行返回出去，粘回来的是一个句子。
+  ///       这一条与 [_looksLikeCalculatorReport] 是同一根因的两处（那里判"整段是不是报告"，
+  ///       这里判"这一行要不要跳过"）。
+  ///
+  ///       **哪些标签要跳过是本处的事，怎么写由表说了算**：集合里是九条报告行里**除 `表达式` 以外**
+  ///       的七个标签（`表达式` 不跳——它是报告正文里唯一"值本身可能像表达式"的一行，
+  ///       而这一条路只在整段**不是**报告时才走到）。这张表的成员与今天逐条相同，
+  ///       **一个字都没动**：这份名单是行为，不是文案。`保存时间` 同样不在里面（今天也不在）。
+  ///
+  ///       **折成小写是这里做的**（表里存的是产出方印出来的原样：`'Current value'`），
+  ///       与今天那几条小写字面量逐字符一致；中文那几个词折了也不变。
+  /// English: **every spelling of a report label line** — the words behind "is this line one of the
+  ///          labels the report itself writes", taken from the producer's table
+  ///          ([CalculatorReportLabels]) instead of a second copy in this source.
+  ///
+  ///          **There used to be a second copy here**, so the report's words and these words were two
+  ///          sets; change a word (or have the report switch sets with the interface language) and
+  ///          this side quietly stops matching, so a `状态: …` line gets returned as "the line that
+  ///          looks like an expression" and what comes back out of the paste is a sentence. This and
+  ///          [_looksLikeCalculatorReport] are two faces of one cause (that one asks "is the whole
+  ///          text a report", this one asks "should this line be skipped").
+  ///
+  ///          **Which labels to skip is decided here; how they are spelled is the table's business.**
+  ///          The set holds seven of the nine report labels — every one but `表达式` (which is not
+  ///          skipped: it is the one report line whose value may itself look like an expression, and
+  ///          this road is only reached when the whole text is **not** a report). The membership is
+  ///          character for character today's list: **that list is behaviour, not copy.** `保存时间`
+  ///          is not in it either (nor was it today).
+  ///
+  ///          **Lower-casing happens here** (the table holds what the producer prints, `'Current value'`
+  ///          among them), which leaves the words byte-identical to today's lower-case literals; the
+  ///          Chinese ones do not change under a fold.
+  static final List<String> _skippedLineHeads = <String>[
+    for (final labels in CalculatorReportLabels.all)
+      for (final word in <String>[
+        labels.currentValue,
+        labels.decimal,
+        labels.result,
+        labels.status,
+        labels.angleMode,
+        labels.memory,
+        labels.error,
+      ])
+        word.toLowerCase(),
+  ];
+
   static String _firstExpressionLikeLine(String text) {
     final lines = const LineSplitter()
         .convert(text)
@@ -208,20 +269,7 @@ class CalculatorPasteResult {
     if (lines.isEmpty) return '';
     for (final line in lines) {
       final normalized = line.toLowerCase();
-      if (normalized.startsWith('当前值') ||
-          normalized.startsWith('current value') ||
-          normalized.startsWith('十进制') ||
-          normalized.startsWith('decimal') ||
-          normalized.startsWith('结果') ||
-          normalized.startsWith('result') ||
-          normalized.startsWith('状态') ||
-          normalized.startsWith('status') ||
-          normalized.startsWith('角度模式') ||
-          normalized.startsWith('angle mode') ||
-          normalized.startsWith('记忆值') ||
-          normalized.startsWith('memory') ||
-          normalized.startsWith('错误') ||
-          normalized.startsWith('error')) {
+      if (_skippedLineHeads.any((head) => normalized.startsWith(head))) {
         continue;
       }
       return line;
@@ -230,7 +278,8 @@ class CalculatorPasteResult {
   }
 
   static String? _angleModeFromText(String text) {
-    final raw = _labeledValue(text, const ['角度模式', 'angle mode']);
+    final raw = _labeledValue(
+        text, CalculatorReportLabels.spellingsOf((labels) => labels.angleMode));
     if (raw == null) return null;
     final normalized = raw.toLowerCase();
     if (normalized.contains('deg') || raw.contains('角度')) return 'DEG';
@@ -255,17 +304,45 @@ class CalculatorPasteResult {
   ///          a foreign report can build that line (this app's own reports write
   ///          `formatNumber(memoryValue)`), but that does not make it right.
   static double? _memoryValueFromText(String text) {
-    final raw = _labeledValue(text, const ['记忆值', 'memory', 'memory value']);
+    // 中文：`memory value` 是这里自己加的别名，理由与 [_looksLikeCalculatorReport] 那一处逐字相同。
+    // English: `memory value` is an alias added here; the reason is character for character the one on
+    //          [_looksLikeCalculatorReport].
+    final raw = _labeledValue(text, <String>[
+      ...CalculatorReportLabels.spellingsOf((labels) => labels.memory),
+      'memory value',
+    ]);
     if (raw == null) return null;
     return decimalValueOf(raw.replaceAll(',', '').trim());
   }
 
+  /// 中文：**这一段是不是本应用自己写出来的报告。** 判据是"有没有一条报告标签行"，
+  ///       而标签的词从产出方那张表取（[CalculatorReportLabels]）——报告跟着界面语言走，
+  ///       所以这里读的是**每一种语言**的并集，源码里不再另抄一份。
+  ///
+  ///       **`memory value` 是这里自己加的一个别名**（表里没有它，因为应用从不写这个词）：
+  ///       外层报告/旧版本报告可能这么写，今天认得它，这一轮不动这个宽容量。它在
+  ///       [_memoryValueFromText] 里也出现——两处逐条相同。
+  /// English: **whether this text is a report this app itself wrote.** The judgement is "is there a
+  ///          report label line", and the label words come from the producer's table
+  ///          ([CalculatorReportLabels]) — a report follows the interface language, so this reads the
+  ///          union over **every** language rather than a second copy in this source.
+  ///
+  ///          **`memory value` is an alias added here** (the table has no such word, because the app
+  ///          never writes it): a foreign or older report may spell it that way, it is accepted today,
+  ///          and this round does not touch that leniency. It appears in [_memoryValueFromText] too,
+  ///          character for character the same.
   static bool _looksLikeCalculatorReport(String text) {
-    return _labeledValue(text, const ['表达式', 'expression']) != null ||
-        _labeledValue(text, const ['当前值', 'current value']) != null ||
-        _labeledValue(text, const ['十进制', 'decimal']) != null ||
-        _labeledValue(text, const ['结果', 'result']) != null ||
-        _labeledValue(text, const ['角度模式', 'angle mode']) != null ||
-        _labeledValue(text, const ['记忆值', 'memory', 'memory value']) != null;
+    final labelSets = <List<String>>[
+      CalculatorReportLabels.spellingsOf((labels) => labels.expression),
+      CalculatorReportLabels.spellingsOf((labels) => labels.currentValue),
+      CalculatorReportLabels.spellingsOf((labels) => labels.decimal),
+      CalculatorReportLabels.spellingsOf((labels) => labels.result),
+      CalculatorReportLabels.spellingsOf((labels) => labels.angleMode),
+      <String>[
+        ...CalculatorReportLabels.spellingsOf((labels) => labels.memory),
+        'memory value',
+      ],
+    ];
+    return labelSets.any((labels) => _labeledValue(text, labels) != null);
   }
 }

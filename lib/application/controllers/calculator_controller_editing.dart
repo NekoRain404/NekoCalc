@@ -250,8 +250,15 @@ mixin _CalculatorEditing on _CalculatorState {
   bool _isIdentifierChar(String char) =>
       RegExp(r'[A-Za-z0-9_]').hasMatch(char);
 
+  /// 中文：把结果写回表达式。**「有没有可用的结果」读的是结果自己的字段**
+  ///       （[MathResult.isPlaceholder]），不是屏幕上那句话——理由与病史见那个字段；
+  ///       [reusableResult] 与 [canContinueWithResult] 是同一处判据的另外两张脸。
+  /// English: write the result back into the expression. **"Is there a usable result" reads the
+  ///          result's own field** ([MathResult.isPlaceholder]) rather than the sentence on screen —
+  ///          the reason and the history are on that field; [reusableResult] and
+  ///          [canContinueWithResult] are the other two faces of the same judgement.
   void continueWithResult() {
-    if (hasError || result == '等待输入') return;
+    if (hasError || _result.isPlaceholder) return;
     _markStateEdited();
     _recordUndoSnapshot();
     expression = reusableResult;

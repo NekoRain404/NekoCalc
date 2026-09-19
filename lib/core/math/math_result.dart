@@ -211,6 +211,7 @@ class MathResult {
     this.decimalText = '',
     this.quantityText = '',
     this.resultKind = EngineResultKind.notFromEngine,
+    this.isPlaceholder = false,
   });
 
   /// 中文：旧求值器的产物——显示文本本身就是十进制文本（去掉千分位之后），并且没有 LaTeX。
@@ -231,10 +232,13 @@ class MathResult {
   ///          the result of an empty expression.
   static const MathResult zero = MathResult(displayText: '0', decimalText: '0');
 
-  /// 中文：等待输入的占位结果，`evaluate()` 失败时用它，不带十进制形态。
+  /// 中文：等待输入的占位结果，`evaluate()` 失败时用它，不带十进制形态。**它是唯一一份
+  ///       [isPlaceholder] 为真的结果**，判据请读那个字段，不要读 [displayText]。
   /// English: The "waiting for input" placeholder, used when `evaluate()` fails; it carries no
-  ///          decimal form on purpose.
-  static const MathResult pending = MathResult(displayText: '等待输入');
+  ///          decimal form on purpose. **It is the one result whose [isPlaceholder] is true** — read
+  ///          that field for the judgement, never [displayText].
+  static const MathResult pending =
+      MathResult(displayText: '等待输入', isPlaceholder: true);
 
   /// 中文：给人读的文本（`4√2` 或 `5.6568542`）。结果行、复制、笔记、历史都读它。
   /// English: What a human reads (`4√2`, or `5.6568542`). The result line, copy, notes and history
@@ -355,6 +359,47 @@ class MathResult {
   ///          [EngineResultKind.notFromEngine]. **Only [isDisplayable] reads it**: it is one of the
   ///          inputs to the "may this be displayed" judgement, not something other consumers look at.
   final EngineResultKind resultKind;
+
+  /// 中文：**这一份结果是不是「这一次没有可用的结果」那个占位**——[pending] 一个，没有第二个。
+  ///
+  ///       **为什么它必须是一个字段，而不是拿 [displayText] 去比。** 占位的那句话是要显示给用户的，
+  ///       判据若读它，翻译它、改一个标点、或者界面语言一换，判据就**永远为假**：没有异常、没有
+  ///       日志，只是行为换了一套。这个病在本项目里确诊过四次（`TextToolOutput.hasError`、
+  ///       持久化令牌 `数学符号`、`_resultNeedsAttention` 的 122 处 `contains`，以及
+  ///       `reusableResult` / `canContinueWithResult` / `continueWithResult` 那三处）。
+  ///       所以：**身份是字段，那句话只是它印出来的样子。**
+  ///
+  ///       **唯一一处读那句文本的地方是状态恢复**（`_restoredResult`）：盘上存的就是一列文本，
+  ///       没有别的可读，于是那里拿 [pending] 的文本当**存储层的令牌**比一次，比中了就把这一格
+  ///       立起来——那是边界上的反序列化，不是判据读文案。除此之外每一个写入点都由构造方式决定：
+  ///       [legacy]、[zero]、引擎那一条路、错误文案那一条路都走默认值 `false`。
+  ///
+  ///       三处消费者问的都是同一个问题——「有没有可用的结果」：控制器的 `reusableResult`
+  ///       （没有就写回 `0`）、`canContinueWithResult`、`continueWithResult`。
+  /// English: **whether this result is the "no usable result this time" placeholder** — [pending] is
+  ///          the one, there is no second.
+  ///
+  ///          **Why this has to be a field rather than a comparison against [displayText].** The
+  ///          placeholder's sentence is meant for the user; a judgement that reads it goes
+  ///          **permanently false** the moment that sentence is translated, punctuated differently or
+  ///          the interface language changes: nothing throws, nothing is logged, the behaviour simply
+  ///          becomes a different one. This project has confirmed that disease four times
+  ///          (`TextToolOutput.hasError`, the persisted token `数学符号`, the 122 `contains` sites in
+  ///          `_resultNeedsAttention`, and the three sites in `reusableResult` /
+  ///          `canContinueWithResult` / `continueWithResult`). So: **the identity is a field; the
+  ///          sentence is only how it prints.**
+  ///
+  ///          **The one place that reads that text is state restore** (`_restoredResult`): what is on
+  ///          disk is a row of text and nothing else can be read there, so it compares against
+  ///          [pending]'s text as a **storage-layer token** and raises this cell when it matches —
+  ///          deserialisation at the boundary, not a judgement reading copy. Everywhere else the cell
+  ///          follows from how the result was built: [legacy], [zero], the engine's road and the
+  ///          error-message road all take the default `false`.
+  ///
+  ///          All three consumers ask one question — "is there a usable result the controller can
+  ///          write back": `reusableResult` (writes `0` when there is not), `canContinueWithResult`
+  ///          and `continueWithResult`.
+  final bool isPlaceholder;
 
   /// 中文：十进制形态——**唯一**允许被数值消费者解析的形态（Ans/last、记忆、继续使用、历史去重、
   ///       粘贴回填）。空串表示「没有可解析的十进制表示」，这不是错误，调用方必须照常工作。
@@ -647,18 +692,27 @@ class MathResult {
         //          and two results that "draw the same" while differing here would write back two
         //          different numbers into the expression (`==` calling them equal would be that lie).
         other.quantityText == quantityText &&
-        other.resultKind == resultKind;
+        other.resultKind == resultKind &&
+        // 中文：`isPlaceholder` 也进相等与哈希，理由与 `resultKind` 同：两份文本字段一模一样、
+        //       而一份是占位、另一份是值的结果，**行为不同**（`reusableResult` 一个给 `0`、一个给
+        //       自己那份文本），`==` 说它们一样就成了那个谎。
+        // English: `isPlaceholder` takes part in equality and hashing for the same reason
+        //          `resultKind` does: two results with identical text fields where one is a
+        //          placeholder and the other a value **behave differently** (`reusableResult` gives
+        //          `0` for one and its own text for the other), and `==` calling them equal would be
+        //          that lie.
+        other.isPlaceholder == isPlaceholder;
   }
 
   @override
   int get hashCode => Object.hash(displayText, displayTex, fractionTex, mixedTex,
-      dmsText, decimalText, quantityText, resultKind);
+      dmsText, decimalText, quantityText, resultKind, isPlaceholder);
 
   @override
   String toString() {
     return 'MathResult(displayText: $displayText, displayTex: $displayTex, '
         'fractionTex: $fractionTex, mixedTex: $mixedTex, dmsText: $dmsText, '
         'decimalText: $decimalText, quantityText: $quantityText, '
-        'resultKind: ${resultKind.name})';
+        'resultKind: ${resultKind.name}, isPlaceholder: $isPlaceholder)';
   }
 }

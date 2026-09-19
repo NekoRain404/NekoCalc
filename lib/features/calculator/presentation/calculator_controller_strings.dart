@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/usecases/calculator_report_labels.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：**计算器那几支控制器写的句子。** 状态卡上那两行、复制/笔记/历史正文里的标签、记忆寄存器
@@ -32,17 +33,27 @@ import '../../../l10n/app_language.dart';
 ///
 ///       ### 表里只装"给人看的字"
 ///
-///       四类中文字面量**故意不进来**，可执行的那一份在
+///       三类中文字面量**故意不进来**，可执行的那一份在
 ///       `test/features/controller_sentences_test.dart` 的豁免表里：
 ///       1. **持久化令牌**。`'数学符号'` 是 `SettingsTokens.expressionDisplaySymbols`，存进
 ///          `app_settings.expression_display` 的值，不是屏幕上的字；`kEngineBackedLiveExpressionDisplay`
 ///          现在**直接引用那个常量**，不再抄一遍字面量。
-///       2. **与结果比较的哨兵**。`'等待输入'` 是 `MathResult.pending.displayText`，
-///          `reusableResult` / `continueWithResult` 拿它做判据，翻掉它等于改行为。
-///       3. **开发者日志**。`calculator_controller_evaluation.dart` 里那两条 `debugPrint` 是写给
+///       2. **开发者日志**。`calculator_controller_evaluation.dart` 里那两条 `debugPrint` 是写给
 ///          看 logcat 的人（也就是写代码的人）的，用户看不到；日志保持一种语言才好 grep。
-///       4. **单位名与参数标签**（结果行的 `result.label`、输入行的 `input.label`、
+///       3. **单位名与参数标签**（结果行的 `result.label`、输入行的 `input.label`、
 ///          `tool.formula`）——它们来自工具定义，是**数据**，沿参数一路递进来，不进表。
+///
+///       ⚠️ 这里原先还有第四类：**与结果比较的哨兵** `'等待输入'`（`MathResult.pending.displayText`，
+///       `reusableResult` / `continueWithResult` 拿它做判据）。**这一轮拆掉了**：三处判据改读
+///       `MathResult.isPlaceholder`，控制器目录里再也找不到那句字面量，豁免表上那一条也随之消失
+///       （53 → 52）。**理由被删掉时该说一声**，免得下一页的读者以为它从来只有三条。
+///
+///       ### 报告那九行是**两端共用**的
+///
+///       `reportCurrentValue` … `reportSavedAt` 这九格的词来自
+///       `lib/domain/usecases/calculator_report_labels.dart`（这里只负责拼成 `'$word: $value'`）：
+///       报告上的标签**跟着界面语言走**，而粘贴解析器靠它们认报告，所以两端读同一张表。
+///       理由（判据读文案的那一类）与实测写在那个文件头上。
 /// English: **the sentences the calculator's controllers write.** The two lines on the status card, the
 ///          labels inside the copied/noted/history body, the memory register's refusal, the eleven
 ///          sentences engine errors are translated into, the dataset and fit readings, and the two
@@ -80,22 +91,34 @@ import '../../../l10n/app_language.dart';
 ///
 ///          ### This table holds human-facing text only
 ///
-///          Four kinds of Chinese literal are **deliberately absent**; the executable copy is the
+///          Three kinds of Chinese literal are **deliberately absent**; the executable copy is the
 ///          exemption table in `test/features/controller_sentences_test.dart`:
 ///          1. **Persisted tokens.** `'数学符号'` is `SettingsTokens.expressionDisplaySymbols`, the value
 ///             stored in `app_settings.expression_display` — storage format, not on-screen text; and
 ///             `kEngineBackedLiveExpressionDisplay` now **references that constant** instead of copying
 ///             the literal again.
-///          2. **The sentinel compared against results.** `'等待输入'` is
-///             `MathResult.pending.displayText`, used as a branch condition by `reusableResult` and
-///             `continueWithResult`; translating it would change behaviour.
-///          3. **Developer logs.** The two `debugPrint`s in
+///          2. **Developer logs.** The two `debugPrint`s in
 ///             `calculator_controller_evaluation.dart` are written for whoever reads logcat (i.e.
 ///             whoever writes the code) and never reach a user; a log is easier to grep in one
 ///             language.
-///          4. **Unit names and parameter labels** (a result row's `result.label`, an input row's
+///          3. **Unit names and parameter labels** (a result row's `result.label`, an input row's
 ///             `input.label`, `tool.formula`) — they come from the tool definition as **data**, travel
 ///             in through the parameter list, and never enter a table.
+///
+///          ⚠️ A fourth kind used to stand here: **the sentinel compared against results**,
+///          `'等待输入'` (`MathResult.pending.displayText`, used as a branch condition by
+///          `reusableResult` and `continueWithResult`). **This round removed it**: the three judgements
+///          read `MathResult.isPlaceholder` now, that literal is nowhere in the controllers directory,
+///          and its exemption went with it (53 → 52). **A reason that is removed should say so**, so
+///          the next reader does not think this list was ever only three long.
+///
+///          ### The report's nine lines are **shared by both ends**
+///
+///          The words in the nine cells `reportCurrentValue` … `reportSavedAt` come from
+///          `lib/domain/usecases/calculator_report_labels.dart` (this side only joins them into
+///          `'$word: $value'`): a report's labels **follow the interface language**, and the paste
+///          parser recognises reports by them, so both ends read one table. The reason (the class of
+///          judgement-reading-copy) and the measurements are on that file's head.
 @immutable
 class CalculatorControllerStrings {
   const CalculatorControllerStrings({
@@ -277,15 +300,32 @@ class CalculatorControllerStrings {
     angleModeRadians: '弧度 RAD',
     savedNoteTitle: '计算结果',
     savedNoteDescription: (angleMode) => '由计算器保存，$angleMode',
-    reportCurrentValue: (value) => '当前值: $value',
-    reportExpression: (expression) => '表达式: $expression',
-    reportResult: (result) => '结果: $result',
-    reportDecimal: (decimalText) => '十进制: $decimalText',
-    reportStatus: (statusTitle) => '状态: $statusTitle',
-    reportAngleMode: (angleMode) => '角度模式: $angleMode',
-    reportMemory: (memoryValue) => '记忆值: $memoryValue',
-    reportError: (message) => '错误: $message',
-    reportSavedAt: (time) => '保存时间: $time',
+    // 中文：**九个标签的词从 `CalculatorReportLabels.zh` 取**，这里只负责拼成句子。
+    //       粘贴解析器读的是同一张表（`spellingsOf` 取的是每种语言的并集），所以词改了、
+    //       或者加了一种语言，产出方与判据一起动——两处各自抄一份词的老路已经拆掉了（判据读文案
+    //       的那一类，理由写在 `calculator_report_labels.dart` 的文件头上）。
+    //       拼出来的一行**逐字节不变**：`'$word: $value'`。
+    // English: **the nine label words come from `CalculatorReportLabels.zh`**; this side only joins
+    //          them into sentences. The paste parser reads the same table (`spellingsOf` builds the
+    //          union over every language), so a changed word — or a new language — moves the producer
+    //          and the judgement together; the old two-copies-of-the-words road is gone (that class of
+    //          judgement-reading-copy is explained on `calculator_report_labels.dart`'s head). Each
+    //          line is **byte-identical**: `'$word: $value'`.
+    reportCurrentValue: (value) =>
+        '${CalculatorReportLabels.zh.currentValue}: $value',
+    reportExpression: (expression) =>
+        '${CalculatorReportLabels.zh.expression}: $expression',
+    reportResult: (result) => '${CalculatorReportLabels.zh.result}: $result',
+    reportDecimal: (decimalText) =>
+        '${CalculatorReportLabels.zh.decimal}: $decimalText',
+    reportStatus: (statusTitle) =>
+        '${CalculatorReportLabels.zh.status}: $statusTitle',
+    reportAngleMode: (angleMode) =>
+        '${CalculatorReportLabels.zh.angleMode}: $angleMode',
+    reportMemory: (memoryValue) =>
+        '${CalculatorReportLabels.zh.memory}: $memoryValue',
+    reportError: (message) => '${CalculatorReportLabels.zh.error}: $message',
+    reportSavedAt: (time) => '${CalculatorReportLabels.zh.savedAt}: $time',
     statusNeedsFix: '表达式需要修正',
     statusCurrentReusable: '当前值可继续使用',
     statusResultReusable: '结果可继续使用',
@@ -338,15 +378,24 @@ class CalculatorControllerStrings {
     angleModeRadians: 'Radians RAD',
     savedNoteTitle: 'Calculation result',
     savedNoteDescription: (angleMode) => 'Saved from the calculator, $angleMode',
-    reportCurrentValue: (value) => 'Current value: $value',
-    reportExpression: (expression) => 'Expression: $expression',
-    reportResult: (result) => 'Result: $result',
-    reportDecimal: (decimalText) => 'Decimal: $decimalText',
-    reportStatus: (statusTitle) => 'Status: $statusTitle',
-    reportAngleMode: (angleMode) => 'Angle mode: $angleMode',
-    reportMemory: (memoryValue) => 'Memory: $memoryValue',
-    reportError: (message) => 'Error: $message',
-    reportSavedAt: (time) => 'Saved at: $time',
+    // 中文：与中文那一份同一处来源，理由逐字相同——`CalculatorReportLabels.en`。
+    // English: the same single source as the Chinese entry, character for character the same reason —
+    //          `CalculatorReportLabels.en`.
+    reportCurrentValue: (value) =>
+        '${CalculatorReportLabels.en.currentValue}: $value',
+    reportExpression: (expression) =>
+        '${CalculatorReportLabels.en.expression}: $expression',
+    reportResult: (result) => '${CalculatorReportLabels.en.result}: $result',
+    reportDecimal: (decimalText) =>
+        '${CalculatorReportLabels.en.decimal}: $decimalText',
+    reportStatus: (statusTitle) =>
+        '${CalculatorReportLabels.en.status}: $statusTitle',
+    reportAngleMode: (angleMode) =>
+        '${CalculatorReportLabels.en.angleMode}: $angleMode',
+    reportMemory: (memoryValue) =>
+        '${CalculatorReportLabels.en.memory}: $memoryValue',
+    reportError: (message) => '${CalculatorReportLabels.en.error}: $message',
+    reportSavedAt: (time) => '${CalculatorReportLabels.en.savedAt}: $time',
     statusNeedsFix: 'The expression needs fixing',
     statusCurrentReusable: 'The current value can be reused',
     statusResultReusable: 'The result can be reused',

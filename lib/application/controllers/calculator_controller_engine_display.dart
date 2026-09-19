@@ -135,6 +135,16 @@ mixin _CalculatorEngineDisplay on _CalculatorState {
       decimalText: engineResult.decimalText,
       quantityText: quantityText,
       resultKind: engineResult.resultKind,
+      // 中文：`isPlaceholder` 也**必须跟着走**，与 `resultKind` 同一条理由：谁漏了一格，谁就在
+      //       重建出来的结果上留下一格与来源不同的值。引擎给的结果不会是占位（它是引擎答出来的），
+      //       所以今天这一行恒等于 `false`——**但那是碰巧，不是设计**；写在这里，下一个读的人
+      //       不必再去问「这一格是忘了还是本来就不用带」。
+      // English: `isPlaceholder` **has to travel** as well, for the same reason `resultKind` does:
+      //          whoever drops a cell leaves a rebuilt result carrying a different value from its
+      //          source. An engine result is never a placeholder (the engine answered it), so this
+      //          line is always `false` today — **a coincidence, not a design**; written here so the
+      //          next reader need not ask whether the cell was forgotten or simply not needed.
+      isPlaceholder: engineResult.isPlaceholder,
     );
   }
 }

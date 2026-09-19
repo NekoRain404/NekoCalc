@@ -42,8 +42,10 @@ export 'numeric_input_strings.dart';
 ///
 ///       ### 表里只装"给人看的字"
 ///
-///       四类中文字面量**故意不进来**，各有各的理由，可执行的那一份在
-///       `test/features/controller_sentences_test.dart` 的豁免表里：
+///       三类中文字面量**故意不进来**，各有各的理由，可执行的那一份在
+///       `test/features/controller_sentences_test.dart` 的豁免表里（这里原先有四类，**第三类
+///       "与结果比较的哨兵"本轮拆掉了**：三处判据改读 `MathResult.isPlaceholder`，
+///       `'等待输入'` 在控制器目录里一个字符串字面量都不剩，见下面那条 ⚠️）：
 ///       1. **输入文法**。`tool_detail_input_parsing.dart` 里那 21 条
 ///          （`'纳秒' '微秒' '毫秒' '秒' '分钟' '小时' '时' '天' '周' '星期' '分'` 与
 ///          `'直径' '直徑' '线径' '線徑' '半径' '半徑' '股' '根' '芯' '：'`）是**用户可能敲进来的
@@ -53,10 +55,12 @@ export 'numeric_input_strings.dart';
 ///          它们都进了表；**21 是 27 减 6**，不是估计。）
 ///       2. **粘贴解析的 JSON 键**。`tool_detail_paste_parser.dart` 里的 `'参数' '输入' '输入参数'
 ///          '读数' '值' '单位'` 与那些正则同理：它们匹配的是**粘贴文本里的中文标签**。
-///       3. **与结果比较的哨兵**。`'等待输入'`（`calculator_controller_*.dart`）是
-///          `MathResult.pending.displayText`，比较的是那个哨兵本身，不是屏幕上那句话。
-///       4. **开发者日志**。`calculator_controller_evaluation.dart` 那两条 `debugPrint` 是写给
+///       3. **开发者日志**。`calculator_controller_evaluation.dart` 那两条 `debugPrint` 是写给
 ///          看 logcat 的人（也就是写代码的人）的，用户看不到；日志保持一种语言才好 grep。
+///       ⚠️ 上面那条"第三类"里的哨兵**本轮拆掉了**（`'等待输入'` 是
+///       `MathResult.pending.displayText`，`reusableResult` / `canContinueWithResult` /
+///       `continueWithResult` 原先拿它做判据）。三处现在读 `MathResult.isPlaceholder`，控制器目录里
+///       那条字面量一条不剩，豁免表上那一格也随之消失（53 → 52）。**理由被删掉时该说一声。**
 /// English: **the sentences the engineering tool detail screen's controllers write.** The status
 ///          card's line ("N results are reusable; primary result …"), the verdict when results need
 ///          checking, the labels inside the copied body, the paste/apply summaries, the error line
@@ -94,9 +98,9 @@ export 'numeric_input_strings.dart';
 ///
 ///          ### This table holds human-facing text only
 ///
-///          Four kinds of Chinese literal are **deliberately absent**, each for its own reason; the
+///          Three kinds of Chinese literal are **deliberately absent**, each for its own reason; the
 ///          executable copy is the exemption table in
-///          `test/features/controller_sentences_test.dart`:
+///          `test/features/controller_sentences_test.dart` (there used to be four; see the ⚠️ below):
 ///          1. **Input grammar.** The 27 literals in `tool_detail_input_parsing.dart`
 ///             (`'纳秒' '微秒' '毫秒' '秒' '分钟' '小时' '时' '天' '周' '星期' '分'` and
 ///             `'直径' '直徑' '线径' '線徑' '半径' '半徑' '股' '根' '芯' '：'`) are **the Chinese unit
@@ -105,12 +109,16 @@ export 'numeric_input_strings.dart';
 ///          2. **JSON keys of the paste parser.** The `'参数' '输入' '输入参数' '读数' '值' '单位'` in
 ///             `tool_detail_paste_parser.dart`, and its regular expressions, for the same reason: they
 ///             match **Chinese labels inside pasted text**.
-///          3. **The sentinel compared against results.** `'等待输入'` (`calculator_controller_*.dart`)
-///             is `MathResult.pending.displayText`; what is compared is the sentinel itself, not the
-///             sentence on screen.
-///          4. **Developer logs.** The two `debugPrint`s in `calculator_controller_evaluation.dart`
+///          3. **Developer logs.** The two `debugPrint`s in `calculator_controller_evaluation.dart`
 ///             are written for whoever reads logcat (i.e. whoever writes the code) and never reach a
 ///             user; a log is easier to grep in one language.
+///
+///          ⚠️ The sentinel that used to stand as item 3 **was removed this round** (`'等待输入'` is
+///          `MathResult.pending.displayText`, and `reusableResult` / `canContinueWithResult` /
+///          `continueWithResult` used to branch on it). The three judgements read
+///          `MathResult.isPlaceholder` now, not one such literal is left in the controllers directory,
+///          and that exemption disappeared with it (53 → 52). **A reason that is removed should say
+///          so.**
 @immutable
 class ToolDetailStrings {
   const ToolDetailStrings({

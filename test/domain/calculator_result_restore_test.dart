@@ -120,6 +120,87 @@ void main() {
     controller.dispose();
   });
 
+  test('a stored placeholder row is still "no usable result" after a restart',
+      () async {
+    // 中文：**这一条是重启用例里唯一能观察到「占位」那一格的地方。** 上一次会话在一条算不出来的
+    //       表达式上结束时，落盘的那一行 `calculator_result` 就是占位文本（`2+` 会在
+    //       `evaluate()` 里抛错、于是写 `MathResult.pending`）。重启之后「这一份是不是占位」
+    //       必须活过来，否则「继续使用」会把一句话写进表达式。
+    //
+    //       两种策略都跑，但**只有 (A) `engineOnly` 能把这件事故意暴露出来**：策略 (B) 下
+    //       `evaluate()` 会立刻用旧解析器的结果盖掉盘上那一份（`2+` 又抛一次错，于是结果又回到
+    //       占位、并且带上 `hasError`）；(A) 下 `evaluate()` 不上旧结果，盘上这一份会**一直留在
+    //       屏幕上**直到引擎回答——那一段窗口里判据读的正是这一格。
+    //
+    //       判据本身不读那句话了（`MathResult.isPlaceholder`）；恢复写这一格的地方是**唯一**拿
+    //       那句文本当**存储层令牌**比的边界，见 `_restoredResult` 的注释。
+    // English: **the one place among the restore cases where the placeholder cell is observable.** When
+    //          the last session ended on an expression that cannot be evaluated, the persisted
+    //          `calculator_result` row *is* the placeholder text (`2+` throws inside `evaluate()`,
+    //          which is what writes `MathResult.pending`). After a restart, "is this the placeholder"
+    //          has to survive, or "continue with result" writes a sentence into the expression.
+    //
+    //          Both policies run, but **only (A) `engineOnly` exposes this deliberately**: under (B)
+    //          `evaluate()` immediately overwrites the stored row with the legacy parser's result
+    //          (`2+` throws again, so the result is the placeholder once more, this time with
+    //          `hasError`); under (A) `evaluate()` puts no legacy result up, so the stored row **stays
+    //          on screen** until the engine answers — and in that window the judgement reads exactly
+    //          this cell.
+    //
+    //          The judgement itself no longer reads that sentence (`MathResult.isPlaceholder`); where
+    //          the restore raises that cell is the **only** boundary that compares the sentence as a
+    //          **storage-layer token**, see the note on `_restoredResult`.
+    for (final policy in LiveResultPolicy.values) {
+      final db = _FakeDatabase()
+        ..savedSettings.addAll({
+          'restore_state': 'true',
+          'angle_mode': '弧度',
+          'digits': '6 位',
+          'calculator_expression': '2+',
+          'calculator_result': '等待输入',
+          'calculator_result_tex': '',
+          'calculator_result_decimal': '',
+          'calculator_angle': 'RAD',
+          'calculator_memory': '0',
+        });
+      final controller = CalculatorController(
+        historyRepository: HistoryRepository(db),
+        notesRepository: NotesRepository(db),
+        settingsRepository: SettingsRepository(db),
+        settings: const AppSettings(
+          haptics: true,
+          hapticStrength: '标准',
+          restoreState: true,
+          autoSaveHistory: false,
+          angleMode: 'RAD',
+          precision: 6,
+          themeModeLabel: '跟随系统',
+          expressionDisplayMode: '数学符号',
+        ),
+        liveResultPolicy: policy,
+        liveEvaluationDelay: const Duration(minutes: 10),
+        liveEngineFollowUpDelay: const Duration(minutes: 10),
+      );
+
+      await controller.reloadSettingsAndRestore();
+
+      // 中文：盘上那一行原样在屏幕上——显示一个字都没动（三格文本照旧带上）。
+      // English: the stored row is on screen as it was — the display did not move by a character
+      //          (the three text cells travel untouched).
+      expect(controller.result, '等待输入', reason: policy.name);
+      expect(controller.resultDecimal, isEmpty, reason: policy.name);
+      // 中文：而判据说「没有可用的结果」：写回的是 `0`，「继续使用」不写表达式。
+      // English: while the judgement says "no usable result": `0` is what would be written back, and
+      //          "continue with result" writes no expression.
+      expect(controller.reusableResult, '0', reason: policy.name);
+      expect(controller.canContinueWithResult, isFalse, reason: policy.name);
+      controller.continueWithResult();
+      expect(controller.expression, '2+', reason: policy.name);
+
+      controller.dispose();
+    }
+  });
+
   test('every persisted result writes the decimal key, even when it is empty',
       () async {
     // 中文：判别依据能成立的前提——新行**一定**会写下这个键。空十进制被写成一个空值，而不是
