@@ -253,13 +253,19 @@ extension _CalculatorPageSheets on _CalculatorPageState {
   }
 
   Future<void> _pasteCalculatorDetails() async {
+    // 中文：**表在 await 之前取**——与那一行的 `SnackBar` 读的是同一份界面文案：粘贴回执跟着界面
+    //       语言走（`paste.summaryIn`），中文界面下逐字节与从前那句相同。
+    // English: **the table is taken before the await** — the same interface copy that `SnackBar` line
+    //          reads: the paste receipt follows the interface language (`paste.summaryIn`), and under
+    //          the Chinese interface it is byte-for-byte the sentence it was before.
+    final strings = CalculatorStrings.of(context);
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       if (!mounted) return;
       final paste = _controller.applyPastedText(data?.text ?? '');
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(paste.summary)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(paste.summaryIn(strings.pasteSummary))));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

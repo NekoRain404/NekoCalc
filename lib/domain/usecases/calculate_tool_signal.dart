@@ -284,9 +284,22 @@ List<ToolResult> adcResolutionResults(Map<String, double> valuesByKey) {
       ToolResult.number('码值对应电压', reconstructedVoltage, 'V'),
     if (quantizationError != null)
       ToolResult.number('输入量化误差', quantizationError * 1000, 'mV'),
+    // 中文：**这一格被下游判据读过**（`tool_insights_electronics.dart` 问 `inputState == '超量程'`）：
+    //       结论那一支的值从枚举来、令牌一起写下；`'有效'` 没有被任何判据读过，是普通字面量。
+    // English: **a downstream judgement reads this cell** (`tool_insights_electronics.dart` asks
+    //          `inputState == '超量程'`): the conclusion branch's value comes from the enum with the
+    //          token written alongside; `'有效'` is read by no judgement and stays an ordinary literal.
     if (inputVoltage != null)
       ToolResult(
-          '输入状态', inputVoltage < 0 || inputVoltage > vref ? '超量程' : '有效', ''),
+        '输入状态',
+        inputVoltage < 0 || inputVoltage > vref
+            ? ToolResultConclusion.overRange.sentence
+            : '有效',
+        '',
+        conclusion: inputVoltage < 0 || inputVoltage > vref
+            ? ToolResultConclusion.overRange
+            : null,
+      ),
     if (enob != null) ToolResult.number('ENOB', enob, 'bit'),
     if (enobLsb != null) ToolResult.number('ENOB LSB', enobLsb * 1000, 'mV'),
     if (enob != null) ToolResult.number('ENOB动态范围', enob * 6.02 + 1.76, 'dB'),
@@ -445,9 +458,20 @@ List<ToolResult> lcResonanceResults(Map<String, double> valuesByKey) {
     ToolResult.number('谐振容抗 XC', reactance, 'Ω'),
     ToolResult.number('ESR', esr, 'Ω'),
     // 中文：`无穷大` 今天不算错误（旧判据的词表里没有它），旗标照旧为假。
+    //       这一格没有被下游判据读过，但值就是那条结论那句话，所以照样从枚举取——
+    //       那句话在源码里因此只有一份（`ToolResultConclusion.infinite`）。
     // English: `无穷大` is not an error today (it is not in the old predicate's word list) and the
-    //          flag stays false.
-    ToolResult('Q值(串联)', q.isInfinite ? '无穷大' : formatNumber(q), ''),
+    //          flag stays false. No downstream judgement reads this cell, but the value is that
+    //          conclusion's sentence, so it comes from the enum all the same — leaving the sentence in
+    //          exactly one place in the source (`ToolResultConclusion.infinite`).
+    ToolResult(
+      'Q值(串联)',
+      q.isInfinite
+          ? ToolResultConclusion.infinite.sentence
+          : formatNumber(q),
+      '',
+      conclusion: q.isInfinite ? ToolResultConclusion.infinite : null,
+    ),
     ToolResult.number('3dB带宽', bandwidth.isInfinite ? null : bandwidth, 'Hz'),
     ToolResult.number(
         '下半功率点', lowerHalfPower.isFinite ? lowerHalfPower : null, 'Hz'),
@@ -693,7 +717,16 @@ double? _timeToVoltage({
 }
 
 String _formatOptionalTime(double? value) {
-  return value == null ? '无效' : formatNumber(value);
+  // 中文：`null` 那一支写下的就是**那条记号本身**（[invalidResultValue]，只有一处写法）。
+  //       今天两个调用点都由 `!= null` 把住，所以这一支走不到；留着它是因为形状，而不是因为它
+  //       常走——一旦有人解开那道门，写下的必须是**同一个词**，否则构造点的断言（它比的正是那个
+  //       常量）与这里就会各说各话。
+  // English: the `null` branch writes **the marker itself** ([invalidResultValue], spelled in one
+  //          place). Both call sites are guarded by `!= null` today, so this branch is unreachable;
+  //          it stays for its shape rather than its frequency — the moment somebody opens that door,
+  //          the word written here has to be **the same one**, or this and the assertion at the
+  //          construction point (which compares against that constant) say different things.
+  return value == null ? invalidResultValue : formatNumber(value);
 }
 
 List<ToolResult> _invalidCapacitorChargeResults({

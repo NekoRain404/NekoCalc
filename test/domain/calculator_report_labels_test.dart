@@ -106,6 +106,21 @@ void main() {
       expect(strings.reportAngleMode(strings.angleModeRadians),
           '${labels.angleMode}: ${strings.angleModeRadians}',
           reason: reason);
+      // 中文：**`角度模式` 那一行值里的两个词也从表里来。** 它们与那九个标签是同一根因的第七处：
+      //       粘贴解析器从这一行的值里恢复角度模式时，除了认 `DEG`/`RAD` 两个令牌，还要认没有令牌
+      //       的写法（`角度模式: 角度`），而它原先认的是源码里另抄的一份 `'角度'`。现在产出方
+      //       按表拼句、判据按表认词，两处一起动——这里钉住"产出方真的是按表拼的"。
+      // English: **the two words inside the `角度模式` line's value come from the table as well.** They
+      //          are the seventh site of the same cause as the nine labels: when the paste parser
+      //          recovers the angle mode from that line's value it accepts, besides the `DEG`/`RAD`
+      //          tokens, the token-less spelling (`角度模式: 角度`) — and it used to accept it through a
+      //          second `'角度'` copied into the source. The producer now composes from the table and
+      //          the judgement reads words from it, so the two move together; this pins that the
+      //          producer really does compose from the table.
+      expect(strings.angleModeDegrees, '${labels.angleDegreesWord} DEG',
+          reason: reason);
+      expect(strings.angleModeRadians, '${labels.angleRadiansWord} RAD',
+          reason: reason);
       expect(strings.reportMemory('42'), '${labels.memory}: 42',
           reason: reason);
       expect(strings.reportError(strings.friendlyNotFinite),

@@ -40,9 +40,15 @@ List<String> buildLifestyleToolInsights(
       if (range != null && !toolResultUnavailable(results, '健康体重范围')) {
         lines.add('按当前身高估算的健康体重范围约为 $range kg');
       }
+      // 中文：**判据读令牌，不读那句话**——`'在范围内'` 是产出方写下的结论
+      //       （`ToolResultConclusion.withinRange`），句子的措辞或语言一变，这里不会静默变假。
+      // English: **the judgement reads the token, not the sentence** — `'在范围内'` is a conclusion the
+      //          producer wrote (`ToolResultConclusion.withinRange`); change the wording or the language
+      //          and this does not silently go false.
       if (delta != null &&
           !toolResultUnavailable(results, '距健康区间') &&
-          delta != '在范围内') {
+          toolResultConclusion(results, '距健康区间') !=
+              ToolResultConclusion.withinRange) {
         lines.add('距健康体重区间还差 $delta，正号表示需要增重，负号表示需要减重');
       }
       if (waistHeightRatio != null && waistHeightRatio >= 0.5) {

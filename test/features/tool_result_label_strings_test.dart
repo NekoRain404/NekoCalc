@@ -37,7 +37,7 @@ import '../shared/source_scan.dart';
 ///          提到它，而中文词照旧找得到工具。
 ///
 ///       **标签是位置参数，不是具名参数。** 提取用的是
-///       `ToolResult(...)` / `.number(...)` / `.invalid(...)` 后面第一个字符串字面量，
+///       `ToolResult(...)` / `.number(...)` / `.invalid(...)` / `.conclusion(...)` 后面第一个字符串字面量，
 ///       **不是** `label:` —— 按 `label:` 去数会数到 0。
 ///
 /// English: **the six guard rails for the result-label table**, the same shape as the tools subtree's
@@ -69,8 +69,8 @@ void main() {
     // English: **both numbers are the proof the walk was not vacuous** — a mis-count is more dangerous
     //          than a wrong assertion.
     expect(sites.fileCount, 17, reason: 'calculate_tool*.dart 一共 17 个文件');
-    expect(sites.siteCount, 1774,
-        reason: '源码里第一个位置参数是字面量的构造处一共 1774 处，少了说明扫描没跑对');
+    expect(sites.siteCount, 1776,
+        reason: '源码里第一个位置参数是字面量的构造处一共 1776 处，少了说明扫描没跑对');
     expect(sites.allLiterals.length, 794, reason: '去重后全部字面量标签 794 条');
     expect(sites.labels.length, 715, reason: '去重后带汉字的结果标签一共 715 条');
     expect(zh.labels, isEmpty,
@@ -384,9 +384,22 @@ class _LabelSites {
   /// end).
   final Set<String> allLiterals;
 
-  /// 中文：构造处数，1774（第一个实参是形参的那 10 处不算）。
-  /// English: the number of construction sites, 1774 (the 10 whose first argument is a parameter are not
-  /// counted).
+  /// 中文：构造处数，1776（第一个实参是形参的那 10 处不算）。
+  ///       **本轮 1774 → 1776**：结论那一族结果改成走 `ToolResult.conclusion(` 之后，其中两处
+  ///       （`'定义域'` 与 `'解 x'`）是"一支是结论、另一支不是"的形状，两支各算一处，于是多了两处。
+  ///       同一个改动里另有四处（三条回收期与 `'跨度/挠度'`）从 `ToolResult(` 换成了
+  ///       `ToolResult.conclusion(`，**它们照样算一处**——认出它们正是下面那条正则里新加的
+  ///       `conclusion` 那一支；不加的话，这四条的标签会**静默**滑出这道扫描（不报错，
+  ///       只是那 4 个标签从此没人看着了）。
+  /// English: the number of construction sites, 1776 (the 10 whose first argument is a parameter are not
+  ///          counted). **1774 → 1776 this round**: once the conclusion family went through
+  ///          `ToolResult.conclusion(`, two of its sites (`'定义域'` and `'解 x'`) have the shape "one
+  ///          branch is a conclusion, the other is not" and count once per branch, hence two more. Four
+  ///          others in the same change (the three payback periods and `'跨度/挠度'`) moved from
+  ///          `ToolResult(` to `ToolResult.conclusion(` and **still count as one site** — recognising
+  ///          them is exactly the `conclusion` alternative added to the pattern below; without it those
+  ///          four labels would **silently** slip out of this scan (nothing goes red; those four labels
+  ///          simply stop being watched).
   final int siteCount;
 
   /// 中文：扫过的文件数，17（`calculate_tool*.dart` 全族）。
@@ -394,17 +407,18 @@ class _LabelSites {
   final int fileCount;
 }
 
-/// 中文：`ToolResult(` / `.number(` / `.invalid(` 后面第一个字符串字面量。
-///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1784 个构造处里有 1779 个在这里，
+/// 中文：`ToolResult(` / `.number(` / `.invalid(` / `.conclusion(` 后面第一个字符串字面量。
+///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1786 个构造处里有 1781 个在这里，
 ///       剩下 5 个是 `tool_definition.dart` 里的类型定义本身，没有标签。
 ///       `[ToolResult.number]` 这种注释里的链接不带 `(`，所以匹配不到；条数断言是这条前提的守卫。
-/// English: the first string literal after `ToolResult(` / `.number(` / `.invalid(`. **Only
-///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1779 of the 1784 sites are there and
+/// English: the first string literal after `ToolResult(` / `.number(` / `.invalid(` / `.conclusion(`. **Only
+///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1781 of the 1786 sites are there and
 ///          the other 5 are the type definition itself in `tool_definition.dart`, which carries no
 ///          label. A comment link such as `[ToolResult.number]` has no `(` after it and cannot match;
 ///          the site-count assertion is what guards that assumption.
 _LabelSites _labelSites() {
-  final pattern = RegExp(r"ToolResult(?:\.(?:number|invalid))?\(\s*'([^']*)'");
+  final pattern =
+      RegExp(r"ToolResult(?:\.(?:number|invalid|conclusion))?\(\s*'([^']*)'");
   final labels = <String>{};
   final all = <String>{};
   var count = 0;

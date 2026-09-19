@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/usecases/calculator_paste_strings.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：计算页的界面文案表，**按功能切分**——一张表、表里并排放所有语言。机制本身（为什么是手写
@@ -69,6 +70,7 @@ class CalculatorStrings {
     required this.detailsCopied,
     required this.detailsCopyFailed,
     required this.clipboardReadFailed,
+    required this.pasteSummary,
     // —— `CONV` 单位面板 ——
     required this.unitSearchHint,
     required this.unitSheetHint,
@@ -151,6 +153,20 @@ class CalculatorStrings {
   final String detailsCopied;
   final String detailsCopyFailed;
   final String clipboardReadFailed;
+
+  /// 中文：**粘贴计算详情那条回执的字**（`'已粘贴表达式'`、`'剪贴板里没有识别到表达式'`…）。
+  ///       句子是领域层拼的（`CalculatorPasteResult.summaryIn`），词住在那边的表里
+  ///       （`lib/domain/usecases/calculator_paste_strings.dart`）——领域层拿不到 `BuildContext`，
+  ///       所以这里的**每一格指向同一种语言的那一份**，与 `DataFitStrings.fit` 同一条形状。
+  ///       这一格因此不是 `String` 而是那张表本身：粘贴回执有七句话，一格装不下。
+  /// English: **the words of the "paste calculation details" receipt** (`'已粘贴表达式'`,
+  ///          `'剪贴板里没有识别到表达式'`, …). The sentence is composed in the domain layer
+  ///          (`CalculatorPasteResult.summaryIn`) and the words live in that side's table
+  ///          (`lib/domain/usecases/calculator_paste_strings.dart`) — the domain layer has no
+  ///          `BuildContext`, so **each cell here points at the entry of its own language**, the same
+  ///          shape as `DataFitStrings.fit`. That is why this cell is the table itself rather than a
+  ///          `String`: a paste receipt is seven sentences and one cell cannot hold them.
+  final CalculatorPasteStrings pasteSummary;
 
   // —— `CONV` 单位面板 ——
   final String unitSearchHint;
@@ -279,6 +295,7 @@ class CalculatorStrings {
     detailsCopied: '已复制计算详情',
     detailsCopyFailed: '无法复制计算详情',
     clipboardReadFailed: '无法读取剪贴板',
+    pasteSummary: CalculatorPasteStrings.zh,
     unitSearchHint: '搜索单位（米、km、mile…）',
     unitSheetHint: '点一个单位插进表达式；两个单位之间点「to」',
     noMatchingUnits: '没有匹配的单位',
@@ -370,6 +387,7 @@ class CalculatorStrings {
     detailsCopied: 'Calculation details copied',
     detailsCopyFailed: 'Could not copy the calculation details',
     clipboardReadFailed: 'Could not read the clipboard',
+    pasteSummary: CalculatorPasteStrings.en,
     unitSearchHint: 'Search units (m, km, mile…)',
     unitSheetHint: 'Tap a unit to insert it; tap "to" between the two units',
     noMatchingUnits: 'No matching units',

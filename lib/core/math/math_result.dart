@@ -613,6 +613,43 @@ class MathResult {
   ///          submit path uses this to decide whether to take the engine's answer.
   bool get hasFiniteDecimal => decimalTextIsFinite(decimalText);
 
+  /// 中文：**结果行上写的那个数就是零吗。** 清空（`clear()`）那道「没什么可清」的判据问的就是它：
+  ///       表达式为空、结果读数是零、没有错误时，按 AC 是一次空操作。
+  ///
+  ///       **为什么它不是「这条结果就是 [zero]」**（`this == zero`）：两者在**可达的**状态上不同。
+  ///       屏幕读数是 `0` 而对象不是那一份零值的情形至少有两种：引擎把 `0` 印出来时带着精确形式
+  ///       （`displayTex` 非空），以及**从盘上恢复**的新格式行——`calculator_result_decimal` 键在、
+  ///       值为空（`4√2` 那类精确形式的结果就长这样，见
+  ///       `calculator_result_restore_test.dart` 里那条「键在、值为空」）。那两种状态下今天的 AC
+  ///       是**空操作**；换成值相等会开始记撤销快照、开始落盘，那就是行为变了。
+  ///
+  ///       **为什么读显示文本在这里不是「拿文案当判据」**：那个 `'零'` 不是一句话，它是一个
+  ///       **数**——每种语言里都印成 `0`，没有任何一轮翻译会让它变样（本项目确诊的那五处
+  ///       「拿要显示给用户的那句话当判据」，危险恰恰在于词会跟着语言走）。而且这一份零的写法
+  ///       现在**只有一处**（[zero] 的 `displayText`）：控制器不再自己抄一个 `'0'` 去比，
+  ///       零值的写法改了，这道判据会跟着改，而不是静默失配。
+  /// English: **whether the number written on the result line is zero.** This is the question
+  ///          `clear()`'s "there is nothing to clear" judgement asks: an empty expression whose
+  ///          reading is zero and which holds no error makes a press of AC a no-op.
+  ///
+  ///          **Why it is not "this result is [zero]"** (`this == zero`): the two differ on
+  ///          **reachable** states. At least two shapes read `0` on screen without being that zero
+  ///          object: the engine printing `0` with an exact form (`displayTex` non-empty), and a
+  ///          **restored** new-format row whose `calculator_result_decimal` key is present with an
+  ///          empty value (what a result like `4√2` looks like — see the "key present, value empty"
+  ///          test in `calculator_result_restore_test.dart`). In both, AC is a **no-op** today;
+  ///          switching to value equality would start recording an undo snapshot and writing to disk,
+  ///          which is a behaviour change.
+  ///
+  ///          **Why reading the display text here is not "using copy as a judgement"**: that `'zero'`
+  ///          is not a sentence, it is a **number** — printed `0` in every language, and no translation
+  ///          round will ever respell it (the danger in the five "sentence as judgement" sites this
+  ///          project diagnosed is precisely that their words follow the language). And the spelling of
+  ///          this zero now lives in **exactly one place** ([zero]'s `displayText`): the controller no
+  ///          longer keeps its own `'0'` to compare against, so a change to how zero is spelled moves
+  ///          this judgement with it instead of silently mismatching.
+  bool get showsZero => displayText == zero.displayText;
+
 
 
 

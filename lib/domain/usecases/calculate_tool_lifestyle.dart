@@ -25,6 +25,15 @@ List<ToolResult> bmiResults(Map<String, double> valuesByKey) {
   final targetDelta = targetWeight - weight;
   final bsa = math.sqrt(heightCm * weight / 3600);
   final idealRange = _range(healthyWeightLow, healthyWeightHigh);
+  // 中文：**「距健康区间」那一格被下游判据读过**（`tool_insights_lifestyle.dart` 问
+  //       `delta != '在范围内'`）：那一步把值与令牌一起交出来，这里只负责各归各位；
+  //       值是差数的那两支照旧，`'在范围内'` 那一支的句子从枚举来。
+  // English: **the "距健康区间" cell is read by a downstream judgement**
+  //          (`tool_insights_lifestyle.dart` asks `delta != '在范围内'`): that step hands out value and
+  //          token together and this only puts each where it belongs; the two numeric branches are as
+  //          before and the `'在范围内'` branch's sentence comes from the enum.
+  final rangeDelta =
+      _weightRangeDelta(weight, healthyWeightLow, healthyWeightHigh);
   final results = <ToolResult>[
     ToolResult.number('BMI', bmi, '', primary: true),
     ToolResult('区间', _bmiLabel(bmi), ''),
@@ -32,10 +41,10 @@ List<ToolResult> bmiResults(Map<String, double> valuesByKey) {
         hasError: !healthyWeightLow.isFinite || !healthyWeightHigh.isFinite),
     ToolResult.number('正常体重下限', healthyWeightLow, 'kg'),
     ToolResult.number('正常体重上限', normalUpper, 'kg'),
-    ToolResult('距健康区间',
-        _weightRangeDelta(weight, healthyWeightLow, healthyWeightHigh), '',
+    ToolResult('距健康区间', rangeDelta.text, '',
         hasError: _weightDeltaNeedsAttention(
-            weight, healthyWeightLow, healthyWeightHigh)),
+            weight, healthyWeightLow, healthyWeightHigh),
+        conclusion: rangeDelta.conclusion),
     ToolResult.number('BMI 22 目标体重', targetWeight, 'kg'),
     ToolResult.number('目标体重差', targetDelta, 'kg'),
     ToolResult.number('体表面积', bsa, 'm²'),
@@ -89,10 +98,25 @@ bool _weightDeltaNeedsAttention(double weight, double low, double high) {
   return false;
 }
 
-String _weightRangeDelta(double weight, double low, double high) {
-  if (weight < low) return '+${formatNumber(low - weight)} kg';
-  if (weight > high) return '-${formatNumber(weight - high)} kg';
-  return '在范围内';
+/// 中文：**三支里的值与令牌一起交出来。** 前两支是差数（普通字面量拼出来的值，令牌为空），
+///       第三支是下游判据读过的结论 `'在范围内'`——句子从 [ToolResultConclusion] 取，
+///       值与令牌因此不会各自漂。
+/// English: **value and token come out together from all three branches.** The first two are
+///          differences (values assembled from ordinary literals, no token); the third is the
+///          conclusion `'在范围内'` that a downstream judgement reads — its sentence comes from
+///          [ToolResultConclusion], so value and token cannot drift apart.
+({String text, ToolResultConclusion? conclusion}) _weightRangeDelta(
+    double weight, double low, double high) {
+  if (weight < low) {
+    return (text: '+${formatNumber(low - weight)} kg', conclusion: null);
+  }
+  if (weight > high) {
+    return (text: '-${formatNumber(weight - high)} kg', conclusion: null);
+  }
+  return (
+    text: ToolResultConclusion.withinRange.sentence,
+    conclusion: ToolResultConclusion.withinRange,
+  );
 }
 
 List<ToolResult> fuelEconomyResults(Map<String, double> valuesByKey) {

@@ -90,11 +90,17 @@ List<ToolResult> torquePowerResults(Map<String, double> valuesByKey) {
 
   final kw = torque * rpm / 9550;
   final omega = rpm * 2 * math.pi / 60;
-  final direction = kw == 0
-      ? '无输出功'
-      : kw > 0
-          ? '驱动'
-          : '制动/回馈';
+  // 中文：**三支里只有 `'制动/回馈'` 是下游判据读的结论**（`tool_insights_mechanical.dart` 问
+  //       `direction == '制动/回馈'`）：那一支的句子从枚举来、令牌一起写下；
+  //       `'无输出功'` / `'驱动'` 没有被任何判据读过，是普通字面量。
+  // English: **only `'制动/回馈'` is a conclusion a downstream judgement reads**
+  //          (`tool_insights_mechanical.dart` asks `direction == '制动/回馈'`): that branch's sentence
+  //          comes from the enum with the token alongside; `'无输出功'` / `'驱动'` are read by no
+  //          judgement and stay ordinary literals.
+  final directionConclusion =
+      kw == 0 || kw > 0 ? null : ToolResultConclusion.braking;
+  final direction = directionConclusion?.sentence ??
+      (kw == 0 ? '无输出功' : '驱动');
   // 中文：**先算成数。** `rpm == 0` 那一支产出方明确说算不出来（值就是那条记号）。
   // English: **computed as a number first.** The `rpm == 0` branch is the producer saying plainly
   //          that it cannot be produced (the value is the marker itself).
@@ -110,7 +116,7 @@ List<ToolResult> torquePowerResults(Map<String, double> valuesByKey) {
     ToolResult.number('公制马力', kw * 1.35962, 'PS'),
     ToolResult.number('角速度', omega, 'rad/s'),
     ToolResult.number('转速', rpm / 60, 'rps'),
-    ToolResult('功率方向', direction, ''),
+    ToolResult('功率方向', direction, '', conclusion: directionConclusion),
     ToolResult.number('1kW所需扭矩', torquePerKw, 'N·m'),
     if (includeTarget) ToolResult.number('目标功率', targetPower, 'kW'),
     if (includeTarget) ToolResult.number('目标功率所需扭矩', targetTorque, 'N·m'),

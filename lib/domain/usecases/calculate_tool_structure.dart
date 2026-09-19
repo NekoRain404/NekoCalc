@@ -106,23 +106,37 @@ List<ToolResult> inclinedPlaneResults(Map<String, double> valuesByKey) {
   final parallel = weight * math.sin(angle);
   final friction = mu * normal;
   final netDownhill = parallel.abs() - friction;
-  final slopeGrade =
-      angleDeg.abs() == 90 ? '无穷大' : formatNumber(math.tan(angle) * 100);
+  // 中文：**坡度那一格的两支里，只有「无穷大」是一句结论**（它自己那句话从枚举来），
+  //       另一支是一个数。`slopeIsInfinite` 判一次、两处用，值与令牌因此不会各自漂。
+  // English: **only "无穷大" is a conclusion among the slope cell's two branches** (its sentence comes
+  //          from the enum); the other branch is a number. `slopeIsInfinite` is judged once and used
+  //          twice, so value and token cannot drift apart.
+  final slopeIsInfinite = angleDeg.abs() == 90;
+  final slopeGrade = slopeIsInfinite
+      ? ToolResultConclusion.infinite.sentence
+      : formatNumber(math.tan(angle) * 100);
   final frictionAngle = math.atan(mu) * 180 / math.pi;
-  final state = parallel == 0
-      ? '无下滑趋势'
+  // 中文：**滑动状态是下游判据读的那一格**（`tool_insights_structure.dart` 问「会下滑 / 摩擦可抵住」），
+  //       所以那两句结论从枚举取；`'无下滑趋势'` 没有被任何判据读过，是普通字面量。
+  // English: **the sliding state is the cell a downstream judgement reads**
+  //          (`tool_insights_structure.dart` asks "会下滑 / 摩擦可抵住"), so those two conclusions come
+  //          from the enum; `'无下滑趋势'` is read by no judgement and stays an ordinary literal.
+  final stateConclusion = parallel == 0
+      ? null
       : netDownhill > 0
-          ? '会下滑'
-          : '摩擦可抵住';
+          ? ToolResultConclusion.slidesDown
+          : ToolResultConclusion.frictionHolds;
+  final state = stateConclusion?.sentence ?? '无下滑趋势';
   return [
     ToolResult.number('沿斜面分力', parallel, 'N', primary: true),
     ToolResult.number('法向力', normal, 'N'),
     ToolResult.number('摩擦力', friction, 'N'),
     ToolResult.number('净下滑力', netDownhill, 'N'),
     ToolResult.number('重力', weight, 'N'),
-    ToolResult('坡度', slopeGrade, '%'),
+    ToolResult('坡度', slopeGrade, '%',
+        conclusion: slopeIsInfinite ? ToolResultConclusion.infinite : null),
     ToolResult.number('摩擦角', frictionAngle, 'deg'),
-    ToolResult('滑动状态', state, ''),
+    ToolResult('滑动状态', state, '', conclusion: stateConclusion),
   ];
 }
 
@@ -186,7 +200,7 @@ List<ToolResult> beamBendingResults(Map<String, double> valuesByKey) {
     //          not in the old predicate's word list); the other branch goes through
     //          [ToolResult.number] and the value is the quotient.
     if (deflectionAbs == 0)
-      const ToolResult('跨度/挠度', '无穷大', '')
+      ToolResult.conclusion('跨度/挠度', ToolResultConclusion.infinite, '')
     else
       ToolResult.number('跨度/挠度', length / deflectionAbs, ''),
     ToolResult.number('弯曲刚度 EI', elastic * inertia, 'N·m²'),
@@ -362,7 +376,14 @@ List<ToolResult> safetyFactorResults(Map<String, double> valuesByKey) {
   final stressAbs = stress.abs();
   final factor = stressAbs == 0 ? double.infinity : strength / stressAbs;
   final margin = strength - stressAbs;
-  final factorText = factor.isInfinite ? '无穷大' : formatNumber(factor);
+  // 中文：**这一格正是下游判据读的那一格**（`tool_insights_structure.dart` 问
+  //       `factorText == '无穷大'`）——句子的字从枚举来，令牌跟着值一起写下。
+  // English: **this is the cell a downstream judgement reads** (`tool_insights_structure.dart` asks
+  //          `factorText == '无穷大'`) — the sentence's characters come from the enum and the token is
+  //          written alongside the value.
+  final factorText = factor.isInfinite
+      ? ToolResultConclusion.infinite.sentence
+      : formatNumber(factor);
   final targetResults = <ToolResult>[];
   if (targetFactor != null) {
     final requiredStrength = stressAbs * targetFactor;
@@ -378,7 +399,9 @@ List<ToolResult> safetyFactorResults(Map<String, double> valuesByKey) {
     ]);
   }
   return [
-    ToolResult('安全系数', factorText, '', primary: true),
+    ToolResult('安全系数', factorText, '',
+        primary: true,
+        conclusion: factor.isInfinite ? ToolResultConclusion.infinite : null),
     ToolResult.number('余量', margin, 'MPa'),
     ToolResult.number('余量比例', margin / strength * 100, '%'),
     ToolResult.number('工作应力幅值', stressAbs, 'MPa'),
@@ -436,11 +459,33 @@ List<ToolResult> flowVelocityResults(Map<String, double> valuesByKey) {
   final area = math.pi * diameter * diameter / 4;
   final speed = flow / area;
   final reynoldsWater = speed * diameter / 1.004e-6;
+  // 中文：**三支里只有 `'过渡'` 是下游判据读的结论**（`tool_insights_structure.dart` 问
+  //       `state == '过渡'`），所以令牌只在这一支上有值；`'层流'` / `'湍流'` 是普通字面量。
+  // English: **only `'过渡'` is a conclusion a downstream judgement reads**
+  //          (`tool_insights_structure.dart` asks `state == '过渡'`), so the token has a value on that
+  //          branch alone; `'层流'` / `'湍流'` stay ordinary literals.
+  // 中文：**值与令牌从同一棵判断树上取下来**，所以两支不可能各判各的。这不是洁癖：
+  //       第一版把它们写成两个条件（`r < 2300 || r >= 4000 ? null : transition` 配一句
+  //       `r < 2300 ? '层流' : '湍流'`），**跨树探针当场抓到差异**——`reynoldsWater` 是 NaN 时
+  //       （`diameter=1e-300` 那一组：面积下溢成 0，`0/0` 得 NaN）两句话都判定为假，
+  //       于是值仍是 `'湍流'`（没变），令牌却成了 `transition`，下游那句提示凭空多出现两次。
+  //       写成一条记录之后，NaN 走第三支、与改动前逐条相同。
+  // English: **value and token come off one judgement tree**, so the two branches cannot decide
+  //          separately. This is not fastidiousness: the first version wrote them as two conditions
+  //          (`r < 2300 || r >= 4000 ? null : transition` beside `r < 2300 ? '层流' : '湍流'`) and **the
+  //          cross-tree probe caught the difference on the spot** — with `reynoldsWater` NaN (the
+  //          `diameter=1e-300` case: the area underflows to 0 and `0/0` gives NaN) both sentences test
+  //          false, so the value stayed `'湍流'` (unmoved) while the token became `transition` and the
+  //          hint line downstream appeared twice out of nowhere. Written as one record, NaN takes the
+  //          third branch — item for item as before.
   final flowState = reynoldsWater < 2300
-      ? '层流'
+      ? (text: '层流', conclusion: null)
       : reynoldsWater < 4000
-          ? '过渡'
-          : '湍流';
+          ? (
+              text: ToolResultConclusion.transition.sentence,
+              conclusion: ToolResultConclusion.transition,
+            )
+          : (text: '湍流', conclusion: null);
   return [
     ToolResult.number('平均流速', speed, 'm/s', primary: true),
     ToolResult.number('截面积', area * 1000000, 'mm²'),
@@ -449,7 +494,8 @@ List<ToolResult> flowVelocityResults(Map<String, double> valuesByKey) {
     ToolResult.number('管内径', diameter, 'm'),
     ToolResult.number('水力直径', diameterMm, 'mm'),
     ToolResult.number('雷诺数(水20℃)', reynoldsWater, ''),
-    ToolResult('流动状态(水)', flowState, ''),
+    ToolResult('流动状态(水)', flowState.text, '',
+        conclusion: flowState.conclusion),
   ];
 }
 

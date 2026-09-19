@@ -3,12 +3,75 @@ import 'dart:convert';
 
 import '../../core/math/math_result.dart';
 import '../../core/utils/number_formatter.dart';
+import 'calculator_paste_strings.dart';
 import 'calculator_report_labels.dart';
 
 enum CalculatorPasteStatus {
   empty,
   plainExpression,
   calculatorReport,
+}
+
+/// 中文：**这条粘贴回执说的是哪一件事——是一个判据，不是那句话。**
+///
+///       回执的开头那一句原先由 `summary` 那个 getter 里的一串 `if`/`else if` 从
+///       [CalculatorPasteResult.status]、[CalculatorPasteResult.fromCurrentValue] 与
+///       [CalculatorPasteResult.hasExpression] 上判出来，**每一支的结果当场就是一句中文**，
+///       而那个 getter 真的会上屏（`calculator_page_sheets.dart` 的 `SnackBar`）。
+///
+///       现在判据与文案各归各位：**分支是这里这个枚举**（形状与 `NumericInputIssue` 同一条），
+///       **字在 [CalculatorPasteStrings] 里**，由调用方递进来。加一种回执时
+///       [CalculatorPasteResult.summaryIn] 的 `switch` 编译不过，而不是静默回落到一句别的什么。
+///
+///       **它只是开头那一句。** 角度模式与记忆值那两截是**并列附加**的，不参与这个枚举——
+///       它们由 [CalculatorPasteResult.angleMode]、[CalculatorPasteResult.memoryValue] 两个字段
+///       各自决定要不要拼上去，与"说的是哪件事"正交。
+/// English: **which thing this paste receipt is about — a verdict, not a sentence.**
+///
+///          The receipt's opening sentence used to be decided by an `if`/`else if` chain inside the
+///          `summary` getter, reading [CalculatorPasteResult.status],
+///          [CalculatorPasteResult.fromCurrentValue] and [CalculatorPasteResult.hasExpression], and
+///          **each branch's result was a Chinese sentence on the spot** — a getter that really does
+///          reach the screen (`calculator_page_sheets.dart`'s `SnackBar`).
+///
+///          Verdict and wording are now separate: **the branch is this enum** (the same shape as
+///          `NumericInputIssue`) and **the words are in [CalculatorPasteStrings]**, handed in by the
+///          caller. Adding a kind of receipt breaks the `switch` in
+///          [CalculatorPasteResult.summaryIn] at compile time rather than silently falling back to
+///          some other sentence.
+///
+///          **It covers the opening sentence only.** The angle-mode and memory-value parts are
+///          **appended side by side** and take no part in this enum: whether they appear is decided by
+///          [CalculatorPasteResult.angleMode] and [CalculatorPasteResult.memoryValue] separately,
+///          which is orthogonal to "which thing this is about".
+enum CalculatorPasteSummaryHead {
+  /// 中文：剪贴板里没有表达式，但角度模式与记忆值都恢复了。
+  /// English: no expression in the clipboard, but both the angle mode and the memory value came back.
+  restoredAngleAndMemory,
+
+  /// 中文：剪贴板里没有表达式，只恢复了角度模式。
+  /// English: no expression in the clipboard; only the angle mode came back.
+  restoredAngle,
+
+  /// 中文：剪贴板里没有表达式，只恢复了记忆值。
+  /// English: no expression in the clipboard; only the memory value came back.
+  restoredMemory,
+
+  /// 中文：剪贴板里没有表达式，也没有任何可恢复的元数据。
+  /// English: no expression in the clipboard and no metadata to restore either.
+  nothingRecognised,
+
+  /// 中文：报告里的当前值被收下了，它成了表达式。
+  /// English: the report's current value was taken and became the expression.
+  restoredCurrentValue,
+
+  /// 中文：报告里的表达式被取出来了。
+  /// English: the expression was pulled out of the report.
+  extractedExpression,
+
+  /// 中文：不是报告，就是一段普通表达式。
+  /// English: not a report — just a plain expression.
+  pastedExpression,
 }
 
 class CalculatorPasteResult {
@@ -78,27 +141,89 @@ class CalculatorPasteResult {
 
   bool get fromReport => status == CalculatorPasteStatus.calculatorReport;
 
-  String get summary {
+  /// 中文：**这条回执说的是哪一件事**——判据在 [CalculatorPasteSummaryHead] 上，字在
+  ///       [CalculatorPasteStrings] 里。分支顺序与拆分前那串 `if`/`else if` 逐条相同
+  ///       （先问"有没有表达式"，没有就按元数据分三种，有再看是不是报告）。
+  /// English: **which thing this receipt is about** — the verdict is [CalculatorPasteSummaryHead], the
+  ///          words are in [CalculatorPasteStrings]. The branches run in the same order as the
+  ///          `if`/`else if` chain before the split (first "is there an expression"; without one, split
+  ///          by the metadata into three cases; with one, look at whether it came from a report).
+  CalculatorPasteSummaryHead get summaryHead {
+    if (!hasExpression) {
+      if (angleMode != null && memoryValue != null) {
+        return CalculatorPasteSummaryHead.restoredAngleAndMemory;
+      }
+      if (angleMode != null) return CalculatorPasteSummaryHead.restoredAngle;
+      if (memoryValue != null) return CalculatorPasteSummaryHead.restoredMemory;
+      return CalculatorPasteSummaryHead.nothingRecognised;
+    }
+    if (fromReport) {
+      return fromCurrentValue
+          ? CalculatorPasteSummaryHead.restoredCurrentValue
+          : CalculatorPasteSummaryHead.extractedExpression;
+    }
+    return CalculatorPasteSummaryHead.pastedExpression;
+  }
+
+  /// 中文：这条回执在屏幕上说的话。**调用方递表进来，自己不留中文兜底**——与
+  ///       `FitResult.summaryIn(copy)`、`TextToolOutput.statusMessage(strings)` 同一条形状，
+  ///       理由写在 `calculator_paste_strings.dart` 的文件头上。
+  ///
+  ///       拼法：开头那一句按 [summaryHead] 取，然后**并列**追加两截——角度模式那截的值是
+  ///       **令牌归一化**后的 `DEG`/`RAD`（除 `'DEG'` 外一律算 `RAD`，与拆分前逐字节相同），
+  ///       记忆值那截用 [formatNumber]（同一个函数，语言无关）。**夹在中间的 ` · ` 是记号**，
+  ///       两种语言一样，所以与 `DataFitPasteResult.summaryIn` 同一条：它留在领域层、不进表。
+  /// English: what this receipt says on screen. **The caller hands the table in; nothing here keeps a
+  ///          Chinese fallback** — the same shape as `FitResult.summaryIn(copy)` and
+  ///          `TextToolOutput.statusMessage(strings)`, for the reason on
+  ///          `calculator_paste_strings.dart`'s head.
+  ///
+  ///          Composition: the opening sentence follows [summaryHead], then two parts are **appended
+  ///          side by side** — the angle-mode part's value is the **normalised token** `DEG`/`RAD`
+  ///          (anything but `'DEG'` counts as `RAD`, byte-identical to before the split), and the
+  ///          memory-value part goes through [formatNumber] (one function, language-independent). The
+  ///          **` · ` between the parts is notation**, the same in both languages, so — exactly as
+  ///          `DataFitPasteResult.summaryIn` puts it — it stays in the domain layer and never enters a
+  ///          table.
+  String summaryIn(CalculatorPasteStrings strings) {
     final parts = <String>[
-      if (!hasExpression && angleMode != null && memoryValue != null)
-        '已恢复角度模式和记忆值'
-      else if (!hasExpression && angleMode != null)
-        '已恢复角度模式'
-      else if (!hasExpression && memoryValue != null)
-        '已恢复记忆值'
-      else if (!hasExpression)
-        '剪贴板里没有识别到表达式'
-      else if (fromReport)
-        fromCurrentValue ? '已从计算详情恢复当前值' : '已从计算详情提取表达式'
-      else
-        '已粘贴表达式',
+      switch (summaryHead) {
+        CalculatorPasteSummaryHead.restoredAngleAndMemory =>
+          strings.restoredAngleAndMemory,
+        CalculatorPasteSummaryHead.restoredAngle => strings.restoredAngle,
+        CalculatorPasteSummaryHead.restoredMemory => strings.restoredMemory,
+        CalculatorPasteSummaryHead.nothingRecognised =>
+          strings.noExpressionRecognised,
+        CalculatorPasteSummaryHead.restoredCurrentValue =>
+          strings.restoredCurrentValue,
+        CalculatorPasteSummaryHead.extractedExpression =>
+          strings.extractedExpression,
+        CalculatorPasteSummaryHead.pastedExpression => strings.pastedExpression,
+      },
     ];
     if (angleMode != null) {
-      parts.add('角度模式 ${angleMode == 'DEG' ? 'DEG' : 'RAD'}');
+      parts.add(strings.angleModePart(angleMode == 'DEG' ? 'DEG' : 'RAD'));
     }
-    if (memoryValue != null) parts.add('记忆值 ${formatNumber(memoryValue!)}');
+    if (memoryValue != null) {
+      parts.add(strings.memoryPart(formatNumber(memoryValue!)));
+    }
     return parts.join(' · ');
   }
+
+  /// 中文：**中文那一份的默认写法，只有一个读者：**
+  ///       `test/domain/calculator_paste_result_test.dart`——**用户未提交的文件**，本轮一个字都
+  ///       不能动，而它逐条钉着那七句中文。**界面那条路不再走这里**
+  ///       （`calculator_page_sheets.dart` 把当前语言的表递给 [summaryIn]），所以这个 getter 不再
+  ///       决定任何用户看得见的字；新代码请用 [summaryIn]。它留着是因为上面那条测试，
+  ///       与 `GraphWorkspacePasteResult.summary` 当初留着的理由同一条。
+  /// English: **the default Chinese spelling, with exactly one reader:**
+  ///          `test/domain/calculator_paste_result_test.dart` — **the user's uncommitted file**, not
+  ///          one character of which may move this round, and it pins those seven Chinese sentences
+  ///          one by one. **The interface road no longer goes through here**
+  ///          (`calculator_page_sheets.dart` hands the active language's table to [summaryIn]), so this
+  ///          getter no longer decides anything a user sees; new code should call [summaryIn]. It stays
+  ///          for that test, the same reason `GraphWorkspacePasteResult.summary` was kept.
+  String get summary => summaryIn(CalculatorPasteStrings.zh);
 
   /// 中文：当前值的取值顺序——报告里的十进制行优先，其次是人类可读的当前值行，最后才是纯文本剪贴板
   ///       里第一行「看起来像表达式」的内容。两条报告行都**必须能解析成一个有限数**才算数，实现
@@ -277,15 +402,70 @@ class CalculatorPasteResult {
     return '';
   }
 
+  /// 中文：**报告里 `角度模式:` 那一行 → `DEG` / `RAD`。** 值可能是 `'角度 DEG'`（本应用的报告）
+  ///       或 `'DEG'`（外层/旧报告），所以两半都认：
+  ///
+  ///       - **令牌那一半**：`deg` / `rad` 是**语言无关的记号**，两种语言里都这么写，所以它们在
+  ///         解析器里就是字面量——它们不是词，翻了反而对不上。
+  ///       - **词那一半**：没有令牌那种写法（`角度模式: 角度`）只能靠词认，而那些词**从产出方那张
+  ///         表取**（[CalculatorReportLabels.angleDegreesWord] / `angleRadiansWord` 的
+  ///         `spellingsOf`，也就是**每一种语言**的并集）——剪贴板里那份可能是在另一种语言下
+  ///         复制出来的。**源码里不再另抄一份 `'角度'` / `'弧度'`**：词一改或加一种语言，词那一半
+  ///         会跟着动，而不是悄悄变成永远为假。
+  ///
+  ///       **顺序是行为**：先问 `DEG` 再问 `RAD`，与拆分前逐条相同（`'弧度 RAD'` 两半都不撞
+  ///       `DEG`，所以这个顺序今天不会改变任何结果，但它照旧写在这里）。
+  ///
+  ///       英文那两个词（`Degrees` / `Radians`）加进并集**不改变任何结果**：任何含 `Degrees` 的值
+  ///       都含 `deg`（折成小写之后），任何含 `Radians` 的都含 `rad`，所以它们只会命中那些**本来
+  ///       就已经命中**的值。
+  /// English: **the report's `角度模式:` line into `DEG` / `RAD`.** The value may be `'角度 DEG'` (this
+  ///          app's report) or `'DEG'` (a foreign or older one), so both halves are accepted:
+  ///
+  ///          - **the token half**: `deg` / `rad` are **language-independent marks**, written that way
+  ///            in every language, so they are literals here — they are not words, and translating one
+  ///            would break the match.
+  ///          - **the word half**: the token-less spelling (`角度模式: 角度`) can only be recognised by
+  ///            its word, and those words **come from the producer's table**
+  ///            ([CalculatorReportLabels.angleDegreesWord] / `angleRadiansWord` through `spellingsOf`,
+  ///            the union over **every** language) — the clipboard's copy may have been taken under
+  ///            another language. **No second `'角度'` / `'弧度'` is written in this file**: change a
+  ///            word or add a language and the word half moves with it rather than quietly becoming
+  ///            permanently false.
+  ///
+  ///          **The order is behaviour**: `DEG` is asked first and `RAD` second, item for item as before
+  ///          the split (`'弧度 RAD'` hits neither half of `DEG`, so the order changes no result today —
+  ///          but it is still written down here).
+  ///
+  ///          Adding the two English words (`Degrees` / `Radians`) to the union **changes no result**:
+  ///          any value holding `Degrees` holds `deg` (once folded to lower case) and any holding
+  ///          `Radians` holds `rad`, so they only ever hit values that **already** matched.
   static String? _angleModeFromText(String text) {
     final raw = _labeledValue(
         text, CalculatorReportLabels.spellingsOf((labels) => labels.angleMode));
     if (raw == null) return null;
     final normalized = raw.toLowerCase();
-    if (normalized.contains('deg') || raw.contains('角度')) return 'DEG';
-    if (normalized.contains('rad') || raw.contains('弧度')) return 'RAD';
+    if (normalized.contains('deg') ||
+        _containsAnyWord(
+            raw, CalculatorReportLabels.spellingsOf((l) => l.angleDegreesWord))) {
+      return 'DEG';
+    }
+    if (normalized.contains('rad') ||
+        _containsAnyWord(
+            raw, CalculatorReportLabels.spellingsOf((l) => l.angleRadiansWord))) {
+      return 'RAD';
+    }
     return null;
   }
+
+  /// 中文：这一段文本里有没有出现词表里的任何一个词。**大小写敏感**——与今天那句
+  ///       `raw.contains('角度')` 同一条（中文没有大小写，所以这个判据原先只对中文成立；
+  ///       英文那两个词今天靠 `deg`/`rad` 那一半命中，不靠这里）。
+  /// English: whether this text holds any of the words. **Case-sensitive**, the same as today's
+  ///          `raw.contains('角度')` (Chinese has no case, so that judgement only ever held for
+  ///          Chinese; the two English words are matched by the `deg`/`rad` half today, not here).
+  static bool _containsAnyWord(String text, List<String> words) =>
+      words.any(text.contains);
 
   /// 中文：报告里 `记忆值:` 那一行 → 寄存器的数值。判定用 [MathResult.decimalValueOf]——与
   ///       提交路径、当前值那一行**同一处实现**。

@@ -194,8 +194,17 @@ class CalculatorControllerStrings {
 
   // —— 角度模式标签（`'角度 DEG'` / `'弧度 RAD'`）——
   // 中文：`DEG` / `RAD` 是**令牌**，两种语言里都是这个写法；跟着翻的只有「角度」「弧度」那两个词。
+  //       那两个词**不在这个文件里另写一遍**：它们从 `CalculatorReportLabels` 取
+  //       （`angleDegreesWord` / `angleRadiansWord`），因为**粘贴解析器也要认它们**——报告里的
+  //       角度模式正是靠这两个词（没有令牌那种写法）恢复出来的，两处各抄一份就是判据读文案的
+  //       那一类（第七处，理由写在 `calculator_report_labels.dart` 上）。
   // English: `DEG` / `RAD` are **tokens** and read the same in both languages; only the words in front
-  //          of them are translated.
+  //          of them are translated. Those two words are **not written a second time in this file**:
+  //          they come from `CalculatorReportLabels` (`angleDegreesWord` / `angleRadiansWord`),
+  //          because **the paste parser has to know them too** — a report's angle mode is recovered
+  //          through exactly those words (in the token-less spelling), and two copies would be the
+  //          judgement-reading-copy class again (the seventh site; the reasons are on
+  //          `calculator_report_labels.dart`).
   final String angleModeDegrees;
   final String angleModeRadians;
 
@@ -296,8 +305,8 @@ class CalculatorControllerStrings {
     friendlyUnitMismatch: '单位不匹配：这两个单位不能互相换算',
     friendlyGeneric: '表达式错误',
     memoryRefusal: '当前值放不进记忆寄存器，寄存器未改动',
-    angleModeDegrees: '角度 DEG',
-    angleModeRadians: '弧度 RAD',
+    angleModeDegrees: '${CalculatorReportLabels.zh.angleDegreesWord} DEG',
+    angleModeRadians: '${CalculatorReportLabels.zh.angleRadiansWord} RAD',
     savedNoteTitle: '计算结果',
     savedNoteDescription: (angleMode) => '由计算器保存，$angleMode',
     // 中文：**九个标签的词从 `CalculatorReportLabels.zh` 取**，这里只负责拼成句子。
@@ -374,8 +383,8 @@ class CalculatorControllerStrings {
     friendlyGeneric: 'Expression error',
     memoryRefusal:
         'The current value does not fit the memory register, so the register is unchanged',
-    angleModeDegrees: 'Degrees DEG',
-    angleModeRadians: 'Radians RAD',
+    angleModeDegrees: '${CalculatorReportLabels.en.angleDegreesWord} DEG',
+    angleModeRadians: '${CalculatorReportLabels.en.angleRadiansWord} RAD',
     savedNoteTitle: 'Calculation result',
     savedNoteDescription: (angleMode) => 'Saved from the calculator, $angleMode',
     // 中文：与中文那一份同一处来源，理由逐字相同——`CalculatorReportLabels.en`。

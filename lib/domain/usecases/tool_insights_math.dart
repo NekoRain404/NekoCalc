@@ -45,12 +45,18 @@ List<String> buildMathToolInsights(
     case ToolKind.linearSystem:
       final d =
           (v['a1'] ?? 0) * (v['b2'] ?? 0) - (v['a2'] ?? 0) * (v['b1'] ?? 0);
-      final relation = toolResultText(results, '方程关系') ?? '';
+      // 中文：**判据读令牌，不读那句话**——`'无解'` / `'无穷多解'` 是产出方写下的两条结论
+      //       （`ToolResultConclusion.noSolution` / `.infiniteSolutions`），措辞或语言一变这里不会静默变假。
+      // English: **the judgement reads the token, not the sentence** — `'无解'` / `'无穷多解'` are two
+      //          conclusions the producer wrote (`ToolResultConclusion.noSolution` /
+      //          `.infiniteSolutions`); change the wording or the language and this does not silently go
+      //          false.
+      final relation = toolResultConclusion(results, '方程关系');
       final residual1 = toolResultNumber(results, '残差 1');
       final residual2 = toolResultNumber(results, '残差 2');
-      if (relation == '无解') {
+      if (relation == ToolResultConclusion.noSolution) {
         lines.add('系数矩阵秩小于增广矩阵秩，两条直线平行且不重合，无交点');
-      } else if (relation == '无穷多解') {
+      } else if (relation == ToolResultConclusion.infiniteSolutions) {
         lines.add('系数矩阵和增广矩阵秩相同但 D=0，两条直线重合或方程退化');
       } else {
         lines.add(d.abs() < 1e-9 ? 'D 接近 0，解会很敏感，输入稍变结果就可能跳动' : 'D 不为 0，有唯一解');
@@ -60,13 +66,16 @@ List<String> buildMathToolInsights(
             '代回残差为 ${formatNumber(residual1)}、${formatNumber(residual2)}，越接近 0 校验越好');
       }
     case ToolKind.exponentialLog:
-      final domain = toolResultText(results, '定义域') ?? '';
+      // 中文：判据读令牌（`ToolResultConclusion.logUndefined`），不再回读 `'对数无效'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.logUndefined`) rather than the
+      //          `'对数无效'` sentence.
+      final domain = toolResultConclusion(results, '定义域');
       final x = v['x'] ?? 0;
       final y = v['y'] ?? 0;
       if (toolResultUnavailable(results, 'x^y')) {
         lines.add('指数或对数结果无效，通常来自非有限输入、溢出或实数域不支持的幂运算');
       }
-      if (domain == '对数无效') {
+      if (domain == ToolResultConclusion.logUndefined) {
         lines.add('x 必须大于 0 才能计算 ln(x)、log10(x) 和换底对数');
       }
       if (y == 0) lines.add('y 为 0 时 y 次根无定义，x^0 仍按 1 处理');
@@ -76,12 +85,15 @@ List<String> buildMathToolInsights(
       }
       lines.add('指数对数按实数域和双精度浮点计算，复数幂和多值根未展开');
     case ToolKind.linearEquation:
-      final relation = toolResultText(results, '方程关系') ?? '';
-      if (relation == '无解') {
+      // 中文：三条判据都读令牌（`noSolution` / `identity` / `uniqueSolution`），不回读那三句话。
+      // English: all three judgements read tokens (`noSolution` / `identity` / `uniqueSolution`) rather
+      //          than those three sentences.
+      final relation = toolResultConclusion(results, '方程关系');
+      if (relation == ToolResultConclusion.noSolution) {
         lines.add('a=0 且 b≠0，方程退化为常数不等于 0，因此无解');
-      } else if (relation == '恒等式') {
+      } else if (relation == ToolResultConclusion.identity) {
         lines.add('a=0 且 b=0，任意实数都满足方程');
-      } else if (relation == '唯一解') {
+      } else if (relation == ToolResultConclusion.uniqueSolution) {
         lines.add('a 不为 0，存在唯一 x 截距，代回 ax+b 应接近 0');
       }
     case ToolKind.combination:
@@ -180,11 +192,17 @@ List<String> buildMathToolInsights(
     case ToolKind.vector:
       final len1 = _hypot(v['x1'] ?? 0, v['y1'] ?? 0);
       final len2 = _hypot(v['x2'] ?? 0, v['y2'] ?? 0);
-      final relation = toolResultText(results, '关系');
+      // 中文：判据读令牌（平行两种与垂直），不回读那三句话。`'零向量'` / `'一般夹角'` 没有被判据
+      //       读过，产出方那边照旧是普通字面量。
+      // English: the judgements read tokens (the two parallels and the perpendicular) rather than those
+      //          three sentences. `'零向量'` / `'一般夹角'` are read by no judgement and stay ordinary
+      //          literals on the producer's side.
+      final relation = toolResultConclusion(results, '关系');
       if (len1 == 0 || len2 == 0) lines.add('零向量没有方向，夹角不作工程判断');
-      if (relation == '同向平行' || relation == '反向平行') {
+      if (relation == ToolResultConclusion.parallelAligned ||
+          relation == ToolResultConclusion.parallelOpposite) {
         lines.add('两个向量平行，叉积接近 0，方向关系比夹角数值更稳定');
-      } else if (relation == '垂直') {
+      } else if (relation == ToolResultConclusion.perpendicular) {
         lines.add('两个向量垂直，点积接近 0，可用于正交分解或法向校验');
       }
     case ToolKind.triangle:

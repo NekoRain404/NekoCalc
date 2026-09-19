@@ -65,18 +65,27 @@ List<ToolResult> linearSystemResults(Map<String, double> valuesByKey) {
   final determinantY = a1 * c2 - a2 * c1;
   final coefficientRank = _rank2x2(a1, b1, a2, b2);
   final augmentedRank = _rank2x3(a1, b1, c1, a2, b2, c2);
-  final relation = determinant.abs() <= 1e-12
-      ? (coefficientRank == augmentedRank ? '无穷多解' : '无解')
-      : '唯一解';
+  // 中文：**「方程关系」那一格被下游判据读过**（`tool_insights_math.dart` 问 `'无解'` / `'无穷多解'`），
+  //       所以三支各是一条结论、句子从枚举来，值一个字都没动。
+  // English: **the "方程关系" cell is read by a downstream judgement** (`tool_insights_math.dart` asks
+  //          `'无解'` / `'无穷多解'`), so each of the three branches is a conclusion whose sentence comes
+  //          from the enum; not one character of the value moved.
+  final relationConclusion = determinant.abs() <= 1e-12
+      ? (coefficientRank == augmentedRank
+          ? ToolResultConclusion.infiniteSolutions
+          : ToolResultConclusion.noSolution)
+      : ToolResultConclusion.uniqueSolution;
+  final relation = relationConclusion.sentence;
   if (determinant.abs() <= 1e-12) {
     return [
-      ToolResult('解 (x, y)', relation, '', primary: true),
+      ToolResult('解 (x, y)', relation, '',
+          primary: true, conclusion: relationConclusion),
       ToolResult.number('D', determinant, ''),
       ToolResult.number('Dx', determinantX, ''),
       ToolResult.number('Dy', determinantY, ''),
       ToolResult('系数矩阵秩', coefficientRank.toString(), ''),
       ToolResult('增广矩阵秩', augmentedRank.toString(), ''),
-      ToolResult('方程关系', relation, ''),
+      ToolResult('方程关系', relation, '', conclusion: relationConclusion),
       const ToolResult.invalid('验证 1', ''),
       const ToolResult.invalid('验证 2', ''),
       const ToolResult.invalid('残差 1', ''),
@@ -98,7 +107,7 @@ List<ToolResult> linearSystemResults(Map<String, double> valuesByKey) {
     ToolResult.number('Dy', determinantY, ''),
     ToolResult('系数矩阵秩', coefficientRank.toString(), ''),
     ToolResult('增广矩阵秩', augmentedRank.toString(), ''),
-    ToolResult('方程关系', relation, ''),
+    ToolResult('方程关系', relation, '', conclusion: relationConclusion),
     ToolResult.number('验证 1', check1, ''),
     ToolResult.number('验证 2', check2, ''),
     ToolResult.number('残差 1', check1 - c1, ''),
@@ -159,7 +168,19 @@ List<ToolResult> exponentialLogResults(Map<String, double> valuesByKey) {
     ToolResult.number('sqrt(x)', x < 0 ? null : math.sqrt(x), ''),
     ToolResult.number('y次根x', root.isFinite ? root : null, ''),
     ToolResult.number('1/x', x == 0 ? null : 1 / x, ''),
-    ToolResult('定义域', x > 0 ? '对数有效' : '对数无效', '', hasError: !(x > 0)),
+    // 中文：**这一格被下游判据读过**（`tool_insights_math.dart` 问 `domain == '对数无效'`）：
+    //       结论那一支的值从枚举来、旗标与令牌一起写下；`'对数有效'` 没有被任何判据读过。
+    //       `hasError: !(x > 0)` 逐条不变——旧写法就是「值是『对数无效』时是错误」，两支一一对应。
+    // English: **a downstream judgement reads this cell** (`tool_insights_math.dart` asks
+    //          `domain == '对数无效'`): that branch's value comes from the enum with the flag and the
+    //          token alongside; `'对数有效'` is read by no judgement. `hasError: !(x > 0)` is item for
+    //          item unchanged — the old writing was "it is an error when the value is 对数无效", and
+    //          the two branches map one to one.
+    x > 0
+        ? const ToolResult('定义域', '对数有效', '')
+        : ToolResult.conclusion(
+            '定义域', ToolResultConclusion.logUndefined, '',
+            hasError: true),
   ];
 }
 
@@ -182,14 +203,30 @@ List<ToolResult> linearEquationResults(Map<String, double> valuesByKey) {
   final a = valuesByKey['a'] ?? 0;
   final b = valuesByKey['b'] ?? 0;
   if (!a.isFinite || !b.isFinite) return _invalidLinearEquationResults();
-  final relation = a == 0 ? (b == 0 ? '恒等式' : '无解') : '唯一解';
+  // 中文：**这一格被下游判据读过**（`tool_insights_math.dart` 问 `'无解'` / `'恒等式'` / `'唯一解'`）：
+  //       三支各是一条结论、句子从枚举来，值一个字都没动。
+  // English: **this cell is read by a downstream judgement** (`tool_insights_math.dart` asks `'无解'` /
+  //          `'恒等式'` / `'唯一解'`): each of the three branches is a conclusion whose sentence comes
+  //          from the enum; not one character of the value moved.
+  final relationConclusion = a != 0
+      ? ToolResultConclusion.uniqueSolution
+      : (b == 0
+          ? ToolResultConclusion.identity
+          : ToolResultConclusion.noSolution);
+  final relation = relationConclusion.sentence;
   if (a == 0) {
     return [
-      ToolResult('解 x', b == 0 ? '任意实数' : '无解', '', primary: true),
+      // 中文：`'任意实数'` 没有被任何判据读过（它是普通字面量），`'无解'` 那一支是结论。
+      // English: `'任意实数'` is read by no judgement (an ordinary literal); the `'无解'` branch is a
+      //          conclusion.
+      b == 0
+          ? const ToolResult('解 x', '任意实数', '', primary: true)
+          : ToolResult.conclusion('解 x', ToolResultConclusion.noSolution, '',
+              primary: true),
       ToolResult.number('a', a, ''),
       ToolResult.number('b', b, ''),
-      ToolResult('方程关系', relation, ''),
-      ToolResult('退化类型', relation, ''),
+      ToolResult('方程关系', relation, '', conclusion: relationConclusion),
+      ToolResult('退化类型', relation, '', conclusion: relationConclusion),
       const ToolResult.invalid('验证 ax+b', ''),
     ];
   }
@@ -200,7 +237,7 @@ List<ToolResult> linearEquationResults(Map<String, double> valuesByKey) {
     ToolResult.number('b', b, ''),
     ToolResult.number('斜率 a', a, ''),
     ToolResult.number('截距 b', b, ''),
-    ToolResult('方程关系', relation, ''),
+    ToolResult('方程关系', relation, '', conclusion: relationConclusion),
     ToolResult.number('验证 ax+b', a * x + b, ''),
     ToolResult.number('x 截距', x, ''),
   ];

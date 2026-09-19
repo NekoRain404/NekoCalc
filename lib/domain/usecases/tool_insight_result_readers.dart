@@ -20,6 +20,38 @@ String? toolResultText(List<ToolResult> results, String label) {
   return null;
 }
 
+/// 中文：这条结果是**哪一条结论**（[ToolResultConclusion]），不是结论时为 `null`。
+///
+///       本文件原先那十八行、十九次判据是**回读那句给用户看的话**：`toolResultText(results, '简单回收期') ==
+///       '未回收'`、`state == '会下滑'`、`relation == '无解'`、`delta != '在范围内'`…
+///       词一改（或加一种语言）它们就静默变成永远为假，下游那句提示不再出现，什么都不会抛。
+///       现在它们调这里，问产出方写下的令牌。
+///
+///       **匹配规则与 [toolResultText] 逐条相同**：标签按 `contains` 匹配、取**第一条**命中的结果、
+///       没有这条结果时给 `null`（于是 `null == 某令牌` 为假，与 `null == '某句话'` 同义）。
+///       **不要**把它换成相等匹配：旧写法就是 `contains`，换了会静默改变命中范围。
+/// English: **which conclusion** this result is ([ToolResultConclusion]), or `null` when it is not a
+///          conclusion.
+///
+///          The eighteen lines / nineteen comparisons in this file used to **read the sentence shown to
+///          the user back**:
+///          `toolResultText(results, '简单回收期') == '未回收'`, `state == '会下滑'`,
+///          `relation == '无解'`, `delta != '在范围内'` … Change a word (or add a language) and they
+///          silently become permanently false, the hint line downstream stops appearing, and nothing
+///          throws. They now call this and ask the token the producer wrote.
+///
+///          **Matching is item for item what [toolResultText] does**: labels match by `contains`, the
+///          **first** hit wins, and an absent result gives `null` (so `null == someToken` is false,
+///          which is what `null == 'some sentence'` meant). **Do not turn this into equality
+///          matching**: the old code used `contains`, and switching would quietly change what matches.
+ToolResultConclusion? toolResultConclusion(
+    List<ToolResult> results, String label) {
+  for (final result in results) {
+    if (result.label.contains(label)) return result.conclusion;
+  }
+  return null;
+}
+
 /// 中文：这条结果**是不是那条「无效」记号本身**——不是「含有它的某句话」。
 ///       本文件里 119 处 `xText == '无效'` 问的就是这件事，从前是回读那句话问出来的；
 ///       现在问产出方写下的旗标。**与 [toolResultHasError] 是两个问题**：`(0, 无效)` 那种拼出来

@@ -445,7 +445,19 @@ List<ToolResult> ldoPowerResults(Map<String, double> valuesByKey) {
     ToolResult.number('压差余量', headroomMargin, 'V'),
     ToolResult.number('静态电流', iqMa, 'mA'),
     ToolResult.number('总输入电流', inputCurrent * 1000, 'mA'),
-    ToolResult('调节状态', regulates ? '可调节' : '压差不足', ''),
+    // 中文：**这一格被下游判据读过**（`tool_insights_electronics.dart` 问 `stateText == '压差不足'`）：
+    //       结论那一支的值从枚举来、令牌一起写下；`'可调节'` 没有被任何判据读过。
+    // English: **a downstream judgement reads this cell** (`tool_insights_electronics.dart` asks
+    //          `stateText == '压差不足'`): that branch's value comes from the enum with the token
+    //          alongside; `'可调节'` is read by no judgement.
+    ToolResult(
+      '调节状态',
+      regulates
+          ? '可调节'
+          : ToolResultConclusion.insufficientHeadroom.sentence,
+      '',
+      conclusion: regulates ? null : ToolResultConclusion.insufficientHeadroom,
+    ),
     ToolResult.number('温升', rise, '℃'),
     ToolResult.number('结温估算', junction, '℃'),
     ToolResult.number('热余量', margin, '℃'),

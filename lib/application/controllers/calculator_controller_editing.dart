@@ -268,9 +268,29 @@ mixin _CalculatorEditing on _CalculatorState {
     notifyListeners();
   }
 
+  /// 中文：**AC 键。** 已经处在「清空之后」那个状态时它是一次空操作——不记撤销快照、不落盘、
+  ///       不发通知（与光标键在两端的空操作同一条规矩）。
+  ///
+  ///       **那道判据读的是「结果行的读数是不是零」，而这件事只有一处定义**：
+  ///       [MathResult.showsZero]。它从前在源码里自带一个字面量 `'0'` 与 [result] 比——那是同一个
+  ///       数字的第二份抄本，零值的写法若变了它不会跟着动。**为什么不用值相等**
+  ///       （`_result == MathResult.zero`）：那会在**可达的**状态上改变行为（读数 `0` 却带着精确
+  ///       形式的引擎结果、从盘上恢复的「十进制键在、值为空」那一行），逐条理由写在
+  ///       [MathResult.showsZero] 上；`clear()` 仍然是今天这个行为，一个字没动。
+  /// English: **the AC key.** When the state is already the post-clear one this is a no-op — no undo
+  ///          snapshot, no persist, no notification (the same rule as the cursor keys at either end).
+  ///
+  ///          **That judgement reads "is the result line's reading zero", and that fact is defined in
+  ///          one place**: [MathResult.showsZero]. It used to carry its own `'0'` literal here and
+  ///          compare it with [result] — a second copy of one number, which would not follow a change in
+  ///          how zero is spelled. **Why not value equality** (`_result == MathResult.zero`): that
+  ///          would change behaviour on **reachable** states (an engine result reading `0` that carries
+  ///          an exact form; a restored row whose decimal key is present but empty). The reasons are
+  ///          item by item on [MathResult.showsZero]; `clear()` still behaves exactly as it does today,
+  ///          not one character of it moved.
   void clear() {
     if (expression.isEmpty &&
-        result == '0' &&
+        _result.showsZero &&
         !hasError &&
         errorMessage == null) {
       return;

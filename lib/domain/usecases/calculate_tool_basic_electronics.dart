@@ -646,7 +646,21 @@ double? _requiredParallelMate(double knownComponent, double targetEquivalent) {
 }
 
 String _resistorPowerRating(double dissipatedPowerW) {
-  if (dissipatedPowerW <= 0 || !dissipatedPowerW.isFinite) return '无效';
+  // 中文：**那条记号只有一处写法**（[invalidResultValue]，`tool_definition.dart`）——这里从前
+  //       另抄了一份 `'无效'`。它不只是重复：下面那个构造点的断言比的正是那个常量，抄本与常量
+  //       一旦分了家（改措辞、或将来某轮把它翻掉），断言就再也拦不住「值是记号却没写旗标」的结果，
+  //       fail-closed 的那道门会**静默**失效。`formatNumber` 里那一份不在本轮范围（另一个作者的
+  //       未提交文件），这里只收自己这几处。
+  // English: **the marker is spelled in one place** ([invalidResultValue], in `tool_definition.dart`) —
+  //          this used to keep its own `'无效'`. That is not just duplication: the assertion at the
+  //          construction point below compares against that constant, so once the copy and the constant
+  //          part ways (a reworded sentence, or a future round translating it) the assertion can no
+  //          longer stop a "value is the marker but no flag" result, and that fail-closed door fails
+  //          **silently**. The copy inside `formatNumber` is out of this round's scope (another author's
+  //          uncommitted file); only these sites of my own are collected.
+  if (dissipatedPowerW <= 0 || !dissipatedPowerW.isFinite) {
+    return invalidResultValue;
+  }
   final recommended = dissipatedPowerW * 2;
   const ratings = <double>[0.125, 0.25, 0.5, 1, 2, 3, 5, 10];
   final rating = ratings.firstWhere(

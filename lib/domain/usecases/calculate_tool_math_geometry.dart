@@ -186,14 +186,28 @@ List<ToolResult> vectorResults(Map<String, double> valuesByKey) {
     dot / (len2 * len2) * x2,
     dot / (len2 * len2) * y2,
   ];
+  // 中文：算不出来时写下的就是**那条记号本身**（[invalidResultValue]，只有一处写法），
+  //       而且结论那一格的构造点写下了 `isInvalidMarker`——两者必须字字相同，断言才拦得住。
+  //       这里从前另抄了一份 `'无效'`：抄本漂了，那道 fail-closed 的门就静默失效。
+  // English: what is written when it cannot be produced is **the marker itself**
+  //          ([invalidResultValue], spelled in one place), and the construction point writes
+  //          `isInvalidMarker`; the two have to be character for character equal for the assertion to
+  //          hold. This used to keep its own `'无效'`: once the copy drifts, that fail-closed door fails
+  //          silently.
   final projectionVectorOnB = projectionVectorAvailable
       ? '(${formatNumber(projectionVectorValues[0])}, '
           '${formatNumber(projectionVectorValues[1])})'
-      : '无效';
+      : invalidResultValue;
   final directionA =
       len1 == 0 ? double.nan : math.atan2(y1, x1) * 180 / math.pi;
   final directionB =
       len2 == 0 ? double.nan : math.atan2(y2, x2) * 180 / math.pi;
+  // 中文：**「关系」那一格被下游判据读过**（`tool_insights_math.dart` 问平行与垂直那三种结论），
+  //       所以那三支的句子与令牌一起从上一步取出来，值一个字都没动。
+  // English: **the "关系" cell is read by a downstream judgement** (`tool_insights_math.dart` asks the
+  //          three parallel/perpendicular conclusions), so those three branches' sentences and tokens
+  //          come out of the step above together; not one character of the value moved.
+  final relation = _vectorRelation(dot, cross, len1, len2);
   return [
     ToolResult.number('点积', dot, '', primary: true),
     ToolResult.number('叉积 z', cross, ''),
@@ -217,7 +231,7 @@ List<ToolResult> vectorResults(Map<String, double> valuesByKey) {
         isInvalidMarker: !projectionVectorAvailable),
     ToolResult.number('方向角 A', directionA.isFinite ? directionA : null, 'deg'),
     ToolResult.number('方向角 B', directionB.isFinite ? directionB : null, 'deg'),
-    ToolResult('关系', _vectorRelation(dot, cross, len1, len2), ''),
+    ToolResult('关系', relation.text, '', conclusion: relation.conclusion),
   ];
 }
 
@@ -237,16 +251,38 @@ List<ToolResult> _invalidVectorResults() {
   ];
 }
 
-String _vectorRelation(
+/// 中文：**「关系」那一格的五支。** 三个是被下游判据读过的结论（平行两种与垂直），
+///       句子从 [ToolResultConclusion] 取；`'零向量'` 与 `'一般夹角'` 没有被任何判据读过，
+///       照旧是普通字面量。两样一起返回，值与令牌因此不会各自漂。
+/// English: **the five branches of the "关系" cell.** Three are conclusions a downstream judgement
+///          reads (the two parallels and the perpendicular), whose sentences come from
+///          [ToolResultConclusion]; `'零向量'` and `'一般夹角'` are read by no judgement and stay
+///          ordinary literals. Both travel together, so value and token cannot drift apart.
+({String text, ToolResultConclusion? conclusion}) _vectorRelation(
   double dot,
   double cross,
   double len1,
   double len2,
 ) {
-  if (len1 == 0 || len2 == 0) return '零向量';
-  if (cross.abs() < 1e-9) return dot >= 0 ? '同向平行' : '反向平行';
-  if (dot.abs() < 1e-9) return '垂直';
-  return '一般夹角';
+  if (len1 == 0 || len2 == 0) return (text: '零向量', conclusion: null);
+  if (cross.abs() < 1e-9) {
+    return dot >= 0
+        ? (
+            text: ToolResultConclusion.parallelAligned.sentence,
+            conclusion: ToolResultConclusion.parallelAligned,
+          )
+        : (
+            text: ToolResultConclusion.parallelOpposite.sentence,
+            conclusion: ToolResultConclusion.parallelOpposite,
+          );
+  }
+  if (dot.abs() < 1e-9) {
+    return (
+      text: ToolResultConclusion.perpendicular.sentence,
+      conclusion: ToolResultConclusion.perpendicular,
+    );
+  }
+  return (text: '一般夹角', conclusion: null);
 }
 
 List<ToolResult> triangleResults(Map<String, double> valuesByKey) {

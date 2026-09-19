@@ -203,7 +203,10 @@ List<String> buildElectronicsToolInsights(
       lines.add('结果是理想增益，实际还受供电轨、输入范围、带宽和压摆率限制');
     case ToolKind.adcResolution:
       final bits = (v['bits'] ?? 0).round();
-      final inputState = toolResultText(results, '输入状态');
+      // 中文：判据读令牌（`ToolResultConclusion.overRange`），不再回读 `'超量程'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.overRange`) rather than the
+      //          `'超量程'` sentence.
+      final inputState = toolResultConclusion(results, '输入状态');
       final enob = toolResultNumber(results, 'ENOB');
       if (toolResultUnavailable(results, 'LSB')) {
         lines.add('参考电压必须大于 0，位数建议在 1 到 32 bit');
@@ -217,7 +220,7 @@ List<String> buildElectronicsToolInsights(
       if (bits > 24) {
         lines.add('位数超过 24 bit 时，实际 ENOB、噪声和参考源稳定度通常达不到理论值');
       }
-      if (inputState == '超量程') {
+      if (inputState == ToolResultConclusion.overRange) {
         lines.add('输入电压超出 0~Vref，实际 ADC 会夹到端点码或触发前端保护');
       }
       if (enob != null && bits - enob >= 2) {
@@ -307,7 +310,10 @@ List<String> buildElectronicsToolInsights(
       final vin = v['vin'] ?? 0;
       final vout = v['vout'] ?? 0;
       final loadCurrent = v['current'] ?? 0;
-      final stateText = toolResultText(results, '调节状态');
+      // 中文：判据读令牌（`ToolResultConclusion.insufficientHeadroom`），不再回读 `'压差不足'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.insufficientHeadroom`) rather
+      //          than the `'压差不足'` sentence.
+      final stateText = toolResultConclusion(results, '调节状态');
       final dropoutMargin = toolResultNumber(results, '压差余量');
       final thermalMargin = toolResultNumber(results, '热余量');
       final efficiency = toolResultNumber(results, '效率');
@@ -315,7 +321,8 @@ List<String> buildElectronicsToolInsights(
       if (toolResultUnavailable(results, '功耗')) {
         lines.add('Vin 必须大于 0，Vout 不能为负，负载电流、Iq 和 dropout 不能为负，θJA 必须大于 0');
       }
-      if (stateText == '压差不足' || vin <= vout) {
+      if (stateText == ToolResultConclusion.insufficientHeadroom ||
+          vin <= vout) {
         lines.add('Vin 需要高于 Vout，并留出 dropout 电压，否则 LDO 会退出稳压区');
       } else if (dropoutMargin != null &&
           dropoutMargin >= 0 &&

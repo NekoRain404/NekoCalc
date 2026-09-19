@@ -76,7 +76,13 @@ List<ToolResult> roiResults(Map<String, double> valuesByKey) {
       // English: when no finite number comes out the screen shows `'未回收'` — **that is not an
       //          error**.
       if (!paybackYears.isFinite)
-        const ToolResult('简单回收期', '未回收', '年')
+        // 中文：**结论走令牌，值从表里来**——下游那句提示（`tool_insights_finance.dart`）读的是
+        //       令牌，不再回读这句话。理由与病史见 `ToolResultConclusion`。
+        // English: **a conclusion goes through the token and the value comes from the table** — the
+        //          hint line downstream (`tool_insights_finance.dart`) reads the token instead of this
+        //          sentence. See `ToolResultConclusion` for the reasons and the history.
+        ToolResult.conclusion(
+            '简单回收期', ToolResultConclusion.neverRecovers, '年')
       else
         ToolResult.number('简单回收期', paybackYears, '年'),
     ]);

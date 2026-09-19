@@ -175,7 +175,14 @@ List<String> buildFinanceToolInsights(
       } else {
         lines.add('未填写持有年限，当前 ROI 不包含时间维度');
       }
-      if (payback == '未回收') {
+      // 中文：**判据读令牌，不读那句话**——`'未回收'` 是产出方写下的结论
+      //       （`ToolResultConclusion.neverRecovers`）。`payback` 仍然要留：下面那一支把它的值
+      //       写进提示行里（那是显示，不是判据）。
+      // English: **the judgement reads the token, not the sentence** — `'未回收'` is a conclusion the
+      //          producer wrote (`ToolResultConclusion.neverRecovers`). `payback` stays: the branch
+      //          below puts its value into the hint line (that is display, not judgement).
+      if (toolResultConclusion(results, '简单回收期') ==
+          ToolResultConclusion.neverRecovers) {
         lines.add('按当前净收益无法回收投入');
       } else if (payback != null && !toolResultUnavailable(results, '简单回收期')) {
         lines.add('简单回收期约 $payback 年，未考虑现金流发生时间和折现');
@@ -211,7 +218,11 @@ List<String> buildFinanceToolInsights(
       if (profitabilityIndex != null && profitabilityIndex < 1) {
         lines.add('盈利指数低于 1，折现现金流小于初始投入');
       }
-      if (payback == '未回收') {
+      // 中文：与上一处同一条：判据读令牌（`neverRecovers`），`payback` 留给显示。
+      // English: the same rule as the site above: the judgement reads the token (`neverRecovers`) and
+      //          `payback` is kept for display.
+      if (toolResultConclusion(results, '折现回收期') ==
+          ToolResultConclusion.neverRecovers) {
         lines.add('折现现金流在当前期数内尚未回收初始投入');
       } else if (payback.isNotEmpty &&
           !toolResultUnavailable(results, '折现回收期')) {

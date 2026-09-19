@@ -103,6 +103,8 @@ class CalculatorReportLabels {
     required this.decimal,
     required this.status,
     required this.angleMode,
+    required this.angleDegreesWord,
+    required this.angleRadiansWord,
     required this.memory,
     required this.error,
     required this.savedAt,
@@ -133,6 +135,37 @@ class CalculatorReportLabels {
   /// English: the `角度模式` line.
   final String angleMode;
 
+  /// 中文：**`角度模式` 那一行的值里、度数那一半的词**（`'角度 DEG'` 里的 `角度`）。
+  ///
+  ///       它进这张表是因为**判据在用它**：粘贴解析器从这一行的值里恢复角度模式时，除了认
+  ///       `DEG`/`RAD` 两个令牌，还要认没有令牌的那种写法（`角度模式: 角度`）——而它原先认的是
+  ///       源码里另抄的一份字面量 `raw.contains('角度')`，**与产出方那份是两份词**。这与九个标签
+  ///       是同一根因的第七处：词一改（或加一种语言），判据悄悄变成永远为假，报告里的角度模式
+  ///       再也读不出来，没有异常也没有日志。
+  ///
+  ///       **它只是那个词，不含 `DEG`**：`DEG` / `RAD` 是**令牌**，两种语言里都是这个写法，
+  ///       所以它们不进表，由产出方拼、由判据按令牌读（`_angleModeFromText` 的 `deg`/`rad` 那两半）。
+  /// English: **the degrees half of the `角度模式` line's value** (the `角度` in `'角度 DEG'`).
+  ///
+  ///          It joins this table because **a judgement reads it**: when the paste parser recovers the
+  ///          angle mode from that line's value it accepts, besides the `DEG`/`RAD` tokens, the
+  ///          token-less spelling (`角度模式: 角度`) — and it used to accept it through a second copy of
+  ///          the word written into the source, `raw.contains('角度')`, **a copy of the producer's
+  ///          word**. That is the seventh site of one cause (the nine labels are the other six): change
+  ///          the word or add a language and the judgement goes quietly, permanently false — the angle
+  ///          mode stops coming back out of a report with nothing thrown and nothing logged.
+  ///
+  ///          **It is the word alone, without `DEG`**: `DEG` / `RAD` are **tokens**, spelled that way
+  ///          in every language, so they stay out of the table — the producer composes them and the
+  ///          judgement reads them as tokens (`_angleModeFromText`'s `deg`/`rad` halves).
+  final String angleDegreesWord;
+
+  /// 中文：`角度模式` 那一行的值里、弧度那一半的词（`'弧度 RAD'` 里的 `弧度`）。理由与
+  ///       [angleDegreesWord] 逐字相同。
+  /// English: the radians half of the `角度模式` line's value (the `弧度` in `'弧度 RAD'`). The reasons
+  ///          are character for character those on [angleDegreesWord].
+  final String angleRadiansWord;
+
   /// 中文：`记忆值` 那一行，只在寄存器非零时出现。
   /// English: the `记忆值` line, present only while the register is non-zero.
   final String memory;
@@ -155,6 +188,8 @@ class CalculatorReportLabels {
     decimal: '十进制',
     status: '状态',
     angleMode: '角度模式',
+    angleDegreesWord: '角度',
+    angleRadiansWord: '弧度',
     memory: '记忆值',
     error: '错误',
     savedAt: '保存时间',
@@ -175,6 +210,8 @@ class CalculatorReportLabels {
     decimal: 'Decimal',
     status: 'Status',
     angleMode: 'Angle mode',
+    angleDegreesWord: 'Degrees',
+    angleRadiansWord: 'Radians',
     memory: 'Memory',
     error: 'Error',
     savedAt: 'Saved at',

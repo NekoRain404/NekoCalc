@@ -413,12 +413,20 @@ List<ToolResult> npvResults(Map<String, double> valuesByKey) {
     // English: when `null` (cannot be computed) the screen shows `'未回收'` — **that is not an
     //          error**; with a number the value is that number, and only a non-finite one turns into
     //          the marker. Written as two branches so the two questions do not get mixed up.
+    // 中文：**这两支的结论走令牌，值从表里来**——下游那两句提示
+    //       （`tool_insights_finance.dart`）读的是令牌，不再回读这句话。理由与病史见
+    //       `ToolResultConclusion`。
+    // English: **these two branches' conclusion goes through the token and the value comes from the
+    //          table** — the two hint lines downstream (`tool_insights_finance.dart`) read the token
+    //          instead of this sentence. See `ToolResultConclusion` for the reasons and the history.
     if (discountedBalance == null)
-      const ToolResult('折现回收期', '未回收', '期')
+      ToolResult.conclusion(
+          '折现回收期', ToolResultConclusion.neverRecovers, '期')
     else
       ToolResult.number('折现回收期', discountedBalance, '期'),
     if (simpleBalance == null)
-      const ToolResult('简单回收期', '未回收', '期')
+      ToolResult.conclusion(
+          '简单回收期', ToolResultConclusion.neverRecovers, '期')
     else
       ToolResult.number('简单回收期', simpleBalance, '期'),
     ToolResult.number('折现率-2% NPV', npvLow, '元'),

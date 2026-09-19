@@ -56,7 +56,10 @@ List<String> buildMechanicalToolInsights(
       }
       lines.add('扭矩已乘效率；冲击载荷、齿面强度和轴承能力另算');
     case ToolKind.torquePower:
-      final direction = toolResultText(results, '功率方向');
+      // 中文：判据读令牌（`ToolResultConclusion.braking`），不再回读 `'制动/回馈'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.braking`) rather than the
+      //          `'制动/回馈'` sentence.
+      final direction = toolResultConclusion(results, '功率方向');
       final rpm = v['rpm'] ?? 0;
       final torque = v['torque'] ?? 0;
       final targetTorqueText = toolResultText(results, '目标功率所需扭矩');
@@ -67,7 +70,7 @@ List<String> buildMechanicalToolInsights(
       if (rpm == 0) {
         lines.add('转速为 0 时机械输出功率为 0，无法反推 1kW 所需扭矩');
       }
-      if (direction == '制动/回馈') {
+      if (direction == ToolResultConclusion.braking) {
         lines.add('功率为负表示扭矩和转速方向相反，常见于制动或能量回馈');
       }
       if (rpm.abs() > 10000) {

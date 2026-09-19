@@ -58,15 +58,24 @@ List<String> buildStructureToolInsights(
       if ((v['normal'] ?? 0) == 0) lines.add('正压力为 0 时不会产生库仑摩擦力');
       lines.add('静摩擦上限和动摩擦系数可能不同，润滑、表面状态和温度会显著改变结果');
     case ToolKind.inclinedPlane:
-      final state = toolResultText(results, '滑动状态');
+      // 中文：**判据读令牌，不读那句话**——`'会下滑'` / `'摩擦可抵住'` 是产出方写下的两条结论
+      //       （`ToolResultConclusion.slidesDown` / `.frictionHolds`），措辞或语言一变这里不会静默变假。
+      //       `state` 那个局部因此不再需要（它从前只用来比这两句话）。
+      // English: **the judgement reads the token, not the sentence** — `'会下滑'` / `'摩擦可抵住'` are
+      //          two conclusions the producer wrote (`ToolResultConclusion.slidesDown` /
+      //          `.frictionHolds`); change the wording or the language and this does not silently go
+      //          false. The `state` local is therefore gone (it only ever existed to compare those two
+      //          sentences).
+      final stateConclusion = toolResultConclusion(results, '滑动状态');
       final netDownhill = toolResultNumber(results, '净下滑力');
       final angle = v['angle'] ?? 0;
       if (toolResultUnavailable(results, '沿斜面分力')) {
         lines.add('质量不能为负，摩擦系数不能为负，角度需在 -90° 到 90°');
       }
-      if (state == '会下滑') {
+      if (stateConclusion == ToolResultConclusion.slidesDown) {
         lines.add('沿斜面分力超过摩擦上限，物体会沿斜面下滑');
-      } else if (state == '摩擦可抵住' && netDownhill != null) {
+      } else if (stateConclusion == ToolResultConclusion.frictionHolds &&
+          netDownhill != null) {
         lines.add('摩擦余量约 ${formatNumber(netDownhill.abs())}N，实际静摩擦系数不足时仍会滑动');
       }
       if (angle.abs() > 45) {
@@ -120,7 +129,6 @@ List<String> buildStructureToolInsights(
       }
       lines.add('截面属性按理想几何计算，圆角、孔洞、焊缝和实际型材公差未计入');
     case ToolKind.safetyFactor:
-      final factorText = toolResultText(results, '安全系数');
       final factor = toolResultNumber(results, '安全系数');
       final margin = toolResultNumber(results, '余量');
       final targetFactor = toolResultNumber(results, '目标安全系数');
@@ -129,7 +137,11 @@ List<String> buildStructureToolInsights(
       if (toolResultUnavailable(results, '安全系数')) {
         lines.add('材料强度必须大于 0，工作应力必须是有限数值');
       }
-      if (factorText == '无穷大') {
+      // 中文：判据读令牌（`ToolResultConclusion.infinite`），不再回读 `'无穷大'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.infinite`) rather than the
+      //          `'无穷大'` sentence.
+      if (toolResultConclusion(results, '安全系数') ==
+          ToolResultConclusion.infinite) {
         lines.add('工作应力为 0 时安全系数趋于无穷大，但仍需考虑预紧、冲击或装配载荷');
       }
       if (factor != null && factor < 1) lines.add('安全系数小于 1，按当前输入已经不足');
@@ -148,7 +160,10 @@ List<String> buildStructureToolInsights(
     case ToolKind.flowVelocity:
       final speed = toolResultNumber(results, '平均流速');
       final reynolds = toolResultNumber(results, '雷诺数');
-      final state = toolResultText(results, '流动状态');
+      // 中文：判据读令牌（`ToolResultConclusion.transition`），不再回读 `'过渡'` 那句话。
+      // English: the judgement reads the token (`ToolResultConclusion.transition`) rather than the
+      //          `'过渡'` sentence.
+      final stateConclusion = toolResultConclusion(results, '流动状态');
       if (toolResultUnavailable(results, '平均流速')) {
         lines.add('流量不能为负，管内径必须大于 0');
       }
@@ -157,7 +172,9 @@ List<String> buildStructureToolInsights(
       } else if (speed != null && speed > 0 && speed < 0.3) {
         lines.add('流速低于 0.3m/s，管路可能更容易沉积或排气不畅');
       }
-      if (state == '过渡') lines.add('雷诺数处于过渡区，流态和压降对扰动比较敏感');
+      if (stateConclusion == ToolResultConclusion.transition) {
+        lines.add('雷诺数处于过渡区，流态和压降对扰动比较敏感');
+      }
       if (reynolds != null && reynolds > 100000) {
         lines.add('雷诺数超过 100000，粗糙度、局部阻力和弯头阀门损失需要单独计算');
       }

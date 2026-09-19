@@ -201,6 +201,52 @@ void main() {
     }
   });
 
+  test('a restored row reading zero still makes AC a no-op', () async {
+    // 中文：**清空那道「没什么可清」的判据读的是结果行的读数，不是"这条结果就是 `MathResult.zero`
+    //       那一份对象"。** 这条测试钉住这句话在**一个可达的状态**上的后果：盘上那一行是
+    //       `calculator_result: '0'` 且十进制键在、值为空（`4√2` 那类结果就长这样），恢复出来的
+    //       结果读数正是零，而它的 `decimalText` 是空串——**与 `MathResult.zero` 不是同一份值**。
+    //       今天按 AC 在这里是**空操作**（不记撤销快照）；换成值相等就会开始记快照，
+    //       那就是行为变了，所以判据留在读数上（`MathResult.showsZero`，零的写法只有一处）。
+    // English: **the "nothing to clear" judgement reads the result line's reading, not "this result is
+    //          the `MathResult.zero` object".** This test pins what that means on a **reachable**
+    //          state: the stored row has `calculator_result: '0'` with the decimal key present and
+    //          empty (what a result like `4√2` looks like), so the restored result reads zero while its
+    //          `decimalText` is the empty string — **not the same value as `MathResult.zero`**. Pressing
+    //          AC here is a **no-op** today (no undo snapshot recorded); value equality would start
+    //          recording one, which is a behaviour change, so the judgement stays on the reading
+    //          (`MathResult.showsZero`, with the spelling of zero living in one place).
+    final db = _FakeDatabase()
+      ..savedSettings.addAll({
+        'restore_state': 'true',
+        'angle_mode': '弧度',
+        'digits': '6 位',
+        'calculator_expression': '',
+        'calculator_result': '0',
+        'calculator_result_tex': '',
+        'calculator_result_decimal': '',
+        'calculator_angle': 'RAD',
+        'calculator_memory': '0',
+      });
+    final controller = _controller(db);
+    await controller.reloadSettingsAndRestore();
+
+    expect(controller.result, '0');
+    // 中文：读数一样、对象不一样——下面那条断言就是这个分界。
+    // English: same reading, different object — the assertion below is exactly that boundary.
+    expect(controller.resultDecimal, isEmpty);
+    expect(MathResult.zero.decimalText, '0');
+
+    expect(controller.canUndo, isFalse);
+    controller.clear();
+    expect(controller.canUndo, isFalse,
+        reason: '零读数上的 AC 记下了撤销快照——「没什么可清」的判据换了，那是行为变了');
+    expect(controller.result, '0');
+    expect(controller.hasError, isFalse);
+
+    controller.dispose();
+  });
+
   test('every persisted result writes the decimal key, even when it is empty',
       () async {
     // 中文：判别依据能成立的前提——新行**一定**会写下这个键。空十进制被写成一个空值，而不是
