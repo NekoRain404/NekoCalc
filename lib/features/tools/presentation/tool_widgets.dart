@@ -148,8 +148,69 @@ class ToolListTile extends StatelessWidget {
     // English: the tile's title comes from the same source as the cards above — the catalogue table,
     //          not `tool.title`.
     final catalog = ToolCatalogStrings.of(context);
+    final matchLabel = this.matchLabel;
     return ListTile(
       onTap: onTap,
+      // 中文：**命中提示占自己的一行，不再接在说明后面。** 接在说明后面时，副标题只有 162dp
+      //       （工具首页）/ 170dp（分类页）宽，而说明本身就超过这个宽度：360dp 手机上实测
+      //       （`RenderParagraph` 的 `constraints.maxWidth` + `didExceedMaxLines`，两种语言 ×
+      //       （首页五个查询 + 分类页三个分类），共 343 行）**连标签那半截都读得到的：0 行**。
+      //       接在后面时提示永远排在说明之后、也就永远排在省略号之后；换成自己的行它才排在
+      //       省略号**之前**——同一批 343 行，改完是 343 / 343 读得到标签。
+      //
+      //       为什么是「加一行」而不是「搜索时用提示顶掉说明」：提示自己也比一行宽
+      //       （`命中：工具 ID · gear ratio` 实测 163dp、英文 185dp，都超过 162dp），顶掉说明是
+      //       既丢了说明、提示还照样被截。见 `tools_match_hint_visible_test.dart` 里那几条按真
+      //       Roboto 字宽量出来的断言。
+      //
+      //       高度：浏览态那一格一个字节没动（实测仍是 72dp——`matchLabel` 是 null 时这里是原来那
+      //       一个 `Text`）；搜索时最低 88dp（`isThreeLine` 抬的 +16dp），提示长到两行时到 124dp。
+      //       卡片里是 `Column`，没有写死的高度可撑破（整轮全套测试没有一条 overflow）。
+      //
+      //       仍然读不全的那一截在**末尾**：标签（最宽的 `Matched: Parameter · x` 实测约 151dp）
+      //       永远落在第一行之内，被省略号吃掉的只可能是后面的命中原文，而它通常就是用户刚敲进去
+      //       的那串字。原文长到两行还装不下的，实测是 343 行里的 14 行（都在 `a` 那个查询里，
+      //       命中的是一条被截到 34 字的别名）。
+      // English: **The match hint gets its own line instead of being appended to the description.**
+      //          Appended, the subtitle line is only 162dp wide (tools home) / 170dp (category page)
+      //          and the description alone overflows it: measured on a 360dp phone (the `RenderParagraph`'s
+      //          `constraints.maxWidth` plus `didExceedMaxLines`; two languages × five tools-home
+      //          queries + three category-page categories, 343 rows), **0 rows showed even the label**.
+      //          Appended, the hint always sits after the description and therefore always after the
+      //          ellipsis; on its own line it sits before it — the same 343 rows become 343 / 343 for
+      //          the label.
+      //
+      //          Why a second line rather than replacing the description while searching: the hint is
+      //          wider than one line itself (`命中：工具 ID · gear ratio` measures 163dp, 185dp in
+      //          English, both against a 162dp line), so replacing would lose the description *and*
+      //          still cut the hint. See the assertions measured with real Roboto advances in
+      //          `tools_match_hint_visible_test.dart`.
+      //
+      //          Height: the browse-state cell is untouched (still 72dp measured — with a null
+      //          `matchLabel` this is the same single `Text` as before); while searching the floor is
+      //          88dp (the +16dp `isThreeLine` adds), rising to 124dp when a hint wraps. The card holds
+      //          a `Column`, so there is no fixed height to break (no overflow anywhere in the suite).
+      //
+      //          What still cannot be read in full is the tail: the label (the widest being
+      //          `Matched: Parameter · x` at about 151dp) always lands inside the first line, so only
+      //          the matched text after it can fall to the ellipsis — and that text is usually the very
+      //          string the user just typed. Matched text so long that two lines still do not hold it:
+      //          14 of those 343 rows, all under the `a` query, where the match is a 34-character
+      //          truncated alias.
+      isThreeLine: matchLabel != null,
+      subtitle: matchLabel == null
+          ? Text(tool.description,
+              maxLines: 1, overflow: TextOverflow.ellipsis)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tool.description,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(matchLabel,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
       leading: Container(
         width: 38,
         height: 38,
@@ -161,12 +222,6 @@ class ToolListTile extends StatelessWidget {
       ),
       title: Text(catalog.toolName(tool.id),
           style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(
-          matchLabel == null
-              ? tool.description
-              : '${tool.description} · $matchLabel',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis),
       trailing: trailing ??
           (onFavoriteToggle == null
               ? favorite
