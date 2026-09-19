@@ -62,7 +62,10 @@ void main() {
     final targetThermalMargin = controller.searchTools('target thermal margin');
 
     expect(jsonCsv.first.tool.id, 'csv_json');
-    expect(jsonCsv.first.matchLabel, '别名');
+    // 中文：令牌，不是"别名"那两个字——理由与 `tools_controller_test.dart` 同一条。
+    // English: the token, not the two characters; the reason is the same as in
+    //          `tools_controller_test.dart`.
+    expect(jsonCsv.first.matchLabel, ToolMatchTokens.alias);
 
     expect(ndjson.map((result) => result.tool.id), contains('json_format'));
     expect(ndjson.map((result) => result.tool.id), contains('csv_json'));

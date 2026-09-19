@@ -46,8 +46,23 @@ import '../../../l10n/app_language.dart';
 ///
 ///       **本表只管名字。** 描述、公式、参数标签、单位、分组名（`tool.description`、`input.label`、
 ///       `tool.group`…）仍住在 `tool_catalog*.dart`，今天仍是中文——**已知的残留**，与
-///       `tools_strings.dart` 文件头列的那几条同类。检索结果里那行"匹配到 XXX"
-///       （`ToolSearchResult.matchLabel` / `matchText`）同样没动：它属于检索匹配本身，本轮不碰。
+///       `tools_strings.dart` 文件头列的那几条同类。
+///
+///       ⚠️ **这里原先把检索结果那行"匹配到 XXX"也列作"没动"，那句话此后不再成立。** 那行现在
+///       分两半：**外壳**（`标题`、`别名`、`关键词`…十个）成了 `ToolMatchTokens` 里的 ASCII 令牌，
+///       字落在 `ToolsStrings` 的令牌表；**内容**（`tool.group` 与**本表的分类名**）原样透传，
+///       所以本表仍是它在屏幕上的唯一来源。两半的判据写在 `ToolsStrings.match` 上。
+/// English: **This table holds names only.** Descriptions, formulas, parameter labels, units and group
+///          names (`tool.description`, `input.label`, `tool.group`, …) still live in
+///          `tool_catalog*.dart` and are still Chinese today — a **known remainder**, of the same kind
+///          as the ones listed on `tools_strings.dart`'s file head.
+///
+///          ⚠️ **The "matched …" line used to be listed here as untouched too; that no longer holds.**
+///          The line is now two halves: the **chrome** (`标题`, `别名`, `关键词`, … ten of them) became
+///          ASCII tokens in `ToolMatchTokens` whose words land in `ToolsStrings`' token table, while the
+///          **content** (`tool.group` and **this table's category names**) passes through verbatim — so
+///          this table is still their one source on screen. The rule for the two halves is written on
+///          `ToolsStrings.match`.
 /// English: **the tools catalogue's name table** — the 117 tool names plus the 8 categories' names
 ///          and descriptions (16 strings). The mechanism itself (why hand-written tables rather than
 ///          ARB / `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of

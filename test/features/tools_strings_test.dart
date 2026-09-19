@@ -477,6 +477,29 @@ void main() {
       expect(entry.value[0], isNot(entry.value[1]),
           reason: '「${entry.value[0]}」在英文表里没换');
     }
+    // 中文：**令牌表逐条过，不是并成一串比。** 它是一张 `Map`，十条装在一个字段里；并成一串的话
+    //       "哪一条错了"就看不出来。上面 `pairs` 里放不了它，所以单开这一段——顺带把
+    //       `pairs.length` 那个数字留给它原来守的东西（少了行才红），不必为一个新字段去动它。
+    //       判据与上面完全相同：中文侧不空、英文侧不空、英文侧无汉字、两边真的不同。
+    // English: **The token table is checked entry by entry, not as one joined string.** It is a `Map`
+    //          holding ten entries under one field, and joining them would hide which one went wrong. It
+    //          cannot go in `pairs` above, hence this separate pass — which also leaves
+    //          `pairs.length` guarding what it always guarded (a line going *missing*), so a new field
+    //          is no reason to move that number. Same ruler as above: neither side empty, no CJK on the
+    //          English side, and the two really differ.
+    expect(zh.matchLabels, isNotEmpty);
+    for (final entry in zh.matchLabels.entries) {
+      final enLabel = en.matchLabels[entry.key];
+      expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 中文侧是空的');
+      expect(enLabel, isNotNull, reason: '英文令牌表里没有 ${entry.key}');
+      expect(enLabel!.trim(), isNotEmpty, reason: '${entry.key} 英文侧是空的');
+      expect(_containsCjk(enLabel), isFalse,
+          reason: '${entry.key} 英文侧还有汉字：$enLabel');
+      expect(entry.value, isNot(enLabel), reason: '「${entry.value}」在英文表里没换');
+    }
+    expect(en.matchLabels.keys.toSet(), zh.matchLabels.keys.toSet(),
+        reason: '两张令牌表的键必须一模一样');
+
     expect(pairs.length, 160, reason: '两张表一共 88 + 72 条，漏一条这里就会少一条');
   });
 

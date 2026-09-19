@@ -1,5 +1,11 @@
 import 'package:flutter/widgets.dart';
 
+// 中文：**这张表要认得引擎发出来的令牌**——键写常量名而不是字面量，引擎那边加了令牌、这里忘了配字
+//       就会在下面两张表里当场编译不过，而不是等到屏幕上露出 `命中：new_token`。
+// English: **This table has to know the engine's tokens** — the keys are the constants rather than
+//          literals, so a token added in the engine and left out here fails to compile in the two tables
+//          below rather than surfacing as `Matched: new_token` on screen.
+import '../../../application/controllers/tool_search_engine.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：工具首页 / 分类页 / 工具详情页 / 文本工具详情页的界面文案表，**按功能切分**——一张表、
@@ -83,6 +89,7 @@ class ToolsStrings {
     required this.searchCategoryHint,
     required this.categoryNoMatch,
     required this.commonTools,
+    required this.matchLabels,
     required this.match,
     required this.matchWithText,
     // —— 工具卡片与列表项 ——
@@ -183,8 +190,50 @@ class ToolsStrings {
   final String Function(String category) searchCategoryHint;
   final String Function(String category, String query) categoryNoMatch;
   final String commonTools;
-  final String Function(String label) match;
-  final String Function(String label, String text) matchWithText;
+
+  /// 中文：**命中令牌 → 界面标签**（`ToolMatchTokens` → 这里的字），只给 [match] / [matchWithText]
+  ///       用。它是一张**表**而不是十来个字段，因为这里要的正是"查得到就翻、查不到就透传"这个
+  ///       动作；十条各占一个字段的话，透传那一路就没有落点了。
+  /// English: **Match token → on-screen label** (`ToolMatchTokens` → the words here), read only by
+  ///          [match] / [matchWithText]. It is a **table** rather than a dozen fields because the action
+  ///          wanted here is exactly "translate what is in the table, pass through what is not"; with
+  ///          ten separate fields the pass-through branch would have nowhere to land.
+  final Map<String, String> matchLabels;
+
+  /// 中文：**令牌进，整句出。** 参数就是 `ToolSearchResult.matchLabel` 的原文：在 [matchLabels]
+  ///       里查得到就翻成界面上的字，**查不到就逐字照用**。
+  ///
+  ///       **透传那一路是故意留的第三条路，不是兜底。** `tool.group` 与分类名是**内容**，在自己的层
+  ///       （`tool_catalog*.dart` / `ToolCatalogStrings`）已经翻好；这里再动它们一次就是错的，而且
+  ///       分类名必须与分类页那行分组标题**字字相同**。所以判据不是"认不出就猜一个英文"，而是
+  ///       "不在表里就是内容"——令牌全在 [`ToolMatchTokens`] 里，与内容的名字不可能撞上
+  ///       （`tools_match_labels_test.dart` 拿整个目录逐条比过）。
+  ///
+  ///       引擎没有 `BuildContext`，所以令牌由引擎产出、字在这里落下：两个调用方（工具首页与分类页）
+  ///       本来就把 `matchLabel` 交给这两个函数，**调用点一个都没改**。
+  /// English: **A token goes in, a whole sentence comes out.** The argument is
+  ///          `ToolSearchResult.matchLabel` exactly as it stands: an entry in [matchLabels] becomes the
+  ///          words on screen, and **anything not in the table is used character for character**.
+  ///
+  ///          **That pass-through is a deliberate third branch, not a fallback.** `tool.group` and the
+  ///          category names are **content**, already translated at their own layer
+  ///          (`tool_catalog*.dart` / `ToolCatalogStrings`); translating them again here would be wrong,
+  ///          and the category name has to read **character for character** like the group heading on
+  ///          the category screen. So the rule is not "if unrecognised, guess an English word" but "not
+  ///          in the table means it is content" — every token lives in [`ToolMatchTokens`] and cannot
+  ///          collide with a content name (`tools_match_labels_test.dart` checks that against the whole
+  ///          catalogue, entry by entry).
+  ///
+  ///          The engine has no `BuildContext`, so the engine produces a token and the words land here:
+  ///          both callers (tools home and the category screen) already handed `matchLabel` to these two
+  ///          functions, so **not one call site changed**.
+  final String Function(String token) match;
+
+  /// 中文：与 [match] 同一件事，多带上**命中到的原文**（`ToolSearchResult.matchText`）。令牌那一步
+  ///       与 [match] 共用同一张表，两条路不会分叉。
+  /// English: The same as [match] with the **matched text** (`ToolSearchResult.matchText`) appended. The
+  ///          token step shares [match]'s table, so the two routes cannot drift apart.
+  final String Function(String token, String text) matchWithText;
   // —— 工具卡片与列表项 ——
   final String Function(int count) toolCount;
   final String favoriteAdd;
@@ -267,6 +316,56 @@ class ToolsStrings {
     };
   }
 
+  /// 中文：两张令牌表——`ToolMatchTokens` 的每个常量都得在这里有一条，键写常量名而不是字面量，
+  ///       所以引擎那边加一个令牌、这边忘了配字，`tools_match_labels_test.dart` 会红（不是屏幕上
+  ///       静默露出 `命中：new_token`）。十条**逐条写出来**，与上面那些字段同一个理由：一行中文
+  ///       一行英文并排看得见，是这套机制的本来面目。
+  ///
+  ///       标签的用词与它们各自那一条**同源**：`公式` 对 `ToolsStrings.formula`（`Formula`）、
+  ///       `输入项` 对 `ToolsStrings.inputLabel`（`Input`）——同一个东西在两张表里叫两个名字，
+  ///       下一个读者会以为是两个东西。
+  /// English: The two token tables. Every constant of `ToolMatchTokens` needs an entry here, keyed by
+  ///          the constant rather than by a literal, so adding a token in the engine and forgetting its
+  ///          words here goes red in `tools_match_labels_test.dart` instead of quietly printing
+  ///          `Matched: new_token` on screen. The ten are **written out one by one** for the same reason
+  ///          as the fields above: one line of Chinese beside one line of English is what this mechanism
+  ///          looks like.
+  ///
+  ///          The wording is **taken from the field each label belongs to**: `公式` matches
+  ///          `ToolsStrings.formula` (`Formula`) and `输入项` matches `ToolsStrings.inputLabel`
+  ///          (`Input`) — one thing going by two names across two tables reads as two things.
+  static const Map<String, String> _matchLabelsZh = {
+    ToolMatchTokens.title: '标题',
+    ToolMatchTokens.toolId: '工具 ID',
+    ToolMatchTokens.description: '说明',
+    ToolMatchTokens.formula: '公式',
+    ToolMatchTokens.explanation: '解释',
+    ToolMatchTokens.alias: '别名',
+    ToolMatchTokens.input: '输入项',
+    ToolMatchTokens.unit: '单位',
+    ToolMatchTokens.parameter: '参数',
+    ToolMatchTokens.keyword: '关键词',
+  };
+
+  static const Map<String, String> _matchLabelsEn = {
+    ToolMatchTokens.title: 'Title',
+    ToolMatchTokens.toolId: 'Tool ID',
+    ToolMatchTokens.description: 'Description',
+    ToolMatchTokens.formula: 'Formula',
+    ToolMatchTokens.explanation: 'Explanation',
+    ToolMatchTokens.alias: 'Alias',
+    ToolMatchTokens.input: 'Input',
+    ToolMatchTokens.unit: 'Unit',
+    ToolMatchTokens.parameter: 'Parameter',
+    ToolMatchTokens.keyword: 'Keyword',
+  };
+
+  /// 中文：查表那一步，**两个语言各一份、只有一行**：`?? token` 就是透传（理由写在 [match] 上）。
+  /// English: The lookup step — one line each, one per language: `?? token` *is* the pass-through (the
+  ///          reason is on [match]).
+  static String _matchLabelZh(String token) => _matchLabelsZh[token] ?? token;
+  static String _matchLabelEn(String token) => _matchLabelsEn[token] ?? token;
+
   static final ToolsStrings toolsZh = ToolsStrings(
     clear: '清除',
     more: '更多',
@@ -298,8 +397,9 @@ class ToolsStrings {
     searchCategoryHint: (category) => '搜索$category工具',
     categoryNoMatch: (category, query) => '$category里没有“$query”。',
     commonTools: '常用工具',
-    match: (label) => '命中：$label',
-    matchWithText: (label, text) => '命中：$label · $text',
+    matchLabels: _matchLabelsZh,
+    match: (token) => '命中：${_matchLabelZh(token)}',
+    matchWithText: (token, text) => '命中：${_matchLabelZh(token)} · $text',
     toolCount: (count) => '$count 个工具',
     favoriteAdd: '收藏',
     favoriteRemove: '取消收藏',
@@ -391,8 +491,9 @@ class ToolsStrings {
     searchCategoryHint: (category) => 'Search $category tools',
     categoryNoMatch: (category, query) => 'Nothing in $category matches “$query”.',
     commonTools: 'Common tools',
-    match: (label) => 'Matched: $label',
-    matchWithText: (label, text) => 'Matched: $label · $text',
+    matchLabels: _matchLabelsEn,
+    match: (token) => 'Matched: ${_matchLabelEn(token)}',
+    matchWithText: (token, text) => 'Matched: ${_matchLabelEn(token)} · $text',
     toolCount: (count) => '$count tools',
     favoriteAdd: 'Add to favourites',
     favoriteRemove: 'Remove from favourites',

@@ -211,18 +211,24 @@ void main() {
         .searchTools('theta-ja thermal')
         .firstWhere((result) => result.tool.id == 'ldo_power');
 
+    // 中文：**这里钉的是引擎发出来的令牌，不是屏幕上的字。** 外壳走 `ToolMatchTokens`，
+    //       中文那句「命中：别名」由 `ToolsStrings` 的令牌表负责，钉在
+    //       `test/features/tools_match_labels_test.dart` 里。
+    // English: **What is pinned here is the token the engine emits, not the words on screen.** Chrome
+    //          goes through `ToolMatchTokens`; the Chinese sentence "命中：别名" is the token table's job
+    //          and is pinned in `test/features/tools_match_labels_test.dart`.
     expect(alias.tool.id, 'data_fit');
-    expect(alias.matchLabel, '别名');
+    expect(alias.matchLabel, ToolMatchTokens.alias);
     expect(alias.matchText, 'curve fitting');
 
     expect(unit.tool.id, 'resistance_unit');
     expect(unit.matchText, isNotEmpty);
 
     expect(title.tool.id, 'loan');
-    expect(title.matchLabel, '标题');
+    expect(title.matchLabel, ToolMatchTokens.title);
     expect(title.matchText, contains('贷款'));
 
-    expect(keyword.matchLabel, '关键词');
+    expect(keyword.matchLabel, ToolMatchTokens.keyword);
     expect(keyword.matchText, contains('theta-ja'));
   });
 

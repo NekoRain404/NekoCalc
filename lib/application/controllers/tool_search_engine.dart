@@ -126,28 +126,29 @@ class ToolSearch {
       );
     }
 
-    final checks = <({String text, String label, int score})>[
-      (text: tool.title, label: '标题', score: 100),
-      (text: tool.id.replaceAll('_', ' '), label: '工具 ID', score: 94),
-      (text: tool.id, label: '工具 ID', score: 92),
-      (text: tool.description, label: '说明', score: 76),
-      (text: tool.formula, label: '公式', score: 72),
-      (text: tool.explanation, label: '解释', score: 62),
-      (text: tool.group, label: tool.group, score: 58),
-      (text: tool.category.title, label: tool.category.title, score: 54),
-      (text: tool.category.subtitle, label: tool.category.title, score: 50),
+    final spacedId = tool.id.replaceAll('_', ' ');
+    final checks = <({String text, String token, int score})>[
+      (text: tool.title, token: ToolMatchTokens.title, score: 100),
+      (text: spacedId, token: ToolMatchTokens.toolId, score: 94),
+      (text: tool.id, token: ToolMatchTokens.toolId, score: 92),
+      (text: tool.description, token: ToolMatchTokens.description, score: 76),
+      (text: tool.formula, token: ToolMatchTokens.formula, score: 72),
+      (text: tool.explanation, token: ToolMatchTokens.explanation, score: 62),
+      (text: tool.group, token: tool.group, score: 58),
+      (text: tool.category.title, token: tool.category.title, score: 54),
+      (text: tool.category.subtitle, token: tool.category.title, score: 50),
       ...searchAliases(tool).map(
-        (alias) => (text: alias, label: '别名', score: 86),
+        (alias) => (text: alias, token: ToolMatchTokens.alias, score: 86),
       ),
       ...tool.inputs.expand((input) => [
-            (text: input.label, label: '输入项', score: 68),
-            (text: input.unit, label: '单位', score: 56),
-            (text: input.key, label: '参数', score: 52),
+            (text: input.label, token: ToolMatchTokens.input, score: 68),
+            (text: input.unit, token: ToolMatchTokens.unit, score: 56),
+            (text: input.key, token: ToolMatchTokens.parameter, score: 52),
           ]),
     ];
 
     var bestScore = 0;
-    var bestLabel = '';
+    var bestToken = '';
     var bestText = '';
     for (final check in checks) {
       for (final value in searchTextVariants(check.text)) {
@@ -157,20 +158,20 @@ class ToolSearch {
             final score = check.score + 32;
             if (score > bestScore) {
               bestScore = score;
-              bestLabel = check.label;
+              bestToken = check.token;
               bestText = check.text;
             }
           } else if (value.startsWith(variant)) {
             final score = check.score + 18;
             if (score > bestScore) {
               bestScore = score;
-              bestLabel = check.label;
+              bestToken = check.token;
               bestText = check.text;
             }
           } else if (value.contains(variant)) {
             if (check.score > bestScore) {
               bestScore = check.score;
-              bestLabel = check.label;
+              bestToken = check.token;
               bestText = check.text;
             }
           }
@@ -182,13 +183,13 @@ class ToolSearch {
     final tokenScore = tokenMatchResult?.score ?? 0;
     if (tokenScore > 0 && tokenScore > bestScore) {
       bestScore = tokenScore;
-      bestLabel = '关键词';
+      bestToken = ToolMatchTokens.keyword;
       bestText = tokenMatchResult?.text ?? '';
     }
 
     return ToolSearchResult(
       tool: tool,
-      matchLabel: bestLabel,
+      matchLabel: bestToken,
       matchText: compactMatchText(bestText),
       score: bestScore == 0 ? 0 : bestScore + (tool.featured ? 3 : 0),
     );
@@ -411,6 +412,45 @@ class ToolsState {
   final List<String> recentIds;
 }
 
+/// 中文：**检索命中标签的令牌。** 写进 `ToolSearchResult.matchLabel` 的，是这里的一个 ASCII
+///       稳定值；屏幕上那句「命中：XXX」的字在 `ToolsStrings` —— 与 `SettingsTokens` 同一套分法
+///       （**逻辑层拿令牌，表里拿标签**，见 `app_settings.dart` 文件头）。两处的差别只有一条：
+///       那张表钉的是**存储格式**，这里**不落库、不比较**，令牌只从引擎活到界面。
+///
+///       **`tool.group` 与分类名不在这个类里，那是内容不是外壳。** 它们在自己的层
+///       （`tool_catalog*.dart` / `ToolCatalogStrings`）已经翻好，令牌化会把一句已经正确的字
+///       再翻一次——所以引擎照原样把它们放进 `matchLabel`，`ToolsStrings` 也照原样透传
+///       （那条路是**故意留的**，写在 `ToolsStrings.match` 上）。分类说明命中时给出的仍是
+///       **分类名**，与分类页那行分组标题字字相同。
+/// English: **The tokens behind a search result's "matched …" label.** What goes into
+///          `ToolSearchResult.matchLabel` is one of these stable ASCII values; the words of the
+///          on-screen "Matched: …" sentence live in `ToolsStrings` — the same split as `SettingsTokens`
+///          (**tokens in the logic layer, labels in the table**; see `app_settings.dart`'s file head).
+///          The one difference: that table pins a **storage format**, whereas these are persisted
+///          nowhere and compared nowhere; a token only lives from the engine call to the widget.
+///
+///          **`tool.group` and the category names are not in this class: they are content, not
+///          chrome.** They are already translated at their own layer (`tool_catalog*.dart` /
+///          `ToolCatalogStrings`), and tokenising them would translate a correct string a second time
+///          — so the engine hands them to `matchLabel` verbatim and `ToolsStrings` passes them through
+///          verbatim (that branch is **deliberate**; it is written on `ToolsStrings.match`). A subtitle
+///          hit still labels itself with the category **name**, character for character the same as the
+///          group heading on the category screen.
+class ToolMatchTokens {
+  const ToolMatchTokens._();
+
+  static const String title = 'title';
+  static const String toolId = 'tool_id';
+  static const String description = 'description';
+  static const String formula = 'formula';
+  static const String explanation = 'explanation';
+  static const String alias = 'alias';
+  static const String input = 'input';
+  static const String unit = 'unit';
+  static const String parameter = 'parameter';
+  static const String keyword = 'keyword';
+}
+
 class ToolSearchResult {
   const ToolSearchResult({
     required this.tool,
@@ -420,7 +460,18 @@ class ToolSearchResult {
   });
 
   final ToolDefinition tool;
+
+  /// 中文：这一条结果**为什么**命中。取值只有两种：`ToolMatchTokens` 里的一个令牌（外壳），
+  ///       或者**内容自己的名字**（`tool.group`、分类名）——后者由 `ToolsStrings` 原样透传。
+  ///       这是一个**不是标签的** `matchLabel`，名字留着是因为它在界面上确实就是那个标签；
+  ///       翻成字的那一步只有一处（`ToolsStrings.match` / `matchWithText`）。
+  /// English: *Why* this result matched. Only two kinds of value: one of `ToolMatchTokens` (chrome), or
+  ///          **content's own name** (`tool.group`, a category name), which `ToolsStrings` passes
+  ///          through verbatim. This is a `matchLabel` that is **not yet a label**; the name stays
+  ///          because it is exactly the label on screen, and turning it into words happens in exactly
+  ///          one place (`ToolsStrings.match` / `matchWithText`).
   final String matchLabel;
+
   final String matchText;
   final int score;
 }
