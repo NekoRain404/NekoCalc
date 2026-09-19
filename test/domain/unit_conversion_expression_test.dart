@@ -106,6 +106,20 @@ void main() {
       expect(AppEngineVocabulary.variableUnknownToEngine('km'), isNull);
       expect(AppEngineVocabulary.variableUnknownToEngine('KM'), isNotNull);
       expect(AppEngineVocabulary.variableUnknownToEngine('zorkmid'), isNotNull);
+      // 中文：**上面那两条只钉住了函数；「`KM` 落回表外」这句话在**这条路**上原来是不成立的。**
+      //       归一化从前整段 `.toLowerCase()`，所以 `5 KM` 到手时已经是 `5 km`——函数按原样查表
+      //       查不到 `KM`，可它压根没拿到 `KM`，于是屏幕上给出的是千米。这一轮把折叠改成「应用
+      //       自己的名字折、单位拼法不折」（`expression_case_folding.dart` 的文件头），这句话
+      //       才第一次在端到端这条路上成立。宿主实测：引擎读 `1 KM` 是 `1 K`（开尔文）。
+      // English: **the two assertions above only pin the function; on *this* road the sentence "`KM`
+      //          falls outside the table" did not hold.** Normalisation used to lower-case the whole
+      //          text, so `5 KM` arrived as `5 km` — the verbatim lookup never saw `KM` at all and the
+      //          screen gave kilometres. This round's fold (this app's own names fold, unit spellings do
+      //          not — `expression_case_folding.dart`'s header) makes the sentence true end to end for
+      //          the first time. Host measurement: the engine reads `1 KM` as `1 K` (kelvin).
+      expect(engineExpressionFor('5 KM'), isA<UntranslatableExpression>());
+      expect((engineExpressionFor('5 km') as TranslatedExpression).text,
+          '((5)*(km))');
     });
   });
 

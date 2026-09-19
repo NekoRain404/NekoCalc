@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
+import 'app_unit_catalog.dart';
 import 'sexagesimal_literal.dart';
 
+part 'expression_case_folding.dart';
 part 'expression_input_normalization.dart';
 part 'expression_math_helpers.dart';
 part 'percentage_expansion.dart';
@@ -479,10 +481,16 @@ class ExpressionParser {
     bool relativePercent = false,
   }) {
     final strippedSource = _stripPastedCalculationResult(source);
-    var text = _normalizeGroupedNumberSeparators(_normalizeUnicodeFractions(
+    // 中文：**大小写不在这里整段折了**（那正是 120 个拼法里 50 个按下去就报错的原因）：
+    //       [_foldAppNames] 折应用自己的名字，单位拼法原样留下。为什么、量到什么、为什么不是
+    //       把这一步删掉，全部写在 `expression_case_folding.dart` 的文件头上。
+    // English: **the case is no longer folded over the whole text here** (which is exactly why 50 of
+    //          the 120 spellings erred when pressed): [_foldAppNames] folds this app's own names and
+    //          leaves unit spellings verbatim. Why, what was measured, and why deleting this step is
+    //          not an option are all in `expression_case_folding.dart`'s header.
+    var text = _foldAppNames(_normalizeGroupedNumberSeparators(_normalizeUnicodeFractions(
             _normalizeMathSubscripts(_normalizeFullWidthAscii(strippedSource))))
-        .trim()
-        .toLowerCase();
+        .trim());
     text = _normalizeLatexExpression(text)
         .replaceAll('，', ',')
         .replaceAll('（', '(')
