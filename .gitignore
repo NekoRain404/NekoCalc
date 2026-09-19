@@ -4,7 +4,25 @@ Thumbs.db
 
 # Dart / Flutter
 .dart_tool/
-.flutter/
+# 中文：**`.flutter/` 有一个例外，所以这里写成 `.flutter/*` 加一条反向规则。**
+#       `.flutter/flutter_tools_gradle/` 是 Flutter 自己那个 Gradle 插件的源码副本，
+#       **`android/settings.gradle.kts:16` 按路径引用它**（`file("../.flutter/flutter_tools_gradle")`），
+#       所以它的 51 个文件是**故意入库**的（`c895ff8`）。
+#       为什么不直接写 `.flutter/` 再加 `!`：**git 的规则是「父目录被排除时，里面的文件无法被重新包含」**，
+#       所以 `.flutter/` + `!.flutter/flutter_tools_gradle/` 里的那条反向规则**是不生效的**——
+#       写下去等于在记录里放一句假话。改成 `.flutter/*` 之后它才真的成立。
+#       已跟踪的文件本来就不受 `.gitignore` 影响，所以这一改**不动任何现有文件**，
+#       只是让**规则与仓库一致**：不写，下一个人会以为 `.flutter/` 整个不在库里。
+# English: **`.flutter/` has one exception, hence `.flutter/*` plus a negation.** The
+#          `.flutter/flutter_tools_gradle/` tree is a copy of Flutter's own Gradle plugin source and
+#          **`android/settings.gradle.kts:16` refers to it by path**, so its 51 files are tracked on
+#          purpose. A negation under an excluded *directory* would not take effect — git cannot
+#          re-include a file whose parent directory is excluded — so writing `.flutter/` plus
+#          `!.flutter/flutter_tools_gradle/` would put a false statement in the record. `.flutter/*`
+#          makes it true. Already-tracked files ignore `.gitignore` either way, so this **moves no
+#          file**; it makes the rule match the repository.
+.flutter/*
+!.flutter/flutter_tools_gradle/
 .packages
 .flutter-plugins
 .flutter-plugins-dependencies
