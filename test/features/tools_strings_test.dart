@@ -8,6 +8,7 @@ import 'package:nekocalc/features/tools/presentation/data_fit_tool_screen.dart';
 import 'package:nekocalc/features/tools/presentation/text_tool_detail_screen.dart';
 import 'package:nekocalc/features/tools/presentation/tool_widgets.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
+import 'package:nekocalc/features/tools/presentation/tool_catalog_strings.dart';
 import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
@@ -498,7 +499,7 @@ void main() {
     expect(find.text('分类'), findsOneWidget);
   });
 
-  testWidgets('装上 AppLanguageScope(en) 之后工具首页渲染英文，工具名仍是中文', (tester) async {
+  testWidgets('装上 AppLanguageScope(en) 之后工具首页渲染英文，工具名也跟着换', (tester) async {
     await tester.pumpWidget(_app(
       const ToolsHomePage(
         db: _EmptyDatabase(),
@@ -522,12 +523,28 @@ void main() {
     expect(find.text('Favourite tools'), findsOneWidget);
     expect(find.text('Categories'), findsOneWidget);
     expect(find.text('工具'), findsNothing);
-    // 中文：**这就是那条已知的残留，明写在断言里**：外壳换了语言，工具名没有——它住在
-    //       `lib/domain/usecases/tool_catalog*.dart`，是内容数据，不在本轮范围内。
-    // English: **this is the known remainder, written into an assertion**: the shell switched
-    //          language, the tool names did not — they live in
-    //          `lib/domain/usecases/tool_catalog*.dart` as content data, out of this round's scope.
-    expect(find.text(toolCatalog.first.title), findsWidgets);
+    // 中文：**这是本轮唯一翻面的断言。** 它原先钉的是那条已知残留——"外壳换了语言，工具名没有"
+    //       （`expect(find.text(toolCatalog.first.title), findsWidgets)`）。目录本轮进了
+    //       `ToolCatalogStrings`，所以断言随之翻面：英文下屏幕上是**英文名**，中文名一个都不许再有。
+    //       **上面那两条不带作用域的用例一个字没动**——默认态（中文）的证据仍在它们身上。
+    //       `toolCatalog.first.title` 依旧是这条断言的一部分，只是从"应当出现"变成"不许出现"：
+    //       目录里那个中文名还是同一个字面量，改的从来是屏幕上那一格。
+    // English: **the one expectation this round turns over.** It used to pin the known remainder —
+    //          "the shell switched language, the tool names did not"
+    //          (`expect(find.text(toolCatalog.first.title), findsWidgets)`). The catalogue now goes
+    //          through `ToolCatalogStrings`, so the assertion flips: in English the screen shows the
+    //          **English name**, and the Chinese one must not appear at all. **The two no-scope cases
+    //          above are untouched, character for character** — they still carry the default-state
+    //          (Chinese) evidence. `toolCatalog.first.title` is still part of this assertion, only
+    //          inverted from "must appear" to "must not": that catalogue literal has not moved, the
+    //          cell on screen is what changed.
+    final first = toolCatalog.first;
+    expect(find.text(ToolCatalogStrings.forLanguage(AppLanguage.en).toolName(first.id)),
+        findsWidgets);
+    expect(
+        find.text(ToolCatalogStrings.forLanguage(AppLanguage.zh).toolName(first.id)),
+        findsNothing);
+    expect(find.text(first.title), findsNothing);
   });
 
   // 中文：**这两条钉的是一个真实的崩溃。** 页面第一次计算原先留在 `initState` 里，那儿要取文案表，

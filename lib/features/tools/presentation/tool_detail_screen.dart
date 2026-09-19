@@ -13,6 +13,7 @@ import '../../../data/repositories/settings_repository.dart';
 import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'tool_catalog_strings.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
 
@@ -202,6 +203,10 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = ToolsStrings.of(context);
+    // 中文：页头那行是**目录表里的名字**，不是 `widget.tool.title`——后者是内容数据。
+    // English: the page head shows the **catalogue table’s name**, not `widget.tool.title` —
+    //          the latter is content data.
+    final toolTitle = ToolCatalogStrings.of(context).toolName(widget.tool.id);
     final primary = _detailController.primary;
     final scheme = Theme.of(context).colorScheme;
 
@@ -215,7 +220,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back_ios_new)),
-                Expanded(child: Center(child: PageTitle(widget.tool.title))),
+                Expanded(child: Center(child: PageTitle(toolTitle))),
                 IconButton(
                   tooltip: strings.favoriteAdd,
                   onPressed: _toggleFavorite,

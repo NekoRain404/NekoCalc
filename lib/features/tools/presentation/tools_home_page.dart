@@ -11,6 +11,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/recent_tool_action_result.dart';
 import '../../../domain/usecases/tool_catalog.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'tool_catalog_strings.dart';
 import 'tool_category_screen.dart';
 import 'tool_navigation.dart';
 import 'tool_widgets.dart';
@@ -286,6 +287,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
 
   Widget _searchResultHeader(int count) {
     final strings = ToolsStrings.of(context);
+    final catalog = ToolCatalogStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final category = _searchCategory;
     return Padding(
@@ -296,7 +298,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
             child: Text(
               category == null
                   ? strings.searchResultsCount(count)
-                  : '${category.title} · $count',
+                  : '${catalog.categoryTitle(category)} · $count',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
             ),
           ),
@@ -316,10 +318,11 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
   }
 
   Widget _searchCategoryBar(Map<ToolCategory, int> counts) {
+    final catalog = ToolCatalogStrings.of(context);
     final chips = [
       _SearchCategoryOption(null, ToolsStrings.of(context).allLabel),
-      ...ToolCategory.values
-          .map((category) => _SearchCategoryOption(category, category.title)),
+      ...ToolCategory.values.map((category) =>
+          _SearchCategoryOption(category, catalog.categoryTitle(category))),
     ];
     final total = counts.values.fold<int>(0, (sum, count) => sum + count);
     return SizedBox(
@@ -346,10 +349,12 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
 
   String _searchEmptyMessage() {
     final strings = ToolsStrings.of(context);
+    final catalog = ToolCatalogStrings.of(context);
     final category = _searchCategory;
     return category == null
         ? strings.noMatchAtAll(_query.trim())
-        : strings.categoryNoMatch(category.title, _query.trim());
+        : strings.categoryNoMatch(
+            catalog.categoryTitle(category), _query.trim());
   }
 
   List<Widget> _searchAlternativeTiles(List<ToolSearchResult> alternatives) =>

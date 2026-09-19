@@ -18,6 +18,7 @@ import '../../../domain/usecases/data_fit.dart';
 import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'data_fit_strings.dart';
+import 'tool_catalog_strings.dart';
 
 part 'data_fit_cards.dart';
 part 'data_fit_actions.dart';
@@ -291,6 +292,10 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = DataFitStrings.of(context);
+    // 中文：页头那行是**目录表里的名字**，不是 `widget.tool.title`——后者是内容数据。
+    // English: the page head shows the **catalogue table’s name**, not `widget.tool.title` —
+    //          the latter is content data.
+    final toolTitle = ToolCatalogStrings.of(context).toolName(widget.tool.id);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
@@ -304,7 +309,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
                   tooltip: strings.back,
                   onTap: () => Navigator.pop(context),
                 ),
-                Expanded(child: Center(child: PageTitle(widget.tool.title))),
+                Expanded(child: Center(child: PageTitle(toolTitle))),
                 IconToolButton(
                   icon: Icons.refresh_outlined,
                   tooltip: strings.reset,

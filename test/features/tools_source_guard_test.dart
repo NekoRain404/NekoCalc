@@ -10,9 +10,15 @@ import '../shared/source_scan.dart';
 ///       `_stringLiterals`）与那份逐条带理由的豁免表一起搬到了这个文件。
 ///
 ///       **覆盖范围一个字没变。** 扫描的目录仍旧是 `lib/features/tools/presentation`（递归、全部
-///       `.dart`），跳过的仍旧只有九张文案表的名字，判据仍旧是 `containsWideOrFullwidth`，豁免的
-///       仍旧只有 `_punctuationOnlyLiterals` 里那四条——两个文件里的这条测试**逐字相同**，只是
-///       换了住址；搬完之后它扫到的文件一个不少（新加的三个文件也照扫，而它们不含界面文案）。
+///       `.dart`），跳过的仍旧只有文案表的名字（本轮从九张变成十张，见下），判据仍旧是
+///       `containsWideOrFullwidth`，豁免的仍旧只有 `_punctuationOnlyLiterals` 里那四条。
+///
+///       **本轮跳过表里多了一个名字：`tool_catalog_strings.dart`。** 它装的是工具目录自己的
+///       名字表（117 个工具名 + 8 个分类的名字与说明），和另外九张一样是"汉字该住的地方"——
+///       加它的理由与它们完全相同，**不是给某个界面文件开口子**。目录里那些没进表的字
+///       （描述、公式、参数标签、单位、分组名）仍在 `lib/domain/usecases` 与
+///       `lib/application/controllers`，`lib/features/tools/presentation` 里的界面文件一条中文
+///       都没多，所以下面这条断言的覆盖面一个字节都没松。
 ///
 /// English: **the tools subtree's source guard.** It asks "is there interface copy left in
 ///          `lib/features/tools/presentation` that never went through `ToolsStrings` /
@@ -23,11 +29,19 @@ import '../shared/source_scan.dart';
 ///
 ///          **The coverage did not change by one character.** The directory scanned is still
 ///          `lib/features/tools/presentation` (recursive, every `.dart`), the only names skipped are
-///          still the nine copy tables, the ruler is still `containsWideOrFullwidth`, and the only
-///          exemptions are still the four literals in `_punctuationOnlyLiterals` — this test is
-///          **character for character** what it was, with a new address; after the move it scans
-///          every file it scanned before (the three files added this round are scanned too, and they
-///          hold no interface copy).
+///          still copy tables (nine became ten this round; see below), the ruler is still
+///          `containsWideOrFullwidth`, and the only exemptions are still the four literals in
+///          `_punctuationOnlyLiterals`.
+///
+///          **One name joined the skip list this round: `tool_catalog_strings.dart`.** It holds the
+///          tools catalogue's own name table (117 tool names plus the 8 categories' names and
+///          descriptions) and is a "Chinese home" in this directory exactly like the other nine —
+///          the reason for adding it is identical, and it is **not** opening the door for an
+///          interface file. The catalogue's untabled words (descriptions, formulas, parameter labels,
+///          units, group names) still live in `lib/domain/usecases` and
+///          `lib/application/controllers`, not one Chinese literal was added to the interface files
+///          under `lib/features/tools/presentation`, and so the assertion below did not go one byte
+///          slacker.
 void main() {
   test('工具子树源码里除了两张文案表再没有中文字符串字面量', () {
     final directory = Directory('lib/features/tools/presentation');
@@ -49,6 +63,7 @@ void main() {
       //          `text_tool_detail_screen.dart` are still scanned like everything else.
       if (name == 'tools_strings.dart' ||
           name == 'data_fit_strings.dart' ||
+          name == 'tool_catalog_strings.dart' ||
           name == 'text_tool_strings.dart' ||
           name == 'text_tool_text_strings.dart' ||
           name == 'text_tool_stats_strings.dart' ||
@@ -89,7 +104,12 @@ const Set<String> _punctuationOnlyLiterals = <String>{
   //          literal (the scanner yields the raw text between the quotes), hence raw strings.
   r'x,y\n１,５０％\n２,１００％\n３,１.５\n４,２.０',
   r'${tool.description} · $matchLabel',
-  r'${category.title} · $count',
+  // 中文：**原文改了，这里跟着改**——分类名现在取自 `ToolCatalogStrings`（本轮接入多语言），
+  //       但夹在中间的那个 `·` 还是同一个分隔符，判决仍然是"这不是句子"。
+  // English: **the source text changed, so this follows it** — the category name now comes from
+  //          `ToolCatalogStrings` (this round's i18n work), but the `·` between the interpolations is
+  //          the same separator, and the verdict is still "not a sentence".
+  r'${catalog.categoryTitle(category)} · $count',
   ' · ',
 };
 

@@ -1,0 +1,545 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../domain/entities/tool_category.dart';
+import '../../../domain/usecases/tool_catalog.dart';
+import '../../../l10n/app_language.dart';
+
+/// 中文：**工具目录的名字表**——117 个工具的名字，加上 8 个分类的名字与说明（16 条）。
+///       机制本身（为什么是手写分表而不是 ARB / `gen-l10n`、为什么**兄弟表**是 `static final`
+///       而不是 `const`）与设置页那张表共用一套理由，写在 `settings_strings.dart` 的文件头上，
+///       这里不重抄；**这一张是 `static const`**，与兄弟表不同的那一点写在 [toolCatalogZh] 上。
+///
+///       **为什么这是工具子树的第三张表，而不是并进 `ToolsStrings`。** 前两张装的是"包在目录
+///       外面的壳"（页头、按钮、提示），这一张装的是**目录本身的名字**。并进去要多 234 条
+///       （117×2）加 16 条分类，`tools_strings.dart` 会直接冲过八百行硬线——`data_fit_strings.dart`
+///       的文件头已经为同样的理由做过一次切分。**切分判据是"一屏看得完"，不是"一个屏幕一张"**：
+///       这张表是唯一一张被工具首页 / 分类页 / 工具详情页 / 文本工具页 / 拟合页**五处共用**的
+///       名字来源，按屏幕切它没有落点。
+///
+///       **117 个名字里有 99 个不是本轮写的，是把仓库里已经提交的英文找出来。**
+///       那份检索索引有**两处**，都是故意做实了的双语数据：`tool_search_aliases_{a,b,c}.dart`
+///       里 **86** 个 id 各一张别名表（33 + 28 + 25），`tool_search_data.dart` 的
+///       `unitSearchAliases` 里再 **21** 个（22 个换算工具中的 21 个在那里，剩下的 `data_size`
+///       在前一处）——合起来 **107** 个 id 有别名表。**表里第一条能当名字用的英文别名就是这个
+///       工具的英文名**；本表按那条规则取名，只做排版归一（首字母大写；连字符、斜杠按英文写法
+///       补上），一个词都不增删。**两处索引本轮一个字节都没动**：本表读它们，不改它们。
+///       每条英文后面的注释写着它属于哪一类：
+///         · `A` 提升（promoted，**99 条**）——名字就是该 id 别名表里的某一条，注释里是那条原文；
+///         · `B` 新写（authored，**14 条**）——**没有可用的别名**，注释里是理由：九条是该 id 在
+///              两处索引里根本没有表，五条是有表但表里没有一条是名字
+///              （`timestamp`、`url_codec`、`uuid`、`jwt_decode`、`text_stats`）；
+///         · `L` 本来就是拉丁字母（**4 条**）——中文标题就是 `Base64`、`pH / pOH`、`FNV/CRC32`、
+///              `ASCII/Unicode`，没有可翻的东西，英文一格与原样**逐字节相同**。
+///       `tool_catalog_strings_test.dart` 把这件事**做成机器可查**：每一条 `A` 的名字去掉大小写、
+///       空格、连字符与斜杠之后，必须能在该 id 的别名表里找到；`B` 与 `L` 的 id 则与测试里那张
+///       逐条带理由的清单**互为全集**——多一个少一个都红。
+///
+///       **中文一侧是逐条写出来的字面量，不是从目录里转引的。** 两种语言并排看得见，是这套机制的
+///       本来面目；而 `tool_catalog_strings_test.dart` 拿 `toolCatalog` 逐条比对，**任何一条与
+///       `tool.title` 不同就红**——那条断言在运行期读目录，所以它不是自证。认不出的 id 回落到
+///       `toolById(id)?.title`，也就是今天屏幕上的字：**默认态因此连"表漏一条"都改不动**；
+///       英文下这种漏会以中文的样子露出来（而不是静默给个别的英文），同时测试已经红了。
+///
+///       **本表只管名字。** 描述、公式、参数标签、单位、分组名（`tool.description`、`input.label`、
+///       `tool.group`…）仍住在 `tool_catalog*.dart`，今天仍是中文——**已知的残留**，与
+///       `tools_strings.dart` 文件头列的那几条同类。检索结果里那行"匹配到 XXX"
+///       （`ToolSearchResult.matchLabel` / `matchText`）同样没动：它属于检索匹配本身，本轮不碰。
+/// English: **the tools catalogue's name table** — the 117 tool names plus the 8 categories' names
+///          and descriptions (16 strings). The mechanism itself (why hand-written tables rather than
+///          ARB / `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of
+///          reasons with the settings table and is written on `settings_strings.dart`'s file head; it
+///          is not copied again here. **This one is `static const`**, and the one point where it
+///          differs from its siblings is written on [toolCatalogZh].
+///
+///          **Why this is the tools subtree's third table instead of part of `ToolsStrings`.** The
+///          first two hold the shell around the catalogue (page heads, buttons, hints); this one holds
+///          **the catalogue's own names**. Folding it in would add 234 entries (117 × 2) plus the 16
+///          category strings and push `tools_strings.dart` straight past the hard 800-line limit —
+///          the very split `data_fit_strings.dart`'s file head already made for the same reason.
+///          **The split is judged by "readable in one screen", not by "one table per screen"**: this
+///          is the one table **five** screens share (tools home, category, tool detail, text tool
+///          detail, fit), so splitting it by screen has nowhere to land.
+///
+///          **99 of the 117 names are not written this round — they are English the repository had
+///          already committed.** That search index lives in **two** places, both deliberately
+///          bilingual: `tool_search_aliases_{a,b,c}.dart` (one alias list each for **86** ids — 33 +
+///          28 + 25) and `ToolSearchData.unitSearchAliases` in `tool_search_data.dart` (another
+///          **21**, which is 21 of the 22 conversion tools; `data_size` is in the first place) —
+///          **107** ids with an alias list between them. **The first name-like English entry is that
+///          tool's English name**; this table takes names by that rule, normalising typography only
+///          (initial capitals; hyphens and slashes where English orthography wants them) and adding or
+///          dropping not one word. **Neither index was touched this round by one byte**: this table
+///          reads them, it does not edit them. The comment after each English entry says which class
+///          it belongs to:
+///            · `A` promoted (**99**) — the name *is* one of that id's committed aliases, quoted in
+///              the comment;
+///            · `B` authored (**14**) — **no usable alias exists**; the comment gives the reason. Nine
+///              of these ids have no list in either index, and five have a list whose entries are not
+///              names (the `timestamp`, `url_codec`, `uuid`, `jwt_decode`, `text_stats` kind);
+///            · `L` already Latin (**4**) — the Chinese title itself is `Base64`, `pH / pOH`,
+///              `FNV/CRC32`, `ASCII/Unicode`; there is nothing to translate and the English cell is
+///              **byte for byte** the same string.
+///          `tool_catalog_strings_test.dart` makes that **machine-checkable**: every `A` name, stripped
+///          of case, spaces, hyphens and slashes, must be found in that id's alias list, and the `B`
+///          and `L` ids are **exactly** the ids on the reason-per-entry list inside the test — one
+///          more or one fewer goes red.
+///
+///          **The Chinese side is written out entry by entry rather than derived from the catalogue.**
+///          Seeing both languages side by side is what this mechanism looks like; and
+///          `tool_catalog_strings_test.dart` compares every entry against `toolCatalog` and **goes red
+///          the moment one differs from `tool.title`** — that assertion reads the catalogue at run
+///          time, so it is not self-certifying. An unrecognised id falls back to
+///          `toolById(id)?.title`, the string on screen today: **the default state therefore cannot
+///          move even if the table misses an entry**; in English such a miss shows up as Chinese
+///          (rather than quietly rendering some other English) while the test is already red.
+///
+///          **This table holds names only.** Descriptions, formulas, parameter labels, units and
+///          group names (`tool.description`, `input.label`, `tool.group`, …) still live in
+///          `tool_catalog*.dart` and are still Chinese today — a **known remainder**, of the same kind
+///          as the ones listed on `tools_strings.dart`'s file head. The "matched …" line in a search
+///          result (`ToolSearchResult.matchLabel` / `matchText`) is untouched too: it is part of
+///          search matching itself, which this round does not touch.
+@immutable
+class ToolCatalogStrings {
+  const ToolCatalogStrings({
+    required this.toolNames,
+    required this.mathTitle,
+    required this.mathSubtitle,
+    required this.electronicsTitle,
+    required this.electronicsSubtitle,
+    required this.mechanicalTitle,
+    required this.mechanicalSubtitle,
+    required this.financeTitle,
+    required this.financeSubtitle,
+    required this.scienceTitle,
+    required this.scienceSubtitle,
+    required this.unitsTitle,
+    required this.unitsSubtitle,
+    required this.programmingTitle,
+    required this.programmingSubtitle,
+    required this.customTitle,
+    required this.customSubtitle,
+  });
+
+  /// 中文：**工具 id → 名字**。八分类那种"封闭集合"这里用不了字段名：ids 来自目录，字段名给不了
+  ///       编译期完整性（没有任何东西把字段和目录里的 id 绑起来），而 117 条 × 四行（构造参数、
+  ///       字段、两份表）正好把文件顶到八百行。完整性交给 `tool_catalog_strings_test.dart` 里那条
+  ///       遍历 `toolCatalog` 的断言，与 `settings_strings_test.dart` 遍历 `CalcTheme.all` 同一种做法。
+  /// English: **tool id → name.** The named-field treatment the eight categories get cannot be used
+  ///          here: the ids come from the catalogue, so field names would not give compile-time
+  ///          completeness (nothing ties a field to a catalogue id), and 117 entries × four lines
+  ///          (constructor parameter, field, two tables) would put this file against the 800-line
+  ///          limit. Completeness is carried by the assertion in `tool_catalog_strings_test.dart` that
+  ///          walks `toolCatalog` — the same trick `settings_strings_test.dart` uses for `CalcTheme.all`.
+  final Map<String, String> toolNames;
+
+  // —— 分类：八个，封闭集合，所以用命名字段：加第九个分类会让下面两个 switch 编译不过。——
+  final String mathTitle;
+  final String mathSubtitle;
+  final String electronicsTitle;
+  final String electronicsSubtitle;
+  final String mechanicalTitle;
+  final String mechanicalSubtitle;
+  final String financeTitle;
+  final String financeSubtitle;
+  final String scienceTitle;
+  final String scienceSubtitle;
+  final String unitsTitle;
+  final String unitsSubtitle;
+  final String programmingTitle;
+  final String programmingSubtitle;
+  final String customTitle;
+  final String customSubtitle;
+
+  /// 中文：工具名。认不出的 id 回落到目录里那一条的中文名，再不行才回落到 id 本身——理由见文件头。
+  /// English: A tool's name. An unrecognised id falls back to that entry's Chinese title in the
+  ///          catalogue, and only then to the id itself — see the file head.
+  String toolName(String toolId) {
+    return toolNames[toolId] ?? toolById(toolId)?.title ?? toolId;
+  }
+
+  /// 中文：分类名。**switch 必须穷尽 `ToolCategory`**——加第九个分类时这里编译不过，而不是静默
+  ///       回落到中文，这条保证与 `of` 对 `AppLanguage` 的那条是同一件事。
+  /// English: A category's name. The **switch must exhaust `ToolCategory`** so adding a ninth category
+  ///          breaks the build here rather than silently falling back to Chinese — the same guarantee
+  ///          `of` gives for `AppLanguage`.
+  String categoryTitle(ToolCategory category) {
+    return switch (category) {
+      ToolCategory.math => mathTitle,
+      ToolCategory.electronics => electronicsTitle,
+      ToolCategory.mechanical => mechanicalTitle,
+      ToolCategory.finance => financeTitle,
+      ToolCategory.science => scienceTitle,
+      ToolCategory.units => unitsTitle,
+      ToolCategory.programming => programmingTitle,
+      ToolCategory.custom => customTitle,
+    };
+  }
+
+  /// 中文：分类说明，跟在分类名下面那一行。穷尽性与 [categoryTitle] 同。
+  ///
+  ///       **今天屏幕上没有一处读它。** 唯一读 `ToolCategory.subtitle` 的地方是
+  ///       `ToolSearch.rankTool` / `tokenMatch` 的匹配打分（`lib/application/controllers/
+  ///       tool_search_engine.dart` 的 138、217 行），而检索匹配本轮明确不碰。这一格因此是
+  ///       **为下一轮备好的**：检索一旦按语言取词，它就该从这里取。写它是因为分类的"名字 + 说明"
+  ///       是一对，只留一半会让这张表看起来像漏了；**不要**为了让它上屏而往分类卡上加字——
+  ///       那会改掉默认态（中文界面上今天没有这行字）。
+  /// English: A category's description, the line under its name. Exhaustive for the same reason as
+  ///          [categoryTitle].
+  ///
+  ///          **Nothing on screen reads it today.** The only reader of `ToolCategory.subtitle` is the
+  ///          match scoring in `ToolSearch.rankTool` / `tokenMatch`
+  ///          (`lib/application/controllers/tool_search_engine.dart`, lines 138 and 217), and search
+  ///          matching is explicitly out of this round's scope. This cell is therefore **prepared for
+  ///          a later round**: once search takes its words by language, it should take them from here.
+  ///          It is written because a category's name and description are one pair, and leaving half
+  ///          of it out would make the table look incomplete; **do not** put it on a category card
+  ///          just to make it visible — that would move the default state (no such line is on screen
+  ///          in Chinese today).
+  String categorySubtitle(ToolCategory category) {
+    return switch (category) {
+      ToolCategory.math => mathSubtitle,
+      ToolCategory.electronics => electronicsSubtitle,
+      ToolCategory.mechanical => mechanicalSubtitle,
+      ToolCategory.finance => financeSubtitle,
+      ToolCategory.science => scienceSubtitle,
+      ToolCategory.units => unitsSubtitle,
+      ToolCategory.programming => programmingSubtitle,
+      ToolCategory.custom => customSubtitle,
+    };
+  }
+
+  /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
+  ///       而不是静默回落到中文。
+  /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
+  ///          adding a language breaks the build here rather than silently falling back to Chinese.
+  static ToolCatalogStrings of(BuildContext context) {
+    return forLanguage(AppLanguage.of(context));
+  }
+
+  /// 中文：与 [of] 同一张分派表，供不持有 `BuildContext` 的调用方使用。两条路径共用这一个
+  ///       switch，不会分叉。
+  /// English: The same dispatch as [of], for callers without a `BuildContext`. Both routes share this
+  ///          one switch, so they cannot drift apart.
+  static ToolCatalogStrings forLanguage(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.zh => toolCatalogZh,
+      AppLanguage.en => toolCatalogEn,
+    };
+  }
+
+  /// 中文：中文表。**逐条写出来**，与 `tool_catalog*.dart` 里那些 `title` 逐字节相同，
+  ///       `tool_catalog_strings_test.dart` 拿 `toolCatalog` 逐条钉住。
+  ///
+  ///       **这两张表是 `static const`，与兄弟表的 `static final` 不同，原因是它们真的能 const。**
+  ///       设置页那张表里带参数的文案是闭包，闭包不是常量表达式，所以那边非 `static final` 不可
+  ///       （理由写在 `settings_strings.dart` 文件头）。这张表一条带参数的文案都没有，全部是常量，
+  ///       `analysis_options.yaml` 里的 `prefer_const_constructors` 也要求写 `const`——能用更严的
+  ///       形态就用更严的：整张表在编译期就定下来了。
+  /// English: The Chinese table, **written out entry by entry**, byte-identical to the `title` fields
+  ///          in `tool_catalog*.dart`; `tool_catalog_strings_test.dart` pins it against `toolCatalog`.
+  ///
+  ///          **These two tables are `static const`, where their siblings are `static final`, because
+  ///          they genuinely can be.** The settings table holds parameterised copy as closures, and a
+  ///          closure is not a constant expression, so that one cannot be `static final`'s const
+  ///          sibling (the reasoning is on `settings_strings.dart`'s file head). This table has not
+  ///          one parameterised string — every entry is a constant — and `prefer_const_constructors`
+  ///          in `analysis_options.yaml` asks for `const` anyway. Where the stricter form is
+  ///          available, take it: the whole table is fixed at compile time.
+  static const ToolCatalogStrings toolCatalogZh = ToolCatalogStrings(
+    toolNames: {
+      'quadratic': '二次方程',
+      'linear_system': '方程组',
+      'percentage': '百分比',
+      'exponential_log': '指数对数',
+      'linear_equation': '一元一次方程',
+      'proportion': '比例计算',
+      'combination': '排列组合',
+      'probability': '概率计算',
+      'statistics': '统计计算',
+      'data_fit': '数据拟合图表',
+      'matrix': '矩阵计算',
+      'complex': '复数计算',
+      'vector': '向量计算',
+      'triangle': '三角形计算',
+      'circle': '圆形计算',
+      'scale_ratio': '比例缩放',
+      'ohms_law': '欧姆定律',
+      'voltage_divider': '电阻分压',
+      'rc_filter': 'RC滤波',
+      'dbm': 'dBm换算',
+      'resistor_network': '电阻串并联',
+      'capacitor_network': '电容串并联',
+      'inductor_network': '电感串并联',
+      'led_resistor': 'LED限流电阻',
+      'op_amp_gain': '运放增益',
+      'adc_resolution': 'ADC分辨率',
+      'rms_peak': 'Vrms/Vpp换算',
+      'lc_resonance': 'LC谐振',
+      'dcdc_feedback': 'DCDC反馈',
+      'ldo_power': 'LDO功耗',
+      'capacitor_charge': '电容充放电',
+      'battery_life': '电池续航',
+      'pcb_current': 'PCB走线电流',
+      'wire_voltage_drop': '电线压降',
+      'timer_555': '555定时器',
+      'thermal_rise': '热阻温升',
+      'gear_ratio': '齿轮比',
+      'torque_power': '扭矩功率换算',
+      'spring': '弹簧刚度',
+      'cylinder': '气缸推力',
+      'force': '力/质量/加速度',
+      'pulley_ratio': '皮带轮转速比',
+      'screw_lead': '丝杆导程',
+      'pressure_force': '压力面积力',
+      'friction': '摩擦力',
+      'inclined_plane': '斜面受力',
+      'beam_bending': '梁弯曲基础',
+      'stress_strain': '应力应变',
+      'section_area': '截面属性计算',
+      'safety_factor': '安全系数',
+      'flow_velocity': '流量管径流速',
+      'material_weight': '材料重量',
+      'loan': '贷款月供',
+      'annuity': '年金终值',
+      'installment': '分期付款',
+      'break_even': '盈亏平衡',
+      'electricity_cost': '电费计算',
+      'compound': '复利计算',
+      'profit_margin': '利润率',
+      'roi': 'ROI',
+      'discount': '折扣计算',
+      'tax': '税前税后',
+      'inflation': '通胀折算',
+      'npv': 'NPV',
+      'length': '长度',
+      'area': '面积',
+      'volume': '体积',
+      'mass': '质量',
+      'pressure': '压力',
+      'speed': '速度',
+      'temperature': '温度',
+      'voltage': '电压',
+      'frequency': '频率',
+      'data_size': '数据单位',
+      'time_unit': '时间',
+      'acceleration': '加速度',
+      'force_unit': '力',
+      'power_unit': '功率',
+      'energy_unit': '能量',
+      'angle_unit': '角度',
+      'current_unit': '电流',
+      'resistance_unit': '电阻',
+      'capacitance_unit': '电容',
+      'inductance_unit': '电感',
+      'torque_unit': '扭矩',
+      'flow_unit': '流量',
+      'motion': '速度时间距离',
+      'free_fall': '自由落体',
+      'work_power': '功与功率',
+      'kinetic_energy': '动能势能',
+      'density': '密度质量体积',
+      'concentration': '浓度换算',
+      'ideal_gas': '理想气体',
+      'heat': '热量计算',
+      'wavelength': '波长频率',
+      'half_life': '半衰期',
+      'ph': 'pH / pOH',
+      'bmi': 'BMI',
+      'fuel_economy': '油耗计算',
+      'base_convert': '进制转换',
+      'timestamp': '时间戳转换',
+      'color_convert': 'RGB/HEX颜色',
+      'base64': 'Base64',
+      'url_codec': 'URL编码',
+      'json_format': 'JSON格式化',
+      'ascii_unicode': 'ASCII/Unicode',
+      'bitwise': '位运算',
+      'checksum': '校验和',
+      'uuid': 'UUID生成',
+      'jwt_decode': 'JWT解析',
+      'query_params': 'Query参数',
+      'html_entities': 'HTML实体',
+      'regex_test': '正则测试',
+      'text_stats': '文本统计',
+      'csv_json': 'CSV转JSON',
+      'fnv_crc': 'FNV/CRC32',
+      'custom_formula': '自定义公式',
+    },
+    mathTitle: '方程与数学',
+    mathSubtitle: '多项式、方程组、统计与矩阵',
+    electronicsTitle: '电路与电子',
+    electronicsSubtitle: '分压、滤波、dBm 与电源计算',
+    mechanicalTitle: '机械与工程',
+    mechanicalSubtitle: '齿轮、扭矩、弹簧与气缸',
+    financeTitle: '财务与商业',
+    financeSubtitle: '贷款、复利、利润率与 ROI',
+    scienceTitle: '物理与科学',
+    scienceSubtitle: '运动、热量、浓度与波动',
+    unitsTitle: '单位换算',
+    unitsSubtitle: '长度、压力、电学和频率',
+    programmingTitle: '编程与数据',
+    programmingSubtitle: '进制、时间戳、编码与数据单位',
+    customTitle: '自定义工具',
+    customSubtitle: '个人公式和专属工作流',
+  );
+
+  /// 中文：英文表。每一条后面的 `A` / `B` / `L` 见文件头；`A` 的注释是那条已提交的别名原文。
+  /// English: The English table. `A` / `B` / `L` after each entry are explained on the file head; the
+  ///          comment on an `A` is the committed alias it was promoted from.
+  static const ToolCatalogStrings toolCatalogEn = ToolCatalogStrings(
+    toolNames: {
+      'quadratic': 'Quadratic Equation', // B · no alias in either index
+      'linear_system': 'Linear System', // A · 'linear system'
+      'percentage': 'Percentage Calculator', // A · 'percentage calculator'
+      'exponential_log':
+          'Exponent / Logarithm', // A · 'exponent logarithm' · slash = typography for the juxtaposed pair
+      'linear_equation': 'Linear Equation', // A · 'linear equation'
+      'proportion': 'Proportion Calculator', // A · 'proportion calculator'
+      'combination': 'Combination', // A · 'combination'
+      'probability': 'Probability Calculator', // A · 'probability calculator'
+      'statistics': 'Statistics', // A · 'statistics'
+      'data_fit':
+          'Curve Fitting', // A · 'curve fitting' · first entry "regression" names one model
+      'matrix': 'Matrix Calculator', // A · 'matrix calculator'
+      'complex': 'Complex Calculator', // A · 'complex calculator'
+      'vector': 'Vector Calculator', // A · 'vector calculator'
+      'triangle': 'Triangle Calculator', // A · 'triangle calculator'
+      'circle': 'Circle Calculator', // A · 'circle calculator'
+      'scale_ratio': 'Scale Ratio', // A · 'scale ratio'
+      'ohms_law': 'Ohms Law', // A · 'ohms law'
+      'voltage_divider': 'Voltage Divider', // A · 'voltage divider'
+      'rc_filter': 'RC Filter', // A · 'rc filter'
+      'dbm': 'dBm Conversion', // B · no alias in either index
+      'resistor_network': 'Resistor Network', // A · 'resistor network'
+      'capacitor_network': 'Capacitor Network', // A · 'capacitor network'
+      'inductor_network': 'Inductor Network', // A · 'inductor network'
+      'led_resistor': 'LED Resistor', // A · 'led resistor'
+      'op_amp_gain': 'Op-Amp Gain', // A · 'op amp gain' · hyphen = orthography
+      'adc_resolution': 'ADC Resolution', // A · 'adc resolution'
+      'rms_peak': 'Vrms / Vpp', // A · 'vrms vpp' · slash = typography
+      'lc_resonance': 'LC Resonance', // A · 'lc resonance'
+      'dcdc_feedback':
+          'DC-DC Feedback', // A · 'dcdc feedback' · first entry "buck feedback" names one topology
+      'ldo_power': 'LDO Thermal', // A · 'ldo thermal'
+      'capacitor_charge':
+          'Capacitor Charge', // A · 'capacitor charge' · first entry "rc charge" names the circuit, not the subject
+      'battery_life': 'Battery Runtime', // A · 'battery runtime'
+      'pcb_current': 'PCB Trace Current', // A · 'pcb trace current'
+      'wire_voltage_drop': 'Wire Voltage Drop', // A · 'wire voltage drop'
+      'timer_555': '555 Timer', // A · '555 timer'
+      'thermal_rise': 'Thermal Rise', // A · 'thermal rise'
+      'gear_ratio': 'Gear Ratio', // A · 'gear ratio'
+      'torque_power':
+          'Torque / Power', // A · 'torque power' · slash = typography
+      'spring': 'Spring Stiffness', // A · 'spring stiffness'
+      'cylinder': 'Cylinder Force', // A · 'cylinder force'
+      'force':
+          'Force / Mass / Acceleration', // A · 'force mass acceleration' · slash = the title’s own 力/质量/加速度
+      'pulley_ratio': 'Pulley Ratio', // A · 'pulley ratio'
+      'screw_lead': 'Screw Lead', // A · 'screw lead'
+      'pressure_force':
+          'Pressure / Area / Force', // A · 'pressure area force' · first entry omits one of the three inputs
+      'friction': 'Friction Force', // B · no alias in either index
+      'inclined_plane': 'Inclined Plane', // B · no alias in either index
+      'beam_bending': 'Beam Bending', // A · 'beam bending'
+      'stress_strain':
+          'Stress and Strain', // A · 'stress and strain' · same words as entry 1, with its coordinator
+      'section_area':
+          'Section Properties', // A · 'section properties' · first entry names one output
+      'safety_factor': 'Safety Factor', // A · 'safety factor'
+      'flow_velocity': 'Pipe Flow', // B · no alias in either index
+      'material_weight': 'Material Weight', // B · no alias in either index
+      'loan': 'Loan Calculator', // A · 'loan calculator'
+      'annuity': 'Annuity Calculator', // A · 'annuity calculator'
+      'installment': 'Installment Calculator', // A · 'installment calculator'
+      'break_even': 'Break-Even', // A · 'break even' · hyphen = orthography
+      'electricity_cost': 'Electricity Cost', // A · 'electricity cost'
+      'compound': 'Compound Interest', // A · 'compound interest'
+      'profit_margin': 'Profit Margin', // A · 'profit margin'
+      'roi': 'Return on Investment', // A · 'return on investment'
+      'discount': 'Discount Calculator', // A · 'discount calculator'
+      'tax': 'Tax Calculator', // A · 'tax calculator'
+      'inflation': 'Inflation Calculator', // A · 'inflation calculator'
+      'npv': 'Net Present Value', // A · 'net present value'
+      'length': 'Length Converter', // A · 'length converter'
+      'area': 'Area Converter', // A · 'area converter'
+      'volume': 'Volume Converter', // A · 'volume converter'
+      'mass': 'Mass Converter', // A · 'mass converter'
+      'pressure': 'Pressure Converter', // A · 'pressure converter'
+      'speed': 'Speed Converter', // A · 'speed converter'
+      'temperature': 'Temperature Converter', // A · 'temperature converter'
+      'voltage': 'Voltage Converter', // A · 'voltage converter'
+      'frequency': 'Frequency Converter', // A · 'frequency converter'
+      'data_size':
+          'Data Size Converter', // A · 'data size converter' · first two entries name one unit
+      'time_unit': 'Time Converter', // A · 'time converter'
+      'acceleration': 'Acceleration Converter', // A · 'acceleration converter'
+      'force_unit': 'Force Converter', // A · 'force converter'
+      'power_unit': 'Power Converter', // A · 'power converter'
+      'energy_unit': 'Energy Converter', // A · 'energy converter'
+      'angle_unit': 'Angle Converter', // A · 'angle converter'
+      'current_unit': 'Current Converter', // A · 'current converter'
+      'resistance_unit': 'Resistance Converter', // A · 'resistance converter'
+      'capacitance_unit':
+          'Capacitance Converter', // A · 'capacitance converter'
+      'inductance_unit': 'Inductance Converter', // A · 'inductance converter'
+      'torque_unit': 'Torque Converter', // A · 'torque converter'
+      'flow_unit': 'Flow Converter', // A · 'flow converter'
+      'motion':
+          'Distance / Time / Speed', // A · 'distance time speed' · slash = typography
+      'free_fall': 'Free Fall', // A · 'free fall'
+      'work_power': 'Work / Power', // A · 'work power' · slash = typography
+      'kinetic_energy': 'Kinetic Energy', // A · 'kinetic energy'
+      'density': 'Density Calculator', // A · 'density calculator'
+      'concentration': 'Concentration', // A · 'concentration'
+      'ideal_gas': 'Ideal Gas', // A · 'ideal gas'
+      'heat': 'Heat', // A · 'heat'
+      'wavelength': 'Wavelength', // A · 'wavelength'
+      'half_life': 'Half-Life', // A · 'half life' · hyphen = orthography
+      'ph': 'pH / pOH', // L · title already Latin
+      'bmi': 'Body Mass Index', // A · 'body mass index'
+      'fuel_economy': 'Fuel Economy', // A · 'fuel economy'
+      'base_convert': 'Base Conversion', // B · no alias in either index
+      'timestamp':
+          'Timestamp Converter', // B · four entries: three name a quantity, one is a verb phrase
+      'color_convert': 'Hex Colour', // A · 'hex color'
+      'base64': 'Base64', // L · title already Latin
+      'url_codec':
+          'URL Encoding', // B · entries are verb phrases ("url encode"), not names
+      'json_format': 'JSON Formatter', // A · 'json formatter'
+      'ascii_unicode': 'ASCII/Unicode', // L · title already Latin
+      'bitwise': 'Bitwise Operations', // B · no alias in either index
+      'checksum':
+          'Checksum', // A · 'checksum' · first three entries name the algorithms, not the tool
+      'uuid':
+          'UUID Generator', // B · entries name the data type or a sub-case, not the tool
+      'jwt_decode':
+          'JWT Decoder', // B · entries name token kinds and claim terms, not the tool
+      'query_params': 'Query String', // A · 'query string'
+      'html_entities': 'HTML Entity', // A · 'html entity'
+      'regex_test': 'Regex', // A · 'regex'
+      'text_stats':
+          'Text Statistics', // B · entries name individual counts, not the tool
+      'csv_json': 'CSV to JSON', // A · 'csv to json'
+      'fnv_crc': 'FNV/CRC32', // L · title already Latin
+      'custom_formula': 'Custom Formula', // B · no alias in either index
+    },
+    mathTitle: 'Equations & Math',
+    mathSubtitle: 'Polynomials, systems, statistics and matrices',
+    electronicsTitle: 'Circuits & Electronics',
+    electronicsSubtitle: 'Dividers, filters, dBm and power calculations',
+    mechanicalTitle: 'Mechanical Engineering',
+    mechanicalSubtitle: 'Gears, torque, springs and cylinders',
+    financeTitle: 'Finance & Business',
+    financeSubtitle: 'Loans, compound interest, margins and ROI',
+    scienceTitle: 'Physics & Science',
+    scienceSubtitle: 'Motion, heat, concentration and waves',
+    unitsTitle: 'Unit Conversion',
+    unitsSubtitle: 'Length, pressure, electrical units and frequency',
+    programmingTitle: 'Programming & Data',
+    programmingSubtitle: 'Number bases, timestamps, encoding and data units',
+    customTitle: 'Custom Tools',
+    customSubtitle: 'Your own formulas and workflows',
+  );
+}

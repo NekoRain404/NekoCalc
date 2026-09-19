@@ -9,6 +9,7 @@ import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_category.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'tool_catalog_strings.dart';
 import 'tool_navigation.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
@@ -114,6 +115,11 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = ToolsStrings.of(context);
+    // 中文：页头、搜索框提示与"没有匹配"那句里都嵌着**分类名**，三处都取自目录表。
+    // English: the page head, the search hint and the "nothing matches" sentence all embed the
+    //          **category name**; all three take it from the catalogue table.
+    final catalog = ToolCatalogStrings.of(context);
+    final categoryTitle = catalog.categoryTitle(widget.category);
     final hasQuery = _query.trim().isNotEmpty;
     final results =
         _toolsController.searchTools(_query, category: widget.category);
@@ -148,7 +154,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back_ios_new)),
                 Expanded(
-                    child: Center(child: PageTitle(widget.category.title))),
+                    child: Center(child: PageTitle(categoryTitle))),
                 IconButton(
                     onPressed: _searchFocus.requestFocus,
                     icon: const Icon(Icons.search)),
@@ -160,7 +166,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
               focusNode: _searchFocus,
               onChanged: _setSearchQuery,
               decoration: InputDecoration(
-                  hintText: strings.searchCategoryHint(widget.category.title),
+                  hintText: strings.searchCategoryHint(categoryTitle),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _searchController,
@@ -179,8 +185,8 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
               SectionTitle(strings.searchResultsCount(tools.length)),
               if (tools.isEmpty)
                 ToolSearchEmptyState(
-                  message: strings.categoryNoMatch(
-                      widget.category.title, _query.trim()),
+                  message:
+                      strings.categoryNoMatch(categoryTitle, _query.trim()),
                   suggestions: suggestions
                       .map((suggestion) => suggestion.text)
                       .toList(growable: false),

@@ -4,6 +4,7 @@ import '../../../domain/entities/tool_category.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'category_visuals.dart';
+import 'tool_catalog_strings.dart';
 import 'tools_strings.dart';
 
 class HorizontalToolList extends StatelessWidget {
@@ -19,6 +20,12 @@ class HorizontalToolList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // 中文：卡片上是**目录里的名字**（`ToolCatalogStrings`），不是 `tool.title`——后者是内容数据，
+    //       住在 `lib/domain/usecases/tool_catalog*.dart`，中文下两者取值相同，英文下不同。
+    // English: the card shows the **catalogue's name** (`ToolCatalogStrings`), not `tool.title` —
+    //          the latter is content data living in `lib/domain/usecases/tool_catalog*.dart`; the two
+    //          coincide in Chinese and differ in English.
+    final catalog = ToolCatalogStrings.of(context);
     return SizedBox(
       height: 88,
       child: ListView.separated(
@@ -39,7 +46,7 @@ class HorizontalToolList extends StatelessWidget {
                 children: [
                   Icon(tool.icon, color: tool.color),
                   const SizedBox(height: 8),
-                  Text(tool.title,
+                  Text(catalog.toolName(tool.id),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: scheme.onSurface)),
@@ -68,6 +75,10 @@ class CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // 中文：分类卡上的名字也走目录表，理由与上面那张工具卡相同。
+    // English: the name on a category card comes from the catalogue table too, for the same reason
+    //          as the tool card above.
+    final catalog = ToolCatalogStrings.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -94,7 +105,7 @@ class CategoryCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(category.title,
+                  Text(catalog.categoryTitle(category),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -133,6 +144,10 @@ class ToolListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // 中文：列表项上的标题与上面几张卡同源——目录表，不是 `tool.title`。
+    // English: the tile's title comes from the same source as the cards above — the catalogue table,
+    //          not `tool.title`.
+    final catalog = ToolCatalogStrings.of(context);
     return ListTile(
       onTap: onTap,
       leading: Container(
@@ -144,8 +159,8 @@ class ToolListTile extends StatelessWidget {
         ),
         child: Icon(tool.icon, color: tool.color),
       ),
-      title:
-          Text(tool.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      title: Text(catalog.toolName(tool.id),
+          style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(
           matchLabel == null
               ? tool.description

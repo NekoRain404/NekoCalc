@@ -17,6 +17,7 @@ import 'text_tool_detail_cards.dart';
 import 'text_tool_inputs.dart';
 import 'text_tool_result_saver.dart';
 import 'text_tool_strings.dart';
+import 'tool_catalog_strings.dart';
 import 'tools_strings.dart';
 
 /// 中文：文本/编程类工具详情页，承载 JSON、Base64、URL、正则等输入输出型工具。
@@ -355,6 +356,10 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = ToolsStrings.of(context);
+    // 中文：页头那行是**目录表里的名字**，不是 `widget.tool.title`——后者是内容数据。
+    // English: the page head shows the **catalogue table’s name**, not `widget.tool.title` —
+    //          the latter is content data.
+    final toolTitle = ToolCatalogStrings.of(context).toolName(widget.tool.id);
     final isCustom = widget.tool.id == 'custom_formula';
     final scheme = Theme.of(context).colorScheme;
 
@@ -370,7 +375,7 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
                   tooltip: strings.back,
                   onTap: () => Navigator.pop(context),
                 ),
-                Expanded(child: Center(child: PageTitle(widget.tool.title))),
+                Expanded(child: Center(child: PageTitle(toolTitle))),
                 IconToolButton(
                   icon: Icons.refresh_outlined,
                   tooltip: strings.reset,
