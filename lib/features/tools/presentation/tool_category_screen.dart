@@ -10,6 +10,7 @@ import '../../../domain/entities/tool_category.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_catalog_strings.dart';
+import 'tool_field_strings.dart';
 import 'tool_navigation.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
@@ -127,6 +128,15 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
     final resultById = {
       for (final result in results) result.tool.id: result.matchLabel,
     };
+    // 中文：**分组仍按 `tool.group`（中文）分，翻的只是标题那一步。** `grouped` 的键因此一个字节
+    //       都没动——分组的成员、顺序与检索命中与改动前逐条相同；`SectionTitle` 拿到的是查表后的
+    //       标题，认不出的分组名（目录里不会有，除非有人加了新分组还没进表）原样露出来。
+    // English: **grouping still uses `tool.group` (the Chinese); only the heading step translates.**
+    //          The keys of `grouped` therefore do not move by a byte — membership, order and search
+    //          hits are exactly as before — and `SectionTitle` receives the looked-up heading, while an
+    //          unrecognised group name (impossible unless a group is added without a table entry) shows
+    //          through unchanged.
+    final fields = ToolFieldStrings.of(context);
     final grouped = <String, List<ToolDefinition>>{};
     for (final tool in tools) {
       grouped.putIfAbsent(tool.group, () => []).add(tool);
@@ -209,7 +219,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             ...grouped.entries.map((entry) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SectionTitle(entry.key),
+                    SectionTitle(fields.group(entry.key)),
                     Card(
                       margin: const EdgeInsets.only(bottom: 14),
                       child: Column(

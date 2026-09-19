@@ -121,6 +121,66 @@ bool containsWideOrFullwidth(String text) {
   return false;
 }
 
+/// 中文：**中文那一侧里"非 CJK 的连续段"**——即语言无关的记号。空格去掉，纯 ASCII 标点段丢掉
+///       （`生成/校验 UUID` 里那个孤零零的 `/`、`CSV / TSV 转 JSON` 里那个 `/` 都不是记号，
+///       是分隔符，英文一侧本来就会换一种写法）。`℃`/`℉`/`°R` 这种**不含字母数字的符号段**照留。
+///
+///       **这把尺子原先长在 `tool_description_strings_test.dart` 里，本轮原样搬到这里。** 理由与
+///       `roboto_regular_advances.dart` 当初搬过来的那条一样：**第二张表需要同一把尺子**——
+///       `tool_field_strings_test.dart` 要拿它量参数标签、单位、公式与解释里的记号，而两处各留
+///       一份就会各自漂移，漏改的那一份不报错，只会悄悄放过一段记号。
+///       两个判据共用的是**同一个函数**，不是同一段文字。
+/// English: **the Chinese's non-CJK runs** — the language-neutral notation. Spaces trimmed, runs made
+///          only of ASCII punctuation dropped (the lone `/` in `生成/校验 UUID` and in
+///          `CSV / TSV 转 JSON` is a separator, not notation, and the English side writes it
+///          differently); symbol-only runs such as `℃` / `℉` / `°R` are kept.
+///
+///          **This ruler used to live inside `tool_description_strings_test.dart` and was moved here
+///          unchanged this round**, for the same reason `roboto_regular_advances.dart` was moved
+///          before it: **a second table needs the same ruler** — `tool_field_strings_test.dart`
+///          measures the notation in labels, units, formulas and explanations with it, and two copies
+///          would drift, with the missed one failing silently instead of catching a lost run. What the
+///          two guards share is **one function**, not one paragraph of prose.
+Iterable<String> notationRuns(String source) sync* {
+  final buffer = StringBuffer();
+  for (final rune in source.runes) {
+    if (_isCjkOrFullWidth(rune)) {
+      final run = _takeNotationRun(buffer);
+      if (run != null) yield run;
+    } else {
+      buffer.writeCharCode(rune);
+    }
+  }
+  final run = _takeNotationRun(buffer);
+  if (run != null) yield run;
+}
+
+String? _takeNotationRun(StringBuffer buffer) {
+  final run = buffer.toString().trim();
+  buffer.clear();
+  if (run.isEmpty) return null;
+  if (_asciiPunctuationOnly.hasMatch(run)) return null;
+  return run;
+}
+
+/// 中文：**断点**：汉字、假名、谚文、中文标点、全角形式。与上面那把 `isUiCopyRune`
+///       （"这里有没有界面文案"）量的是同一批字，用途不同。
+/// English: **the cut points**: Han, kana, hangul, Chinese punctuation, full-width forms. The same
+///          characters the `isUiCopyRune` ruler above ("is there interface copy here") measures — a
+///          different question.
+bool _isCjkOrFullWidth(int rune) =>
+    (rune >= 0x2E80 && rune <= 0x9FFF) ||
+    (rune >= 0x3000 && rune <= 0x303F) ||
+    (rune >= 0x3400 && rune <= 0x4DBF) ||
+    (rune >= 0xF900 && rune <= 0xFAFF) ||
+    (rune >= 0xFF00 && rune <= 0xFFEF);
+
+/// 中文：只由空白与 ASCII 标点组成的段。这类段在两种语言里本来就是两套写法（`、` 对 `, `）。
+/// English: a run made only of whitespace and ASCII punctuation. Those runs are written differently in
+///          each language by construction (`、` against `, `).
+final RegExp _asciiPunctuationOnly =
+    RegExp(r'^[\x20-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]+$');
+
 // 中文：**口径成本是怎么量出来的**（两棵树都能跑，命令逐字如下）——
 //       `dart run tool/ncs_probe/scan.dart <目录>`，判据是"非 ASCII 且不是空白/格式/控制字符"。
 //       在 HEAD 上量到的数：`lib/features/calculator/presentation` 93 条（键帽与数学记号）、

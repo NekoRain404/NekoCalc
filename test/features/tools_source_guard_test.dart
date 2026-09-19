@@ -10,15 +10,17 @@ import '../shared/source_scan.dart';
 ///       `_stringLiterals`）与那份逐条带理由的豁免表一起搬到了这个文件。
 ///
 ///       **覆盖范围一个字没变。** 扫描的目录仍旧是 `lib/features/tools/presentation`（递归、全部
-///       `.dart`），跳过的仍旧只有文案表的名字（本轮从九张变成十张，见下），判据仍旧是
+///       `.dart`），跳过的仍旧只有文案表的名字（本轮从十张变成十三张，见下），判据仍旧是
 ///       `containsWideOrFullwidth`，豁免的仍旧只有 `_punctuationOnlyLiterals` 里那四条。
 ///
-///       跳过表里收的是**表名**，目录自己的两张也在其中：`tool_catalog_strings.dart`（117 个工具名
-///       + 8 个分类的名字与说明）与 `tool_description_strings.dart`（描述那 117 条），
-///       和另外几张一样是"汉字该住的地方"——**不是给某个界面文件开口子**。目录里那些还没进表的字
-///       （公式、参数标签、单位、分组名、结果标签）仍在 `lib/domain/usecases` 与
-///       `lib/application/controllers`，`lib/features/tools/presentation` 里的界面文件一条中文
-///       都没多，所以下面这条断言的覆盖面一个字节都没松。
+///       跳过表里收的是**表名**，目录自己的**五张**也在其中：`tool_catalog_strings.dart`（117 个工具名
+///       + 8 个分类的名字与说明）、`tool_description_strings.dart`（描述那 117 条）、
+///       `tool_field_strings.dart`（29 个分组名）、`tool_input_strings.dart`（231 个参数标签 + 11 个单位）
+///       与 `tool_explanation_strings.dart`（10 条公式 + 96 条解释），和另外几张一样是"汉字该住的地方"
+///       ——**不是给某个界面文件开口子**。本轮之前那些还没进表的字（公式、参数标签、单位、分组名、
+///       结果标签）住在 `lib/domain/usecases` 与 `lib/application/controllers`；本轮其中五格进了表，
+///       而 **`lib/features/tools/presentation` 里的界面文件一条中文都没多**
+///       （本轮的改动在那两个界面文件里只是四处取词），所以下面这条断言的覆盖面一个字节都没松。
 ///
 /// English: **the tools subtree's source guard.** It asks "is there interface copy left in
 ///          `lib/features/tools/presentation` that never went through `ToolsStrings` /
@@ -29,18 +31,22 @@ import '../shared/source_scan.dart';
 ///
 ///          **The coverage did not change by one character.** The directory scanned is still
 ///          `lib/features/tools/presentation` (recursive, every `.dart`), the only names skipped are
-///          still copy tables (nine became ten this round; see below), the ruler is still
+///          still copy tables (ten became thirteen this round; see below), the ruler is still
 ///          `containsWideOrFullwidth`, and the only exemptions are still the four literals in
 ///          `_punctuationOnlyLiterals`.
 ///
-///          The skip list takes **table names**, and the catalogue's own two are among them:
-///          `tool_catalog_strings.dart` (117 tool names plus the 8 categories' names and descriptions)
-///          and `tool_description_strings.dart` (the 117 descriptions). Both are "Chinese homes" in
-///          this directory exactly like their siblings — **not** a door opened for an interface file.
-///          The catalogue's still-untabled words (formulas, parameter labels, units, group names,
-///          result labels) live in `lib/domain/usecases` and `lib/application/controllers`, not one
-///          Chinese literal was added to the interface files under `lib/features/tools/presentation`,
-///          and so the assertion below did not go one byte slacker.
+///          The skip list takes **table names**, and the catalogue's own five are among them:
+///          `tool_catalog_strings.dart` (117 tool names plus the 8 categories' names and
+///          descriptions), `tool_description_strings.dart` (the 117 descriptions),
+///          `tool_field_strings.dart` (the 29 group names), `tool_input_strings.dart` (231 parameter
+///          labels and 11 units) and `tool_explanation_strings.dart` (10 formulas and 96 explanations).
+///          All are "Chinese homes" in this directory exactly like their siblings — **not** a door
+///          opened for an interface file. Before this round the catalogue's untabled words (formulas,
+///          parameter labels, units, group names, result labels) lived in `lib/domain/usecases` and
+///          `lib/application/controllers`; this round tabled five of those fields, and **not one
+///          Chinese literal was added to the interface files under `lib/features/tools/presentation`**
+///          (the round's edits there are four lookup calls in `tool_detail_screen.dart` and
+///          `tool_category_screen.dart`), so the assertion below did not go one byte slacker.
 void main() {
   // 中文：**测试名里不写表数。** 它原先叫「除了**两张**文案表」，而表数从九张一路涨到十张——
   //       名字不是断言，但一个会过期的数字挂在名字上，下一个人会以为守卫的范围没变过。
@@ -59,7 +65,11 @@ void main() {
       final name = entity.uri.pathSegments.last;
       // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有七张
       //       （门面 + 识别组 + 统计 + 数据组 + 编解码组 + Web 格式组 + 时间戳），
-      //       它们和这两张一样是本目录里的"汉字之家"。
+      //       目录那一族有**五张**（名字与分类、描述、分组名、参数标签与单位、公式与解释），
+      //       它们一样是本目录里的"汉字之家"。**本轮加的是后三张**：那五格的英文全在
+      //       `tool_field_strings.dart` / `tool_input_strings.dart` /
+      //       `tool_explanation_strings.dart` 里，而**表键就是中文本身**，
+      //       所以那三张文件里必然满是汉字。
       //       **这一串只加表名，不给非表文件开口子**：`text_tool_detail_screen.dart` 之类的
       //       界面文件仍然照扫不误。
       // English: the tables are where the Chinese is *supposed* to live; skip them. The text-tool
@@ -71,6 +81,9 @@ void main() {
           name == 'data_fit_strings.dart' ||
           name == 'tool_catalog_strings.dart' ||
           name == 'tool_description_strings.dart' ||
+          name == 'tool_field_strings.dart' ||
+          name == 'tool_input_strings.dart' ||
+          name == 'tool_explanation_strings.dart' ||
           name == 'text_tool_strings.dart' ||
           name == 'text_tool_text_strings.dart' ||
           name == 'text_tool_stats_strings.dart' ||

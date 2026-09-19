@@ -14,6 +14,7 @@ import '../../../data/repositories/tool_usage_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_catalog_strings.dart';
+import 'tool_field_strings.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
 
@@ -209,6 +210,10 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     //          the latter is content data; the description below it comes from the catalogue table too,
     //          out of the same `of(context)` call as the name.
     final catalog = ToolCatalogStrings.of(context);
+    // 中文：公式、解释、参数标签与单位取自 `ToolFieldStrings`（本轮新表），与上面两张表同一套分派。
+    // English: the formula, the explanation, the parameter labels and the units come from
+    //          `ToolFieldStrings` (this round's table), dispatched the same way as the two above.
+    final fields = ToolFieldStrings.of(context);
     final toolTitle = catalog.toolName(widget.tool.id);
     final primary = _detailController.primary;
     final scheme = Theme.of(context).colorScheme;
@@ -305,12 +310,20 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 中文：公式与解释两行取自 `ToolFieldStrings`，**目录里那两个字段仍是中文**
+                    //       （检索读的就是它们，本轮一个字节没动）：认得出的字串查表，
+                    //       认不出的原样返回，所以没有汉字的公式在两种语言下一模一样。
+                    // English: the formula and the explanation come from `ToolFieldStrings`, while
+                    //          **the catalogue's two fields stay Chinese** (search reads those, and not
+                    //          one byte moved): a recognised string is looked up and anything else comes
+                    //          back unchanged, so a formula with no Han character reads the same in
+                    //          both languages.
                     SectionTitle(strings.formula),
-                    Text(widget.tool.formula,
+                    Text(fields.formula(widget.tool.formula),
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 8),
-                    Text(widget.tool.explanation,
+                    Text(fields.explanation(widget.tool.explanation),
                         style: TextStyle(color: scheme.onSurfaceVariant)),
                   ],
                 ),
@@ -395,17 +408,25 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
 
   Widget _inputRow(ToolInputDefinition input) {
     final strings = ToolsStrings.of(context);
+    // 中文：标签与单位走本轮那张表，**`input.label` / `input.unit` 本身仍是目录里那条中文**
+    //       （检索读的就是它们）；认不出的字串原样返回，所以 `pH`、`ROI`、`50Ω` 这类
+    //       本来就是拉丁字母的标签两种语言逐字节相同。
+    // English: the label and the unit go through this round's table, while **`input.label` /
+    //          `input.unit` themselves stay the catalogue's Chinese** (search reads those); an
+    //          unrecognised string comes back unchanged, so labels already in Latin letters —
+    //          `pH`, `ROI`, `50Ω` — are byte-identical in both languages.
+    final fields = ToolFieldStrings.of(context);
     final controller = _controllers[input.key]!;
     final scheme = Theme.of(context).colorScheme;
     final error = _detailController.inputErrors[input.key];
     final clearsInput = input.optional || input.defaultValue == null;
+    final label = fields.inputLabel(input.label);
     return Row(
       children: [
         Expanded(
             flex: 3,
-            child: Text(input.optional
-                ? strings.optionalInput(input.label)
-                : input.label)),
+            child: Text(
+                input.optional ? strings.optionalInput(label) : label)),
         const SizedBox(width: 8),
         _stepButton(
           icon: Icons.remove,
@@ -423,7 +444,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             textAlign: TextAlign.right,
             decoration: InputDecoration(
               isDense: true,
-              suffixText: input.unit,
+              suffixText: fields.inputUnit(input.unit),
               errorText: error,
               suffixIcon: controller.text.isEmpty
                   ? null
