@@ -17,10 +17,28 @@ Iterable<KeypadKey> _realKeys(KeypadRow row) sync* {
   }
 }
 
-/// 中文：一个变体的签名 `id|键面文字|启用态`。
-/// English: One variant's signature, `id|face label|enabled`.
+/// 中文：一个变体的签名 `id|键面文字|启用态`，键面是**图形**时再跟上 `|icon:…`。
+///
+///       **图形为什么必须进签名。** 键面画什么，是这套键盘的**内容**之一——矩阵键的键面从
+///       `MTRX` 四个字母换成厂商那张方括号加 2×2 方格的图，正是本轮唯一的内容改动。若签名只看
+///       `label`，这次改动在这里**一行 diff 都不会留**：`label` 仍是 `MTRX`（它是这颗键的名字，
+///       见 `KeyVariant.label` 的注释），快照会照样绿着，而「快照是这次改动的证据」这句话就落空了。
+///       所以 `icon` 跟着签，且**只在有图形时才多这一段**——没有图形的那几十格一个字符都不动，
+///       一次改动因此仍然只留下它自己那一格的 diff。
+/// English: One variant's signature, `id|face label|enabled`, followed by `|icon:…` when the face is
+///          a **figure**.
+///
+///          **Why the figure has to be in the signature.** What a face draws is part of this
+///          keypad's **content** — the matrix key's face going from the four letters `MTRX` to the
+///          vendor's brackets-and-2×2-squares figure is this round's only content change. A signature
+///          that reads `label` alone would leave **no diff at all** here: `label` stays `MTRX` (it is
+///          the key's name — see the note on `KeyVariant.label`), the snapshot would stay green, and
+///          "the snapshot is this change's evidence" would be an empty claim. So the icon is signed
+///          too, and **only when there is one** — the several dozen cells without a figure keep every
+///          character, so one change still leaves exactly its own cell's diff.
 String _variantSignature(KeyVariant v) =>
-    '${v.id}|${v.label}|${v.enabled ? 'on' : 'off'}';
+    '${v.id}|${v.label}|${v.enabled ? 'on' : 'off'}'
+    '${v.icon == null ? '' : '|icon:${v.icon!.name}'}';
 
 /// 中文：一个键的签名 `基准 | 分类 | shift:… | hyp:…`，变体缺省时不写那一段。
 /// English: One key's signature, `base | category | shift:… | hyp:…`, with a variant's section
@@ -65,7 +83,22 @@ const List<List<String>> _expectedKeyGrid = <List<String>>[
     //          base `DRG` matches the vendor's screenshot letter for letter and has not moved.
     "angleMode|DRG|on function shift:openAngleConvert|▸DRG|on",
     "resultForm|x⇔E|on function shift:notationCycle|FSE|on",
-    "ins:matrix|MTRX|on function shift:openMatrixMenu|MTRX|on",
+    // 中文：**本轮的键面改动只落在这一格**：基准变体多了 `|icon:matrix`——键面从此画厂商那张
+    //       「方括号包着 2×2 四个空心方格」的图，而不是 `MTRX` 四个字母。同一格里 `label` 仍是
+    //       `MTRX`（那是这颗键的名字）、`id` 仍是 `ins:matrix`、分类与启用态都没动，`shift` 那一段
+    //       逐字符与上一轮相同——行为一个字节没变，变的只有「这一格画什么」。
+    //       读数（两张厂商原图上的实测）在那颗键的长注释里：`hiper_keypad_angle_matrix_row.dart`。
+    //       横带那一格**不在这条 diff 里**——它仍是下面 `_expectedLabelGrid` 的 `hint:MTRX`。
+    // English: **this round's face change lands on this one cell only**: the base variant gains
+    //          `|icon:matrix` — the face now draws the vendor's figure (four hollow squares in a 2×2
+    //          grid between brackets) instead of the four letters `MTRX`. In the same cell `label` is
+    //          still `MTRX` (the key's name), `id` is still `ins:matrix`, category and enabled state
+    //          have not moved, and the `shift:` section is character for character last round's —
+    //          behaviour changes by not one byte; only "what this cell draws" does. The readings
+    //          (measured on both vendor originals) are in that key's long note in
+    //          `hiper_keypad_angle_matrix_row.dart`. **The band cell above is not part of this diff**:
+    //          it is still `hint:MTRX` in `_expectedLabelGrid` below.
+    "ins:matrix|MTRX|on|icon:matrix function shift:openMatrixMenu|MTRX|on",
     "ins:sum|Σ|on function shift:ins:product|Π|on",
     "ins:integrate|∫dx|on function shift:ins:diff|d/dx|on",
     "dis:camera|📷|off disabled",

@@ -36,6 +36,36 @@ const int _bandFlex = 2;
 const double _keyFontSize = 17;
 const double _bandFontSize = 11;
 
+/// 中文：**图形键面的高度，以主键字号为单位。** 数值是量出来的，不是挑出来的——两份来源把
+///       它夹在 1.30 与 1.36 em 之间，这里取小的那一端，图形因此永远不会顶到键框：
+///       1. 厂商那张 1440×3200 真机图（`~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`）
+///          上，同一行第 3 格的字形高 **86 px**、第 1 格 `DRG` 的大写高 **45 px**、键面高 124 px
+///          ——图形是同一行大写文字的 86/45 = **1.91 倍**。本应用主键字号 17，Roboto 的大写高
+///          0.711 em = 12.1 px，1.91 × 12.1 = 23.1 px = **1.36 em**。
+///       2. 厂商官网当前主屏截图（`https://hiperlabs.eu/screenshots.html` → `assets/img/01 calculator.png`）
+///          上同一格：字形高 **22 px**、`DRG` 大写高 **12 px** —— 1.83 倍，换成 em 是 **1.30 em**。
+///       两份差的只是两张图的缩放（0.694 与 0.647 的「图形高 ÷ 键面高」同理），取 1.30 是保守的那个。
+/// English: **The figure face's height, in units of the main key font size.** The number is measured,
+///          not picked — two sources bracket it between 1.30 and 1.36 em, and the smaller end is
+///          taken so the figure can never touch the key's rim:
+///          1. On the vendor's 1440×3200 device screenshot (path above), this cell's glyph is
+///             **86 px** tall while `DRG`'s capitals in the same row are **45 px** and the key face
+///             is 124 px — the figure is 86/45 = **1.91×** the row's capital height. This app draws
+///             main keys at 17 px, Roboto's capitals are 0.711 em = 12.1 px, so 1.91 × 12.1 =
+///             23.1 px = **1.36 em**.
+///          2. On the vendor's current main-screen screenshot (URL above) the same cell measures
+///             **22 px** against `DRG`'s **12 px** capitals — 1.83×, i.e. **1.30 em**.
+///          The two differ only by the two pictures' scale (the same is true of "figure height over
+///          key-face height", 0.694 against 0.647), and 1.30 is the conservative one.
+const double _iconFaceFontFactor = 1.3;
+
+/// 中文：图形键面的笔宽（图形自身的坐标里，见 `_KeyFaceIconPainter`）——厂商那张图上量到
+///       5–6 px，取中。**它随图形一起缩放**，所以任何键高下粗细都与厂商成比例。
+/// English: The figure face's stroke width, in the figure's own coordinates (see
+///          `_KeyFaceIconPainter`) — measured 5–6 px on the vendor's screenshot, taken at the middle.
+///          **It scales with the figure**, so the weight stays proportional at any key height.
+const double _iconFaceStroke = 5.5;
+
 /// 中文：禁用键底色朝键盘底色混合的比例——越大越淡。
 /// English: How far a disabled key's fill blends towards the panel background; larger is dimmer.
 const double _disabledBlend = 0.55;
@@ -286,20 +316,51 @@ class CalculatorKeypad extends StatelessWidget {
             borderRadius: capsule ? null : corners,
             customBorder: capsule ? const StadiumBorder() : null,
             child: Center(
-              // 中文：键面永远画**基准**标签——修饰态解析出的是「按下去会发生什么」（变体 id），
-              //       而那个功能已经印在键上方的标签横带里。若把键面也换成变体标签，`sin` 在
-              //       SHIFT/hyp 下就没有任何可点的文字了（本组件的测试与 Task 4 的主屏测试都
-              //       断言那时仍能点到 `sin`，并按变体 id 上报）。
-              // English: The face always draws the **base** label. Modifier resolution yields
-              //          what pressing will do (the variant's id), and that function is already
-              //          printed in the band above the key. Swapping the face for the variant
-              //          label would leave `sin` with no tappable text under SHIFT/hyp, which
-              //          this widget's tests — and Task 4's screen tests — rely on.
-              child: _face(key.base.label, color: paint.fg, fontSize: fontSize),
+              // 中文：键面永远画**基准**标签（或基准变体点名的图形）——修饰态解析出的是
+              //       「按下去会发生什么」（变体 id），而那个功能已经印在键上方的标签横带里。
+              //       若把键面也换成变体标签，`sin` 在 SHIFT/hyp 下就没有任何可点的文字了
+              //       （本组件的测试与 Task 4 的主屏测试都断言那时仍能点到 `sin`，并按变体 id
+              //       上报）。**图形同理**：矩阵键在 SHIFT 下键面仍画那张图，变体的名字 `MTRX`
+              //       只出现在横带里——这正是 HiPER 的机制。
+              // English: The face always draws the **base** label (or the figure the base variant
+              //          names). Modifier resolution yields what pressing will do (the variant's
+              //          id), and that function is already printed in the band above the key.
+              //          Swapping the face for the variant label would leave `sin` with no tappable
+              //          text under SHIFT/hyp, which this widget's tests — and Task 4's screen
+              //          tests — rely on. **A figure behaves the same way**: the matrix key keeps
+              //          its figure under SHIFT, and the variant's name `MTRX` appears only in the
+              //          band, which is exactly HiPER's mechanism.
+              child: _variantFace(key.base, color: paint.fg, fontSize: fontSize),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 中文：一个变体的**键面**——两条路：没有图形走 `_face` 画 `label` 那几个字；`icon` 有值时
+  ///       改画那个图形，由 `KeyFaceIconView` 负责。**名字（`label`）不会因此消失**：横带里的
+  ///       提示、逐格快照与词表条目都还叫它这个名字，只是键面画的不是字——HiPER 上矩阵键就是
+  ///       这样（名字 `MTRX` 在它上方那一格，键面是一张图）。
+  /// English: One variant's **face** — two paths: with no figure it goes through `_face` and draws
+  ///          the characters of `label`; when `icon` is set it draws that figure instead, which is
+  ///          `KeyFaceIconView`'s job. **The name (`label`) does not disappear with it**: the band
+  ///          hint, the per-cell snapshot and the vocabulary entries still call the key by it; only
+  ///          the drawing changes — which is exactly how HiPER's matrix key works (the name `MTRX`
+  ///          sits in the cell above, the face carries a figure).
+  Widget _variantFace(
+    KeyVariant variant, {
+    required Color color,
+    required double fontSize,
+  }) {
+    final KeyFaceIcon? icon = variant.icon;
+    if (icon == null) {
+      return _face(variant.label, color: color, fontSize: fontSize);
+    }
+    return KeyFaceIconView(
+      icon: icon,
+      color: color,
+      height: fontSize * _iconFaceFontFactor,
     );
   }
 
@@ -400,4 +461,175 @@ class CalculatorKeypad extends StatelessWidget {
       KeyCategory.disabled => (bg: colors.functionBg, fg: colors.shiftLabelFg),
     };
   }
+}
+
+// 中文：**括号从字形外缘伸进来多宽、四个方格多大、摆在哪。** 全部是厂商那张 1440×3200 真机图上
+//       第 2 行第 3 格字形的实测读数，换算到图形自己的坐标里（外框 118×86，原点在左上角）：
+//       左括号竖笔 x 543..547 → 0..5，上下臂伸到 x 559 → 17；四个方格外框 21×30（量到
+//       575..595 与 1340..1369），左列 x 32、右列 x 64、上行 y 8、下行 y 48；行距 10、列距 11。
+//       括号竖向占满外框（y 1332..1417 → 0..86），方格上下各内缩 8——这一格与「四个方块挨在一起」
+//       的画法不同，也与单个 `▦`/`⊞` 不同。
+// English: **How far the brackets reach in, how big the four squares are, and where they sit.** All
+//          of it is the measured geometry of this cell's glyph on the vendor's 1440×3200 device
+//          screenshot, converted into the figure's own coordinates (a 118×86 box, origin top-left):
+//          the left bracket's stem x 543..547 → 0..5 with its arms reaching x 559 → 17; each square
+//          is 21×30 (measured 575..595 and 1340..1369), left column x 32, right column x 64, top row
+//          y 8, bottom row y 48, with 10 between the rows and 11 between the columns. The brackets
+//          span the whole box vertically (y 1332..1417 → 0..86) while the squares are inset 8 from
+//          top and bottom — which is not the same drawing as four squares touching, and not the same
+//          as a single `▦` or `⊞`.
+const double _matrixBracketReach = 17;
+const double _matrixSquareWidth = 21;
+const double _matrixSquareHeight = 30;
+const double _matrixSquareLeftX = 32;
+const double _matrixSquareRightX = 64;
+const double _matrixSquareTopY = 8;
+const double _matrixSquareBottomY = 48;
+
+/// 中文：键面上的**图形**（`KeyFaceIcon` 的一个取值）。**公开是有意的**：键面从文字变成图形之后，
+///       测试再也没有 `find.text('MTRX')` 可抓——那颗键的可点那一层要从本组件的实例往上找
+///       （两个面板测试与那一格的键位测试就是这么找它的），与 `find.text` 找文字键面是同一件事。
+///
+///       尺寸：高度由调用方给（主键面给 `fontSize * _iconFaceFontFactor`，那一段解释了为什么是
+///       1.3），宽度按 `KeyFaceIcon.aspectRatio` 推出，图形因此永远不变形；外面照文字那条路一样
+///       套一个只缩不放的 `FittedBox`，窄屏与矮行都不会溢出。
+///
+///       颜色：由调用方给键面自己的前景色（`_paint` 的 `fg`），所以三套主题 × 明暗六种变体下
+///       **自动跟着走**——厂商那张图上这个图形的颜色 (46,46,46) 与同一行文字的键面前景色同值，
+///       本来就是一回事。
+/// English: A **figure** on a key face (one value of `KeyFaceIcon`). **Being public is deliberate**:
+///          once a face stops being text there is no `find.text('MTRX')` left to grab it by — the
+///          key's tappable layer is found upwards from an instance of this widget (which is how the
+///          two sheet tests and that cell's keypad test find it), the same thing `find.text` does for
+///          a text face.
+///
+///          Size: the height comes from the caller (a main key passes
+///          `fontSize * _iconFaceFontFactor`, where that number is justified), and the width is
+///          derived from `KeyFaceIcon.aspectRatio`, so the figure can never be distorted. Like the
+///          text path it sits inside a `FittedBox` that only scales down, so no narrow screen and no
+///          short row can overflow.
+///
+///          Colour: the caller passes the face's own foreground colour (`fg` from `_paint`), so all
+///          six variants (three themes × light/dark) **follow automatically** — on the vendor's
+///          screenshot this figure's colour (46,46,46) equals the face foreground of the text beside
+///          it, which is the same thing.
+class KeyFaceIconView extends StatelessWidget {
+  const KeyFaceIconView({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.height,
+  });
+
+  /// 中文：画哪一个图形。
+  /// English: Which figure to draw.
+  final KeyFaceIcon icon;
+
+  /// 中文：图形的颜色（键面的前景色）。
+  /// English: The figure's colour (the face's foreground).
+  final Color color;
+
+  /// 中文：图形的高度；宽度由 `icon.aspectRatio` 推出。
+  /// English: The figure's height; its width comes from `icon.aspectRatio`.
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: height * icon.aspectRatio,
+          height: height,
+          child: CustomPaint(
+            painter: _KeyFaceIconPainter(icon: icon, color: color),
+          ),
+        ),
+      );
+}
+
+/// 中文：把 `KeyFaceIcon` 的一个取值画出来。画在**图形自己的坐标**里（`0..icon.width`、
+///       `0..icon.height`），进入之前先缩放到组件给的尺寸——于是所有几何常量都是量到的 px 数，
+///       换多大画多大，粗细也跟着走。
+/// English: Draws one `KeyFaceIcon` value. It draws in the **figure's own coordinates**
+///          (`0..icon.width`, `0..icon.height`) after scaling to the widget's size, so every geometry
+///          constant above is a measured pixel count and the stroke keeps its weight at any size.
+class _KeyFaceIconPainter extends CustomPainter {
+  const _KeyFaceIconPainter({required this.icon, required this.color});
+
+  final KeyFaceIcon icon;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 中文：只按高缩放（等比）。宽由 `KeyFaceIconView` 按长宽比定出来，所以这里两边同倍；
+    //       `translate` 只是让万一宽了一点的情况仍居中，图形不会偏。
+    // English: Scale by height only (uniformly). `KeyFaceIconView` derives the width from the
+    //          aspect ratio, so both factors agree; the `translate` only keeps a slightly wider box
+    //          centred instead of off to one side.
+    final double scale = size.height / icon.height;
+    canvas.save();
+    canvas.translate((size.width - icon.width * scale) / 2, 0);
+    canvas.scale(scale);
+    switch (icon) {
+      case KeyFaceIcon.matrix:
+        _paintMatrix(canvas);
+    }
+    canvas.restore();
+  }
+
+  /// 中文：矩阵键的键面——两个方括号夹着 2×2 的四个空心方格（几何常量见本文件上面那一段）。
+  ///       括号是**一条折线**（上臂 → 竖笔 → 下臂，再镜像一条），笔端是平口，所以上下臂的末端
+  ///       正好落在 `_matrixBracketReach` 上、竖笔的左边正好落在 0；方格用描边的矩形，描边居中，
+  ///       所以内部矩形先按半个笔宽内缩，画出来的**外框**才是量到的 21×30。
+  /// English: The matrix key's face — four hollow squares in a 2×2 grid between two brackets (the
+  ///          geometry constants are the block above). Each bracket is **one polyline** (upper arm →
+  ///          stem → lower arm, then mirrored), and with butt caps the arms end exactly at
+  ///          `_matrixBracketReach` while the stem's outer edge lands on 0. The squares are stroked
+  ///          rectangles; a stroke is centred on its rect, so the rect is inset by half the stroke
+  ///          first — only then is the **outer** box the measured 21×30.
+  void _paintMatrix(Canvas canvas) {
+    const double half = _iconFaceStroke / 2;
+    final Paint stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _iconFaceStroke
+      ..strokeCap = StrokeCap.butt
+      ..strokeJoin = StrokeJoin.miter;
+
+    final Path brackets = Path();
+    for (final bool left in const <bool>[true, false]) {
+      final double stem = left ? half : icon.width - half;
+      final double arm =
+          left ? _matrixBracketReach : icon.width - _matrixBracketReach;
+      brackets
+        ..moveTo(arm, half)
+        ..lineTo(stem, half)
+        ..lineTo(stem, icon.height - half)
+        ..lineTo(arm, icon.height - half);
+    }
+    canvas.drawPath(brackets, stroke);
+
+    for (final double x in const <double>[
+      _matrixSquareLeftX,
+      _matrixSquareRightX,
+    ]) {
+      for (final double y in const <double>[
+        _matrixSquareTopY,
+        _matrixSquareBottomY,
+      ]) {
+        canvas.drawRect(
+          Rect.fromLTWH(
+            x + half,
+            y + half,
+            _matrixSquareWidth - _iconFaceStroke,
+            _matrixSquareHeight - _iconFaceStroke,
+          ),
+          stroke,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_KeyFaceIconPainter oldDelegate) =>
+      oldDelegate.icon != icon || oldDelegate.color != color;
 }

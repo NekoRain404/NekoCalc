@@ -102,7 +102,7 @@ void main() {
 
         await tester.tap(_keypadKey('SHIFT'));
         await tester.pumpAndSettle();
-        await tester.tap(_keypadKey('MTRX'));
+        await tester.tap(_matrixKey());
         await tester.pumpAndSettle();
         expect(find.text('Matrix and Vector Menu'), findsOneWidget,
             reason: '标题是厂商的命令名（`command.name.MATRIX_MENU`），逐字照抄');
@@ -137,7 +137,7 @@ void main() {
 
       await tester.tap(_keypadKey('SHIFT'));
       await tester.pumpAndSettle();
-      await tester.tap(_keypadKey('MTRX'));
+      await tester.tap(_matrixKey());
       await tester.pumpAndSettle();
       await tester.tap(find.text('det'));
       await tester.pumpAndSettle();
@@ -176,7 +176,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(_keypadKey('SHIFT'));
       await tester.pumpAndSettle();
-      await tester.tap(_keypadKey('MTRX'));
+      await tester.tap(_matrixKey());
       await tester.pumpAndSettle();
 
       for (final name in <String>['rank', 'trace', 'echelon']) {
@@ -309,6 +309,26 @@ Finder _keypadKey(String label) => find
       of: find.descendant(
         of: find.byType(CalculatorKeypad),
         matching: find.text(label),
+      ),
+      matching: find.byType(InkWell),
+    )
+    .first;
+
+/// 中文：**矩阵键的把手，本轮换了一个。** 它的键面从 `MTRX` 四个字母换成了厂商那张图形
+///       （方括号包着 2×2 四个空心方格），`find.text` 于是再也抓不到它——从图形本身
+///       （`KeyFaceIconView`）往上找它所在的 `InkWell`，与上面从文字往上找是同一件事。
+///       `MTRX` 这个词现在整块键盘上只剩横带那一处不可点的提示，两个测试文件都这么找它。
+/// English: **the matrix key's handle, replaced this round.** Its face went from the four letters
+///          `MTRX` to the vendor's figure (four hollow squares in a 2×2 grid between brackets), so
+///          `find.text` can no longer reach it — this walks up from the figure itself
+///          (`KeyFaceIconView`) to its `InkWell`, exactly what the helper above does from text. The
+///          word `MTRX` now occurs only in the band's non-tappable hint, and both test files find the
+///          key this way.
+Finder _matrixKey() => find
+    .ancestor(
+      of: find.descendant(
+        of: find.byType(CalculatorKeypad),
+        matching: find.byType(KeyFaceIconView),
       ),
       matching: find.byType(InkWell),
     )

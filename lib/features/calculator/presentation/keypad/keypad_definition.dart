@@ -17,8 +17,64 @@ enum KeyCategory {
   disabled,
 }
 
-/// 中文：一个键在某一种修饰态下的外观与行为（键面文字 + 回调 id + 是否可用）。
-/// English: How a key looks and behaves under one modifier state: face label,
+/// 中文：键面上画得出来的**图形**——键面不是文字的那几格在这里点名。
+///
+///       **为什么这个类型存在。** 渲染层过去只有一条路：把 `KeyVariant.label` 当文字画出来。
+///       HiPER 上有一格的路不是这一条——矩阵键的键面上画的是方括号里 2×2 的四个空心方格，
+///       不是 `MTRX` 这个词（`MTRX` 是它**上方那一格**的字，厂商自己给这个位置定的规矩：
+///       `quickTour.page.SECOND_FUNCTION.text2` = *"The key's second function is displayed in the
+///       label above."*）。那个图**不是一个 Unicode 字符**：Unicode 里没有「方括号包着 2×2 四个
+///       空心方格」这一个码位（§Geometric Shapes 里最近的是 `▦` U+25A6「带正交网格填充的方块」
+///       与 `⊞` U+229E「带加号的方块」，都是**一个**方块，不是四个），所以它既不能像相机键那样
+///       写成一个字符，也不能像 `D°M'S` 那样写成一行文字。
+///
+///       **长宽比挂在这个枚举上，因为它是量出来的、不是画的时候定的。** 逐格读数与来源写在
+///       `hiper_keypad_angle_matrix_row.dart` 矩阵那一格的长注释里；画法在渲染层的
+///       `KeyFaceIconView`。
+/// English: A **figure** a key face can draw — the cells whose face is not text are named here.
+///
+///          **Why this type exists.** The rendering layer used to have one path: draw
+///          `KeyVariant.label` as text. One cell on HiPER does not travel that path — the matrix
+///          key's face draws four hollow squares in a 2×2 grid between brackets, not the word
+///          `MTRX` (`MTRX` is the text of the cell **above** it, which is where the vendor's own rule
+///          puts a second function: `quickTour.page.SECOND_FUNCTION.text2` = *"The key's second
+///          function is displayed in the label above."*). That figure **is not a Unicode
+///          character**: Unicode has no code point for "brackets around a 2×2 grid of hollow
+///          squares" (the nearest in the Geometric Shapes block are `▦` U+25A6, "square with
+///          orthogonal crosshatch fill", and `⊞` U+229E, "squared plus" — both are **one** square,
+///          not four), so it can be neither a single character like the camera key nor one line of
+///          text like `D°M'S`.
+///
+///          **The aspect ratio lives on this enum because it was measured, not chosen while
+///          drawing.** The cell-by-cell readings and their sources are in the long note on the
+///          matrix cell in `hiper_keypad_angle_matrix_row.dart`; the drawing itself is
+///          `KeyFaceIconView` in the rendering layer.
+enum KeyFaceIcon {
+  /// 中文：矩阵键的键面（HiPER）：方括号包着 2×2 的四个空心方格。宽 118 px、高 86 px，
+  ///       也就是厂商那张 1440×3200 真机图上这一格字形的实测外框（x 543..660、y 1332..1417）。
+  /// English: the matrix key's face (HiPER): a 2×2 grid of hollow squares between brackets.
+  ///          118 px wide by 86 px tall — the measured bounding box of this cell's glyph on the
+  ///          vendor's 1440×3200 device screenshot (x 543..660, y 1332..1417).
+  matrix(width: 118, height: 86);
+
+  const KeyFaceIcon({required this.width, required this.height});
+
+  /// 中文：图形自身的宽（与 `height` 同单位，只用于比例）。
+  /// English: The figure's own width (same unit as `height`; only the ratio matters).
+  final double width;
+
+  /// 中文：图形自身的高。
+  /// English: The figure's own height.
+  final double height;
+
+  /// 中文：宽高比——渲染层按它从一个高度推宽度，图形因此不会被拉变形。
+  /// English: Width over height — the rendering layer derives the width from a height with it, so
+  ///          the figure can never be stretched out of shape.
+  double get aspectRatio => width / height;
+}
+
+/// 中文：一个键在某一种修饰态下的外观与行为（键面文字或键面图形 + 回调 id + 是否可用）。
+/// English: How a key looks and behaves under one modifier state: the face's text or figure, the
 ///          reported action id, and whether it is usable.
 @immutable
 class KeyVariant {
@@ -26,10 +82,23 @@ class KeyVariant {
     required this.label,
     required this.id,
     this.enabled = true,
+    this.icon,
   });
 
-  /// 中文：键面上显示的文字。
-  /// English: Text printed on the key face.
+  /// 中文：这个键的**名字**，也是键面文字。`icon` 为 null 时它就是画在键面上的那几个字；
+  ///       给了 `icon` 时键面画的是那个图形，而这个名字仍然有效——横带里的提示写的是它、
+  ///       快照记的是它、`ins:matrix` 那一类 id 的词表条目也叫它。**名字与画法分开**，
+  ///       正是因为 HiPER 上有一格两者不同（矩阵键：名字 `MTRX`，键面是一张图）。
+  ///       **它不能为空**：`test/features/keypad_definition_test.dart` 守着
+  ///       「未禁用的键必须有非空 id 与 label」。
+  /// English: The key's **name**, and its face text. When `icon` is null these are the characters
+  ///          drawn on the face; when `icon` is given the face draws that figure instead, and the
+  ///          name still stands — the band hint above spells it, the snapshot records it, and the
+  ///          vocabulary entry for an id such as `ins:matrix` calls the key by it. **Name and
+  ///          drawing are separate fields** precisely because on HiPER one cell differs between
+  ///          them (the matrix key: named `MTRX`, faced with a figure). **It may not be empty**:
+  ///          「未禁用的键必须有非空 id 与 label」 in `test/features/keypad_definition_test.dart`
+  ///          guards that.
   final String label;
 
   /// 中文：按下后向上层回调的动作 id。
@@ -39,6 +108,11 @@ class KeyVariant {
   /// 中文：是否可用；禁用键不回调任何动作。
   /// English: Whether the key is usable; a disabled key never reports an action.
   final bool enabled;
+
+  /// 中文：键面画这个图形而不是 `label` 那几个字；null 表示照旧画文字。取值见 `KeyFaceIcon`。
+  /// English: The face draws this figure instead of the characters of `label`; null means "draw the
+  ///          text as before". The values are on `KeyFaceIcon`.
+  final KeyFaceIcon? icon;
 }
 
 /// 中文：一个键位，含基准变体、语义分类，以及可选的 SHIFT / hyp 变体。

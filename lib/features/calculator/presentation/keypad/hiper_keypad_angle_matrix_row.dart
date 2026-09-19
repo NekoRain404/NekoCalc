@@ -383,6 +383,44 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //       （见 `DRG` 那颗键的注释）。**HiPER 上这颗键的键面是矩阵图标 `[▦]`，不是 `MTRX`**——
     //       `MTRX` 是它上方那一格的字。
     //
+    //       **本轮把那条偏差关掉了：键面改成画厂商那张图。** 这条记账在规格书第 1796 行写着
+    //       「未做、记为没做」，本文件这一行也写着同一句话——**两句都到此为止**。读数如下，两张图
+    //       都是本轮自己在**原图**上量的（⚠️ 从前引的 `/tmp/hiper_row2.png` 是残缺裁图，
+    //       `HANDOVER.md` 第五节记着它「里面既没有第 3 行也没有第 4 行」，不要再拿它当来源）：
+    //
+    //       **来源一：本机那张 1440×3200 真机图**（`~/Downloads/04_媒体/Screenshot_2026-05-12-13-11-45-205_cz.hipercalc.p.jpg`，本轮重新量）。
+    //       这一格键面 x 490..712（宽 223）、y 1314..1437（高 124）；键面上的字形外框
+    //       **x 543..660（宽 118）、y 1332..1417（高 86）**，即键面的 0.529 × 0.694，
+    //       字形中心 (601.5, 1374.5) 对键面中心 (601.0, 1375.5)——**横竖都居中**。
+    //       字形颜色 **(46,46,46)**，与同一行 `DRG`/`x⇔E`/`Σ` 的键面前景色同值（不是横带那条
+    //       提示的 (159,161,168)：这颗键上键面与横带本来就不同一种画法）。
+    //       结构（把外框归一成 118×86，原点左上）：
+    //       - **两个方括号**：竖笔 x 0..5、上下臂各 6 厚、各自伸到 x 17 与 x 101（右侧镜像），
+    //         竖向占满 0..86；笔宽实测 5–6 px，两个括号与四个方格同一种笔宽。
+    //       - **四个空心方格**：每个**外框 21×30**（量到 x 575..595、y 1340..1369 是左上一个），
+    //         左列 x 32、右列 x 64、上行 y 8、下行 y 48——**列距 11、行距 10**，方格上下各内缩 8。
+    //       比例：**86 / 45 = 1.91**（同一行 `DRG` 的大写高 45 px），图形是同一行文字的近两倍高。
+    //       **来源二：厂商官网当前主屏截图**（`https://hiperlabs.eu/screenshots.html` →
+    //       `assets/img/01 calculator.png`，本轮下载的是 554×975 那份）：同一格键面 x 212..272、
+    //       y 371..404，字形 x 228..256（宽 29）、y 377..398（高 22），是键面高的 **0.647**，
+    //       与同一行 `DRG` 的 12 px 大写高比是 **1.83**。**两张图同一画法**（0.694 与 0.647 的差
+    //       只是两张图的缩放），也同一句话：那一格的字是 `MTRX`、键面是这张图。
+    //
+    //       **为什么用 `CustomPaint` 而不是一个 Unicode 字符。** 本应用画「非文字键面」只有两条
+    //       现成的路：相机键把 `📷` 当**一个字符**写进 `label`、`D°M'S` 把 `°`/`′`/`″` 写成
+    //       正排文字。这张图两条都走不了——**Unicode 里没有「方括号包着 2×2 四个空心方格」这个
+    //       码位**：§Geometric Shapes 里最近的两个是 `▦`（U+25A6「带正交网格填充的方块」）与
+    //       `⊞`（U+229E「带加号的方块」），都是**一个**方块，不是四个，更不带括号；而
+    //       `FittedBox` 那条路是 `maxLines: 1`，两行文字也排不出来。所以这一格走第三条路：
+    //       `KeyFaceIcon`（数据里点名「这一格的键面是一张图」）+ `KeyFaceIconView`（渲染层画它，
+    //       在 `calculator_keypad.dart`）。**不拿字符近似**，因此也没有「哪里像、哪里不像」要交代：
+    //       画的就是量到的那两条括号与四个 21×30 的空心方格。
+    //
+    //       **横带那一格一个字都没动**（仍是 `ShiftLabel('MTRX')`）：厂商两张图上它都是 `MTRX`，
+    //       而 HiPER 自己写着第二功能显示在键**上方**的标签里
+    //       （`quickTour.page.SECOND_FUNCTION.text2`）。键面改图形之后，整块键盘上 `MTRX`
+    //       这个词**只剩横带这一处**——本项目自己记过的「两处同名、读起来像重复的标签」也到此为止。
+    //
     //       **二、它是什么动作：`MATRIX_MENU`，与 `MATRIX` 是两个命令。**
     //       `command.name.MATRIX` = "Matrix"，帮助原文："Press the `<key:MATRIX>` key to insert a
     //       matrix into an expression."；`command.name.MATRIX_MENU` = **"Matrix and Vector Menu"**，
@@ -425,6 +463,60 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          note). **On HiPER this key's face is the matrix icon `[▦]`, not `MTRX`** — `MTRX` is
     //          the text of the cell above it.
     //
+    //          **This round closes that deviation: the face now draws the vendor's figure.** Line
+    //          1796 of the spec book has this on the record as "未做、记为没做" (not done, recorded as
+    //          such), and this file carried the same sentence — **both end here.** The readings
+    //          below were taken this round off the **originals** (⚠️ the `/tmp/hiper_row2.png` cited
+    //          in earlier rounds was an incomplete crop; section 5 of `HANDOVER.md` records that it
+    //          had "neither row 3 nor row 4 in it", so it is not a source to return to):
+    //
+    //          **Source one: this machine's 1440×3200 device screenshot** (path above; re-measured
+    //          this round). This cell's key face is x 490..712 (223 wide), y 1314..1437 (124 tall);
+    //          the glyph on it has a bounding box of **x 543..660 (118 wide), y 1332..1417 (86
+    //          tall)** — 0.529 × 0.694 of the key face — with its centre at (601.5, 1374.5) against
+    //          the face's (601.0, 1375.5), i.e. **centred both ways**. The glyph's colour is
+    //          **(46,46,46)**, the same value as the face foregrounds of `DRG`/`x⇔E`/`Σ` in the same
+    //          row — and *not* the band hint's (159,161,168): on this key the face and the band above
+    //          were never the same drawing to begin with. Its structure (box normalised to 118×86,
+    //          origin top-left):
+    //          - **Two brackets**: stem x 0..5, each arm 6 thick, reaching x 17 and x 101 (the right
+    //            one mirrored), spanning the full 0..86 vertically; the stroke measures 5–6 px, one
+    //            weight for both brackets and all four squares.
+    //          - **Four hollow squares**, each an **outer 21×30** (measured at x 575..595, y
+    //            1340..1369 for the top-left one), left column x 32, right column x 64, top row y 8,
+    //            bottom row y 48 — **11 between columns, 10 between rows**, the squares inset 8 top
+    //            and bottom.
+    //          Proportions: **86 / 45 = 1.91** (against `DRG`'s 45 px capitals in the same row), so
+    //          the figure is nearly twice as tall as the text beside it.
+    //
+    //          **Source two: the vendor's current main-screen screenshot**
+    //          (`https://hiperlabs.eu/screenshots.html` → `assets/img/01 calculator.png`; the copy
+    //          downloaded this round is 554×975). The same cell's key face is x 212..272, y 371..404
+    //          and the glyph is x 228..256 (29 wide), y 377..398 (22 tall) — **0.647** of the face
+    //          height, and **1.83** against `DRG`'s 12 px capitals in that row. **Both pictures show
+    //          one and the same drawing** (0.694 against 0.647 is just the two pictures' scale), and
+    //          both say the same thing: the cell's text is `MTRX`, the key's face is this figure.
+    //
+    //          **Why a `CustomPaint` rather than a Unicode character.** This app has exactly two
+    //          existing roads for a "non-text face": the camera key writes `📷` as **one character**
+    //          into `label`, and `D°M'S` writes `°`/`′`/`″` as ordinary text. This figure can take
+    //          neither — **Unicode has no code point for "brackets around a 2×2 grid of hollow
+    //          squares"**: the nearest in the Geometric Shapes block are `▦` (U+25A6, "square with
+    //          orthogonal crosshatch fill") and `⊞` (U+229E, "squared plus"), and both are **one**
+    //          square rather than four, with no brackets at all — while the `FittedBox` road is
+    //          `maxLines: 1` and cannot lay out two lines either. So this cell takes a third road:
+    //          `KeyFaceIcon` (the data naming "this cell's face is a figure") plus
+    //          `KeyFaceIconView` (the rendering layer that draws it, in `calculator_keypad.dart`).
+    //          **Nothing is approximated with a character**, so there is no "close but not quite" to
+    //          declare: what gets drawn is the measured two brackets and four 21×30 hollow squares.
+    //
+    //          **The band cell above has not moved a character** (still `ShiftLabel('MTRX')`): both
+    //          vendor pictures read `MTRX` there, and HiPER's own rule is that a second function is
+    //          displayed in the label **above** its key (`quickTour.page.SECOND_FUNCTION.text2`).
+    //          With the face now a figure, the word `MTRX` appears **only in that band cell** on the
+    //          whole keypad — and the "two places carrying the same name, reading like a duplicated
+    //          label" that this project itself recorded ends there too.
+    //
     //          **2. What the action is: `MATRIX_MENU`, a second command.**
     //          `command.name.MATRIX` = "Matrix" (its help: "Press the `<key:MATRIX>` key to insert a
     //          matrix into an expression."), while `command.name.MATRIX_MENU` = **"Matrix and Vector
@@ -464,7 +556,27 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          `test/features/calculator_matrix_menu_test.dart` pin both tables above — the day the
     //          engine answers those three names correctly, those assertions go red.
     KeypadKey(
-      base: KeyVariant(label: 'MTRX', id: 'ins:matrix'),
+      // 中文：**这一格的基准变体是本轮唯一改动的键位数据**：多了 `icon: KeyFaceIcon.matrix`
+      //       ——键面从此画那张图，不再写 `MTRX` 四个字母（上面那一段就是这件事的全部读数）。
+      //       `label` **仍是 `MTRX`**：它是这颗键的**名字**，横带里的提示、逐格快照与词表条目
+      //       都还叫它这个名字，名字与画法在 `KeyVariant` 里本来就是两栏。
+      //       **`shift` 变体一个字没动**：它的 `MTRX` 是第二功能的名字（横带里那条提示），而键面
+      //       只画基准变体（`calculator_keypad.dart` 的类注释写着为什么不换键面）——所以给它
+      //       `icon` 会是一栏永远不画的数据。
+      // English: **This cell's base variant is the round's only change to keypad data**: it gains
+      //          `icon: KeyFaceIcon.matrix`, so the face draws that figure instead of the four
+      //          letters `MTRX` (the section above is every reading behind it). `label` **is still
+      //          `MTRX`**: it is this key's **name**, and the band hint, the per-cell snapshot and
+      //          the vocabulary entries all call it by that name — name and drawing are two separate
+      //          fields on `KeyVariant` to begin with. **The `shift` variant has not moved a
+      //          character**: its `MTRX` is the second function's name (the band's hint), and a face
+      //          only ever draws the base variant (the class comment in `calculator_keypad.dart`
+      //          says why), so an `icon` there would be a field nothing draws.
+      base: KeyVariant(
+        label: 'MTRX',
+        id: 'ins:matrix',
+        icon: KeyFaceIcon.matrix,
+      ),
       category: KeyCategory.function,
       shift: KeyVariant(label: 'MTRX', id: 'openMatrixMenu'),
     ),
@@ -511,6 +623,19 @@ const KeypadRow _angleAndAggregateRow = KeypadRow(
     //          (manual line 1791: "Press ►BIN , ►OCT , ►DEC and ►HEX keys", and on the real screenshot
     //          they wear a capsule background) and `hyp` (manual line 701: "press hyp key").
     ShiftLabel('FSE'),
+    // 中文：**这一格的字一个字都没动。** 厂商两张图上它都是 `MTRX`，厂商自己又写着第二功能
+    //       显示在键**上方**的标签里（`quickTour.page.SECOND_FUNCTION.text2`）——所以这一格是
+    //       「词」那一处，下方键面这一轮改成了「图」那一处（见那颗键的长注释）。
+    //       **这也是整块键盘上 `MTRX` 唯一出现的地方**：改之前横带与键面各写一次，本项目自己
+    //       把那记成「读起来像重复的标签」，那一条到此为止。逐格快照里它仍是 `hint:MTRX`。
+    // English: **This cell's text has not moved a character.** Both vendor pictures read `MTRX`
+    //          there, and the vendor's own rule is that a second function is displayed in the label
+    //          **above** its key (`quickTour.page.SECOND_FUNCTION.text2`) — so this is the "word"
+    //          half, while the key face below became the "figure" half this round (see that key's long
+    //          note). **It is also the only place `MTRX` appears on the whole keypad**: before this
+    //          round the band and the face each wrote it once, which this project recorded as reading
+    //          like a duplicated label, and that entry ends here. In the per-cell snapshot it is
+    //          still `hint:MTRX`.
     ShiftLabel('MTRX'),
     ShiftLabel('Π'),
     ShiftLabel('d/dx'),

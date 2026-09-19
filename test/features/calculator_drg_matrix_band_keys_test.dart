@@ -170,9 +170,23 @@ void main() {
       final located = _locateBaseId('ins:matrix');
       final key = located.row.keys[located.index];
 
-      expect(key.base.label, 'MTRX');
+      expect(key.base.label, 'MTRX', reason: '名字仍是 `MTRX`——键面画什么与它叫什么，两栏');
       expect(key.base.enabled, isTrue);
       expect(key.category, KeyCategory.function);
+
+      // 中文：**本轮这一格的唯一改动：键面成了图形。** 基准变体点名 `KeyFaceIcon.matrix`，
+      //       渲染层于是画厂商那张方括号加 2×2 空心方格的图，而不是 `MTRX` 四个字母。
+      //       读数（两张厂商原图上的实测）在那颗键的长注释里；画法在 `calculator_keypad.dart`。
+      //       `label` 与 `id` 都没动，所以这不是换键，是换画法。
+      // English: **this round's only change to this cell: the face became a figure.** The base
+      //          variant names `KeyFaceIcon.matrix`, so the rendering layer draws the vendor's
+      //          brackets-and-2×2-hollow-squares figure instead of the four letters `MTRX`. The
+      //          readings (measured on both vendor originals) are in that key's long note; the drawing
+      //          is in `calculator_keypad.dart`. Neither `label` nor `id` moved — this is not a
+      //          different key, it is a different drawing.
+      expect(key.base.icon, KeyFaceIcon.matrix,
+          reason: '键面必须是厂商那张图——`MTRX` 是它**上方那一格**的字，'
+              '`quickTour.page.SECOND_FUNCTION.text2` 就是这条规矩');
 
       final shift = key.shift;
       expect(shift, isNotNull,
@@ -181,7 +195,8 @@ void main() {
           reason: '本轮起它是一个**真动作 id**——与 `dis:cplx`→`openComplex`、`dis:stat`→'
               '`openStatistics`、`dis:x`→`openVariables` 同一条先例：`dis:` 前缀是「有这个名字、'
               '但做不到」，点亮时换成真正的动作 id');
-      expect(shift.label, 'MTRX', reason: '变体的键面文字就是横带里那条提示');
+      expect(shift.label, 'MTRX',
+          reason: '变体的名字就是横带里那条提示；键面只画基准变体，所以这一栏不是画出来的字');
       expect(shift.enabled, isTrue,
           reason: '缺口补上了（词表添了 `det`/`transpose`/`inv`/`identity`，见最后一组），'
               '所以它不再禁用——禁用是拒绝，而这一格今天不再需要拒绝');
@@ -196,13 +211,37 @@ void main() {
           reason: '横带那一格与它的 `shift` 变体同名');
     });
 
+    // 中文：**键面那一层**：表里点了名还不够，得看渲染层真画了什么。这一条钉三件事——
+    //       图形画出来了、`MTRX` 这个词整块键盘上只剩横带那一处（改之前键面与横带各写一次，
+    //       本项目自己把那记成「读起来像重复的标签」）、而剩下的那一处**不可点**。
+    // English: **the face layer**: naming it in the table is not enough — what the renderer actually
+    //          draws is the thing. This pins three: the figure is drawn; the word `MTRX` now occurs
+    //          only in the band cell (before this round the face and the band each wrote it, which
+    //          this project recorded as reading like a duplicated label); and that one remaining
+    //          occurrence is **not tappable**.
+    testWidgets('键面画的是图形，`MTRX` 只剩横带那一处不可点的提示', (tester) async {
+      await tester
+          .pumpWidget(_testApp(key: const ValueKey<String>('mtrx-face')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(KeyFaceIconView), findsOneWidget,
+          reason: '整块键盘上只有矩阵键的键面是图形');
+      expect(find.text('MTRX'), findsOneWidget,
+          reason: '`MTRX` 这个词只剩横带那一处——键面不再写它');
+      expect(
+        find.ancestor(of: find.text('MTRX'), matching: find.byType(InkWell)),
+        findsNothing,
+        reason: '剩下的那一处是纯提示：同一个动作不能有两个 id 入口',
+      );
+    });
+
     testWidgets(
         'SHIFT + 矩阵键打开矩阵与向量菜单，按一项插一条完整调用；不按 SHIFT 时插的仍是 '
         '`matrix(2,2,1,2,3,4)`', (tester) async {
       await tester
           .pumpWidget(_testApp(key: const ValueKey<String>('mtrx-plain')));
       await tester.pumpAndSettle();
-      await tester.tap(_keypadKey('MTRX'));
+      await tester.tap(_matrixKey());
       await tester.pumpAndSettle();
       expect(_displayedExpression(tester), 'matrix(2,2,1,2,3,4)',
           reason: '矩阵键的基准动作必须一个字节都没变');
@@ -212,7 +251,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(_keypadKey('SHIFT'));
       await tester.pumpAndSettle();
-      await tester.tap(_keypadKey('MTRX'));
+      await tester.tap(_matrixKey());
       await tester.pumpAndSettle();
 
       expect(find.text('Matrix and Vector Menu'), findsOneWidget,
@@ -494,6 +533,26 @@ Finder _keypadKey(String label) => find
       of: find.descendant(
         of: find.byType(CalculatorKeypad),
         matching: find.text(label),
+      ),
+      matching: find.byType(InkWell),
+    )
+    .first;
+
+/// 中文：**矩阵键的把手，本轮换了一个。** 它的键面从 `MTRX` 四个字母换成了厂商那张图形
+///       （方括号包着 2×2 四个空心方格），`find.text` 于是再也抓不到它——从图形本身
+///       （`KeyFaceIconView`）往上找它所在的 `InkWell`，与上面从文字往上找是同一件事。
+///       **`MTRX` 这个词现在整块键盘上只剩横带那一处**，而那一处不可点：这正是本文件要守的形状。
+/// English: **the matrix key's handle, replaced this round.** Its face went from the four letters
+///          `MTRX` to the vendor's figure (four hollow squares in a 2×2 grid between brackets), so
+///          `find.text` can no longer reach it — this walks up from the figure itself
+///          (`KeyFaceIconView`) to its `InkWell`, exactly what the helper above does from text. **The
+///          word `MTRX` now occurs only in the band cell**, which is not tappable — the very shape
+///          this file guards.
+Finder _matrixKey() => find
+    .ancestor(
+      of: find.descendant(
+        of: find.byType(CalculatorKeypad),
+        matching: find.byType(KeyFaceIconView),
       ),
       matching: find.byType(InkWell),
     )

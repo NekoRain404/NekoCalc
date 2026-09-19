@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/hiper_keypad.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definition.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -24,16 +25,99 @@ Widget pad({
     ));
 
 void main() {
-  testWidgets('renders every enabled key label', (tester) async {
+  testWidgets('renders every enabled key face: text keys as text, figure keys as a figure',
+      (tester) async {
     await tester.pumpWidget(pad());
+    var figures = 0;
     for (final row in hiperKeypad.rows) {
       for (final k in row.keys) {
-        if (k.base.enabled) {
+        if (!k.base.enabled) continue;
+        if (k.base.icon == null) {
           expect(find.text(k.base.label), findsWidgets,
               reason: '启用的键 ${k.base.id} 未渲染');
+        } else {
+          // 中文：键面是图形的键**没有自己的字可找**——它们的 `label` 只是名字，数出来之后
+          //       在下面按条数核对，免得这一支永远绿。
+          // English: a key whose face is a figure has **no text of its own to find** — its `label` is
+          //          only a name; they are counted here and checked by that count below, so this arm
+          //          can never be vacuously green.
+          figures++;
         }
       }
     }
+    expect(find.byType(KeyFaceIconView), findsNWidgets(figures),
+        reason: '键面是图形的键必须一格一个 `KeyFaceIconView`');
+  });
+
+  // 中文：**图形键面**（`KeyFaceIcon` + `KeyFaceIconView`）——本轮新增的那条路，矩阵键是唯一
+  //       的使用者。三条：颜色跟着主题走（三套主题 × 明暗全试一遍，渲染层一个色值都不许写死）、
+  //       任何屏幕尺寸下都画在自己的格子里且不变形、按下去报的 id 与换画法之前逐字相同。
+  // English: **figure faces** (`KeyFaceIcon` + `KeyFaceIconView`) — the road added this round, whose
+  //          only user is the matrix key. Three things: the colour follows the theme (all three themes
+  //          × light/dark, and the rendering layer may not hardcode a single value); at any screen
+  //          size it is drawn inside its own cell and cannot be stretched; and pressing it reports
+  //          byte-for-byte the ids it reported before the face changed.
+  group('图形键面（矩阵键那一格）', () {
+    testWidgets('图形的颜色是键面自己的前景色——六种主题变体各取各的', (tester) async {
+      for (final theme in <CalcTheme>[
+        ...CalcTheme.all,
+        ...CalcTheme.all.map((CalcTheme t) => t.dark),
+      ]) {
+        await tester.pumpWidget(pad(theme: theme));
+        final face =
+            tester.widget<KeyFaceIconView>(find.byType(KeyFaceIconView));
+        expect(face.icon, KeyFaceIcon.matrix);
+        expect(face.color, theme.keys.functionFg,
+            reason: '${theme.name} 下图形必须取那一格的键面前景色，'
+                '不能是渲染层写死的色值');
+      }
+    });
+
+    testWidgets('任何屏幕尺寸下图形都画在自己的格子里，且不会被拉变形', (tester) async {
+      for (final size in const <Size>[
+        Size(320, 800),
+        Size(360, 800),
+        Size(412, 915),
+        Size(360, 520),
+      ]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(pad());
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: '尺寸 $size 下溢出');
+        final figure = tester.getSize(find.byType(KeyFaceIconView));
+        final cell = tester.getSize(find.ancestor(
+          of: find.byType(KeyFaceIconView),
+          matching: find.byType(InkWell),
+        ));
+        expect(figure.width, lessThanOrEqualTo(cell.width),
+            reason: '$size：图形比格子还宽');
+        expect(figure.height, lessThanOrEqualTo(cell.height),
+            reason: '$size：图形比格子还高');
+        expect(figure.width / figure.height,
+            closeTo(KeyFaceIcon.matrix.aspectRatio, 0.01),
+            reason: '$size：图形的长宽比必须还是量到的那个（118:86）');
+      }
+    });
+
+    testWidgets('按图形那颗键：基准报 `ins:matrix`，SHIFT 态报 `openMatrixMenu`', (tester) async {
+      final tapped = <String>[];
+      final Finder key = find.ancestor(
+        of: find.byType(KeyFaceIconView),
+        matching: find.byType(InkWell),
+      );
+      await tester.pumpWidget(pad(onKey: tapped.add));
+      await tester.tap(key);
+      expect(tapped, <String>['ins:matrix'],
+          reason: '键面换了画法，动作 id 一个字节都没变');
+
+      await tester
+          .pumpWidget(pad(modifier: KeypadModifier.shift, onKey: tapped.add));
+      await tester.tap(key);
+      expect(tapped, <String>['ins:matrix', 'openMatrixMenu'],
+          reason: 'SHIFT 态下仍是那条 SHIFT id（面板由主屏打开，渲染层不认识它）');
+    });
   });
 
   testWidgets('tapping a digit reports its id', (tester) async {
