@@ -15,6 +15,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'tool_catalog_strings.dart';
 import 'tool_field_strings.dart';
+import 'tool_result_label_strings.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
 
@@ -607,8 +608,17 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         ClipboardData(text: _detailController.singleResultCopyText(result)));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text(ToolsStrings.of(context).copiedLabel(result.label))));
+          // 中文：**这句提示里的标签走表，剪贴板里那份不走。** 屏幕上的字是渲染出来的字，
+          //       剪贴板里的是复制出去的数据——后者与历史、笔记一样属于持久化，本轮一个字节没动
+          //       （见 `tool_result_label_strings.dart` 的文件头）。英文界面下这两处因此不一致，
+          //       这是本轮认下的代价。
+          // English: **the label in this hint goes through the table; the one in the clipboard does
+          //          not.** Text on screen is rendered text, the clipboard is copied-out data — the
+          //          latter is persistence, like history and notes, and not one byte moved this round
+          //          (see `tool_result_label_strings.dart`'s head). In English those two therefore
+          //          disagree, a cost this round knowingly accepts.
+          content: Text(ToolsStrings.of(context)
+              .copiedLabel(ToolResultLabelStrings.of(context).label(result.label)))));
     }
   }
 
@@ -693,7 +703,14 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(primary.label,
+                // 中文：主结果框那句标签与结果卡上那一格同源（`ToolResultLabelStrings`）——
+                //       同一个 `result.label` 在同一屏上的两处落点不该各翻各的。
+                //       这一格最宽（实测 242dp、字号 14），没有长度问题。
+                // English: the primary result's label comes from the same table as the result card's
+                //          cell (`ToolResultLabelStrings`) — one `result.label` with two landing places
+                //          on one screen should not be translated twice. This cell is the widest
+                //          (measured 242dp at 14sp) and has no length problem.
+                child: Text(ToolResultLabelStrings.of(context).label(primary.label),
                     style: TextStyle(
                         color: scheme.primary, fontWeight: FontWeight.w700)),
               ),

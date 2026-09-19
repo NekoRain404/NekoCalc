@@ -5,6 +5,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'category_visuals.dart';
 import 'tool_catalog_strings.dart';
+import 'tool_result_label_strings.dart';
 import 'tools_strings.dart';
 
 /// 中文：**一张工具卡上说明最多占几行**——两种语言、浏览态与检索态、每一处表面都是这一个数。
@@ -423,7 +424,15 @@ class DetailMetric extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(result.label,
+                // 中文：结果行左边那句话走 `ToolResultLabelStrings`（本轮接入多语言）——
+                //       目录里那个 `result.label` 仍是中文，认得出的查表、认不出的原样返回，
+                //       所以中文界面上这一格今天逐字节还是目录里那一句。
+                // English: the sentence at the left of the result row goes through
+                //          `ToolResultLabelStrings` (this round's i18n work) — the catalogue's
+                //          `result.label` is still Chinese; a recognised string is looked up and
+                //          anything else comes back unchanged, so in Chinese this cell is still the
+                //          catalogue's own sentence, byte for byte.
+                child: Text(ToolResultLabelStrings.of(context).label(result.label),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

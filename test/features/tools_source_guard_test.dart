@@ -65,18 +65,24 @@ void main() {
       final name = entity.uri.pathSegments.last;
       // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有七张
       //       （门面 + 识别组 + 统计 + 数据组 + 编解码组 + Web 格式组 + 时间戳），
-      //       目录那一族有**五张**（名字与分类、描述、分组名、参数标签与单位、公式与解释），
-      //       它们一样是本目录里的"汉字之家"。**本轮加的是后三张**：那五格的英文全在
-      //       `tool_field_strings.dart` / `tool_input_strings.dart` /
-      //       `tool_explanation_strings.dart` 里，而**表键就是中文本身**，
-      //       所以那三张文件里必然满是汉字。
+      //       目录那一族有**十一张**（名字与分类、描述、分组名、参数标签与单位、公式与解释，
+      //       加上本轮的结果标签六张），它们一样是本目录里的"汉字之家"。
+      //       **本轮加的是结果标签那六张**：`result.label` 的 715 条英文全在
+      //       `tool_result_label_strings.dart` 与它的五个按分类拆出去的文件里，
+      //       而**表键就是中文本身**，所以那六个文件里必然满是汉字。
       //       **这一串只加表名，不给非表文件开口子**：`text_tool_detail_screen.dart` 之类的
       //       界面文件仍然照扫不误。
       // English: the tables are where the Chinese is *supposed* to live; skip them. The text-tool
       //          family has seven (facade + recognition + statistics + data + codec + web-format +
-      //          timestamps) and they are "Chinese homes" in this directory just like the catalogue's
-      //          own two above. **Only table names go on this list, never a screen file**: interface
-      //          files such as `text_tool_detail_screen.dart` are still scanned like everything else.
+      //          timestamps) and the catalogue family now has **eleven** (names and categories,
+      //          descriptions, group names, parameter labels and units, formulas and explanations, plus
+      //          this round's six result-label files); they are "Chinese homes" in this directory just
+      //          like their siblings. **This round added the six result-label files**: all 715 English
+      //          entries of `result.label` live in `tool_result_label_strings.dart` and the five files
+      //          split out of it by category, and **the keys are the Chinese itself**, so those six
+      //          files are necessarily full of Han characters. **Only table names go on this list, never
+      //          a screen file**: interface files such as `text_tool_detail_screen.dart` are still
+      //          scanned like everything else.
       if (name == 'tools_strings.dart' ||
           name == 'data_fit_strings.dart' ||
           name == 'tool_catalog_strings.dart' ||
@@ -84,6 +90,12 @@ void main() {
           name == 'tool_field_strings.dart' ||
           name == 'tool_input_strings.dart' ||
           name == 'tool_explanation_strings.dart' ||
+          name == 'tool_result_label_strings.dart' ||
+          name == 'tool_result_label_strings_math.dart' ||
+          name == 'tool_result_label_strings_electronics.dart' ||
+          name == 'tool_result_label_strings_mechanical.dart' ||
+          name == 'tool_result_label_strings_finance.dart' ||
+          name == 'tool_result_label_strings_science.dart' ||
           name == 'text_tool_strings.dart' ||
           name == 'text_tool_text_strings.dart' ||
           name == 'text_tool_stats_strings.dart' ||
