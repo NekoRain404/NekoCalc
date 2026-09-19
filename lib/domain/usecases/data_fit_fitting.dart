@@ -1,19 +1,43 @@
 import 'dart:math' as math;
 
 import '../../core/utils/number_formatter.dart';
+import 'data_fit_copy.dart';
 import 'data_fit_models.dart';
 
-FitResult fitData(List<DataPoint> points, FitModel model) {
+/// 中文：**`copy` 是必填的**，它只为一件事而来：拟合失败时抛出的那句话是给用户看的
+///       （`_recalculate` 把它显示在空态面板上，`recommendFitModels` 把它存进
+///       `FitRecommendation.warning`），所以要按当前语言写。数学一行没动，
+///       只有这句文案的来源变了。
+///
+///       **没有换掉 `FormatException` 去自造一个异常类型**：屏幕那边
+///       （`data_fit_tool_screen.dart`）抓的是 `error.toString().replaceFirst('FormatException: ', '')`，
+///       换类型就得连那条通路一起改，而那条通路今天是对的。
+/// English: **`copy` is required** and it is here for one thing only: the sentence a failed fit
+///          throws is read by the user (`_recalculate` shows it in the empty-state panel and
+///          `recommendFitModels` stores it as `FitRecommendation.warning`), so it has to be written
+///          in the active language. Not one line of the mathematics moved; only the source of that
+///          sentence did.
+///
+///          **`FormatException` was kept rather than replaced with a bespoke type**: the screen
+///          (`data_fit_tool_screen.dart`) catches it as
+///          `error.toString().replaceFirst('FormatException: ', '')`, so a new type would mean
+///          rewriting that path too — and that path is correct today.
+FitResult fitData(
+  List<DataPoint> points,
+  FitModel model, {
+  required DataFitCopy copy,
+}) {
   if (points.length < _minPoints(model)) {
-    throw FormatException('${model.label}拟合至少需要 ${_minPoints(model)} 个点');
+    throw FormatException(
+        copy.modelNeedsPoints(fitModelLabelIn(copy, model), _minPoints(model)));
   }
   return switch (model) {
-    FitModel.linear => _fitLinear(points),
-    FitModel.quadratic => _fitQuadratic(points),
-    FitModel.exponential => _fitExponential(points),
-    FitModel.power => _fitPower(points),
-    FitModel.logarithmic => _fitLogarithmic(points),
-    FitModel.reciprocal => _fitReciprocal(points),
+    FitModel.linear => _fitLinear(points, copy),
+    FitModel.quadratic => _fitQuadratic(points, copy),
+    FitModel.exponential => _fitExponential(points, copy),
+    FitModel.power => _fitPower(points, copy),
+    FitModel.logarithmic => _fitLogarithmic(points, copy),
+    FitModel.reciprocal => _fitReciprocal(points, copy),
   };
 }
 
@@ -29,13 +53,16 @@ double predictFitValue(FitResult result, double x) {
   };
 }
 
-List<FitRecommendation> recommendFitModels(List<DataPoint> points) {
+List<FitRecommendation> recommendFitModels(
+  List<DataPoint> points, {
+  required DataFitCopy copy,
+}) {
   final recommendations = <FitRecommendation>[];
   for (final model in FitModel.values) {
     try {
       recommendations.add(FitRecommendation(
         model: model,
-        result: fitData(points, model),
+        result: fitData(points, model, copy: copy),
         available: true,
       ));
     } catch (error) {
@@ -65,7 +92,7 @@ List<FitRecommendation> recommendFitModels(List<DataPoint> points) {
 
 int _minPoints(FitModel model) => model == FitModel.quadratic ? 3 : 2;
 
-FitResult _fitLinear(List<DataPoint> points) {
+FitResult _fitLinear(List<DataPoint> points, DataFitCopy copy) {
   final n = points.length.toDouble();
   final sx = points.fold<double>(0, (sum, p) => sum + p.x);
   final sy = points.fold<double>(0, (sum, p) => sum + p.y);
@@ -73,7 +100,7 @@ FitResult _fitLinear(List<DataPoint> points) {
   final sxy = points.fold<double>(0, (sum, p) => sum + p.x * p.y);
   final denominator = n * sxx - sx * sx;
   if (denominator.abs() < 1e-12) {
-    throw const FormatException('x 数据没有变化，无法做线性拟合');
+    throw FormatException(copy.xHasNoVariation);
   }
   final a = (n * sxy - sx * sy) / denominator;
   final b = (sy - a * sx) / n;
@@ -86,7 +113,7 @@ FitResult _fitLinear(List<DataPoint> points) {
   );
 }
 
-FitResult _fitQuadratic(List<DataPoint> points) {
+FitResult _fitQuadratic(List<DataPoint> points, DataFitCopy copy) {
   final n = points.length.toDouble();
   var sx = 0.0, sx2 = 0.0, sx3 = 0.0, sx4 = 0.0;
   var sy = 0.0, sxy = 0.0, sx2y = 0.0;
@@ -100,7 +127,7 @@ FitResult _fitQuadratic(List<DataPoint> points) {
     sxy += p.x * p.y;
     sx2y += x2 * p.y;
   }
-  final solution = _solve3([
+  final solution = _solve3(copy, [
     [sx4, sx3, sx2],
     [sx3, sx2, sx],
     [sx2, sx, n],
@@ -120,13 +147,13 @@ FitResult _fitQuadratic(List<DataPoint> points) {
   );
 }
 
-FitResult _fitExponential(List<DataPoint> points) {
+FitResult _fitExponential(List<DataPoint> points, DataFitCopy copy) {
   final valid = points.where((p) => p.y > 0).toList();
   if (valid.length < 2) {
-    throw const FormatException('指数拟合要求 y 全部为正数');
+    throw FormatException(copy.exponentialNeedsPositiveY);
   }
   final transformed = valid.map((p) => DataPoint(p.x, math.log(p.y))).toList();
-  final linear = _fitLinear(transformed);
+  final linear = _fitLinear(transformed, copy);
   final b = linear.coefficients[0];
   final a = math.exp(linear.coefficients[1]);
   return _buildResult(
@@ -139,14 +166,14 @@ FitResult _fitExponential(List<DataPoint> points) {
   );
 }
 
-FitResult _fitPower(List<DataPoint> points) {
+FitResult _fitPower(List<DataPoint> points, DataFitCopy copy) {
   final valid = points.where((p) => p.x > 0 && p.y > 0).toList();
   if (valid.length < 2) {
-    throw const FormatException('幂函数拟合要求 x 和 y 全部为正数');
+    throw FormatException(copy.powerNeedsPositiveXY);
   }
   final transformed =
       valid.map((p) => DataPoint(math.log(p.x), math.log(p.y))).toList();
-  final linear = _fitLinear(transformed);
+  final linear = _fitLinear(transformed, copy);
   final b = linear.coefficients[0];
   final a = math.exp(linear.coefficients[1]);
   return _buildResult(
@@ -159,15 +186,15 @@ FitResult _fitPower(List<DataPoint> points) {
   );
 }
 
-FitResult _fitLogarithmic(List<DataPoint> points) {
+FitResult _fitLogarithmic(List<DataPoint> points, DataFitCopy copy) {
   final valid = points.where((p) => p.x > 0).toList();
   if (valid.length < 2) {
-    throw const FormatException('对数拟合要求 x 全部为正数');
+    throw FormatException(copy.logarithmicNeedsPositiveX);
   }
   // 中文：对数拟合把 x 映射到 ln(x)，再复用线性最小二乘，减少重复算法。
   // English: Logarithmic fitting maps x to ln(x) and reuses linear least squares.
   final transformed = valid.map((p) => DataPoint(math.log(p.x), p.y)).toList();
-  final linear = _fitLinear(transformed);
+  final linear = _fitLinear(transformed, copy);
   final a = linear.coefficients[0];
   final b = linear.coefficients[1];
   return _buildResult(
@@ -179,15 +206,15 @@ FitResult _fitLogarithmic(List<DataPoint> points) {
   );
 }
 
-FitResult _fitReciprocal(List<DataPoint> points) {
+FitResult _fitReciprocal(List<DataPoint> points, DataFitCopy copy) {
   final valid = points.where((p) => p.x != 0).toList();
   if (valid.length < 2) {
-    throw const FormatException('倒数拟合要求 x 不能为 0');
+    throw FormatException(copy.reciprocalNeedsNonZeroX);
   }
   // 中文：倒数模型把 1/x 作为自变量，适合衰减、阻抗和反比例近似数据。
   // English: Reciprocal fitting uses 1/x as the variable for decay and inverse-proportion data.
   final transformed = valid.map((p) => DataPoint(1 / p.x, p.y)).toList();
-  final linear = _fitLinear(transformed);
+  final linear = _fitLinear(transformed, copy);
   final a = linear.coefficients[0];
   final b = linear.coefficients[1];
   return _buildResult(
@@ -230,7 +257,11 @@ FitResult _buildResult({
   );
 }
 
-List<double> _solve3(List<List<double>> matrix, List<double> values) {
+List<double> _solve3(
+  DataFitCopy copy,
+  List<List<double>> matrix,
+  List<double> values,
+) {
   final a = [
     [...matrix[0], values[0]],
     [...matrix[1], values[1]],
@@ -242,7 +273,7 @@ List<double> _solve3(List<List<double>> matrix, List<double> values) {
       if (a[row][pivot].abs() > a[best][pivot].abs()) best = row;
     }
     if (a[best][pivot].abs() < 1e-12) {
-      throw const FormatException('数据点无法确定唯一拟合曲线');
+      throw FormatException(copy.noUniqueCurve);
     }
     if (best != pivot) {
       final temp = a[pivot];

@@ -15,7 +15,7 @@ import '../../../l10n/app_language.dart';
 ///
 ///       **本表只装"给人看的字"。** 两条口径值得写下来：
 ///       1. **工具的目录数据不进来。** 描述、公式、参数标签、单位
-///          （`input.label`、`tool.description`、`result.label`、`FitModel.label`…）全部来自
+///          （`input.label`、`tool.description`、`result.label`…）全部来自
 ///          `lib/domain/usecases/tool_catalog*.dart` 与
 ///          `lib/application/controllers/tool_search_*.dart`，那里的中文以**千条**计
 ///          （`lib/domain/usecases` 1982 条、`lib/application/controllers` 1393 条去重字面量），
@@ -40,7 +40,7 @@ import '../../../l10n/app_language.dart';
 ///          **This table holds human-facing text only.** Two boundaries are worth writing down:
 ///          1. **The tool catalogue does not come in here.** Tool names, descriptions, formulas,
 ///             parameter labels, units and category names (`widget.tool.title`, `input.label`,
-///             `tool.description`, `widget.category.title`, `result.label`, `FitModel.label`, …) all
+///             `tool.description`, `widget.category.title`, `result.label`, …) all
 ///             come from `lib/domain/usecases/tool_catalog*.dart` and
 ///             `lib/application/controllers/tool_search_*.dart`, where the Chinese runs into the
 ///             **thousands** (1982 distinct literals under `lib/domain/usecases`, 1393 under

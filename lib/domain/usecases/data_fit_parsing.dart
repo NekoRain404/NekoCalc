@@ -1,10 +1,14 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'data_fit_copy.dart';
 import 'data_fit_models.dart';
 
-List<DataPoint> parseDataPoints(String source) {
-  final series = parseDataSeries(source);
+List<DataPoint> parseDataPoints(
+  String source, {
+  required DataFitCopy copy,
+}) {
+  final series = parseDataSeries(source, copy: copy);
   return series.isEmpty ? const [] : series.first.points;
 }
 
@@ -13,8 +17,11 @@ double? parseFitNumber(String source) {
   return values.length == 1 ? values.single : null;
 }
 
-List<DataSeries> parseDataSeries(String source) {
-  final jsonSeries = _tryParseJsonDataSeries(source);
+List<DataSeries> parseDataSeries(
+  String source, {
+  required DataFitCopy copy,
+}) {
+  final jsonSeries = _tryParseJsonDataSeries(source, copy);
   if (jsonSeries != null) return jsonSeries;
 
   final blocks = source
@@ -25,23 +32,23 @@ List<DataSeries> parseDataSeries(String source) {
   if (blocks.isEmpty) return const [];
   final series = <DataSeries>[];
   for (final block in blocks) {
-    final parsed = _parseBlock(block, startIndex: series.length);
+    final parsed = _parseBlock(block, startIndex: series.length, copy: copy);
     series.addAll(parsed);
   }
   return series;
 }
 
-List<DataSeries>? _tryParseJsonDataSeries(String source) {
+List<DataSeries>? _tryParseJsonDataSeries(String source, DataFitCopy copy) {
   final trimmed = source.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
   try {
     final decoded = json.decode(trimmed);
-    final series = _seriesFromJsonValue(decoded, startIndex: 0);
+    final series = _seriesFromJsonValue(decoded, startIndex: 0, copy: copy);
     return series.isEmpty ? null : series;
   } catch (_) {
     final jsonLines = _tryParseJsonLineValues(trimmed);
     if (jsonLines == null) return null;
-    final series = _seriesFromJsonValue(jsonLines, startIndex: 0);
+    final series = _seriesFromJsonValue(jsonLines, startIndex: 0, copy: copy);
     return series.isEmpty ? null : series;
   }
 }
@@ -65,12 +72,16 @@ List<Object?>? _tryParseJsonLineValues(String source) {
   return values;
 }
 
-List<DataSeries> _seriesFromJsonValue(Object? value,
-    {required int startIndex}) {
+List<DataSeries> _seriesFromJsonValue(
+  Object? value, {
+  required int startIndex,
+  required DataFitCopy copy,
+}) {
   if (value is Map) {
     final seriesValue = _firstJsonValue(value, const ['series', 'datasets']);
     if (seriesValue != null) {
-      return _seriesFromJsonValue(seriesValue, startIndex: startIndex);
+      return _seriesFromJsonValue(seriesValue,
+          startIndex: startIndex, copy: copy);
     }
     final pointsValue =
         _firstJsonValue(value, const ['points', 'data', 'values']);
@@ -79,18 +90,18 @@ List<DataSeries> _seriesFromJsonValue(Object? value,
       if (points.isEmpty) return const [];
       return [
         DataSeries(
-          name: _jsonString(value['name']) ?? '数据 ${startIndex + 1}',
+          name: _jsonString(value['name']) ?? copy.dataSeriesName(startIndex + 1),
           points: points,
         ),
       ];
     }
     final columnSeries =
-        _seriesFromColumnJsonMap(value, startIndex: startIndex);
+        _seriesFromColumnJsonMap(value, startIndex: startIndex, copy: copy);
     if (columnSeries.isNotEmpty) return columnSeries;
     final points = _pointsFromJsonList(value);
     if (points.isEmpty) return const [];
     return [
-      DataSeries(name: '数据 ${startIndex + 1}', points: points),
+      DataSeries(name: copy.dataSeriesName(startIndex + 1), points: points),
     ];
   }
   if (value is List) {
@@ -102,7 +113,7 @@ List<DataSeries> _seriesFromJsonValue(Object? value,
               _jsonString(item['name']) != null)) {
         nestedSeries.addAll(
           _seriesFromJsonValue(item,
-              startIndex: startIndex + nestedSeries.length),
+              startIndex: startIndex + nestedSeries.length, copy: copy),
         );
       }
     }
@@ -114,7 +125,7 @@ List<DataSeries> _seriesFromJsonValue(Object? value,
     final points = _pointsFromJsonList(value);
     if (points.isEmpty) return const [];
     return [
-      DataSeries(name: '数据 ${startIndex + 1}', points: points),
+      DataSeries(name: copy.dataSeriesName(startIndex + 1), points: points),
     ];
   }
   return const [];
@@ -237,8 +248,11 @@ double? _jsonNumber(Map value, List<String> keys) {
   return null;
 }
 
-List<DataSeries> _seriesFromColumnJsonMap(Map value,
-    {required int startIndex}) {
+List<DataSeries> _seriesFromColumnJsonMap(
+  Map value, {
+  required int startIndex,
+  required DataFitCopy copy,
+}) {
   final columns = <String, List<double>>{};
   for (final entry in value.entries) {
     final key = entry.key.toString().trim();
@@ -279,6 +293,7 @@ List<DataSeries> _seriesFromColumnJsonMap(Map value,
     }
     series.add(DataSeries(
       name: _columnSeriesName(
+        copy,
         value,
         yColumn.key,
         startIndex + series.length,
@@ -302,6 +317,7 @@ bool _isJsonXColumn(String key) {
 }
 
 String _columnSeriesName(
+  DataFitCopy copy,
   Map value,
   String key,
   int fallbackIndex, {
@@ -316,7 +332,7 @@ String _columnSeriesName(
     return mapName;
   }
   if (trimmedKey.isNotEmpty) return trimmedKey;
-  return '数据 ${fallbackIndex + 1}';
+  return copy.dataSeriesName(fallbackIndex + 1);
 }
 
 bool _isGenericJsonYColumn(String key) {
@@ -337,7 +353,11 @@ List<double> _jsonNumberList(Object? value) {
 
 String? _jsonString(Object? value) => value is String ? value : null;
 
-List<DataSeries> _parseBlock(String block, {required int startIndex}) {
+List<DataSeries> _parseBlock(
+  String block, {
+  required int startIndex,
+  required DataFitCopy copy,
+}) {
   final rows = <List<double>>[];
   var headers = <String>[];
   var headerDelimiter = '';
@@ -382,7 +402,7 @@ List<DataSeries> _parseBlock(String block, {required int startIndex}) {
       }
       if (points.isNotEmpty) {
         series.add(DataSeries(
-          name: _seriesName(headers, column, startIndex + series.length),
+          name: _seriesName(copy, headers, column, startIndex + series.length),
           points: points,
         ));
       }
@@ -401,7 +421,8 @@ List<DataSeries> _parseBlock(String block, {required int startIndex}) {
     autoX = points.length + 1.0;
   }
   return [
-    DataSeries(name: _seriesName(headers, 1, startIndex), points: points),
+    DataSeries(
+        name: _seriesName(copy, headers, 1, startIndex), points: points),
   ];
 }
 
@@ -474,11 +495,16 @@ bool _isIndexHeader(String header) {
       normalized == '行号';
 }
 
-String _seriesName(List<String> headers, int column, int fallbackIndex) {
+String _seriesName(
+  DataFitCopy copy,
+  List<String> headers,
+  int column,
+  int fallbackIndex,
+) {
   if (column < headers.length && headers[column].trim().isNotEmpty) {
     return headers[column].trim();
   }
-  return '数据 ${fallbackIndex + 1}';
+  return copy.dataSeriesName(fallbackIndex + 1);
 }
 
 List<String> _headerCells(String line) {

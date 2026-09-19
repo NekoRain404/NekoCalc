@@ -196,3 +196,107 @@ final RegExp _asciiPunctuationOnly =
 //          `text_tool_html_entities.dart`), `lib/features/tools/presentation` 8,
 //          `lib/features/notes/presentation` 1. Under `containsWideOrFullwidth`: 3 / 21 / 4 / 1 —
 //          29 in all, each exempted by name with its reason.
+//
+// 中文：**第二个需要同一把尺子的地方。** 下面这两把尺子原先长在
+//       `test/features/tools_source_guard_test.dart` 里（私有名 `_stripComments` /
+//       `_stringLiterals`），本轮搬到这里，理由与 `notationRuns` 当初搬过来那条一样：
+//       **拟合领域层那条护栏要问同一个问题**（`test/domain/data_fit_copy_test.dart` 扫
+//       `lib/domain/usecases/data_fit_*.dart`），而两处各留一份就会各自漂移，漏改的那一份不报错，
+//       只会悄悄放过一条中文。**搬过来只改了名字与可见性**：判据、跳过注释与引号的顺序、
+//       返回值一个字都没动，原调用方（`tools_source_guard_test.dart`）的断言因此逐字节未变。
+// English: **the second place that needs the same ruler.** These two used to live inside
+//          `test/features/tools_source_guard_test.dart` (privately named `_stripComments` /
+//          `_stringLiterals`) and moved here this round for the same reason `notationRuns` moved
+//          before them: **the fit domain layer's guard asks the same question**
+//          (`test/domain/data_fit_copy_test.dart` scans `lib/domain/usecases/data_fit_*.dart`), and
+//          two copies would drift, with the missed one failing silently instead of catching a Chinese
+//          literal. **Only the names and their visibility changed in the move**: the criteria, the
+//          order in which comments and quotes are skipped, and the return values are untouched, which
+//          is why the original caller's (`tools_source_guard_test.dart`) assertion is byte-identical.
+
+/// 中文：去掉 `//` 与 `/* */` 注释，**但保留字符串字面量原样**——注释里会出现引号
+///       （本项目的中文注释就常写 `'关闭'`），先按引号整体跳过，注释才不会被截错。
+/// English: Strips `//` and `/* */` comments while **copying string literals verbatim**: this
+///          project's Chinese comments quote literals such as `'关闭'`, so quotes are skipped as whole
+///          units first; otherwise the comment stripper would cut in the wrong place.
+String stripComments(String source) {
+  final out = StringBuffer();
+  var i = 0;
+  while (i < source.length) {
+    final ch = source[i];
+    if (ch == "'" || ch == '"') {
+      final quote = ch;
+      // 中文：三引号原样成块跳过。
+      // English: Triple quotes are skipped as a block.
+      final triple = source.startsWith(quote * 3, i);
+      final delimiter = triple ? quote * 3 : quote;
+      out.write(delimiter);
+      i += delimiter.length;
+      while (i < source.length) {
+        if (source[i] == r'\') {
+          out.write(source.substring(i, i + 2));
+          i += 2;
+          continue;
+        }
+        if (source.startsWith(delimiter, i)) {
+          out.write(delimiter);
+          i += delimiter.length;
+          break;
+        }
+        out.write(source[i]);
+        i++;
+      }
+      continue;
+    }
+    if (ch == '/' && i + 1 < source.length && source[i + 1] == '/') {
+      while (i < source.length && source[i] != '\n') {
+        i++;
+      }
+      continue;
+    }
+    if (ch == '/' && i + 1 < source.length && source[i + 1] == '*') {
+      i += 2;
+      while (i + 1 < source.length &&
+          !(source[i] == '*' && source[i + 1] == '/')) {
+        i++;
+      }
+      i += 2;
+      continue;
+    }
+    out.write(ch);
+    i++;
+  }
+  return out.toString();
+}
+
+/// 中文：取出源码里所有单/双引号字符串字面量的内容。
+/// English: Extracts the contents of every single- and double-quoted string literal in the source.
+Iterable<String> stringLiterals(String source) sync* {
+  var i = 0;
+  while (i < source.length) {
+    final ch = source[i];
+    if (ch != "'" && ch != '"') {
+      i++;
+      continue;
+    }
+    final quote = ch;
+    final triple = source.startsWith(quote * 3, i);
+    final delimiter = triple ? quote * 3 : quote;
+    i += delimiter.length;
+    final buffer = StringBuffer();
+    while (i < source.length) {
+      if (source[i] == r'\') {
+        buffer.write(source.substring(i, i + 2));
+        i += 2;
+        continue;
+      }
+      if (source.startsWith(delimiter, i)) {
+        i += delimiter.length;
+        break;
+      }
+      buffer.write(source[i]);
+      i++;
+    }
+    yield buffer.toString();
+  }
+}

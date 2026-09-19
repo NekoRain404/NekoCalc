@@ -137,28 +137,40 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
   void _recalculate() {
     _recalculateTimer?.cancel();
     _recalculateTimer = null;
+    // 中文：领域层那几条句子（诊断行、结论摘要、兜底数据组名、拟合失败的报错）都得由这里
+    //       递进去——它们全是 `{required DataFitCopy copy}`，漏传编译不过。
+    //       取法与界面自己的字同一次 `of(context)`，两张表不会分叉。
+    // English: the domain layer's sentences (diagnostic lines, the conclusion summary, fallback
+    //          series names, fit failures) are handed in from here — they all take
+    //          `{required DataFitCopy copy}`, so a forgotten one does not compile. It comes out of
+    //          the same `of(context)` call as the screen's own words, so the two cannot drift apart.
+    final strings = DataFitStrings.of(context);
     try {
       // 中文：输入解析支持单组、多列和空行分组，UI 只关心当前选中序列。
       // English: Parsing supports single-series, multi-column, and blank-line groups; the UI only fits the selected series.
-      final series = parseDataSeries(_dataController.text);
+      final series = parseDataSeries(_dataController.text, copy: strings.fit);
       if (series.isEmpty) {
         // 中文：异常里带的是**那一刻**取到的文案（与 `_error` 一样）。切换界面语言不会回填已经
         //       存下来的那句话，要等下一次重算——这是已知的小口子，不是漏翻。
         // English: The exception carries the copy **as of that moment**, exactly like `_error`.
         //          Switching the interface language does not rewrite an already-stored sentence; the
         //          next recalculation does. A known small gap, not a missed translation.
-        throw FormatException(DataFitStrings.of(context).needTwoRows);
+        throw FormatException(strings.needTwoRows);
       }
       final selectedIndex = _selectedSeriesIndex.clamp(0, series.length - 1);
-      final result = fitData(series[selectedIndex].points, _model);
-      final recommendations = recommendFitModels(series[selectedIndex].points);
+      final result =
+          fitData(series[selectedIndex].points, _model, copy: strings.fit);
+      final recommendations = recommendFitModels(
+        series[selectedIndex].points,
+        copy: strings.fit,
+      );
       final prediction = _buildPredictionState(result);
       setState(() {
         _series = series;
         _selectedSeriesIndex = selectedIndex;
         _result = result;
         _recommendations = recommendations;
-        _diagnostics = buildFitDiagnostics(result);
+        _diagnostics = buildFitDiagnostics(result, copy: strings.fit);
         _residualAlerts = buildFitResidualAlerts(result);
         _predictionX = prediction.x;
         _predictionY = prediction.y;
@@ -237,7 +249,7 @@ class _DataFitToolScreenState extends State<DataFitToolScreen> {
 
   List<DataSeries> _tryParseSeries(String data) {
     try {
-      return parseDataSeries(data);
+      return parseDataSeries(data, copy: DataFitStrings.of(context).fit);
     } catch (_) {
       return const [];
     }

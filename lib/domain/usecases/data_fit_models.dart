@@ -2,19 +2,53 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import '../../core/utils/number_formatter.dart';
+import 'data_fit_copy.dart';
 
+/// 中文：六种拟合模型。**枚举里只剩下"令牌 + 记号"，字在表里。**
+///
+///       - `name`（枚举名，`linear` / `quadratic`…）是**令牌**：它写进草稿
+///         （`encodeDataFitDraft` 存的是 `draft.model.name`）、认报告时也拿它比，
+///         两种语言下都不变。
+///       - `template`（`y = ax + b`）是**记号不是文案**，留在领域层：两边的写法本来一样。
+///       - **`label` 这一格本轮搬去 `DataFitCopy`**（原来是 `线性` / `二次` / …）。
+///         分派在 [fitModelLabelIn]，一个**穷尽 `switch`**——加一个模型，那里编译不过，
+///         不会静默掉回某个默认名字。
+/// English: the six fit models. **Only the token and the notation stay on the enum; the words moved
+///          to the table.**
+///
+///          - `name` (the enum name: `linear`, `quadratic`, …) is the **token**: the draft persists
+///            it (`encodeDataFitDraft` writes `draft.model.name`) and report recognition compares
+///            against it, and it is the same in both languages.
+///          - `template` (`y = ax + b`) is **notation, not copy**, and stays in the domain: the two
+///            languages write it identically.
+///          - **The `label` slot moved to `DataFitCopy` this round** (it used to hold `线性` /
+///            `二次` / …). Dispatch happens in [fitModelLabelIn], an **exhaustive `switch`**: adding
+///            a model breaks the build there instead of quietly falling back to some default name.
 enum FitModel {
-  linear('线性', 'y = ax + b'),
-  quadratic('二次', 'y = ax² + bx + c'),
-  exponential('指数', 'y = A·e^(Bx)'),
-  power('幂函数', 'y = A·x^B'),
-  logarithmic('对数', 'y = a·ln(x) + b'),
-  reciprocal('倒数', 'y = a / x + b');
+  linear('y = ax + b'),
+  quadratic('y = ax² + bx + c'),
+  exponential('y = A·e^(Bx)'),
+  power('y = A·x^B'),
+  logarithmic('y = a·ln(x) + b'),
+  reciprocal('y = a / x + b');
 
-  const FitModel(this.label, this.template);
+  const FitModel(this.template);
 
-  final String label;
   final String template;
+}
+
+/// 中文：模型 → 表里那一格。**穷尽 `switch`，没有 `default`**——这正是它存在的理由。
+/// English: model → the table's slot. **An exhaustive `switch` with no `default`** — which is
+///          exactly why it exists.
+String fitModelLabelIn(DataFitCopy copy, FitModel model) {
+  return switch (model) {
+    FitModel.linear => copy.modelLinear,
+    FitModel.quadratic => copy.modelQuadratic,
+    FitModel.exponential => copy.modelExponential,
+    FitModel.power => copy.modelPower,
+    FitModel.logarithmic => copy.modelLogarithmic,
+    FitModel.reciprocal => copy.modelReciprocal,
+  };
 }
 
 class DataPoint {
@@ -50,8 +84,14 @@ class FitResult {
   final double rmse;
   final List<DataPoint> predictions;
 
-  String get summary {
-    return '${model.label}拟合\n$equation\nR²=${formatNumber(rSquared, precision: 6)}, RMSE=${formatNumber(rmse, precision: 6)}';
+  /// 中文：结论正文，复制 / 落库 / 粘贴回读都用它。标题那半句走表（`copy.fitOf`），
+  ///       `\n` 与 `R²=` / `RMSE=` 是记号，留在领域层。
+  /// English: the conclusion body, used by copy, persist and paste-back alike. The heading half comes
+  ///          from the table (`copy.fitOf`); the `\n` and `R²=` / `RMSE=` are notation and stay in
+  ///          the domain.
+  String summaryIn(DataFitCopy copy) {
+    return '${copy.fitOf(fitModelLabelIn(copy, model))}\n$equation\n'
+        'R²=${formatNumber(rSquared, precision: 6)}, RMSE=${formatNumber(rmse, precision: 6)}';
   }
 }
 
@@ -84,11 +124,19 @@ class FitResidualPoint {
   final double residual;
   final double severity;
 
-  String get label {
-    return '第 ${index + 1} 行 x=${formatNumber(point.x, precision: 6)}, '
-        'y=${formatNumber(point.y, precision: 6)}, '
-        'ŷ=${formatNumber(predicted, precision: 6)}, '
-        '残差=${formatNumber(residual, precision: 6)}';
+  /// 中文：一行异常点。`第 N 行` 与 `残差=` 走表（`copy.residualRow`），四个数在这里用
+  ///       `precision: 6` 格式化——精度是记号的一部分，两种语言一样。
+  /// English: one outlier row. `第 N 行` and `残差=` come from the table (`copy.residualRow`), while
+  ///          the four numbers are formatted here with `precision: 6` — the precision is part of the
+  ///          notation and is the same in both languages.
+  String labelIn(DataFitCopy copy) {
+    return copy.residualRow(
+      index + 1,
+      formatNumber(point.x, precision: 6),
+      formatNumber(point.y, precision: 6),
+      formatNumber(predicted, precision: 6),
+      formatNumber(residual, precision: 6),
+    );
   }
 }
 

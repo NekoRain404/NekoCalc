@@ -3,6 +3,18 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/domain/usecases/data_fit.dart';
 
+/// 中文：拟合领域层从本轮起**每个入口都要一张文案表**（`{required DataFitCopy copy}`，没有中文兜底
+///       ——理由写在 `lib/domain/usecases/data_fit_copy.dart` 文件头）。这个文件量的是解析与拟合的
+///       **结果**，而断言的仍然是**中文那张表**——"默认态逐字节不变"取的就是它。别名只为省掉
+///       六十来处重复，它指向的表和界面默认取的那张是同一张（`DataFitCopy.zh`）。
+/// English: every entry point of the fit domain now takes **a copy table** (`{required DataFitCopy
+///          copy}`, no Chinese fallback — the reason is at the head of
+///          `lib/domain/usecases/data_fit_copy.dart`). This file measures the parse and fit
+///          **results**, and its assertions are still pinned to **the Chinese table** — which is what
+///          "the default state stays byte-identical" is about. The alias only saves sixty repetitions,
+///          and it points at the same table the interface picks by default (`DataFitCopy.zh`).
+final DataFitCopy kZh = DataFitCopy.zh;
+
 void main() {
   test('encodes and decodes data fit drafts', () {
     final encoded = encodeDataFitDraft(
@@ -77,30 +89,30 @@ void main() {
   });
 
   test('parses two-column and one-column data', () {
-    final twoColumn = parseDataPoints('1,2\n2 4\nx=3 y=6');
+    final twoColumn = parseDataPoints('1,2\n2 4\nx=3 y=6', copy: kZh);
     expect(twoColumn.length, 3);
     expect(twoColumn.last.x, 3);
     expect(twoColumn.last.y, 6);
 
-    final oneColumn = parseDataPoints('10\n20\n30');
+    final oneColumn = parseDataPoints('10\n20\n30', copy: kZh);
     expect(oneColumn.map((p) => p.x), [1, 2, 3]);
     expect(oneColumn.map((p) => p.y), [10, 20, 30]);
   });
 
   test('parses multi-column and blank-separated series', () {
-    final multiColumn = parseDataSeries('1, 2, 10\n2, 4, 20\n3, 6, 30');
+    final multiColumn = parseDataSeries('1, 2, 10\n2, 4, 20\n3, 6, 30', copy: kZh);
     expect(multiColumn.length, 2);
     expect(multiColumn[0].points.map((p) => p.y), [2, 4, 6]);
     expect(multiColumn[1].points.map((p) => p.y), [10, 20, 30]);
 
-    final blocks = parseDataSeries('1, 2\n2, 4\n\n1, 3\n2, 6');
+    final blocks = parseDataSeries('1, 2\n2, 4\n\n1, 3\n2, 6', copy: kZh);
     expect(blocks.length, 2);
     expect(blocks[0].points.length, 2);
     expect(blocks[1].points.last.y, 6);
   });
 
   test('parses table headers pasted from spreadsheets', () {
-    final series = parseDataSeries('x,y1,y2\n1, 2, 10\n2, 4, 20\n3, 6, 30');
+    final series = parseDataSeries('x,y1,y2\n1, 2, 10\n2, 4, 20\n3, 6, 30', copy: kZh);
 
     expect(series.length, 2);
     expect(series.first.name, 'y1');
@@ -118,7 +130,7 @@ x;y1;y2
 1;2;10
 2;4;20
 3;6;30
-''');
+''', copy: kZh);
     final framed = parseDataPoints('''
 -- query result
 +---+---+
@@ -126,7 +138,7 @@ x,y
 1,2
 2,4
 3,6
-''');
+''', copy: kZh);
 
     expect(series.length, 2);
     expect(series[0].name, 'y1');
@@ -146,7 +158,7 @@ x, temp
 1, 20
 2, 25
 3, 29
-''');
+''', copy: kZh);
     final markdownUnits = parseDataSeries('''
 | x | 温度 | 压力 |
 | 单位 | ℃ | kPa |
@@ -154,7 +166,7 @@ x, temp
 | 1 | 20 | 100 |
 | 2 | 25 | 110 |
 | 3 | 29 | 121 |
-''');
+''', copy: kZh);
 
     expect(unitBeforeHeader.single.name, 'temp');
     expect(unitBeforeHeader.single.points.map((p) => p.x), [1, 2, 3]);
@@ -173,9 +185,9 @@ x, temp
 0\t1\t20\t100
 1\t2\t25\t110
 2\t3\t29\t121
-''');
+''', copy: kZh);
     final explicitIndex =
-        parseDataPoints('index,x,y\n0,10,100\n1,20,400\n2,30,900');
+        parseDataPoints('index,x,y\n0,10,100\n1,20,400\n2,30,900', copy: kZh);
 
     expect(tabbed.length, 2);
     expect(tabbed[0].name, '温度');
@@ -195,7 +207,7 @@ x, temp
 | 1 | 20 | 100 |
 | 2 | 25 | 110 |
 | 3 | 29 | 121 |
-''');
+''', copy: kZh);
 
     expect(series.length, 2);
     expect(series[0].name, '温度');
@@ -206,9 +218,9 @@ x, temp
   });
 
   test('parses json arrays and objects for fitting', () {
-    final arrayPoints = parseDataPoints('[[1,2],[2,4],[3,6]]');
+    final arrayPoints = parseDataPoints('[[1,2],[2,4],[3,6]]', copy: kZh);
     final objectPoints =
-        parseDataPoints('[{"x":1,"y":3},{"x":2,"y":5},{"x":3,"y":7}]');
+        parseDataPoints('[{"x":1,"y":3},{"x":2,"y":5},{"x":3,"y":7}]', copy: kZh);
     final multiSeries = parseDataSeries('''
 {
   "series": [
@@ -216,7 +228,7 @@ x, temp
     {"name": "压力", "points": [[1, 100], [2, 110]]}
   ]
 }
-''');
+''', copy: kZh);
 
     expect(arrayPoints.map((p) => p.x), [1, 2, 3]);
     expect(arrayPoints.map((p) => p.y), [2, 4, 6]);
@@ -234,10 +246,11 @@ x, temp
   test('parses column-oriented json data for fitting', () {
     final multiSeries = parseDataSeries(
       '{"x":[1,2,3],"温度":[20,25,29],"压力":[100,110,121]}',
+      copy: kZh,
     );
-    final aliasSeries = parseDataSeries('{"time":[1,2],"value":[20,25]}');
-    final autoXSeries = parseDataSeries('{"y":[2,4,6]}');
-    final raggedSeries = parseDataSeries('{"x":[10,20,30],"y":[1,2]}');
+    final aliasSeries = parseDataSeries('{"time":[1,2],"value":[20,25]}', copy: kZh);
+    final autoXSeries = parseDataSeries('{"y":[2,4,6]}', copy: kZh);
+    final raggedSeries = parseDataSeries('{"x":[10,20,30],"y":[1,2]}', copy: kZh);
 
     expect(multiSeries.length, 2);
     expect(multiSeries[0].name, '温度');
@@ -264,12 +277,12 @@ x, temp
   {"time": 2, "temp": 25, "pressure": 110},
   {"time": 3, "temp": 29, "pressure": 121}
 ]
-''');
+''', copy: kZh);
     final ndjson = parseDataSeries('''
 {"step":1,"loss":0.5,"acc":0.90}
 {"step":2,"loss":0.25,"acc":0.95}
 {"step":3,"loss":0.125,"acc":0.975}
-''');
+''', copy: kZh);
 
     expect(rowSeries.length, 2);
     expect(rowSeries[0].name, 'temp');
@@ -288,15 +301,16 @@ x, temp
 
   test('parses quoted numeric json values for fitting', () {
     final points =
-        parseDataPoints('[{"x":"1","y":"1,200.5"},{"x":"２","y":"５０％"}]');
+        parseDataPoints('[{"x":"1","y":"1,200.5"},{"x":"２","y":"５０％"}]', copy: kZh);
     final columnSeries = parseDataSeries(
       '{"time":["1","2","3"],"loss":["0.5","0.25","0.125"],"acc":["90%","95%","97.5%"]}',
+      copy: kZh,
     );
     final ndjson = parseDataSeries('''
 {"step":"1","loss":"0.5","acc":"90%"}
 {"step":"2","loss":"0.25","acc":"95%"}
 {"step":"3","loss":"0.125","acc":"97.5%"}
-''');
+''', copy: kZh);
 
     expect(points.map((p) => p.x), [1, 2]);
     expect(points.map((p) => p.y), [1200.5, 0.5]);
@@ -315,7 +329,7 @@ x, temp
   });
 
   test('parses localized pasted numbers for fitting', () {
-    final points = parseDataPoints('x,y\n１，１,２００.５\n２,５０％\n３,－2.5');
+    final points = parseDataPoints('x,y\n１，１,２００.５\n２,５０％\n３,－2.5', copy: kZh);
 
     expect(points.map((p) => p.x), [1, 2, 3]);
     expect(points[0].y, 1200.5);
@@ -332,7 +346,7 @@ x, temp
   });
 
   test('extracts data fit state from copied reports', () {
-    final paste = parseDataFitPasteText('''
+    final paste = parseDataFitPasteText(copy: kZh, '''
 数据拟合
 数据组: y2
 二次拟合
@@ -363,22 +377,23 @@ x,y1,y2
     expect(paste.series.last.name, 'y2');
     expect(paste.series.last.points.map((point) => point.y), [10, 20, 30]);
     expect(paste.data, startsWith('x,y1,y2'));
-    expect(paste.summary, contains('已从报告提取数据'));
-    expect(paste.summary, contains('模型 二次'));
-    expect(paste.summary, contains('预测 x=7'));
+    expect(paste.summaryIn(kZh), contains('已从报告提取数据'));
+    expect(paste.summaryIn(kZh), contains('模型 二次'));
+    expect(paste.summaryIn(kZh), contains('预测 x=7'));
   });
 
   test('builds data fit paste summaries for direct data and invalid text', () {
-    final direct = parseDataFitPasteText('x,y\n1,2\n2,4\n3,6');
-    final invalid = parseDataFitPasteText('二次拟合\n没有数据');
+    final direct = parseDataFitPasteText('x,y\n1,2\n2,4\n3,6', copy: kZh);
+    final invalid =
+        parseDataFitPasteText('二次拟合\n没有数据', copy: kZh);
 
     expect(direct.hasData, isTrue);
     expect(direct.extractedFromReport, isFalse);
     expect(direct.series.single.points.length, 3);
-    expect(direct.summary, '已粘贴数据 · 1 组 · 3 点');
+    expect(direct.summaryIn(kZh), '已粘贴数据 · 1 组 · 3 点');
 
     expect(invalid.hasData, isFalse);
-    expect(invalid.summary, '剪贴板里没有识别到可拟合数据');
+    expect(invalid.summaryIn(kZh), '剪贴板里没有识别到可拟合数据');
   });
 
   test('parses named log-style numeric fields for fitting', () {
@@ -386,12 +401,12 @@ x,y1,y2
 INFO time=1 temp=20 pressure=100
 INFO time=2 temp=25 pressure=110
 INFO time=3 temp=29 pressure=121
-''');
+''', copy: kZh);
     final reordered = parseDataSeries('''
 step=1 loss=0.5 acc=90%
 step=2 acc=95% loss=0.25
 step=3 loss=0.125 acc=97.5%
-''');
+''', copy: kZh);
 
     expect(series.length, 2);
     expect(series[0].name, 'temp');
@@ -408,7 +423,7 @@ step=3 loss=0.125 acc=97.5%
   });
 
   test('fits linear data', () {
-    final result = fitData(parseDataPoints('1,3\n2,5\n3,7'), FitModel.linear);
+    final result = fitData(parseDataPoints('1,3\n2,5\n3,7', copy: kZh), FitModel.linear, copy: kZh);
     expect(result.coefficients[0], closeTo(2, 1e-9));
     expect(result.coefficients[1], closeTo(1, 1e-9));
     expect(result.rSquared, closeTo(1, 1e-9));
@@ -416,7 +431,7 @@ step=3 loss=0.125 acc=97.5%
 
   test('fits quadratic data', () {
     final result =
-        fitData(parseDataPoints('-1,1\n0,0\n1,1\n2,4'), FitModel.quadratic);
+        fitData(parseDataPoints('-1,1\n0,0\n1,1\n2,4', copy: kZh), FitModel.quadratic, copy: kZh);
     expect(result.coefficients[0], closeTo(1, 1e-9));
     expect(result.coefficients[1], closeTo(0, 1e-9));
     expect(result.coefficients[2], closeTo(0, 1e-9));
@@ -424,12 +439,12 @@ step=3 loss=0.125 acc=97.5%
 
   test('recommends models by fit quality and reports unavailable models', () {
     final recommendations =
-        recommendFitModels(parseDataPoints('-2,4\n-1,1\n0,0\n1,1\n2,4'));
+        recommendFitModels(parseDataPoints('-2,4\n-1,1\n0,0\n1,1\n2,4', copy: kZh), copy: kZh);
 
     expect(recommendations.first.model, FitModel.quadratic);
     expect(recommendations.first.result?.rSquared, closeTo(1, 1e-9));
     final limitedRecommendations =
-        recommendFitModels(parseDataPoints('0,0\n1,1'));
+        recommendFitModels(parseDataPoints('0,0\n1,1', copy: kZh), copy: kZh);
     expect(
       limitedRecommendations
           .where((item) => item.model == FitModel.quadratic)
@@ -441,9 +456,9 @@ step=3 loss=0.125 acc=97.5%
 
   test('builds diagnostics from residuals and fit quality', () {
     final result =
-        fitData(parseDataPoints('1,2\n2,4.2\n3,5.9\n4,8.5'), FitModel.linear);
+        fitData(parseDataPoints('1,2\n2,4.2\n3,5.9\n4,8.5', copy: kZh), FitModel.linear, copy: kZh);
 
-    final diagnostics = buildFitDiagnostics(result);
+    final diagnostics = buildFitDiagnostics(result, copy: kZh);
 
     expect(diagnostics, isNotEmpty);
     expect(diagnostics.join('\n'), contains('拟合度'));
@@ -452,27 +467,29 @@ step=3 loss=0.125 acc=97.5%
 
   test('builds residual alerts for high residual outliers', () {
     final result = fitData(
-      parseDataPoints('1,2\n2,4\n3,6\n4,50\n5,10\n6,12\n7,14'),
+      parseDataPoints('1,2\n2,4\n3,6\n4,50\n5,10\n6,12\n7,14', copy: kZh),
       FitModel.linear,
+      copy: kZh,
     );
 
     final alerts = buildFitResidualAlerts(result);
-    final diagnostics = buildFitDiagnostics(result).join('\n');
+    final diagnostics = buildFitDiagnostics(result, copy: kZh).join('\n');
 
     expect(alerts, isNotEmpty);
     expect(alerts.first.index, 3);
     expect(alerts.first.point.x, 4);
     expect(alerts.first.residual.abs(), greaterThan(result.rmse * 2));
-    expect(alerts.first.label, contains('第 4 行'));
-    expect(alerts.first.label, contains('残差='));
+    expect(alerts.first.labelIn(kZh), contains('第 4 行'));
+    expect(alerts.first.labelIn(kZh), contains('残差='));
     expect(diagnostics, contains('疑似异常点'));
     expect(diagnostics, contains('第 4 行'));
   });
 
   test('residual alerts stay quiet for smooth data', () {
     final result = fitData(
-      parseDataPoints('1,2\n2,4.1\n3,6\n4,8.1\n5,10'),
+      parseDataPoints('1,2\n2,4.1\n3,6\n4,8.1\n5,10', copy: kZh),
       FitModel.linear,
+      copy: kZh,
     );
 
     expect(buildFitResidualAlerts(result), isEmpty);
@@ -480,36 +497,38 @@ step=3 loss=0.125 acc=97.5%
 
   test('fits exponential data', () {
     final result =
-        fitData(parseDataPoints('0,2\n1,4\n2,8'), FitModel.exponential);
+        fitData(parseDataPoints('0,2\n1,4\n2,8', copy: kZh), FitModel.exponential, copy: kZh);
     expect(result.coefficients[0], closeTo(2, 1e-9));
     expect(result.coefficients[1], closeTo(0.6931471805599453, 1e-9));
   });
 
   test('fits logarithmic and reciprocal data', () {
     final logarithmic = fitData(
-      parseDataPoints('1,1\n2,2.38629436112\n4,3.77258872224'),
+      parseDataPoints('1,1\n2,2.38629436112\n4,3.77258872224', copy: kZh),
       FitModel.logarithmic,
+      copy: kZh,
     );
     expect(logarithmic.coefficients[0], closeTo(2, 1e-9));
     expect(logarithmic.coefficients[1], closeTo(1, 1e-9));
 
     final reciprocal =
-        fitData(parseDataPoints('1,7\n2,4\n4,2.5'), FitModel.reciprocal);
+        fitData(parseDataPoints('1,7\n2,4\n4,2.5', copy: kZh), FitModel.reciprocal, copy: kZh);
     expect(reciprocal.coefficients[0], closeTo(6, 1e-9));
     expect(reciprocal.coefficients[1], closeTo(1, 1e-9));
   });
 
   test('predicts fitted values and rejects invalid model domains', () {
-    final linear = fitData(parseDataPoints('1,3\n2,5\n3,7'), FitModel.linear);
+    final linear = fitData(parseDataPoints('1,3\n2,5\n3,7', copy: kZh), FitModel.linear, copy: kZh);
     final quadratic =
-        fitData(parseDataPoints('-1,1\n0,0\n1,1\n2,4'), FitModel.quadratic);
-    final power = fitData(parseDataPoints('1,2\n2,8\n3,18'), FitModel.power);
+        fitData(parseDataPoints('-1,1\n0,0\n1,1\n2,4', copy: kZh), FitModel.quadratic, copy: kZh);
+    final power = fitData(parseDataPoints('1,2\n2,8\n3,18', copy: kZh), FitModel.power, copy: kZh);
     final logarithmic = fitData(
-      parseDataPoints('1,1\n2,2.38629436112\n4,3.77258872224'),
+      parseDataPoints('1,1\n2,2.38629436112\n4,3.77258872224', copy: kZh),
       FitModel.logarithmic,
+      copy: kZh,
     );
     final reciprocal =
-        fitData(parseDataPoints('1,7\n2,4\n4,2.5'), FitModel.reciprocal);
+        fitData(parseDataPoints('1,7\n2,4\n4,2.5', copy: kZh), FitModel.reciprocal, copy: kZh);
 
     expect(predictFitValue(linear, 4), closeTo(9, 1e-9));
     expect(predictFitValue(quadratic, 3), closeTo(9, 1e-9));
@@ -523,19 +542,19 @@ step=3 loss=0.125 acc=97.5%
 
   test('rejects invalid model data', () {
     expect(
-      () => fitData(parseDataPoints('1,-2\n2,4'), FitModel.exponential),
+      () => fitData(parseDataPoints('1,-2\n2,4', copy: kZh), FitModel.exponential, copy: kZh),
       throwsFormatException,
     );
     expect(
-      () => fitData(parseDataPoints('1,2\n2,4'), FitModel.quadratic),
+      () => fitData(parseDataPoints('1,2\n2,4', copy: kZh), FitModel.quadratic, copy: kZh),
       throwsFormatException,
     );
     expect(
-      () => fitData(parseDataPoints('-1,2\n-2,4'), FitModel.logarithmic),
+      () => fitData(parseDataPoints('-1,2\n-2,4', copy: kZh), FitModel.logarithmic, copy: kZh),
       throwsFormatException,
     );
     expect(
-      () => fitData(parseDataPoints('0,2\n0,4'), FitModel.reciprocal),
+      () => fitData(parseDataPoints('0,2\n0,4', copy: kZh), FitModel.reciprocal, copy: kZh),
       throwsFormatException,
     );
   });

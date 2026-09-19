@@ -114,16 +114,17 @@ extension _DataFitActions on _DataFitToolScreenState {
     if (!mounted) return;
     final text = data?.text?.trim();
     if (text == null || text.isEmpty) return;
-    final paste = parseDataFitPasteText(text);
+    final strings = DataFitStrings.of(context);
+    final paste = parseDataFitPasteText(text, copy: strings.fit);
     if (!paste.hasData) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(paste.summary)),
+        SnackBar(content: Text(paste.summaryIn(strings.fit))),
       );
       return;
     }
     _applyPastedData(paste);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(paste.summary)),
+      SnackBar(content: Text(paste.summaryIn(strings.fit))),
     );
   }
 
@@ -188,7 +189,7 @@ extension _DataFitActions on _DataFitToolScreenState {
       widget.tool.title,
       if (_series.isNotEmpty)
         strings.copySeries(_series[_selectedSeriesIndex].name),
-      result.summary,
+      result.summaryIn(strings.fit),
       if (_predictionCopyText() != null) ...[
         '',
         _predictionCopyText()!,
@@ -202,7 +203,7 @@ extension _DataFitActions on _DataFitToolScreenState {
       if (_residualAlerts.isNotEmpty) ...[
         '',
         strings.copyResidualHeading,
-        ..._residualAlerts.map((item) => item.label),
+        ..._residualAlerts.map((item) => item.labelIn(strings.fit)),
       ],
       '',
       strings.copyData,
@@ -220,12 +221,14 @@ extension _DataFitActions on _DataFitToolScreenState {
   }
 
   String _recommendationLabel(FitRecommendation recommendation) {
+    final strings = DataFitStrings.of(context);
     final result = recommendation.result;
     if (result == null) {
-      return DataFitStrings.of(context)
-          .modelUnavailable(recommendation.model.label);
+      return strings
+          .modelUnavailable(fitModelLabelIn(strings.fit, recommendation.model));
     }
-    return '${recommendation.model.label}  R² ${formatNumber(result.rSquared, precision: 4)}';
+    return '${fitModelLabelIn(strings.fit, recommendation.model)}'
+        '  R² ${formatNumber(result.rSquared, precision: 4)}';
   }
 
   List<String> _recommendationLines() {
@@ -233,10 +236,12 @@ extension _DataFitActions on _DataFitToolScreenState {
     return _recommendations.take(4).map((recommendation) {
       final result = recommendation.result;
       if (result == null) {
-        return '${recommendation.model.label}: '
+        return '${fitModelLabelIn(strings.fit, recommendation.model)}: '
             '${recommendation.warning ?? strings.unavailable}';
       }
-      return '${recommendation.model.label}: R²=${formatNumber(result.rSquared, precision: 6)}, RMSE=${formatNumber(result.rmse, precision: 6)}';
+      return '${fitModelLabelIn(strings.fit, recommendation.model)}: '
+          'R²=${formatNumber(result.rSquared, precision: 6)}, '
+          'RMSE=${formatNumber(result.rmse, precision: 6)}';
     }).toList(growable: false);
   }
 
@@ -263,7 +268,7 @@ extension _DataFitActions on _DataFitToolScreenState {
     await Clipboard.setData(ClipboardData(
       text: [
         strings.copyResidualHeading,
-        ..._residualAlerts.map((item) => item.label),
+        ..._residualAlerts.map((item) => item.labelIn(strings.fit)),
       ].join('\n'),
     ));
     if (mounted) {
@@ -323,19 +328,21 @@ extension _DataFitActions on _DataFitToolScreenState {
   }
 
   Future<ToolSaveResult> _saveHistoryResult() async {
+    final strings = DataFitStrings.of(context);
     final result = _result;
     if (result == null) {
       return ToolSaveResult.inputInvalid(
         target: ToolSaveTarget.history,
-        summary: _error ?? DataFitStrings.of(context).needFitFirst,
+        summary: _error ?? strings.needFitFirst,
       );
     }
     try {
       final historyId = await _historyRepository.saveToolResult(
         toolId: widget.tool.id,
-        expression: DataFitStrings.of(context).historyExpression(
-            result.model.label, _dataController.text.trim()),
-        result: result.summary,
+        expression: strings.historyExpression(
+            fitModelLabelIn(strings.fit, result.model),
+            _dataController.text.trim()),
+        result: result.summaryIn(strings.fit),
       );
       if (historyId <= 0) {
         return ToolSaveResult.notWritten(ToolSaveTarget.history);

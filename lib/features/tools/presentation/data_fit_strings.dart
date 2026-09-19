@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/usecases/data_fit_copy.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：数据拟合图表工具（`data_fit_tool_screen.dart` 及其两个 `part`）的界面文案表。
@@ -15,10 +16,16 @@ import '../../../l10n/app_language.dart';
 ///       （工具名与分类名现在另有 `tool_catalog_strings.dart`，表数已不止两张）。
 ///       切分判据没变，只是不再拿一个会过期的数字去说它。
 ///
-///       **本表只装"给人看的字"。** 拟合结论里的模型名与诊断行（`FitModel.label`、
-///       `buildFitDiagnostics`、`FitResidualPoint.label`、`result.summary`）来自
-///       `lib/domain/usecases/data_fit.dart`，那是**领域层**，不在本轮范围内，今天仍是中文——
-///       **这是已知的残留**，不是漏翻。
+///       **本表只装"给人看的字"，而拟合的结论现在也是它这一侧的。** 拟合结论里的模型名与诊断行
+///       （`FitModel` 的六个名字、`buildFitDiagnostics`、`FitResidualPoint.labelIn`、
+///       `result.summaryIn`、粘贴摘要、拟合失败的报错）**本轮已经全部进表**——就是下面那一格
+///       [`fit`]，它指向 `lib/domain/usecases/data_fit_copy.dart`。
+///
+///       ⚠️ 这里原先写着「那些字来自领域层，**这是已知的残留**，不是漏翻」。**那句话本轮不成立了**
+///       （它曾经是真的：领域层没有 `BuildContext`，而当年那轮的范围只到界面这一侧）。
+///       为什么残留的表**不在本文件里**而去了领域层，理由写在 `data_fit_copy.dart` 的文件头
+///       （一句话：**`lib/domain/` 对 Flutter 的 import 数是 0**，本文件却 import Flutter）。
+///       留这段是因为：**一个理由被推翻时该说一声**，免得下一页的读者以为这里从来没有残留过。
 /// English: The string table for the data-fitting chart tool (`data_fit_tool_screen.dart` and its two
 ///          `part` files). The mechanism itself (why hand-written tables rather than ARB /
 ///          `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of
@@ -32,11 +39,19 @@ import '../../../l10n/app_language.dart';
 ///          against the hard 800-line limit, while splitting by screen keeps each table readable in
 ///          one screen — which is what "split by feature" meant in the first place.
 ///
-///          **This table holds human-facing text only.** The model names and diagnostic lines inside a
-///          fit's conclusions (`FitModel.label`, `buildFitDiagnostics`, `FitResidualPoint.label`,
-///          `result.summary`) come from `lib/domain/usecases/data_fit.dart` — the domain layer, out of
-///          this round's scope — and are still Chinese today: a **known remainder**, not a missed
-///          translation.
+///          **This table holds human-facing text only — and a fit's conclusions are now on this side
+///          too.** The model names and diagnostic lines inside a fit's conclusions (the six names of
+///          `FitModel`, `buildFitDiagnostics`, `FitResidualPoint.labelIn`, `result.summaryIn`, the
+///          paste summary, and fit failures) **all went into a table this round** — the [`fit`] cell
+///          below, which points at `lib/domain/usecases/data_fit_copy.dart`.
+///
+///          ⚠️ This used to read "those words come from the domain layer — a **known remainder**, not
+///          a missed translation". **That sentence is no longer true** (it once was: the domain holds
+///          no `BuildContext`, and that round's scope stopped at the interface side). Why the
+///          remainder's table is **not in this file** but in the domain is written at the head of
+///          `data_fit_copy.dart` (in one line: **`lib/domain/` imports Flutter zero times**, and this
+///          file does). The note is kept because **a reason that is overturned should say so**, so the
+///          next reader does not think there was never a remainder here.
 @immutable
 class DataFitStrings {
   const DataFitStrings({
@@ -60,14 +75,14 @@ class DataFitStrings {
     required this.dataListHint,
     required this.notParsedYet,
     required this.parsedSeries,
-    required this.points,
     required this.currentSeries,
     // —— 结果卡片 ——
-    required this.fitOf,
     required this.alreadyBestModel,
     required this.tryRecommended,
     required this.pointCount,
     required this.seriesLabel,
+    // —— 领域层那几张表（结论摘要、诊断行、模型名、粘贴摘要、拟合失败）——
+    required this.fit,
     required this.copyEquation,
     required this.copyResidual,
     // —— 预测卡片 ——
@@ -144,14 +159,30 @@ class DataFitStrings {
   final String dataListHint;
   final String notParsedYet;
   final String Function(int count) parsedSeries;
-  final String Function(int count) points;
   final String Function(String name, int count) currentSeries;
   // —— 结果卡片 ——
-  final String Function(String label) fitOf;
   final String alreadyBestModel;
   final String Function(String label) tryRecommended;
   final String pointCount;
   final String seriesLabel;
+
+  /// 中文：**拟合领域层要的那张表**（`lib/domain/usecases/data_fit_copy.dart`）。领域层没有
+  ///       `BuildContext`，也不许 import Flutter（那张表是零 import 的纯 Dart），所以表跟着
+  ///       需要它的那一层走，界面这边只留这一个入口。**它跟着下面那个穷尽 `AppLanguage` 的
+  ///       `switch` 一起选**——加一门语言，这里编译不过。
+  ///       拟合的模型名、诊断行、粘贴摘要与结论正文都从它取，不再和本表的格子重复：
+  ///       `fitOf` 与 `points` 两条**本轮从这里搬了进去**（屏幕改叫 `strings.fit.fitOf(...)` /
+  ///       `strings.fit.points(...)`），因为领域层拼结论时用的是同一句话，两处各留一份必然漂移。
+  /// English: **the table the fit domain layer needs** (`lib/domain/usecases/data_fit_copy.dart`). The
+  ///          domain has no `BuildContext` and may not import Flutter (that table has zero imports and
+  ///          is plain Dart), so the table follows the layer that needs it and the interface side keeps
+  ///          this one entry point. **It is chosen together with the exhaustive `AppLanguage` switch
+  ///          below** — adding a language breaks the build here. The fit's model names, diagnostic
+  ///          lines, paste summary and conclusion body come from it and are no longer duplicated as
+  ///          cells of this table: **`fitOf` and `points` moved into it this round** (the screen now
+  ///          calls `strings.fit.fitOf(...)` / `strings.fit.points(...)`), because the domain composes
+  ///          the same sentence and two copies of it would necessarily drift.
+  final DataFitCopy fit;
   final String copyEquation;
   final String copyResidual;
   // —— 预测卡片 ——
@@ -244,13 +275,12 @@ class DataFitStrings {
     dataListHint: '支持 x,y；x,y1,y2 多列；空行分隔多组。\n例如：\n1, 2.1, 1.2\n2, 3.9, 1.8\n\n1, 8\n2, 13',
     notParsedYet: '尚未解析到有效数据',
     parsedSeries: (count) => '已解析 $count 组',
-    points: (count) => '$count 点',
     currentSeries: (name, count) => '当前 $name $count 点',
-    fitOf: (label) => '$label拟合',
     alreadyBestModel: '当前模型已是推荐模型',
     tryRecommended: (label) => '推荐尝试 $label',
     pointCount: '点数',
     seriesLabel: '数据组',
+    fit: DataFitCopy.zh,
     copyEquation: '复制方程',
     copyResidual: '复制异常点',
     prediction: '预测',
@@ -321,13 +351,12 @@ class DataFitStrings {
         'For example:\n1, 2.1, 1.2\n2, 3.9, 1.8\n\n1, 8\n2, 13',
     notParsedYet: 'No valid data parsed yet',
     parsedSeries: (count) => 'Parsed $count series',
-    points: (count) => '$count points',
     currentSeries: (name, count) => 'Current $name, $count points',
-    fitOf: (label) => '$label fit',
     alreadyBestModel: 'The current model is already the recommended one',
     tryRecommended: (label) => 'Try $label',
     pointCount: 'Points',
     seriesLabel: 'Series',
+    fit: DataFitCopy.en,
     copyEquation: 'Copy equation',
     copyResidual: 'Copy outliers',
     prediction: 'Prediction',

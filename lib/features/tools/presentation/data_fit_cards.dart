@@ -32,7 +32,9 @@ extension _DataFitCards on _DataFitToolScreenState {
             SegmentedButton<FitModel>(
               segments: [
                 for (final model in FitModel.values)
-                  ButtonSegment(value: model, label: Text(model.label)),
+                  ButtonSegment(
+                      value: model,
+                      label: Text(fitModelLabelIn(strings.fit, model))),
               ],
               selected: {_model},
               showSelectedIcon: false,
@@ -90,7 +92,7 @@ extension _DataFitCards on _DataFitToolScreenState {
         ? (_error ?? strings.notParsedYet)
         : [
             strings.parsedSeries(_series.length),
-            strings.points(_series.fold<int>(
+            strings.fit.points(_series.fold<int>(
                 0, (sum, item) => sum + item.points.length)),
             strings.currentSeries(
                 current.name, current.points.length),
@@ -149,14 +151,14 @@ extension _DataFitCards on _DataFitToolScreenState {
         ? null
         : best.model == result.model
             ? strings.alreadyBestModel
-            : strings.tryRecommended(best.model.label);
+            : strings.tryRecommended(fitModelLabelIn(strings.fit, best.model));
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: softPanel(context: context, highlight: true),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(strings.fitOf(result.model.label),
+          Text(strings.fit.fitOf(fitModelLabelIn(strings.fit, result.model)),
               style: TextStyle(
                   color: scheme.primary, fontWeight: FontWeight.w800)),
           if (bestLabel != null) ...[
@@ -436,7 +438,7 @@ extension _DataFitCards on _DataFitToolScreenState {
             Padding(
               padding: const EdgeInsets.only(bottom: 5),
               child: Text(
-                alert.label,
+                alert.labelIn(strings.fit),
                 style: TextStyle(color: scheme.onSurface, height: 1.3),
               ),
             ),

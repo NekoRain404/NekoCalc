@@ -1,9 +1,20 @@
 import 'dart:math' as math;
 
 import '../../core/utils/number_formatter.dart';
+import 'data_fit_copy.dart';
 import 'data_fit_models.dart';
 
-List<String> buildFitDiagnostics(FitResult result) {
+/// 中文：**每一句都走表**，`copy` 是必填的（没有中文兜底，理由写在 `data_fit_copy.dart` 文件头）。
+///       阈值与判据（`0.995` / `0.95` / `0.8`、`0.35` / `0.18`、`_hasResidualRuns` 的 5 与 3、
+///       `_isEdgeHeavyResidual` 的 1.6）一个字没动——本轮只搬字。
+/// English: **every sentence goes through the table**, and `copy` is required (no Chinese fallback;
+///          the reason is in `data_fit_copy.dart`'s head). The thresholds and criteria (`0.995` /
+///          `0.95` / `0.8`, `0.35` / `0.18`, `_hasResidualRuns`'s 5 and 3, `_isEdgeHeavyResidual`'s
+///          1.6) are untouched — this round moves words only.
+List<String> buildFitDiagnostics(
+  FitResult result, {
+  required DataFitCopy copy,
+}) {
   final lines = <String>[];
   final residuals = _fitResiduals(result);
   final maxResidual = residuals.map((value) => value.abs()).reduce(math.max);
@@ -17,40 +28,43 @@ List<String> buildFitDiagnostics(FitResult result) {
   final relativeRmse = meanAbsY.abs() < 1e-12 ? 0.0 : result.rmse / meanAbsY;
 
   if (result.rSquared >= 0.995) {
-    lines.add('拟合度很高，R² 接近 1。');
+    lines.add(copy.fitQualityVeryHigh);
   } else if (result.rSquared >= 0.95) {
-    lines.add('拟合度较好，建议仍检查残差分布。');
+    lines.add(copy.fitQualityGood);
   } else if (result.rSquared >= 0.8) {
-    lines.add('拟合度一般，可能需要换模型或分段拟合。');
+    lines.add(copy.fitQualityFair);
   } else {
-    lines.add('拟合度偏低，当前模型可能不适合这组数据。');
+    lines.add(copy.fitQualityLow);
   }
 
   if (relativeRmse > 0.35) {
-    lines.add('RMSE 相对波动较大，预测误差需要谨慎使用。');
+    lines.add(copy.rmseHigh);
   } else if (relativeRmse > 0.18) {
-    lines.add('RMSE 中等，适合粗略估算，不适合高精度外推。');
+    lines.add(copy.rmseMedium);
   } else {
-    lines.add('RMSE 相对较小，样本范围内预测更稳定。');
+    lines.add(copy.rmseLow);
   }
 
   if (maxResidualIndex >= 0) {
     final point = result.points[maxResidualIndex];
-    lines.add(
-      '最大残差出现在第 ${maxResidualIndex + 1} 行：x=${formatNumber(point.x, precision: 6)}, '
-      '残差=${formatNumber(residuals[maxResidualIndex], precision: 6)}。',
-    );
+    lines.add(copy.maxResidual(
+      maxResidualIndex + 1,
+      formatNumber(point.x, precision: 6),
+      formatNumber(residuals[maxResidualIndex], precision: 6),
+    ));
   }
 
   if (_hasResidualRuns(residuals)) {
-    lines.add('残差连续同号较多，可能存在系统性偏差。');
+    lines.add(copy.residualRun);
   }
   if (_isEdgeHeavyResidual(residuals)) {
-    lines.add('首尾残差偏大，外推时建议降低置信度。');
+    lines.add(copy.edgeHeavyResidual);
   }
   final alerts = buildFitResidualAlerts(result);
   if (alerts.isNotEmpty) {
-    lines.add('疑似异常点：${alerts.map((item) => item.label).join('；')}。');
+    lines.add(copy.outliers([
+      for (final item in alerts) item.labelIn(copy),
+    ]));
   }
   return lines;
 }

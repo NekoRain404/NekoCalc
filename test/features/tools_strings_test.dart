@@ -173,10 +173,10 @@ void main() {
         '支持 x,y；x,y1,y2 多列；空行分隔多组。\n例如：\n1, 2.1, 1.2\n2, 3.9, 1.8\n\n1, 8\n2, 13');
     expect(fitZh.notParsedYet, '尚未解析到有效数据');
     expect(fitZh.parsedSeries(2), '已解析 2 组');
-    expect(fitZh.points(7), '7 点');
+    expect(fitZh.fit.points(7), '7 点');
     expect(fitZh.currentSeries('y1', 7), '当前 y1 7 点');
     // —— 结果卡片 ——
-    expect(fitZh.fitOf('L'), 'L拟合');
+    expect(fitZh.fit.fitOf('L'), 'L拟合');
     expect(fitZh.alreadyBestModel, '当前模型已是推荐模型');
     expect(fitZh.tryRecommended('L'), '推荐尝试 L');
     expect(fitZh.pointCount, '点数');
@@ -362,12 +362,12 @@ void main() {
       'fit.dataListHint': [fitZh.dataListHint, fitEn.dataListHint],
       'fit.notParsedYet': [fitZh.notParsedYet, fitEn.notParsedYet],
       'fit.parsedSeries': [fitZh.parsedSeries(2), fitEn.parsedSeries(2)],
-      'fit.points': [fitZh.points(7), fitEn.points(7)],
+      'fit.points': [fitZh.fit.points(7), fitEn.fit.points(7)],
       'fit.currentSeries': [
         fitZh.currentSeries('y1', 7),
         fitEn.currentSeries('y1', 7)
       ],
-      'fit.fitOf': [fitZh.fitOf('L'), fitEn.fitOf('L')],
+      'fit.fitOf': [fitZh.fit.fitOf('L'), fitEn.fit.fitOf('L')],
       'fit.alreadyBestModel': [fitZh.alreadyBestModel, fitEn.alreadyBestModel],
       'fit.tryRecommended': [
         fitZh.tryRecommended('L'),
