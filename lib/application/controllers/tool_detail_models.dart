@@ -59,9 +59,26 @@ class NumericInputParseResult {
   /// English: `null` means this parse succeeded. **The verdict is here; the words are in the table.**
   final NumericInputIssue? issue;
 
-  /// 中文：[NumericInputIssue.unitMismatch] 的两个槽——**单位名，是数据不是文案**，不进表也不许翻。
-  /// English: the two slots of [NumericInputIssue.unitMismatch] — **unit names, data rather than
-  ///          copy**; they never enter a table and must never be translated.
+  /// 中文：[NumericInputIssue.unitMismatch] 的两个槽。**这一层只负责"原样留住读到的那个值"，
+  ///       一个字符都不翻**——**而"不翻"的射程到此为止，显示侧怎么渲染是显示侧的事**：
+  ///       `unitLabel` 是用户打的（显示侧也原样出），`targetUnit` 是目录声明的
+  ///       （显示侧过 `ToolFieldStrings.inputUnit`，见 `numeric_input_strings.dart` 的文件头）。
+  ///
+  ///       ⚠️ **本文件此前写着"两个都是数据，不进表也不许翻"。** 前半句对（解析层确实不许翻），
+  ///       **后半句越界了**——它把一条**本层的**规矩说成了全局的，于是显示侧那 88 行中文
+  ///       被这条判据挡了好几轮。**判据的射程要写在判据旁边**，否则下一个读者会以为它管到底。
+  /// English: the two slots of [NumericInputIssue.unitMismatch]. **This layer's whole job is to keep the
+  ///          value it read, verbatim — it translates nothing** — **and that "nothing" reaches no
+  ///          further than this layer: how the display side renders them is the display side's
+  ///          business.** `unitLabel` is what the user typed (the display side shows it as-is too) and
+  ///          `targetUnit` is the catalogue's (the display side passes it through
+  ///          `ToolFieldStrings.inputUnit`; see `numeric_input_strings.dart`'s head).
+  ///
+  ///          ⚠️ **This used to read "both are data; they enter no table and must never be translated".**
+  ///          The first half is right (this layer indeed must not translate) and **the second half
+  ///          overreached** — it stated a rule **of this layer** as if it were global, and that ruling
+  ///          held back those 88 Chinese lines on the display side for several rounds. **A ruling's
+  ///          reach belongs beside the ruling**, or the next reader thinks it governs all the way down.
   final String unitLabel;
   final String targetUnit;
 

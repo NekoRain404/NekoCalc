@@ -7,6 +7,7 @@ import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
 import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
+import 'package:nekocalc/features/tools/presentation/tool_field_strings.dart';
 
 /// 中文：中文那一侧的表，见 `tool_detail_unit_alias_parsing_test.dart` 里同一段的理由。
 /// English: the Chinese side's table; the reasoning is the paragraph with the same job in
@@ -149,6 +150,90 @@ void main() {
     expect(mismatch.unitLabel, 'V');
     expect(mismatch.targetUnit, 'A');
     expect(mismatch.issueMessage(zhNumericInput), '单位 V 与 A 不匹配');
+
+    // 中文：**本轮那一格。** 目标单位是**目录声明的**（`_inputUnit(key)`，取的就是工具定义里的
+    //       `input.unit`），所以它过目录那张表；用户打的 `unitLabel` 不过——两种语言下都原样出。
+    //       **上面那条断言量不出东西**：`V` 对 `A` 两边都是符号，看哪边都没差异；
+    //       `万元` 是那张表里的一条（`10k ¥`），用它才量得到。
+    // English: **this round's cell.** The target unit is **the catalogue's declaration**
+    //          (`_inputUnit(key)`, whose value is the tool definition's `input.unit`), so it goes
+    //          through the catalogue's table; the user's `unitLabel` does not — it shows verbatim in
+    //          both languages. **The assertion above measures nothing**: `V` against `A` is notation
+    //          in either tongue and looks the same on both sides; `万元` is one of that table's
+    //          entries (`10k ¥`) and is what makes a difference visible.
+    final catalogue = ToolDetailController.parseNumericInputForUnit('12 V', '万元');
+    expect(catalogue.issue, NumericInputIssue.unitMismatch);
+    expect(catalogue.targetUnit, '万元', reason: '解析层必须原样留住目录里那个单位，一个字符都不许动');
+    expect(catalogue.unitLabel, 'V');
+    expect(catalogue.issueMessage(zhNumericInput), '单位 V 与 万元 不匹配',
+        reason: '中文侧与改动前不是逐字节相同（中文表是空表，查不到原样返回，所以这条必须恒等）');
+    final enMessage = catalogue.issueMessage(NumericInputStrings.numericInputEn);
+    expect(enMessage, 'Unit V does not match 10k ¥');
+    expect(RegExp(r'[一-鿿]').hasMatch(enMessage), isFalse,
+        reason: '英文界面上那一格还有汉字：$enMessage');
+  });
+
+  test('用户打的单位两种语言下都原样出，只有目录那个过表', () {
+    // 中文：**两个槽的分界，正着反着各钉一次。** 用户用中文打了 `12伏`，解析器把单位从数值里切出来，
+    //       所以那一格是 `伏`（不是 `12伏`——**这条断言是我第一版写错的地方**：我以为整串都进那一格）。
+    //       英文界面上它仍是 `伏`——**那是他打的字，不是我们的话**。而 `targetUnit` 是目录的话，它换。
+    // English: **the boundary between the two slots, pinned from both sides.** The user typed `12伏` and
+    //          the parser cuts the unit out of the number, so that cell holds `伏` (not `12伏` — **this
+    //          is what my first version of the assertion got wrong**: I took the whole string to land
+    //          there). An English screen still shows `伏` — **those are their characters, not our
+    //          sentence.** `targetUnit` is the catalogue's sentence, and it changes.
+    final typed = ToolDetailController.parseNumericInputForUnit('12伏', '万元');
+    expect(typed.issue, NumericInputIssue.unitMismatch);
+    expect(typed.unitLabel, '伏');
+    final enMessage = typed.issueMessage(NumericInputStrings.numericInputEn);
+    expect(enMessage, contains('伏'), reason: '用户打的字被翻掉了');
+    expect(enMessage, contains('10k ¥'), reason: '目录那个单位没过表');
+    expect(enMessage, isNot(contains('万元')), reason: '目录那个单位还是中文');
+  });
+
+  test('中文单位表是恒等的，英文单位表把目录里那 11 个中文单位全盖住了', () {
+    // 中文：**「中文侧与改动前逐字节相同」不能只靠构造论证。** 显示侧现在把 `targetUnit` 过一遍
+    //       `ToolFieldStrings.inputUnit`；中文那一句之所以一字未变，全靠**中文单位表是空的**。
+    //       把这件事钉住：哪天有人往中文表里填一条，中文界面上那句话就变了，这一条当场红。
+    //
+    //       量的是**目录里真实出现过的单位**，不是表里有什么——左边这一列是"目录声明了哪些"，
+    //       右边那一列是"表能不能把它们送出去"。两边都不为空，否则这条测试在空转。
+    //       （`unit: '单位'` 那种匹配不算数：那是 `ToolMatchTokens.unit` 一个**检索令牌**，
+    //       不是任何参数的 `input.unit`。）
+    // English: **"the Chinese side is byte-identical to the pre-change one" cannot rest on an argument
+    //          from construction.** The display side now passes `targetUnit` through
+    //          `ToolFieldStrings.inputUnit`, and the Chinese sentence is unchanged solely because **the
+    //          Chinese unit table is empty**. Pin that: the day someone puts an entry in it, the Chinese
+    //          sentence moves and this test goes red on the spot.
+    //
+    //          What is measured is **the units the catalogue actually declares**, not what the table
+    //          happens to hold — the left column asks "what did the catalogue declare", the right asks
+    //          "can the table send them out". Neither may be empty, or this test spins in place. (A
+    //          match like `unit: '单位'` does not count: that is `ToolMatchTokens.unit`, a **search
+    //          token**, not any parameter's `input.unit`.)
+    final declared = <String>{
+      for (final tool in toolCatalog)
+        for (final input in tool.inputs)
+          if (input.unit.isNotEmpty) input.unit,
+    };
+    expect(declared, isNotEmpty, reason: '一个单位都没取到，这条测试在空转');
+
+    const enTable = ToolFieldStrings.toolFieldsEn;
+    final chineseUnits =
+        declared.where((unit) => RegExp(r'[一-鿿]').hasMatch(unit)).toSet();
+    expect(chineseUnits.length, 11,
+        reason: '目录里含汉字的不同单位数变了（现在是 ${chineseUnits.length}）：$chineseUnits');
+
+    for (final unit in declared) {
+      expect(ToolFieldStrings.toolFieldsZh.inputUnit(unit), unit,
+          reason: '中文单位表不是恒等的：`$unit` 被查成了别的东西，中文界面那句话就变了');
+    }
+    for (final unit in chineseUnits) {
+      expect(enTable.inputUnit(unit), isNot(unit),
+          reason: '目录里的中文单位 `$unit` 过了英文表还是原样，英文界面上它仍是汉字');
+      expect(RegExp(r'[一-鿿]').hasMatch(enTable.inputUnit(unit)), isFalse,
+          reason: '`$unit` 过了英文表还有汉字：${enTable.inputUnit(unit)}');
+    }
   });
 
   test('parses common Chinese unit aliases for numeric fields', () {

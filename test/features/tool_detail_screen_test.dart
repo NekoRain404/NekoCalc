@@ -451,9 +451,9 @@ c = 3
     //       **中文侧量的是"没动"**：中文表是空表、查不到原样返回，所以屏幕侧这一句与默认读法
     //       （也就是改动前的那一句）逐字节相同，而屏幕上渲染的正是它。
     //       **英文侧量的是"改了"**：那一句不再是中文，且左边那两格一个汉字都没有。
-    //       **第三格（判据写下的那句话）不在这条里**：`unitMismatch` 的两个单位名是数据不是文案
-    //       （`tool_detail_models.dart` 里的既定判据），所以 `Unit L does not match 万元` 里那个
-    //       `万元` 是本轮认下的残留，它不在标签这一格上。
+    //       **第三格（判据写下的那句话）不在这条里**——本条只量左边两格。那一格后来单独钉了一条：
+    //       目录给参数声明的那个单位现在也过表了（`numeric_input_strings.dart` 的文件头），
+    //       **`Unit L does not match 万元` 已经不成立**，见下面「单位不匹配那一整行」那条。
     // English: **this pins this round's cell.** The sentence the status card shows when an input is
     //          invalid is `label (unit): the sentence the verdict wrote`, and its first two cells should
     //          go through `ToolFieldStrings` — but "the screen really hands those two readers to the
@@ -467,10 +467,11 @@ c = 3
     //          the pre-change sentence — and that is what renders.
     //          **The English side measures "moved"**: the sentence is no longer Chinese, and neither of
     //          its first two cells holds a Han character.
-    //          **The third cell (the sentence the verdict wrote) is not in this test**: `unitMismatch`'s
-    //          two unit names are data rather than copy (a ruling already in `tool_detail_models.dart`),
-    //          so the `万元` in `Unit L does not match 万元` is a remainder this round accepts, and it is
-    //          not in the label cell.
+    //          **The third cell (the sentence the verdict wrote) is not in this test** — this one
+    //          measures only the two left cells. That cell got its own test later: the unit the
+    //          catalogue declares for the parameter now goes through a table too
+    //          (`numeric_input_strings.dart`'s head), so **`Unit L does not match 万元` no longer holds**;
+    //          see "单位不匹配那一整行" below.
     final zhController = _controllerFor('ohms_law', ToolDetailStrings.toolDetailZh)
       ..updateValues({'resistance': 'bad value'});
     final zhRaw = zhController.inputErrorSummary();
@@ -504,6 +505,37 @@ c = 3
       expect(_han.hasMatch(label), isFalse, reason: '英文那一行左边那句还有汉字：$line');
     }
   });
+
+  testWidgets('英文状态卡上「单位不匹配」那一整行也一个汉字都没有了', (tester) async {
+    // 中文：**这一条钉的是本轮关掉的那个残留。** 上一条量的是「左边两格」（标签与单位），
+    //       而冒号右边那句里还留着目录给参数声明的那个单位——**`loan` 的 `amount` 单位是 `万元`**，
+    //       所以英文界面上那一行原本是 `Unit V does not match 万元`。
+    //
+    //       **上一条量不到它**：它打进 `ohms_law` 的是一句读不出来的话，落的是 `unparsable` 那一支，
+    //       根本走不到不匹配。所以要另起一条、换一个**单位是中文**的工具、打进一个**单位对不上**的值。
+    //       `5V` 对 `万元`：`V` 是认得的单位，换不过去，于是判据写下 `unitMismatch`。
+    // English: **this pins the remainder this round closed.** The test above measures the two left cells
+    //          (label and unit), while the sentence right of the colon still held the unit the catalogue
+    //          declares for the parameter — **`loan`'s `amount` is denominated in `万元`**, so an English
+    //          screen used to read `Unit V does not match 万元`.
+    //
+    //          **The test above cannot see it**: what it types into `ohms_law` is an unreadable phrase,
+    //          which lands in the `unparsable` branch and never reaches a mismatch. So this needs its own
+    //          case, a tool whose **unit is Chinese**, and a value whose **unit does not fit**. `5V`
+    //          against `万元`: `V` is a known unit, it will not convert, and the verdict writes
+    //          `unitMismatch`.
+    final texts = await _pumpInvalidInput(tester, AppLanguage.en, 'loan', 'amount',
+        value: '5V');
+    final mismatchLines =
+        texts.where((line) => line.contains('does not match')).toList();
+    expect(mismatchLines, isNotEmpty,
+        reason: '英文状态卡上没有渲染出那条不匹配的消息；屏幕上只有：$texts');
+    for (final line in mismatchLines) {
+      expect(_han.hasMatch(line), isFalse, reason: '英文那一行还有汉字：$line');
+    }
+    expect(mismatchLines.join(' '), contains('10k ¥'),
+        reason: '目录给参数声明的那个单位没有过表');
+  });
 }
 
 String _fieldText(WidgetTester tester, int index) {
@@ -535,7 +567,8 @@ final RegExp _han = RegExp(r'[㐀-䶿一-鿿豈-﫿]');
 ///          `ToolDetailStrings` (the sentence the verdict wrote) and `ToolFieldStrings` (the label and the
 ///          unit), both tabled, so the returned list shows the effect of each.
 Future<List<String>> _pumpInvalidInput(WidgetTester tester, AppLanguage language,
-    String toolId, String inputKey) async {
+    String toolId, String inputKey,
+    {String value = 'bad value'}) async {
   final tool = toolCatalog.firstWhere((item) => item.id == toolId);
   final settingsCompleter = Completer<Map<String, String>>()..complete({});
   // 中文：**先换一棵空树再渲染这一屏。** 同一个元素位置上第二次 `pumpWidget` 不会重跑 `initState`，
@@ -563,7 +596,7 @@ Future<List<String>> _pumpInvalidInput(WidgetTester tester, AppLanguage language
     ),
   ));
   await tester.pumpAndSettle();
-  await tester.enterText(_toolInput(toolId, inputKey), 'bad value');
+  await tester.enterText(_toolInput(toolId, inputKey), value);
   // 中文：输入框到控制器之间有 60ms 防抖（`_scheduleInputUpdate`），等过它这一格才会真的报错。
   // English: there is a 60ms debounce between the field and the controller
   //          (`_scheduleInputUpdate`), and the error only appears once it has fired.

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../l10n/app_language.dart';
+import 'tool_field_strings.dart';
 
 /// 中文：**一次数值输入解析失败时写给用户的那几句话。** 它们在 `tool_detail_input_parsing.dart`
 ///       里产出，而那个文件是**静态方法**的地盘——`ToolDetailController.parseNumericInputForUnit`
@@ -22,8 +23,22 @@ import '../../../l10n/app_language.dart';
 ///       各归各位，这与 `TextToolOutput.hasError` 从"比字符串"改成真字段是同一件事。
 ///
 ///       **表里没有 `'单位 ${a} 与 ${b} 不匹配'` 那样的半句话。** 那一条是一个函数，两个槽由调用方
-///       填——单位名是**数据**（`unitLabel` 来自工具定义，`targetUnit` 来自参数），它们不进表，
-///       也不许翻。
+///       填——**而这两个槽不是同一种东西，本轮把这一点分开了**：
+///
+///       * **`unitLabel`：用户打进来的那串。** 它是**数据**，不进表也不翻——中文模式打了 `5万元`，
+///         英文界面上那一格仍是 `5万元`，因为那是他打的字。
+///       * **`targetUnit`：目录给这个参数声明的单位**（`tool_detail_controller.dart:425` 的
+///         `_inputUnit(key)`，取的就是工具定义里的 `input.unit`）。**它是文案，本来就有表**——
+///         `ToolFieldStrings.inputUnit` 那 11 条（`元`/`万元`/`天`/`齿`/…）。
+///         **本轮起这一格过那张表**：英文界面上 `Unit L does not match 万元` 变成
+///         `Unit L does not match 10k ¥`。
+///
+///       ⚠️ **本文件此前写着「两个槽都是数据，不进表也不许翻」，而且括号里把来源写反了**
+///       （原文：`unitLabel` 来自工具定义、`targetUnit` 来自参数）。**实测正好相反**：
+///       `unitLabel` 是 `ToolUnitConversion.splitAnyKnownUnitSuffix` 从**用户输入**里切出来的
+///       （`displayUnitAlias(alias)`），`targetUnit` 才是目录那一个。
+///       反的那一半正是"所以两个都不许翻"的依据——**依据站不住，结论就只对了一半**。
+///       留这段是因为：**一个理由被推翻时该说一声**，免得下一页的读者以为这里从来没有分错过。
 /// English: **the sentences a failed numeric parse writes for the user.** They are produced in
 ///          `tool_detail_input_parsing.dart`, and that file belongs to **static methods** —
 ///          `ToolDetailController.parseNumericInputForUnit` and `parseNumericInputDetailed` have no
@@ -50,9 +65,27 @@ import '../../../l10n/app_language.dart';
 ///          when it stopped being a string comparison.
 ///
 ///          **There is no half-sentence such as `'单位 ${a} 与 ${b} 不匹配'` in this table.** That one
-///          is a function whose two slots the caller fills — the unit names are **data** (`unitLabel`
-///          comes from the tool definition, `targetUnit` from the parameter list); they never enter a
-///          table and must never be translated.
+///          is a function whose two slots the caller fills — **and the two slots are not the same kind
+///          of thing, which this round separates**:
+///
+///          * **`unitLabel`: the string the user typed.** It is **data**; it enters no table and is never
+///            translated. If someone typed `5万元` in Chinese, an English screen still shows `5万元` —
+///            those are their characters.
+///          * **`targetUnit`: the unit the catalogue declares for that parameter** (`_inputUnit(key)` at
+///            `tool_detail_controller.dart:425`, whose value is the tool definition's `input.unit`).
+///            **It is copy and it already had a table** — `ToolFieldStrings.inputUnit`, those eleven
+///            entries (`元`/`万元`/`天`/`齿`/…). **From this round that cell goes through it**: on an
+///            English screen `Unit L does not match 万元` becomes `Unit L does not match 10k ¥`.
+///
+///          ⚠️ **This file used to read "both slots are data; they enter no table and are never
+///          translated", and its parenthetical had the sources backwards** (it read "`unitLabel` comes
+///          from the tool definition, `targetUnit` from the parameter list"). **Measured, it is the
+///          other way round**: `unitLabel` is cut out of **the user's input** by
+///          `ToolUnitConversion.splitAnyKnownUnitSuffix` (`displayUnitAlias(alias)`), and `targetUnit`
+///          is the catalogue's. The reversed half was exactly the ground for "so neither may be
+///          translated" — **a ground that does not hold leaves a conclusion only half right.** The note
+///          is kept because **a reason that is overturned should say so**, so the next reader does not
+///          think these sources were never mixed up.
 @immutable
 class NumericInputStrings {
   const NumericInputStrings({
@@ -73,8 +106,11 @@ class NumericInputStrings {
   final String inputNotFinite;
   final String inputUnparsable;
 
-  /// 中文：单位不相容。两个槽是**单位名，不是文案**。
-  /// English: Incommensurable units. The two slots are **unit names, not copy**.
+  /// 中文：单位不相容。**两个槽的来路不同**：`unitLabel` 是用户打的（原样显示），`targetUnit` 是
+  ///       目录声明的（过 `ToolFieldStrings.inputUnit`，在下面两个实例里已经包好了）。详见文件头。
+  /// English: Incommensurable units. **The two slots come from different places**: `unitLabel` is what
+  ///          the user typed (shown as-is) and `targetUnit` is the catalogue's (passed through
+  ///          `ToolFieldStrings.inputUnit`, already wrapped in the two instances below). See the head.
   final String Function(String unitLabel, String targetUnit) inputUnitMismatch;
 
   static NumericInputStrings of(BuildContext context) {
@@ -97,7 +133,11 @@ class NumericInputStrings {
     inputNotFinite: '结果不是有限数值',
     inputUnparsable: '无法解析数值或表达式',
     inputUnitMismatch: (unitLabel, targetUnit) =>
-        '单位 $unitLabel 与 $targetUnit 不匹配',
+        // 中文：`targetUnit` 过目录那张表；中文表是空表，查不到原样返回，所以这一句与改动前**逐字节相同**。
+        // English: `targetUnit` goes through the catalogue's table; the Chinese table is empty and a miss
+        //          returns its argument, so this sentence stays **byte-identical** to the pre-change one.
+        '单位 $unitLabel 与 '
+        '${ToolFieldStrings.toolFieldsZh.inputUnit(targetUnit)} 不匹配',
   );
 
   static final NumericInputStrings numericInputEn = NumericInputStrings(
@@ -105,6 +145,7 @@ class NumericInputStrings {
     inputNotFinite: 'The result is not a finite number',
     inputUnparsable: 'Cannot parse a number or expression',
     inputUnitMismatch: (unitLabel, targetUnit) =>
-        'Unit $unitLabel does not match $targetUnit',
+        'Unit $unitLabel does not match '
+        '${ToolFieldStrings.toolFieldsEn.inputUnit(targetUnit)}',
   );
 }
