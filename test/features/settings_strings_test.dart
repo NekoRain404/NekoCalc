@@ -62,7 +62,8 @@ void main() {
     expect(zh.percentageRelativeLabel, '相对');
     expect(en.percentageDirectLabel, 'Direct');
     expect(en.percentageRelativeLabel, 'Relative');
-    expect(en.percentageModeLabel(SettingsTokens.percentageRelative), 'Relative');
+    expect(
+        en.percentageModeLabel(SettingsTokens.percentageRelative), 'Relative');
     expect(zh.percentageModeLabel('库里没见过的值'), '直接',
         reason: '认不出就回落到默认那一侧，而不是把令牌原样显示出去');
 
@@ -300,8 +301,8 @@ void main() {
       // 中文：文案表自己就是汉字住的地方，跳过它。
       // English: The table is where the Chinese is *supposed* to live; skip it.
       if (entity.uri.pathSegments.last == 'settings_strings.dart') continue;
-      final source = _stripComments(entity.readAsStringSync());
-      for (final literal in _stringLiterals(source)) {
+      final source = stripComments(entity.readAsStringSync());
+      for (final literal in stringLiterals(source)) {
         if (containsWideOrFullwidth(literal)) {
           offenders.add('${entity.path}: $literal');
         }
@@ -324,91 +325,4 @@ bool _containsCjk(String text) {
     }
   }
   return false;
-}
-
-/// 中文：去掉 `//` 与 `/* */` 注释，**但保留字符串字面量原样**——注释里会出现引号
-///       （本项目的中文注释就常写 `'跟随系统'`），先按引号整体跳过，注释才不会被截错。
-/// English: Strips `//` and `/* */` comments while **copying string literals verbatim**: this
-///          project's Chinese comments quote literals such as `'跟随系统'`, so quotes are skipped as
-///          whole units first; otherwise the comment stripper would cut in the wrong place.
-String _stripComments(String source) {
-  final out = StringBuffer();
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch == "'" || ch == '"') {
-      final quote = ch;
-      // 中文：三引号原样成块跳过。
-      // English: Triple quotes are skipped as a block.
-      final triple = source.startsWith(quote * 3, i);
-      final delimiter = triple ? quote * 3 : quote;
-      out.write(delimiter);
-      i += delimiter.length;
-      while (i < source.length) {
-        if (source[i] == r'\') {
-          out.write(source.substring(i, i + 2));
-          i += 2;
-          continue;
-        }
-        if (source.startsWith(delimiter, i)) {
-          out.write(delimiter);
-          i += delimiter.length;
-          break;
-        }
-        out.write(source[i]);
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '/') {
-      while (i < source.length && source[i] != '\n') {
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '*') {
-      i += 2;
-      while (i + 1 < source.length &&
-          !(source[i] == '*' && source[i + 1] == '/')) {
-        i++;
-      }
-      i += 2;
-      continue;
-    }
-    out.write(ch);
-    i++;
-  }
-  return out.toString();
-}
-
-/// 中文：取出源码里所有单/双引号字符串字面量的内容。
-/// English: Extracts the contents of every single- and double-quoted string literal in the source.
-Iterable<String> _stringLiterals(String source) sync* {
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch != "'" && ch != '"') {
-      i++;
-      continue;
-    }
-    final quote = ch;
-    final triple = source.startsWith(quote * 3, i);
-    final delimiter = triple ? quote * 3 : quote;
-    i += delimiter.length;
-    final buffer = StringBuffer();
-    while (i < source.length) {
-      if (source[i] == r'\') {
-        buffer.write(source.substring(i, i + 2));
-        i += 2;
-        continue;
-      }
-      if (source.startsWith(delimiter, i)) {
-        i += delimiter.length;
-        break;
-      }
-      buffer.write(source[i]);
-      i++;
-    }
-    yield buffer.toString();
-  }
 }

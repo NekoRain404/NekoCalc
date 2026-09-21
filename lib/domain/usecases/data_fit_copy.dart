@@ -39,7 +39,8 @@
 ///       `'公式'` / `'结果'` / `'计算结果'` 判的是它的分节，`_isIndexHeader` 的 `'序号'` / `'行号'`
 ///       与 `_isUnitDescriptorLine` 的 `'单位'` / `'量纲'` 判的是**用户粘进来的表格表头**。
 ///       把它们翻了，粘贴中文报告与中文表格就再也读不懂了——与
-///       `graph_workspace_strings.dart` 文件头对 `'图形数据'` / `'函数'` 那一批写的是同一条理由。
+///       `lib/features/graph/models/graph_strings.dart` 文件头对 `'图形数据'` / `'函数'` 那一批
+///       写的是同一条理由。
 ///       模型名的**识别**也走同一类的路：三种拼法（本表的 `zh`、`en`、枚举名）都认，
 ///       所以中文界面下复制出来的报告在英文界面下照样解析得出模型。
 /// English: **the fit domain layer's copy table.** A fit's conclusions (model names, diagnostic
@@ -92,7 +93,8 @@
 ///          sections, and `_isIndexHeader`'s `'序号'` / `'行号'` plus `_isUnitDescriptorLine`'s
 ///          `'单位'` / `'量纲'` against the **header of a table the user pasted**. Translating them
 ///          means pasting a Chinese report or a Chinese table stops being understood — the same
-///          reason `graph_workspace_strings.dart`'s head gives for `'图形数据'` / `'函数'`. Model-name
+///          reason `lib/features/graph/models/graph_strings.dart`'s head gives for `'图形数据'` /
+///          `'函数'`. Model-name
 ///          **recognition** travels the same road: all three spellings (this table's `zh`, its `en`,
 ///          and the enum name) are accepted, so a report copied under the Chinese interface still
 ///          resolves its model under the English one.
@@ -263,17 +265,21 @@ class DataFitCopy {
     residualRow: (rowNumber, x, y, predicted, residual) =>
         'Row $rowNumber x=$x, y=$y, ŷ=$predicted, residual=$residual',
     fitQualityVeryHigh: 'The fit is very good; R² is close to 1.',
-    fitQualityGood: 'The fit is good, but the residual spread is still worth a look.',
-    fitQualityFair: 'The fit is fair; another model or a piecewise fit may work better.',
+    fitQualityGood:
+        'The fit is good, but the residual spread is still worth a look.',
+    fitQualityFair:
+        'The fit is fair; another model or a piecewise fit may work better.',
     fitQualityLow: 'The fit is poor; this model may not suit this data.',
-    rmseHigh: 'The RMSE is large relative to the data, so use predictions with care.',
+    rmseHigh:
+        'The RMSE is large relative to the data, so use predictions with care.',
     rmseMedium:
         'The RMSE is moderate: fine for rough estimates, not for high-precision extrapolation.',
     rmseLow:
         'The RMSE is small, so predictions inside the sample range are steadier.',
     maxResidual: (rowNumber, x, residual) =>
         'The largest residual is in row $rowNumber: x=$x, residual=$residual.',
-    residualRun: 'Many residuals in a row share a sign, which may mean systematic bias.',
+    residualRun:
+        'Many residuals in a row share a sign, which may mean systematic bias.',
     edgeHeavyResidual:
         'The first and last residuals are large; lower the confidence when extrapolating.',
     outliers: (labels) => 'Suspected outliers: ${labels.join('; ')}.',
@@ -288,7 +294,8 @@ class DataFitCopy {
     modelNeedsPoints: (label, minPoints) =>
         '$label fit needs at least $minPoints points',
     xHasNoVariation: 'The x values do not vary, so a linear fit is impossible',
-    exponentialNeedsPositiveY: 'An exponential fit needs every y to be positive',
+    exponentialNeedsPositiveY:
+        'An exponential fit needs every y to be positive',
     powerNeedsPositiveXY: 'A power fit needs every x and y to be positive',
     logarithmicNeedsPositiveX: 'A logarithmic fit needs every x to be positive',
     reciprocalNeedsNonZeroX: 'A reciprocal fit cannot take x = 0',

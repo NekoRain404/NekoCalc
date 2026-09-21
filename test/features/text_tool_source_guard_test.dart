@@ -7,8 +7,10 @@ import '../shared/source_scan.dart';
 /// 中文：**`text_tool_*` 那一族的源码护栏，加上它那份豁免的自我校验。** 两条测试问的是同一件事
 ///       的两面：「这一族里还有没有没走 `TextToolStrings` 那七张表的界面文案」以及「上面放行的
 ///       每一个字符，是不是真的出现在实体表的字面量里」。它们与 `text_tool_strings_test.dart` 里
-///       那些「表里的字对不对」的断言不是一回事，所以本轮连同尺子（`_stripComments` /
-///       `_stringLiterals`）、豁免表与 `_htmlEntityValues` 一起搬到了这个文件。
+///       那些「表里的字对不对」的断言不是一回事，所以本轮连同尺子、豁免表与 `_htmlEntityValues`
+///       一起搬到了这个文件。**尺子后来并回了共享文件**：这里的 `_stripComments` /
+///       `_stringLiterals` 两份私有副本已删掉，改用 `test/shared/source_scan.dart` 的
+///       `stripComments` / `stringLiterals`（两份逻辑逐行相同，纯删除、零行为变化）。
 ///
 ///       **覆盖范围一个字没变。** 扫描的目录仍旧是 `lib/application/controllers`，但**只看
 ///       `text_tool_` 开头的文件**（族外的一个不看）——这一点本来就是那条测试自己的规矩，搬过来
@@ -20,8 +22,12 @@ import '../shared/source_scan.dart';
 ///          that never went through the seven `TextToolStrings` tables" and "is every character
 ///          allowed through above really present as a literal in the entity table". They are not the
 ///          same thing as the "are the table's words right" assertions in
-///          `text_tool_strings_test.dart`, so this round moved them here with the ruler
-///          (`_stripComments` / `_stringLiterals`), the exemption table and `_htmlEntityValues`.
+///          `text_tool_strings_test.dart`, so this round moved them here with the exemption table
+///          and `_htmlEntityValues`. **The ruler was later merged back into the shared file**: the
+///          two private copies (`_stripComments` / `_stringLiterals`) are gone and this file now
+///          uses `stripComments` / `stringLiterals` from `test/shared/source_scan.dart` (the two
+///          bodies are line-for-line identical, so the merge is a pure deletion with zero behaviour
+///          change).
 ///
 ///          **The coverage did not change by one character.** The directory scanned is still
 ///          `lib/application/controllers`, but **only files starting with `text_tool_` are looked at**
@@ -141,8 +147,8 @@ void main() {
       //          looked at.
       if (!name.startsWith('text_tool_')) continue;
       seen.add(name);
-      final source = _stripComments(entity.readAsStringSync());
-      for (final literal in _stringLiterals(source)) {
+      final source = stripComments(entity.readAsStringSync());
+      for (final literal in stringLiterals(source)) {
         if (!containsWideOrFullwidth(literal)) continue;
         if (exemptions.containsKey(literal)) continue;
         if (_htmlEntityValues.contains(literal)) continue;
@@ -170,7 +176,7 @@ void main() {
         File('lib/application/controllers/text_tool_html_entities.dart');
     expect(file.existsSync(), isTrue, reason: '测试的工作目录应当是包的根目录');
     final literals =
-        _stringLiterals(_stripComments(file.readAsStringSync())).toSet();
+        stringLiterals(stripComments(file.readAsStringSync())).toSet();
     for (final value in _htmlEntityValues) {
       expect(value.runes.length, 1, reason: '「$value」不是一个字符');
       expect(literals.contains(value), isTrue,
@@ -212,90 +218,3 @@ const Set<String> _htmlEntityValues = <String>{
   '′', // &prime;
   '″', // &Prime;
 };
-
-/// 中文：去掉 `//` 与 `/* */` 注释，**但保留字符串字面量原样**——注释里会出现引号
-///       （本项目的中文注释就常写 `'关闭'`），先按引号整体跳过，注释才不会被截错。
-/// English: Strips `//` and `/* */` comments while **copying string literals verbatim**: this
-///          project's Chinese comments quote literals such as `'关闭'`, so quotes are skipped as whole
-///          units first; otherwise the comment stripper would cut in the wrong place.
-String _stripComments(String source) {
-  final out = StringBuffer();
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch == "'" || ch == '"') {
-      final quote = ch;
-      // 中文：三引号原样成块跳过。
-      // English: Triple quotes are skipped as a block.
-      final triple = source.startsWith(quote * 3, i);
-      final delimiter = triple ? quote * 3 : quote;
-      out.write(delimiter);
-      i += delimiter.length;
-      while (i < source.length) {
-        if (source[i] == r'\') {
-          out.write(source.substring(i, i + 2));
-          i += 2;
-          continue;
-        }
-        if (source.startsWith(delimiter, i)) {
-          out.write(delimiter);
-          i += delimiter.length;
-          break;
-        }
-        out.write(source[i]);
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '/') {
-      while (i < source.length && source[i] != '\n') {
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '*') {
-      i += 2;
-      while (i + 1 < source.length &&
-          !(source[i] == '*' && source[i + 1] == '/')) {
-        i++;
-      }
-      i += 2;
-      continue;
-    }
-    out.write(ch);
-    i++;
-  }
-  return out.toString();
-}
-
-/// 中文：取出源码里所有单/双引号字符串字面量的内容。
-/// English: Extracts the contents of every single- and double-quoted string literal in the source.
-Iterable<String> _stringLiterals(String source) sync* {
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch != "'" && ch != '"') {
-      i++;
-      continue;
-    }
-    final quote = ch;
-    final triple = source.startsWith(quote * 3, i);
-    final delimiter = triple ? quote * 3 : quote;
-    i += delimiter.length;
-    final buffer = StringBuffer();
-    while (i < source.length) {
-      if (source[i] == r'\') {
-        buffer.write(source.substring(i, i + 2));
-        i += 2;
-        continue;
-      }
-      if (source.startsWith(delimiter, i)) {
-        i += delimiter.length;
-        break;
-      }
-      buffer.write(source[i]);
-      i++;
-    }
-    yield buffer.toString();
-  }
-}

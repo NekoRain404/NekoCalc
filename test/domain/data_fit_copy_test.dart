@@ -19,7 +19,8 @@ import '../shared/source_scan.dart';
 ///
 ///       **豁免的每一条都是"输入文法"**，逐条带理由写在下面。它们的共同形状是：
 ///       拿**用户粘进来的文本 / 表头 / 报告标题**去比，翻了它就再也读不懂中文输入——
-///       与 `graph_workspace_strings.dart` 文件头对 `'图形数据'` / `'函数'` 写的是同一条理由。
+///       与 `lib/features/graph/models/graph_strings.dart` 文件头对 `'图形数据'` / `'函数'` 写的是
+///       同一条理由。
 ///       **别把界面文案加进这个表**：入选条件是上面这些理由，不是方便。
 /// English: **the fit domain layer's source guard, plus four criteria on the table itself.**
 ///
@@ -38,7 +39,8 @@ import '../shared/source_scan.dart';
 ///          **Every exemption is input grammar**, each with its reason below. Their common shape is:
 ///          they compare against **the text a user pasted** — a table header, a report heading — and
 ///          translating one means Chinese input stops being understood. The same reason
-///          `graph_workspace_strings.dart`'s head gives for `'图形数据'` / `'函数'`. **Do not add
+///          `lib/features/graph/models/graph_strings.dart`'s head gives for `'图形数据'` / `'函数'`.
+///          **Do not add
 ///          interface copy to this set**: the reasons above qualify an entry, not convenience.
 void main() {
   test('拟合领域层源码里除了文案表再没有中文字符串字面量', () {
@@ -95,8 +97,7 @@ void main() {
     // 中文：**乘号点那条规则也不是空的**——它得真的挡住几条，否则应该连同规则一起删掉。
     // English: **the multiplication-dot rule is not empty either** — it has to be catching something,
     //          or the rule should go with it.
-    expect(notationOnly, isNotEmpty,
-        reason: '乘号点规则一条都没挡住：要么规则多余，要么记号已经换了写法');
+    expect(notationOnly, isNotEmpty, reason: '乘号点规则一条都没挡住：要么规则多余，要么记号已经换了写法');
   });
 
   test('拟合文案表：中文那一侧与搬家前源码里的字逐字节相同', () {
@@ -146,7 +147,10 @@ void main() {
 
   test('拟合文案表：两侧都不空、英文侧没有汉字、中文侧没有一格照抄', () {
     final pairs = <String, List<String>>{
-      'linear': [fitModelLabelIn(zh, FitModel.linear), fitModelLabelIn(en, FitModel.linear)],
+      'linear': [
+        fitModelLabelIn(zh, FitModel.linear),
+        fitModelLabelIn(en, FitModel.linear)
+      ],
       'quadratic': [
         fitModelLabelIn(zh, FitModel.quadratic),
         fitModelLabelIn(en, FitModel.quadratic)
@@ -155,7 +159,10 @@ void main() {
         fitModelLabelIn(zh, FitModel.exponential),
         fitModelLabelIn(en, FitModel.exponential)
       ],
-      'power': [fitModelLabelIn(zh, FitModel.power), fitModelLabelIn(en, FitModel.power)],
+      'power': [
+        fitModelLabelIn(zh, FitModel.power),
+        fitModelLabelIn(en, FitModel.power)
+      ],
       'logarithmic': [
         fitModelLabelIn(zh, FitModel.logarithmic),
         fitModelLabelIn(en, FitModel.logarithmic)
@@ -179,13 +186,19 @@ void main() {
       'maxResidual': [zh.maxResidual(1, 'x', 'r'), en.maxResidual(1, 'x', 'r')],
       'residualRun': [zh.residualRun, en.residualRun],
       'edgeHeavyResidual': [zh.edgeHeavyResidual, en.edgeHeavyResidual],
-      'outliers': [zh.outliers(['a']), en.outliers(['a'])],
+      'outliers': [
+        zh.outliers(['a']),
+        en.outliers(['a'])
+      ],
       'noRecognisedData': [zh.noRecognisedData, en.noRecognisedData],
       'fromReport': [zh.fromReport, en.fromReport],
       'fromDirectData': [zh.fromDirectData, en.fromDirectData],
       'seriesCount': [zh.seriesCount(2), en.seriesCount(2)],
       'points': [zh.points(3), en.points(3)],
-      'predictionSummary': [zh.predictionSummary('7'), en.predictionSummary('7')],
+      'predictionSummary': [
+        zh.predictionSummary('7'),
+        en.predictionSummary('7')
+      ],
       'modelSummary': [zh.modelSummary('L'), en.modelSummary('L')],
       'dataSeriesName': [zh.dataSeriesName(1), en.dataSeriesName(1)],
       'modelNeedsPoints': [
@@ -197,7 +210,10 @@ void main() {
         zh.exponentialNeedsPositiveY,
         en.exponentialNeedsPositiveY
       ],
-      'powerNeedsPositiveXY': [zh.powerNeedsPositiveXY, en.powerNeedsPositiveXY],
+      'powerNeedsPositiveXY': [
+        zh.powerNeedsPositiveXY,
+        en.powerNeedsPositiveXY
+      ],
       'logarithmicNeedsPositiveX': [
         zh.logarithmicNeedsPositiveX,
         en.logarithmicNeedsPositiveX
@@ -236,18 +252,22 @@ void main() {
       }
     }
 
-    walk('模型名', fitModelLabelIn(zh, FitModel.linear), fitModelLabelIn(en, FitModel.linear));
+    walk('模型名', fitModelLabelIn(zh, FitModel.linear),
+        fitModelLabelIn(en, FitModel.linear));
     walk('模型名', fitModelLabelIn(zh, FitModel.quadratic),
         fitModelLabelIn(en, FitModel.quadratic));
     walk('模型名', fitModelLabelIn(zh, FitModel.exponential),
         fitModelLabelIn(en, FitModel.exponential));
-    walk('模型名', fitModelLabelIn(zh, FitModel.power), fitModelLabelIn(en, FitModel.power));
+    walk('模型名', fitModelLabelIn(zh, FitModel.power),
+        fitModelLabelIn(en, FitModel.power));
     walk('模型名', fitModelLabelIn(zh, FitModel.logarithmic),
         fitModelLabelIn(en, FitModel.logarithmic));
     walk('模型名', fitModelLabelIn(zh, FitModel.reciprocal),
         fitModelLabelIn(en, FitModel.reciprocal));
     walk('结论标题', zh.fitOf('Quadratic'), en.fitOf('Quadratic'));
-    walk('残差行', zh.residualRow(4, '4.000000', '50.000000', '4.000000', '46.000000'),
+    walk(
+        '残差行',
+        zh.residualRow(4, '4.000000', '50.000000', '4.000000', '46.000000'),
         en.residualRow(4, '4.000000', '50.000000', '4.000000', '46.000000'));
     walk('拟合度很高', zh.fitQualityVeryHigh, en.fitQualityVeryHigh);
     walk('拟合度较好', zh.fitQualityGood, en.fitQualityGood);
@@ -267,7 +287,8 @@ void main() {
     walk('预测摘要', zh.predictionSummary('7'), en.predictionSummary('7'));
     walk('结论模型名', zh.modelSummary('Quadratic'), en.modelSummary('Quadratic'));
     walk('兜底组名', zh.dataSeriesName(1), en.dataSeriesName(1));
-    walk('点数不足', zh.modelNeedsPoints('Quadratic', 3), en.modelNeedsPoints('Quadratic', 3));
+    walk('点数不足', zh.modelNeedsPoints('Quadratic', 3),
+        en.modelNeedsPoints('Quadratic', 3));
     walk('x 无变化', zh.xHasNoVariation, en.xHasNoVariation);
     walk('指数要求正 y', zh.exponentialNeedsPositiveY, en.exponentialNeedsPositiveY);
     walk('幂函数要求正', zh.powerNeedsPositiveXY, en.powerNeedsPositiveXY);
