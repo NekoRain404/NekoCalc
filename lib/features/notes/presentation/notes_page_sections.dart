@@ -14,6 +14,12 @@ extension _NotesPageSections on _NotesPageState {
     _controller.setTab(tab);
   }
 
+  /// 中文：**一行历史结果怎么画。** 见顶层函数 [historyResultText]。
+  /// English: **how one history result is drawn.** See the top-level [historyResultText].
+  String _historyResultText(HistoryItem item) {
+    return historyResultText(item, widget.toolResultLabel);
+  }
+
   Widget _header() {
     final strings = NotesStrings.of(context);
     if (_selectionActive) {
@@ -112,7 +118,7 @@ extension _NotesPageSections on _NotesPageState {
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(item.result,
+                      Text(_historyResultText(item),
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       IconButton(
                         tooltip: strings.delete,

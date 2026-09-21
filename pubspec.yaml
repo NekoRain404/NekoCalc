@@ -20,6 +20,37 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # 中文：**只给测试用**，且只给 `test/data/app_database_v7_test.dart` 那一条——
+  #       仓库里唯一会跑真实 SQLite 的地方（迁移路径）。`hooks.user_defines` 下面把它钉到
+  #       系统那份 `libsqlite3`，这样 `flutter test` 不需要联网下载原生库；缺原生库时那条测试
+  #       自己跳过（见文件头）。App 本体不依赖它。
+  #
+  #       ⚠️ 它自己的 `environment.sdk` 是 `^3.12.0`，**比上面那个 `>=3.4.0` 高**。这里**故意不动**
+  #       上面的下限：那条 `>=3.4.0` 还决定 `dart format` 用「短风格」（见
+  #       `.superpowers/backup/qalculate-step3d-report.md`），改它会牵动全仓格式化。实际工具链
+  #       就是 Flutter 3.44 / Dart 3.12（见 `docs/superpowers/plans/`），所以 `pub get` 解析得动；
+  #       只是在 Dart < 3.12 上解析不过。**这是一条 dev 依赖，不进 App 构建。**
+  # English: **tests only**, and only for `test/data/app_database_v7_test.dart` — the one place in the
+  #          repository that runs real SQLite (the migration path). `hooks.user_defines` below pins it
+  #          to the system `libsqlite3` so `flutter test` needs no network to fetch a native library;
+  #          where the library is absent that test skips itself (see its header). The app itself does
+  #          not depend on it.
+  #
+  #          ⚠️ Its own `environment.sdk` is `^3.12.0`, **higher than the `>=3.4.0` above**. That floor
+  #          is **deliberately left alone**: it also selects the short `dart format` style (see
+  #          `.superpowers/backup/qalculate-step3d-report.md`), and changing it would move formatting
+  #          across the whole repository. The actual toolchain is Flutter 3.44 / Dart 3.12 (see
+  #          `docs/superpowers/plans/`), so `pub get` resolves; it just would not resolve on Dart
+  #          < 3.12. **This is a dev dependency and does not enter the app build.**
+  sqflite_common_ffi: ^2.4.3
+
+hooks:
+  user_defines:
+    sqlite3:
+      # 中文：用系统那份 SQLite（Linux `dlopen("libsqlite3.so")`），不下载预编译库。
+      # English: use the system SQLite (Linux `dlopen("libsqlite3.so")`) instead of downloading a
+      #          pre-compiled one.
+      source: system
 
 flutter:
   uses-material-design: true

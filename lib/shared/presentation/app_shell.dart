@@ -6,6 +6,7 @@ import '../../features/calculator/presentation/calculator_page.dart';
 import '../../features/graph/presentation/graph_page.dart';
 import '../../features/notes/presentation/notes_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/tools/presentation/tool_result_label_strings.dart';
 import '../../features/tools/presentation/tools_home_page.dart';
 import 'app_drawer.dart';
 import 'shared_strings.dart';
@@ -103,7 +104,7 @@ class _AppShellState extends State<AppShell> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 4,
               itemBuilder: (context, index) {
-                final page = _pageFor(index);
+                final page = _pageFor(context, index);
                 return _KeepAlivePage(
                   // 中文：非计算页整体下移 _shellDrawerButtonBand，让出 ☰ 的那条带子。三页都在
                   //       (16,16) 起笔，其中笔记页多选态的「取消选择」（36×36，落在 (16,16)-(52,52)）
@@ -178,7 +179,7 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  Widget _pageFor(int index) {
+  Widget _pageFor(BuildContext context, int index) {
     return switch (index) {
       // 中文：外壳必须接上 `onNavigate`（它在计算页是可选的、默认惰性）：不接的话 `HISTORY`/`CNST`/
       //       `CONV` 与四个进制胶囊在真实 App 里永远是死的。`HISTORY` 落到笔记页但不会替用户选中
@@ -201,7 +202,19 @@ class _AppShellState extends State<AppShell> {
           db: widget.db,
           restoreState: widget.settings.restoreState,
           reloadToken: _graphReloadToken),
-      3 => NotesPage(db: widget.db, reloadToken: _notesReloadToken),
+      3 => NotesPage(
+          db: widget.db,
+          reloadToken: _notesReloadToken,
+          // 中文：工具标签的英文表住在本子树里，笔记页读不到它（features 之间不互相 import）。
+          //       外壳是唯一同时认得两边的地方，所以由它把这条查表能力递下去。中文界面下
+          //       `ToolResultLabelStrings.of` 是空表、查不到就原样返回，这一格一个字节不动。
+          // English: the tools' English label table lives in that subtree and the notes page cannot
+          //          read it (features do not import one another). The shell is the only place that
+          //          knows both, so it hands this lookup down. In the Chinese interface
+          //          `ToolResultLabelStrings.of` is empty and a miss returns its argument, so this
+          //          cell does not move by a byte.
+          toolResultLabel:
+              ToolResultLabelStrings.of(context).label),
       _ => const SizedBox.shrink(),
     };
   }

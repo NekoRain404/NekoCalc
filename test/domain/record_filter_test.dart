@@ -11,6 +11,7 @@ void main() {
       id: 1,
       expression: 'R=10, I=2',
       result: '电压 V: 20V',
+      resultKind: HistoryResultKind.tool,
       toolId: 'ohms_law',
       createdAt: now,
     );
@@ -52,6 +53,7 @@ void main() {
       id: 3,
       expression: '电流=2A, 电阻=5Ω',
       result: '电压: 10V',
+      resultKind: HistoryResultKind.tool,
       toolId: 'ohms_law',
       createdAt: DateTime(2026, 5, 12, 9, 30),
     );
@@ -78,6 +80,7 @@ void main() {
       id: 5,
       expression: '电流=2A, 电阻=5Ω',
       result: '电压: 10V',
+      resultKind: HistoryResultKind.tool,
       toolId: 'ohms_law',
       createdAt: DateTime(2026, 5, 12, 9, 30),
     );

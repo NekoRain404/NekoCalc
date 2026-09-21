@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/controllers/tool_detail_controller.dart';
+import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
@@ -359,6 +360,7 @@ class _FakeToolSaveDatabase implements AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) async {
     final error = nextHistoryError;

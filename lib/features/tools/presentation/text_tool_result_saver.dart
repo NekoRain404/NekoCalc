@@ -1,4 +1,5 @@
 import '../../../application/controllers/text_tool_models.dart';
+import '../../../data/models/history_item.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../domain/entities/tool_definition.dart';
@@ -61,6 +62,10 @@ class TextToolResultSaver {
         expression: '${tool.title}: $input',
         result: result,
         toolId: tool.id,
+        // 中文：文本工具的结果是**自由文本**，不是 `标签: 值`，重渲染不了——原样显示。
+        // English: a text tool's result is **free text**, not `label: value`, so it cannot be
+        //          re-rendered — shown as it stands.
+        resultKind: HistoryResultKind.opaque,
       );
       if (historyId <= 0) {
         return ToolSaveResult.notWritten(ToolSaveTarget.history);

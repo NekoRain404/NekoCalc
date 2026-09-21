@@ -12,6 +12,8 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
+  _wiringTests();
+
   testWidgets('external reload clears stale selection and reloads records',
       (tester) async {
     final db = _FakeNotesDatabase(
@@ -20,12 +22,13 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     expect(find.text('2+3'), findsOneWidget);
@@ -36,7 +39,7 @@ void main() {
     expect(find.text('已选择 1 项'), findsOneWidget);
 
     db.historyItems = const [];
-    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     expect(find.text('已选择 1 项'), findsNothing);
@@ -51,18 +54,20 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
         HistoryItem(
           id: 2,
           expression: 'sqrt(9)',
           result: '3',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 11),
         ),
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -85,6 +90,7 @@ void main() {
           id: 1,
           expression: 'sqrt(9)',
           result: '3',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 11),
         ),
       ],
@@ -100,7 +106,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'sqqrt');
@@ -133,7 +139,7 @@ void main() {
     );
     final db = _FakeNotesDatabase(noteItems: notes);
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('公式').first);
     await tester.pumpAndSettle();
@@ -154,6 +160,7 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
       ],
@@ -169,7 +176,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -192,12 +199,14 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
         HistoryItem(
           id: 2,
           expression: 'sqrt(9)',
           result: '3',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 11),
         ),
       ],
@@ -213,7 +222,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -238,6 +247,7 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
       ],
@@ -253,7 +263,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
     expect(db.historyLoads, 1);
     expect(db.noteLoads, 1);
@@ -286,24 +296,26 @@ void main() {
           id: 1,
           expression: '2+3',
           result: '5',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 10),
         ),
         HistoryItem(
           id: 2,
           expression: 'sqrt(9)',
           result: '3',
+          resultKind: HistoryResultKind.number,
           createdAt: DateTime(2026, 6, 9, 11),
         ),
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'sqrt');
     await tester.pump(const Duration(milliseconds: 20));
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel)));
     await tester.pump(const Duration(milliseconds: 140));
     await tester.pumpAndSettle();
 
@@ -345,7 +357,7 @@ V = I * R
     });
     final db = _FakeNotesDatabase();
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('从剪贴板导入'));
@@ -400,7 +412,7 @@ V = I * R
     });
     final db = _FakeNotesDatabase(zeroNextHistoryWrite: true);
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('从剪贴板导入'));
@@ -415,6 +427,13 @@ V = I * R
     expect(find.text('已导入 1 条笔记，未写入 1 条'), findsOneWidget);
   });
 }
+
+/// 中文：笔记页的测试不验证工具标签的英文重渲染（那由 `history_result_kind_test.dart`
+///       专门盯），所以这里把"查表"实现成原样返回——中文界面下生产实现也是这个行为。
+/// English: the notes page tests do not exercise the English re-rendering of tool labels (a dedicated
+///          `history_result_kind_test.dart` watches that), so the lookup here is the identity — which
+///          is exactly what the production implementation does in the Chinese interface.
+String _identityLabel(String label) => label;
 
 Widget _testApp(Widget child) {
   return MaterialApp(home: Scaffold(body: child));
@@ -500,6 +519,7 @@ class _FakeNotesDatabase implements AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) async {
     if (zeroNextHistoryWrite) {
@@ -518,6 +538,7 @@ class _FakeNotesDatabase implements AppDatabase {
       id: id,
       expression: expression,
       result: result,
+      resultKind: classifyHistoryResult(toolId: toolId, result: result),
       toolId: toolId,
       createdAt: timestamp,
     ));
@@ -583,4 +604,48 @@ class _CreatedNote {
   final String title;
   final String description;
   final String body;
+}
+
+/// 中文：**外壳递进来的那条查表真的落到了历史那一行上。** 单元测试
+///       （`history_result_display_test.dart`）量的是"给定查表，这一行怎么画"；这一条量的是
+///       "笔记页确实用了递进来的那条查表"——把 `NotesPage.toolResultLabel` 换成一张假表，屏幕
+///       上的字就得跟着变。少了它，"注入了但没接上"这种改法不会被任何测试挡住。
+/// English: **the lookup the shell hands in really reaches the history row.** The unit tests
+///          (`history_result_display_test.dart`) measure "given a lookup, how is this row drawn";
+///          this measures "the notes page actually uses the lookup it was handed" — swap
+///          `NotesPage.toolResultLabel` for a fake table and the on-screen text must follow. Without
+///          it, "injected but not wired" would slip past every test.
+void _wiringTests() {
+  testWidgets('工具行的标签由 NotesPage.toolResultLabel 决定（注入被接上了）', (tester) async {
+    final db = _FakeNotesDatabase(
+      historyItems: [
+        HistoryItem(
+          id: 1,
+          expression: '电流=2A, 电阻=5Ω',
+          result: '电压 V: 20V',
+          resultKind: HistoryResultKind.tool,
+          toolId: 'ohms_law',
+          createdAt: DateTime(2026, 6, 9, 10),
+        ),
+      ],
+    );
+
+    // 中文：假查表把 `电压 V` 映射成一个一眼认得出的记号——只可能来自这条注入。
+    // English: the fake table maps `电压 V` to a marker recognisable at a glance — it can only have
+    //          come from this injection.
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: NotesPage(
+          db: db,
+          toolResultLabel: (label) => label == '电压 V' ? 'FAKE_VOLT' : label,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('FAKE_VOLT: 20V'), findsOneWidget);
+    // 中文：存的那一份没动——页面上不该出现原始标签拼出来的那一串。
+    // English: the stored copy did not move — the original label's spelling must not appear.
+    expect(find.text('电压 V: 20V'), findsNothing);
+  });
 }

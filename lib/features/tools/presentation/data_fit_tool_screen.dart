@@ -10,6 +10,7 @@ import '../../../core/platform/document_export_channel.dart';
 import '../../../core/utils/number_formatter.dart';
 import '../../../core/utils/render_export.dart';
 import '../../../data/local/app_database.dart';
+import '../../../data/models/history_item.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/settings_repository.dart';

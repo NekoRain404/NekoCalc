@@ -11,12 +11,14 @@ void main() {
         id: 1,
         expression: 'sqrt(9)',
         result: '3',
+        resultKind: HistoryResultKind.number,
         createdAt: DateTime(2026, 6, 9, 10),
       ),
       HistoryItem(
         id: 2,
         expression: '电流=2A, 电阻=5Ω',
         result: '电压: 10V',
+        resultKind: HistoryResultKind.tool,
         toolId: 'ohms_law',
         createdAt: DateTime(2026, 6, 9, 11),
       ),
@@ -54,6 +56,7 @@ void main() {
         id: 1,
         expression: 'sqrt(9)',
         result: '3',
+        resultKind: HistoryResultKind.number,
         createdAt: DateTime(2026, 6, 9, 10),
       ),
     ];

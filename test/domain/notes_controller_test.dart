@@ -11,12 +11,14 @@ void main() {
     id: 7,
     expression: '2+3',
     result: '5',
+    resultKind: HistoryResultKind.number,
     createdAt: DateTime(2026, 6, 8, 9, 30),
   );
   final toolHistory = HistoryItem(
     id: 8,
     expression: '电流=2A, 电阻=5Ω',
     result: '电压: 10V',
+    resultKind: HistoryResultKind.tool,
     toolId: 'ohms_law',
     createdAt: DateTime(2026, 6, 8, 10, 15),
   );
@@ -523,6 +525,7 @@ class _FakeNotesControllerDatabase implements AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) async {
     if (zeroNextHistoryWrite) {
@@ -541,6 +544,7 @@ class _FakeNotesControllerDatabase implements AppDatabase {
       id: id,
       expression: expression,
       result: result,
+      resultKind: classifyHistoryResult(toolId: toolId, result: result),
       toolId: toolId,
       createdAt: timestamp,
     ));

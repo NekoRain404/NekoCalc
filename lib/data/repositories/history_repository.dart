@@ -9,22 +9,28 @@ class HistoryRepository {
   Future<int> saveCalculation({
     required String expression,
     required String result,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) {
     return _db.addHistory(
-        expression: expression, result: result, createdAt: createdAt);
+        expression: expression,
+        result: result,
+        resultKind: resultKind,
+        createdAt: createdAt);
   }
 
   Future<int> saveToolResult({
     required String toolId,
     required String expression,
     required String result,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) {
     return _db.addHistory(
         expression: expression,
         result: result,
         toolId: toolId,
+        resultKind: resultKind,
         createdAt: createdAt);
   }
 

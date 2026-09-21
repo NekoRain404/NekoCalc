@@ -343,6 +343,10 @@ extension _DataFitActions on _DataFitToolScreenState {
             fitModelLabelIn(strings.fit, result.model),
             _dataController.text.trim()),
         result: result.summaryIn(strings.fit),
+        // 中文：拟合小结是**本地化拼出来的**，形状不是 `标签: 值`，重渲染不了——原样显示。
+        // English: the fit summary is **assembled localised** and is not `label: value`, so it cannot
+        //          be re-rendered — shown as it stands.
+        resultKind: HistoryResultKind.opaque,
       );
       if (historyId <= 0) {
         return ToolSaveResult.notWritten(ToolSaveTarget.history);

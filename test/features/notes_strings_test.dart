@@ -9,6 +9,8 @@ import 'package:nekocalc/features/notes/presentation/notes_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：笔记页文案表的三条护栏，形状与设置页 / 计算页那两张表的护栏相同。
 ///       1) 中文表的每一条都要与翻译前源码里那一句**逐字节相同**——默认语言是中文，所以屏幕上
 ///          每一个字都得和接入多语言之前一模一样。逐条写出来而不是抽查几条：这一份就是"默认态
@@ -30,6 +32,8 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          **Clause 3 has one stated exception**, on `_nonUiLiterals` below: the three content
 ///          probes used to pick a note's icon. They are compared against **the user's own note text**,
 ///          not printed anywhere.
+String _identityLabel(String label) => label;
+
 void main() {
   final zh = NotesStrings.forLanguage(AppLanguage.zh);
   final en = NotesStrings.forLanguage(AppLanguage.en);
@@ -302,8 +306,8 @@ void main() {
       // 中文：文案表自己就是汉字住的地方，跳过它。
       // English: the table is where the Chinese is *supposed* to live; skip it.
       if (name == 'notes_strings.dart') continue;
-      final source = _stripComments(entity.readAsStringSync());
-      for (final literal in _stringLiterals(source)) {
+      final source = stripComments(entity.readAsStringSync());
+      for (final literal in stringLiterals(source)) {
         if (!_containsCjk(literal)) continue;
         if (_nonUiLiterals[name]?.contains(literal) ?? false) continue;
         offenders.add('${entity.path}: $literal');
@@ -316,7 +320,7 @@ void main() {
 
   testWidgets('没有装作用域时笔记页仍渲染中文（默认态不变）', (tester) async {
     await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: NotesPage(db: _EmptyDatabase())),
+      home: Scaffold(body: NotesPage(db: _EmptyDatabase(), toolResultLabel: _identityLabel)),
     ));
     await tester.pumpAndSettle();
     expect(find.text('笔记'), findsWidgets);
@@ -330,7 +334,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(
       home: AppLanguageScope(
         language: AppLanguage.en,
-        child: Scaffold(body: NotesPage(db: _EmptyDatabase())),
+        child: Scaffold(body: NotesPage(db: _EmptyDatabase(), toolResultLabel: _identityLabel)),
       ),
     ));
     await tester.pumpAndSettle();
@@ -431,91 +435,4 @@ bool _containsCjk(String text) {
     }
   }
   return false;
-}
-
-/// 中文：去掉 `//` 与 `/* */` 注释，**但保留字符串字面量原样**——注释里会出现引号
-///       （本项目的中文注释就常写 `'关闭'`），先按引号整体跳过，注释才不会被截错。
-/// English: Strips `//` and `/* */` comments while **copying string literals verbatim**: this
-///          project's Chinese comments quote literals such as `'关闭'`, so quotes are skipped as whole
-///          units first; otherwise the comment stripper would cut in the wrong place.
-String _stripComments(String source) {
-  final out = StringBuffer();
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch == "'" || ch == '"') {
-      final quote = ch;
-      // 中文：三引号原样成块跳过。
-      // English: Triple quotes are skipped as a block.
-      final triple = source.startsWith(quote * 3, i);
-      final delimiter = triple ? quote * 3 : quote;
-      out.write(delimiter);
-      i += delimiter.length;
-      while (i < source.length) {
-        if (source[i] == r'\') {
-          out.write(source.substring(i, i + 2));
-          i += 2;
-          continue;
-        }
-        if (source.startsWith(delimiter, i)) {
-          out.write(delimiter);
-          i += delimiter.length;
-          break;
-        }
-        out.write(source[i]);
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '/') {
-      while (i < source.length && source[i] != '\n') {
-        i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < source.length && source[i + 1] == '*') {
-      i += 2;
-      while (i + 1 < source.length &&
-          !(source[i] == '*' && source[i + 1] == '/')) {
-        i++;
-      }
-      i += 2;
-      continue;
-    }
-    out.write(ch);
-    i++;
-  }
-  return out.toString();
-}
-
-/// 中文：取出源码里所有单/双引号字符串字面量的内容。
-/// English: Extracts the contents of every single- and double-quoted string literal in the source.
-Iterable<String> _stringLiterals(String source) sync* {
-  var i = 0;
-  while (i < source.length) {
-    final ch = source[i];
-    if (ch != "'" && ch != '"') {
-      i++;
-      continue;
-    }
-    final quote = ch;
-    final triple = source.startsWith(quote * 3, i);
-    final delimiter = triple ? quote * 3 : quote;
-    i += delimiter.length;
-    final buffer = StringBuffer();
-    while (i < source.length) {
-      if (source[i] == r'\') {
-        buffer.write(source.substring(i, i + 2));
-        i += 2;
-        continue;
-      }
-      if (source.startsWith(delimiter, i)) {
-        i += delimiter.length;
-        break;
-      }
-      buffer.write(source[i]);
-      i++;
-    }
-    yield buffer.toString();
-  }
 }

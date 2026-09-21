@@ -201,11 +201,22 @@ Map<String, Object?>? _normalizeHistoryRow(Map<String, Object?> row) {
   final result = _normalizeRequired(row['result']?.toString() ?? '');
   final createdAt = _readInt(row['created_at']);
   if (expression == null || result == null || createdAt == null) return null;
+  final toolId = _normalizeOptional(row['tool_id']?.toString());
+  // 中文：**老备份没有 `result_kind` 这一列**——按分类器补上。空串与"列不在"同义（都是"还没
+  //       分类"），与 [HistoryItem.fromMap] 的读路径判据一致；显式的 `opaque` 不会被覆盖。
+  // English: **an old backup has no `result_kind` column** — fill it in via the classifier. An empty
+  //          string means the same as an absent column ("not classified yet"), matching
+  //          [HistoryItem.fromMap]'s read path; an explicit `opaque` is not overwritten.
+  final rawKind = row['result_kind']?.toString();
+  final kind = (rawKind == null || rawKind.isEmpty)
+      ? classifyHistoryResult(toolId: toolId, result: result)
+      : historyResultKindFromStorage(rawKind);
   return {
     if (_readInt(row['id']) != null) 'id': _readInt(row['id']),
     'expression': expression,
     'result': result,
-    'tool_id': _normalizeOptional(row['tool_id']?.toString()),
+    'result_kind': historyResultKindToStorage(kind),
+    'tool_id': toolId,
     'created_at': createdAt,
   };
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -20,12 +21,27 @@ class AppDatabase {
   static const _historyDuplicateWindow = Duration(seconds: 2);
   Database? _database;
 
+  /// 中文：**只给测试用**——把缓存的那条连接放掉，好让下一条测试从空库重开。生产里
+  ///       [instance] 是进程级单例，从不复位；这个方法存在只是因为迁移测试必须在一个文件里
+  ///       反复"建 v6 → 升级"。仓库里唯一同类先例是
+  ///       `calculator_controller_evaluation.dart` 上的 `@visibleForTesting`。
+  /// English: **tests only** — drops the cached connection so the next test can reopen from an empty
+  ///          database. In production [instance] is a process-wide singleton and is never reset; this
+  ///          exists because the migration test has to do "build v6 → upgrade" repeatedly in one file.
+  ///          The repository's only comparable precedent is the `@visibleForTesting` on
+  ///          `calculator_controller_evaluation.dart`.
+  @visibleForTesting
+  Future<void> closeForTest() async {
+    await _database?.close();
+    _database = null;
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     final dbPath = await getDatabasesPath();
     _database = await openDatabase(
       p.join(dbPath, 'nekocalc.db'),
-      version: 6,
+      version: 7,
       onConfigure: (db) async {
         // 中文：WAL 和 NORMAL synchronous 在移动端读写体验与安全性之间取得平衡。
         // English: WAL plus NORMAL synchronous balances mobile write responsiveness and data safety.
@@ -45,6 +61,7 @@ class AppDatabase {
         if (oldVersion < 3) await _addNoteDescriptionColumn(db);
         if (oldVersion < 5) await _addNoteUpdatedAtColumn(db);
         if (oldVersion < 6) await _addNoteOrganizationColumns(db);
+        if (oldVersion < 7) await _addHistoryResultKindColumn(db);
         if (oldVersion < 5) await _createIndexes(db);
         if (oldVersion < 6) await _createIndexes(db);
       },
@@ -56,6 +73,7 @@ class AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) async {
     final db = await database;
@@ -63,6 +81,14 @@ class AppDatabase {
     final normalizedResult = _normalizeRequired(result);
     final normalizedToolId = _normalizeOptional(toolId);
     if (normalizedExpression == null || normalizedResult == null) return 0;
+    // 中文：**分类只有一处判据。** 调用方没明说时现场分类；文本工具与数据拟合那两个"载荷不是
+    //       `标签: 值`"的调用点显式传 [HistoryResultKind.opaque]，不靠分类器去猜。
+    // English: **classification has one verdict.** When the caller does not state one, classify on
+    //          the spot; the text-tool and data-fit call sites — whose payload is not `label: value`
+    //          — write [HistoryResultKind.opaque] explicitly rather than asking the classifier to
+    //          guess.
+    final kind = resultKind ??
+        classifyHistoryResult(toolId: normalizedToolId, result: normalizedResult);
 
     return db.transaction((txn) async {
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -90,6 +116,7 @@ class AppDatabase {
       return txn.insert('calculation_history', {
         'expression': normalizedExpression,
         'result': normalizedResult,
+        'result_kind': historyResultKindToStorage(kind),
         'tool_id': normalizedToolId,
         'created_at': timestamp,
       }).then((id) async {

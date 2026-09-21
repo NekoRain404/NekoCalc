@@ -278,7 +278,12 @@ class _FakeDatabase implements AppDatabase {
     String? query,
     String? toolId,
   }) async =>
-      [HistoryItem(id: 1, expression: '1+1', result: '2', createdAt: DateTime(2026, 9, 17, 9, 30))];
+      [HistoryItem(
+          id: 1,
+          expression: '1+1',
+          result: '2',
+          resultKind: HistoryResultKind.number,
+          createdAt: DateTime(2026, 9, 17, 9, 30))];
 
   @override
   Future<List<NoteItem>> notes({

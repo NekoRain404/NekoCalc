@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
+import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/domain/usecases/data_fit.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
@@ -409,6 +410,7 @@ class _FakeToolDetailDatabase implements AppDatabase {
     required String expression,
     required String result,
     String? toolId,
+    HistoryResultKind? resultKind,
     DateTime? createdAt,
   }) async {
     final error = nextHistoryError;

@@ -246,6 +246,10 @@ void _validateBackupTableRow(
       _requireOptionalInt(row, 'id', tableName, index);
       _requireText(row, 'expression', tableName, index);
       _requireText(row, 'result', tableName, index);
+      // 中文：**可选**——老备份没有这一列，导入时由 `_normalizeHistoryRow` 按分类器补。
+      // English: **optional** — an old backup lacks this column; import fills it via
+      //          `_normalizeHistoryRow`.
+      _requireOptionalText(row, 'result_kind', tableName, index);
       _requireOptionalText(row, 'tool_id', tableName, index);
       _requireInt(row, 'created_at', tableName, index);
       return;
