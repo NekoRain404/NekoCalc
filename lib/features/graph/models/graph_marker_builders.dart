@@ -5,6 +5,7 @@ List<GraphMarker> buildSampleMarkers({
   required double x,
   required double yMin,
   required double yMax,
+  required GraphStrings strings,
 }) {
   final visible = functions.where((item) => item.visible).toList();
   final values = <({GraphFunction function, double y})>[];
@@ -20,7 +21,7 @@ List<GraphMarker> buildSampleMarkers({
         x: x,
         y: values[i].y,
         color: values[i].function.color,
-        kind: '取样',
+        kind: strings.sampleKind,
         info: [
           'x = ${x.toStringAsFixed(6)}',
           for (final value in values)
@@ -30,10 +31,10 @@ List<GraphMarker> buildSampleMarkers({
   ];
 }
 
-
 List<GraphMarker> buildGraphZeroMarkers({
   required Iterable<GraphFunction> functions,
   required GraphViewport viewport,
+  required GraphStrings strings,
   int samples = 800,
 }) {
   final visible = functions.where((item) => item.visible).toList();
@@ -54,8 +55,8 @@ List<GraphMarker> buildGraphZeroMarkers({
           x: viewport.centerX,
           y: 0,
           color: function.color,
-          kind: '零点',
-          info: '${function.label} 与 x 轴重合\n当前视图内所有 x 都是零点',
+          kind: strings.zeroKind,
+          info: strings.overlapsAxis(function.label),
         ),
         xTolerance,
         tolerance,
@@ -78,8 +79,8 @@ List<GraphMarker> buildGraphZeroMarkers({
           x: root,
           y: 0,
           color: function.color,
-          kind: '零点',
-          info: '${function.label} 零点\nx = ${root.toStringAsFixed(6)}\ny = 0',
+          kind: strings.zeroKind,
+          info: strings.zeroAt(function.label, root.toStringAsFixed(6)),
         ),
         xTolerance,
         tolerance,
@@ -89,10 +90,10 @@ List<GraphMarker> buildGraphZeroMarkers({
   return markers;
 }
 
-
 List<GraphMarker> buildGraphIntersectionMarkers({
   required Iterable<GraphFunction> functions,
   required GraphViewport viewport,
+  required GraphStrings strings,
   int samples = 800,
 }) {
   final visible = functions.where((item) => item.visible).toList();
@@ -121,8 +122,8 @@ List<GraphMarker> buildGraphIntersectionMarkers({
               x: overlap.$1,
               y: overlap.$2,
               color: const Color(0xFFFF8A00),
-              kind: '重合',
-              info: '${first.label}\n${second.label}\n两条曲线在当前视图内重合',
+              kind: strings.overlapKind,
+              info: strings.overlapText(first.label, second.label),
             ),
             xTolerance,
             tolerance,
@@ -150,9 +151,13 @@ List<GraphMarker> buildGraphIntersectionMarkers({
             x: root,
             y: y,
             color: const Color(0xFFFF8A00),
-            kind: '交点',
-            info:
-                '${first.label}\n${second.label}\n交点 x = ${root.toStringAsFixed(6)}, y = ${y.toStringAsFixed(6)}',
+            kind: strings.intersectionKind,
+            info: strings.intersectionText(
+              first.label,
+              second.label,
+              root.toStringAsFixed(6),
+              y.toStringAsFixed(6),
+            ),
           ),
           xTolerance,
           tolerance,
@@ -163,10 +168,10 @@ List<GraphMarker> buildGraphIntersectionMarkers({
   return markers;
 }
 
-
 List<GraphMarker> buildGraphExtremeMarkers({
   required Iterable<GraphFunction> functions,
   required GraphViewport viewport,
+  required GraphStrings strings,
   int samples = 1000,
 }) {
   final visible = functions.where((item) => item.visible).toList();
@@ -215,9 +220,13 @@ List<GraphMarker> buildGraphExtremeMarkers({
                 y: y,
                 color:
                     isMin ? const Color(0xFF23B45D) : const Color(0xFFFF4D5E),
-                kind: isMin ? '极小值' : '极大值',
-                info:
-                    '${function.label} ${isMin ? '极小值' : '极大值'}\nx = ${x.toStringAsFixed(6)}\ny = ${y.toStringAsFixed(6)}',
+                kind: isMin ? strings.minimumKind : strings.maximumKind,
+                info: strings.extremumText(
+                  function.label,
+                  isMin ? strings.minimumKind : strings.maximumKind,
+                  x.toStringAsFixed(6),
+                  y.toStringAsFixed(6),
+                ),
               ),
               xTolerance,
               yTolerance,
@@ -234,7 +243,6 @@ List<GraphMarker> buildGraphExtremeMarkers({
   }
   return markers;
 }
-
 
 List<double> _findRootCandidates({
   required double Function(double x) evaluate,

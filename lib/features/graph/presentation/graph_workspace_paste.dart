@@ -1,26 +1,30 @@
 import 'dart:convert';
 
 import '../models/graph_models.dart';
-import 'graph_workspace_strings.dart';
+import '../models/graph_strings.dart';
 
+/// 中文：粘贴结果小结的文案**现在走 `GraphStrings`**（graph 整棵子树那一张表）。本轮之前这里
+///       另有一张只有六条的 `GraphWorkspaceStrings`，它带着"没传就中文"的默认值——那是因为当时
+///       唯一的调用方是另一位作者的未提交文件、不许改。本轮调用方已入库，默认值随之删掉：
+///       **表必填，漏传是编译错误。** 六条文案与原来逐字节相同，只是换了住址。
+/// English: The paste summary's copy **now goes through `GraphStrings`** (the table for the whole
+///          graph subtree). Before this round there was a separate six-entry `GraphWorkspaceStrings`
+///          here carrying a "Chinese when omitted" default, because the only caller was another
+///          author's uncommitted file that could not be touched. That caller is committed now, so the
+///          default is gone: **the table is required and omitting it is a compile error.** The six
+///          strings are byte-identical to before; only their address changed.
 class GraphWorkspacePasteResult {
-  /// 中文：**不再是 `const`。** 文案表是 `static final`（带闭包，不是常量表达式），所以"没有传
-  ///       就用中文那一份"这件事只能在构造体里做，`const` 构造放不下。这个类只在本文件与测试里
-  ///       构造（`graph_page.dart` 只用 `parseGraphWorkspacePasteText` 与 `summary`），
-  ///       所以丢掉 `const` 不会波及调用方。
-  /// English: **No longer `const`.** The copy tables are `static final` (they hold closures, not
-  ///          constant expressions), so "use the Chinese one when none was given" can only happen in
-  ///          the constructor body, which a `const` constructor cannot have. The class is only
-  ///          constructed in this file and in tests (`graph_page.dart` uses only
-  ///          `parseGraphWorkspacePasteText` and `summary`), so dropping `const` reaches no caller.
+  /// 中文：**不是 `const`。** 文案表是 `static final`（带闭包，不是常量表达式），构造体里要装它。
+  /// English: **Not `const`.** The copy tables are `static final` (they hold closures, not constant
+  ///          expressions), and the constructor stores one.
   GraphWorkspacePasteResult({
     required this.workspace,
     required this.fromCopyText,
+    required this.strings,
     this.fromFunctionText = false,
-    GraphWorkspaceStrings? strings,
-  }) : strings = strings ?? GraphWorkspaceStrings.graphWorkspaceZh;
+  });
 
-  factory GraphWorkspacePasteResult.empty({GraphWorkspaceStrings? strings}) =>
+  factory GraphWorkspacePasteResult.empty({required GraphStrings strings}) =>
       GraphWorkspacePasteResult(
         workspace: null,
         fromCopyText: false,
@@ -32,29 +36,23 @@ class GraphWorkspacePasteResult {
   final bool fromFunctionText;
 
   /// 中文：这一份结果该用哪种语言说话。**它是字段而不是查出来的**——`summary` 是个 getter，
-  ///       没有 `BuildContext` 可查（理由见 `graph_workspace_strings.dart` 的文件头）。
-  ///       默认值是中文那一份，所以 `graph_page.dart` 不改也能编译、也仍然逐字节渲染今天这些字。
+  ///       没有 `BuildContext` 可查；语言由调用方（`graph_page.dart` 从 `context` 取表）定下。
   /// English: Which language this result speaks. **It is a field rather than something looked up** —
-  ///          `summary` is a getter with no `BuildContext` to look anything up from (see
-  ///          `graph_workspace_strings.dart`'s file head). The default is the Chinese one, so
-  ///          `graph_page.dart` compiles unchanged and still renders exactly today's characters.
-  final GraphWorkspaceStrings strings;
+  ///          `summary` is a getter with no `BuildContext`; the language is fixed by the caller
+  ///          (`graph_page.dart`, reading the table off `context`).
+  final GraphStrings strings;
 
   bool get hasWorkspace => workspace != null;
 
-  /// 中文：`graph_page.dart` 今天用的那一条。语言取自构造时定下的 [strings]。
-  /// English: The entry point `graph_page.dart` uses today. The language comes from the [strings]
-  ///          fixed at construction.
+  /// 中文：`graph_page.dart` 用的那一条。语言取自构造时定下的 [strings]。
+  /// English: The entry point `graph_page.dart` uses. The language comes from the [strings] fixed at
+  ///          construction.
   String get summary => summaryIn(strings);
 
-  /// 中文：**给下一轮留的接线口。** 图形页整页还在中文里，等它开始接表时，把
-  ///       `GraphWorkspaceStrings.of(context)` 从 `graph_page.dart` 传进
-  ///       `parseGraphWorkspacePasteText`，这条路径自然就通了。
-  /// English: **The wiring point left for the next round.** The graph page is still Chinese end to
-  ///          end; when it starts taking tables, pass `GraphWorkspaceStrings.of(context)` from
-  ///          `graph_page.dart` into `parseGraphWorkspacePasteText` and this path lights up on its
-  ///          own.
-  String summaryIn(GraphWorkspaceStrings strings) {
+  /// 中文：**给测试与下一处调用留的显式入口。** 传入另一张表即换一种语言，不改字段。
+  /// English: **An explicit entry point for tests and any next caller.** Pass another table to switch
+  ///          language without touching the field.
+  String summaryIn(GraphStrings strings) {
     final value = workspace;
     if (value == null) return strings.noWorkspace;
     final visibleCount = value.functions.where((item) => item.visible).length;
@@ -64,7 +62,7 @@ class GraphWorkspacePasteResult {
       else if (fromCopyText)
         strings.fromCopyText
       else
-        strings.restored,
+        strings.workspaceRestored,
       strings.functionCount(value.functions.length),
       strings.visibleCount(visibleCount),
       'x ${formatGraphNumber(value.viewport.xMin)} ~ ${formatGraphNumber(value.viewport.xMax)}',
@@ -72,26 +70,17 @@ class GraphWorkspacePasteResult {
   }
 }
 
-/// 中文：**`strings` 是可选参数，没传就用中文那一份。** 这不是"静默回落"，而是这一族今天唯一
-///       可用的形状：唯一的调用方 `graph_page.dart` 是另一位作者的未提交工作，本轮不许改，它的
-///       调用点只传一个位置参数。默认值让那里保持编译通过、且逐字节渲染今天这些字；等下一轮把
-///       `GraphWorkspaceStrings.of(context)` 从那儿传进来，这个默认值就只剩测试在用。
-///       ——理由与整条时间线写在 `graph_workspace_strings.dart` 的文件头上。
-/// English: **`strings` is optional and falls back to the Chinese table.** This is not a "silent
-///          fallback" but the only shape available to this family today: the sole caller,
-///          `graph_page.dart`, is another author's uncommitted work that must not be touched this
-///          round, and its call site passes one positional argument. The default keeps that site
-///          compiling and rendering exactly today's characters; once the next round passes
-///          `GraphWorkspaceStrings.of(context)` in from there, the default is used by tests alone.
-///          The reasoning and the whole timeline are on `graph_workspace_strings.dart`'s file head.
+/// 中文：**`strings` 是必填参数。** 理由见本文件头上那段（调用方已入库、默认值已删）。
+/// English: **`strings` is required.** The reasoning is in the block at the head of this file (the
+///          caller is committed and the default was removed).
 GraphWorkspacePasteResult parseGraphWorkspacePasteText(
   String input, {
-  GraphWorkspaceStrings? strings,
+  required GraphStrings strings,
 }) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return GraphWorkspacePasteResult.empty(strings: strings);
 
-  final jsonWorkspace = decodeGraphWorkspace(trimmed);
+  final jsonWorkspace = decodeGraphWorkspace(trimmed, strings: strings);
   if (jsonWorkspace != null) {
     return GraphWorkspacePasteResult(
       workspace: jsonWorkspace,
@@ -100,7 +89,7 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
     );
   }
 
-  final copyWorkspace = _parseGraphCopyTextWorkspace(trimmed);
+  final copyWorkspace = _parseGraphCopyTextWorkspace(trimmed, strings);
   if (copyWorkspace != null) {
     return GraphWorkspacePasteResult(
       workspace: copyWorkspace,
@@ -109,7 +98,8 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
     );
   }
 
-  final functionTextWorkspace = _parseGraphFunctionTextWorkspace(trimmed);
+  final functionTextWorkspace =
+      _parseGraphFunctionTextWorkspace(trimmed, strings);
   if (functionTextWorkspace == null) {
     return GraphWorkspacePasteResult.empty(strings: strings);
   }
@@ -121,7 +111,10 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
   );
 }
 
-GraphWorkspace? _parseGraphCopyTextWorkspace(String input) {
+GraphWorkspace? _parseGraphCopyTextWorkspace(
+  String input,
+  GraphStrings strings,
+) {
   final lines = const LineSplitter().convert(input);
   if (!_looksLikeGraphCopyText(lines)) return null;
   final functions = <GraphFunction>[];
@@ -135,10 +128,22 @@ GraphWorkspace? _parseGraphCopyTextWorkspace(String input) {
       inViewport = true;
       continue;
     }
+    // 中文：小节边界。英文等价物与中文**逐条对齐**：`viewport` / `graph data` 在下面与
+    //       `_looksLikeGraphCopyText` 里，`functions` / `markers` / `current marker` 在这里。
+    //       补 `current marker` 是交接文档点名的那一条——`markers` 与 `hidden` 其实早已接上，
+    //       只有它漏了；不补的话，等 `buildGraphCopyText` 哪天出英文，英文界面复制出去的数据
+    //       在英文界面里自己都粘不回来。
+    // English: Section boundaries. The English equivalents line up one-for-one with the Chinese:
+    //          `viewport` / `graph data` below and in `_looksLikeGraphCopyText`, and
+    //          `functions` / `markers` / `current marker` here. Adding `current marker` is the item
+    //          the handover named — `markers` and `hidden` were in fact already accepted and only
+    //          this one was missing; without it, once `buildGraphCopyText` ever emits English, data
+    //          copied out of the English interface would not paste back into it.
     if (line == '标记' ||
         line == '当前标记' ||
         line == '函数' ||
         normalized == 'markers' ||
+        normalized == 'current marker' ||
         normalized == 'functions') {
       inViewport = false;
       continue;
@@ -150,6 +155,7 @@ GraphWorkspace? _parseGraphCopyTextWorkspace(String input) {
       final preview = previewGraphFunctionInput(
         expression,
         color: graphPalette[functions.length % graphPalette.length],
+        strings: strings,
       );
       if (preview.isValid) {
         functions.add(GraphFunction(
@@ -194,7 +200,10 @@ bool _looksLikeGraphCopyText(List<String> lines) {
   return hasGraphTitle || (hasFunctionsSection && hasViewportSection);
 }
 
-GraphWorkspace? _parseGraphFunctionTextWorkspace(String input) {
+GraphWorkspace? _parseGraphFunctionTextWorkspace(
+  String input,
+  GraphStrings strings,
+) {
   final functions = <GraphFunction>[];
   final seen = <String>{};
   final lines = const LineSplitter()
@@ -207,7 +216,8 @@ GraphWorkspace? _parseGraphFunctionTextWorkspace(String input) {
     final candidate = _graphFunctionExpressionFromFreeText(line);
     if (candidate == null) continue;
     final color = graphPalette[functions.length % graphPalette.length];
-    final preview = previewGraphFunctionInput(candidate, color: color);
+    final preview =
+        previewGraphFunctionInput(candidate, color: color, strings: strings);
     if (!preview.isValid) continue;
     if (!seen.add(preview.normalizedExpression)) continue;
     functions.add(GraphFunction(
@@ -282,7 +292,21 @@ bool _graphCopyLineVisible(List<String> lines, int expressionLineIndex) {
     final line = lines[index].trim();
     if (line.isEmpty) continue;
     if (RegExp(r'^\d+[.)、]').hasMatch(line)) {
-      if (line.contains('隐藏') || line.toLowerCase().contains('hidden')) {
+      // 中文：**判据要认 `buildGraphCopyText` 真正写出去的那个词。** 中文侧写 `(隐藏)`，英文侧
+      //       写的是 `strings.hide` 的 `(Hide)`——不是 `hidden`。原来只认 `隐藏` 与 `hidden`，
+      //       于是**英文界面复制出去的数据再粘回来时，隐藏的函数会悄悄变回显示**。
+      //       两种英文拼法都收：`hide`（现在的线格式）与 `hidden`（更早的写法、现有测试仍用它）。
+      //       **`hide` 不是 `hidden` 的子串**（`hidden` 是 `hid`+`den`），所以两个都要判。
+      // English: **the test has to recognise the word `buildGraphCopyText` actually writes.** The
+      //          Chinese side writes `(隐藏)` and the English side writes `strings.hide`, which is
+      //          `(Hide)` — not `hidden`. The old test only knew `隐藏` and `hidden`, so **pasting
+      //          English data back in silently turned hidden functions visible again**. Both English
+      //          spellings are accepted: `hide` (the current wire format) and `hidden` (the earlier
+      //          spelling the existing test still uses). **`hide` is not a substring of `hidden`**
+      //          (`hidden` is `hid` + `den`), so both have to be tested.
+      if (line.contains('隐藏') ||
+          line.toLowerCase().contains('hide') ||
+          line.toLowerCase().contains('hidden')) {
         return false;
       }
       return true;

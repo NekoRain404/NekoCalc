@@ -176,7 +176,6 @@ class GraphPainter extends CustomPainter {
   }
 }
 
-
 /// 中文：网格步长——**1/2/5 序列**，让缩放时刻度接近工程图表的习惯。
 ///
 ///       顶层函数而不是 `GraphPainter` 的私有方法，理由只有一个：**回归图那一块也要用同一条

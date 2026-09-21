@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekocalc/features/graph/models/graph_strings.dart';
 import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 
 void main() {
+  final zh = GraphStrings.graphZh;
   test('normalizes y-prefixed expressions', () {
     expect(
         GraphFunction.normalizeExpression('y = x^2 - 3x + 2'), 'x^2 - 3x + 2');
@@ -126,18 +128,22 @@ void main() {
     final prefixed = previewGraphFunctionInput(
       'f(x)=sin(x)，定义域 x∈[0,2π]',
       color: const Color(0xFF1677FF),
+      strings: zh,
     );
     final equation = previewGraphFunctionInput(
       'x^2 = 4',
       color: const Color(0xFF1677FF),
+      strings: zh,
     );
     final invalid = previewGraphFunctionInput(
       'unknown(x)',
       color: const Color(0xFF1677FF),
+      strings: zh,
     );
     final empty = previewGraphFunctionInput(
       '  ',
       color: const Color(0xFF1677FF),
+      strings: zh,
     );
 
     expect(prefixed.isValid, isTrue);
@@ -184,6 +190,7 @@ void main() {
       x: 2,
       yMin: -10,
       yMax: 10,
+      strings: zh,
     );
 
     expect(markers.length, 2);
@@ -231,6 +238,7 @@ void main() {
       viewport: viewport,
       markers: markers,
       selectedMarker: 1,
+      strings: zh,
     );
 
     expect(text, contains('图形数据'));
@@ -268,7 +276,7 @@ void main() {
       functions: const [first, second],
       viewport: viewport,
     );
-    final restored = decodeGraphWorkspace(encoded);
+    final restored = decodeGraphWorkspace(encoded, strings: zh);
 
     expect(restored, isNotNull);
     expect(restored!.viewport.centerX, 3);
@@ -301,9 +309,10 @@ void main() {
       functions: const [first, second],
       viewport: viewport,
       markers: const [],
+      strings: zh,
     );
 
-    final paste = parseGraphWorkspacePasteText(text);
+    final paste = parseGraphWorkspacePasteText(text, strings: zh);
 
     expect(paste.hasWorkspace, isTrue);
     expect(paste.fromCopyText, isTrue);
@@ -317,13 +326,131 @@ void main() {
     expect(paste.workspace!.viewport.spanX, 6);
     expect(paste.workspace!.viewport.spanY, 8);
 
-    final jsonPaste = parseGraphWorkspacePasteText(encodeGraphWorkspace(
-      functions: const [first],
-      viewport: viewport,
-    ));
+    final jsonPaste = parseGraphWorkspacePasteText(
+      encodeGraphWorkspace(
+        functions: const [first],
+        viewport: viewport,
+      ),
+      strings: zh,
+    );
     expect(jsonPaste.hasWorkspace, isTrue);
     expect(jsonPaste.fromCopyText, isFalse);
-    expect(parseGraphWorkspacePasteText('not a graph').hasWorkspace, isFalse);
+    expect(
+        parseGraphWorkspacePasteText('not a graph', strings: zh).hasWorkspace,
+        isFalse);
+  });
+
+  test('parses English graph copy text back into a workspace', () {
+    // 中文：**英文界面的粘贴回路。** `buildGraphCopyText` 今天仍只出中文，但解析器已经接受
+    //       英文小节名（`graph data` / `functions` / `viewport` / `markers` / `hidden`）；本轮
+    //       补上 `current marker`，这一条钉住"英文数据能粘回来"。
+    //       `Current marker` 小节里那一行 `x: 100 ~ 200` 是**故意放的探针**：`Current marker`
+    //       若不被认成小节边界，`inViewport` 就还是 true，这一行会被当成视窗数据，把上面
+    //       `Viewport` 那两行读出来的范围整个覆盖掉。所以断言视窗仍是 `-2 ~ 4 / -2 ~ 6`。
+    // English: **the English paste loop.** `buildGraphCopyText` still emits Chinese only, but the
+    //          parser already accepts the English section names (`graph data` / `functions` /
+    //          `viewport` / `markers` / `hidden`); this round adds `current marker`, and this test
+    //          pins "English data pastes back". The `x: 100 ~ 200` line under `Current marker` is a
+    //          **deliberate probe**: if `Current marker` were not recognised as a section boundary,
+    //          `inViewport` would still be true, that line would be read as viewport data and would
+    //          overwrite the range parsed from the `Viewport` lines above. Hence the assertion that
+    //          the viewport is still `-2 ~ 4 / -2 ~ 6`.
+    final paste = parseGraphWorkspacePasteText('''
+Graph data
+
+Functions
+1. y = 2x + 1 (visible)
+   expression: 2x + 1
+2. y = x^2 (hidden)
+   expression: x^2
+
+Viewport
+x: -2 ~ 4
+y: -2 ~ 6
+
+Current marker
+Zero: x = 0, y = 0
+x: 100 ~ 200
+
+Markers
+1. Zero: x = 0, y = 0
+''', strings: zh);
+
+    expect(paste.hasWorkspace, isTrue);
+    expect(paste.fromCopyText, isTrue);
+    expect(paste.workspace!.functions, hasLength(2));
+    expect(paste.workspace!.functions.first.expression, '2x + 1');
+    expect(paste.workspace!.functions.first.visible, isTrue);
+    expect(paste.workspace!.functions.last.expression, 'x^2');
+    expect(paste.workspace!.functions.last.visible, isFalse);
+    expect(paste.workspace!.viewport.centerX, 1);
+    expect(paste.workspace!.viewport.centerY, 2);
+    expect(paste.workspace!.viewport.spanX, 6);
+    expect(paste.workspace!.viewport.spanY, 8);
+  });
+
+  test(
+      'English copy text round-trips through the parser (bilingual wire format)',
+      () {
+    const first = GraphFunction(
+      expression: '2x + 1',
+      label: 'y = 2x + 1',
+      color: Color(0xFF1677FF),
+      visible: false,
+    );
+    const second = GraphFunction(
+      expression: 'sqrt(x)',
+      label: 'y = sqrt(x)',
+      color: Color(0xFFFF8A00),
+    );
+    const viewport = GraphViewport(centerX: 1, centerY: 2, spanX: 6, spanY: 8);
+    final en = GraphStrings.graphEn;
+    final text = buildGraphCopyText(
+      functions: const [first, second],
+      viewport: viewport,
+      markers: const [],
+      strings: en,
+    );
+
+    // 中文：**英文界面复制出去的数据，英文界面自己粘得回来。** 这一条钉的是"线格式两种语言都收"：
+    //       小节名一旦出英文，解析器必须认（`current marker` 是本轮之前补的），否则英文界面的
+    //       复制/粘贴回路是断的。
+    // English: **data copied out of the English interface pastes back into it.** This pins "the wire
+    //          format accepts both languages": once the section names go English the parser must
+    //          recognise them (`current marker` was added just before this round), or the English
+    //          interface's copy/paste loop is broken.
+    expect(text, contains('Graph data'));
+    expect(text, contains('Viewport'));
+    // 中文：**英文侧写的是 `(Hide)` / `(Show)`，不是 `(hidden)`。** 这一条顺带钉住解析器认得出
+    //       它——之前解析器只认 `hidden`，英文数据粘回来会把隐藏的函数变回显示。
+    // English: **the English side writes `(Hide)` / `(Show)`, not `(hidden)`.** This also pins that
+    //          the parser recognises it — it used to know only `hidden`, so English data pasted back
+    //          turned hidden functions visible again.
+    expect(text, contains('(Hide)'));
+    expect(text, contains('(Show)'));
+    expect(_containsCjk(text), isFalse, reason: '英文界面复制出去的数据不该有汉字：\n$text');
+
+    final paste = parseGraphWorkspacePasteText(text, strings: en);
+    expect(paste.hasWorkspace, isTrue);
+    expect(paste.fromCopyText, isTrue);
+    expect(paste.summary, contains('Workspace restored from graph data'));
+    expect(paste.workspace!.functions, hasLength(2));
+    expect(paste.workspace!.functions.first.visible, isFalse);
+    expect(paste.workspace!.viewport.centerX, 1);
+    expect(paste.workspace!.viewport.spanY, 8);
+
+    // 中文：反向也钉一下——中文数据用英文表解析，summary 是英文，工作区照样读出来。
+    // English: pin the other direction too — Chinese data parsed with the English table yields an
+    //          English summary and still reads the workspace.
+    final zhText = buildGraphCopyText(
+      functions: const [second],
+      viewport: viewport,
+      markers: const [],
+      strings: zh,
+    );
+    final zhPaste = parseGraphWorkspacePasteText(zhText, strings: en);
+    expect(zhPaste.hasWorkspace, isTrue);
+    expect(zhPaste.summary, contains('Workspace restored from graph data'));
   });
 
   test('parses plain pasted graph functions into a workspace', () {
@@ -333,7 +460,7 @@ sin(x)
 表达式: 2x + 1
 sin(x)
 not a graph
-''');
+''', strings: zh);
 
     expect(paste.hasWorkspace, isTrue);
     expect(paste.fromCopyText, isFalse);
@@ -354,7 +481,7 @@ not a graph
 shopping list
 todo tomorrow
 plain words only
-''');
+''', strings: zh);
     expect(invalid.hasWorkspace, isFalse);
   });
 
@@ -371,7 +498,7 @@ plain words only
           {"expression": "", "color": 123}
         ]
       }
-    ''');
+    ''', strings: zh);
 
     expect(restored, isNotNull);
     expect(restored!.viewport.centerX, 1.5);
@@ -385,9 +512,9 @@ plain words only
     expect(restored.functions.last.expression, '((x^2)-(4))');
     expect(restored.functions.last.color.toARGB32(), 0xFF7C3AED);
 
-    expect(decodeGraphWorkspace(null), isNull);
-    expect(decodeGraphWorkspace('not json'), isNull);
-    expect(decodeGraphWorkspace('{"functions": []}'), isNull);
+    expect(decodeGraphWorkspace(null, strings: zh), isNull);
+    expect(decodeGraphWorkspace('not json', strings: zh), isNull);
+    expect(decodeGraphWorkspace('{"functions": []}', strings: zh), isNull);
   });
 
   test('graph viewport zoom keeps focal graph coordinate anchored', () {
@@ -467,23 +594,24 @@ plain words only
     );
 
     expect(
-      buildGraphZeroMarkers(functions: const [reciprocal], viewport: viewport),
+      buildGraphZeroMarkers(
+          functions: const [reciprocal], viewport: viewport, strings: zh),
       isEmpty,
     );
 
-    final tangentMarkers =
-        buildGraphZeroMarkers(functions: const [tangent], viewport: viewport);
+    final tangentMarkers = buildGraphZeroMarkers(
+        functions: const [tangent], viewport: viewport, strings: zh);
     expect(tangentMarkers, hasLength(1));
     expect(tangentMarkers.single.x, closeTo(0.333, 1e-4));
     expect(tangentMarkers.single.kind, '零点');
 
-    final zeroMarkers =
-        buildGraphZeroMarkers(functions: const [zero], viewport: viewport);
+    final zeroMarkers = buildGraphZeroMarkers(
+        functions: const [zero], viewport: viewport, strings: zh);
     expect(zeroMarkers, hasLength(1));
     expect(zeroMarkers.single.info, contains('所有 x 都是零点'));
 
-    final equationMarkers =
-        buildGraphZeroMarkers(functions: const [equation], viewport: viewport);
+    final equationMarkers = buildGraphZeroMarkers(
+        functions: const [equation], viewport: viewport, strings: zh);
     expect(equationMarkers.map((marker) => marker.x),
         containsAll([closeTo(-2, 1e-4), closeTo(2, 1e-4)]));
   });
@@ -515,6 +643,7 @@ plain words only
       buildGraphIntersectionMarkers(
         functions: const [reciprocal, zero],
         viewport: viewport,
+        strings: zh,
       ),
       isEmpty,
     );
@@ -522,6 +651,7 @@ plain words only
     final tangentMarkers = buildGraphIntersectionMarkers(
       functions: const [tangent, zero],
       viewport: viewport,
+      strings: zh,
     );
     expect(tangentMarkers, hasLength(1));
     expect(tangentMarkers.single.x, closeTo(0.333, 1e-4));
@@ -531,6 +661,7 @@ plain words only
     final overlapMarkers = buildGraphIntersectionMarkers(
       functions: const [tangent, sameTangent],
       viewport: viewport,
+      strings: zh,
     );
     expect(overlapMarkers, hasLength(1));
     expect(overlapMarkers.single.kind, '重合');
@@ -563,6 +694,7 @@ plain words only
     final markers = buildGraphExtremeMarkers(
       functions: const [minimum, maximum, hidden, outOfView],
       viewport: viewport,
+      strings: zh,
     );
 
     expect(markers, hasLength(2));
@@ -615,4 +747,16 @@ plain words only
       ),
     );
   });
+}
+
+/// 中文：CJK 统一表意文字区（含扩展 A）。
+/// English: The CJK Unified Ideographs block (plus Extension A).
+bool _containsCjk(String text) {
+  for (final rune in text.runes) {
+    if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
+        (rune >= 0x3400 && rune <= 0x4DBF)) {
+      return true;
+    }
+  }
+  return false;
 }

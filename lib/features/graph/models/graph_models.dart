@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/math/expression_parser.dart';
 import '../../../core/utils/expression_display_formatter.dart';
 import '../../../core/utils/number_formatter.dart';
+import 'graph_strings.dart';
 
 part 'graph_marker_builders.dart';
 
@@ -194,7 +195,6 @@ class GraphFunction {
   }
 }
 
-
 class GraphMarker {
   const GraphMarker({
     required this.x,
@@ -211,23 +211,24 @@ class GraphMarker {
   final String info;
 }
 
-
 class GraphFunctionInputPreview {
   const GraphFunctionInputPreview({
     required this.rawInput,
     required this.normalizedExpression,
     required this.label,
     required this.validSampleCount,
+    required this.strings,
     this.errorMessage,
   });
 
-  factory GraphFunctionInputPreview.empty() {
-    return const GraphFunctionInputPreview(
+  factory GraphFunctionInputPreview.empty(GraphStrings strings) {
+    return GraphFunctionInputPreview(
       rawInput: '',
       normalizedExpression: '',
       label: 'y =',
       validSampleCount: 0,
-      errorMessage: '请输入函数表达式',
+      strings: strings,
+      errorMessage: strings.enterExpression,
     );
   }
 
@@ -235,16 +236,26 @@ class GraphFunctionInputPreview {
   final String normalizedExpression;
   final String label;
   final int validSampleCount;
+
+  /// 中文：这一条预览该用哪种语言说话。**它是字段而不是查出来的**——预览在模型层构造，
+  ///       没有 `BuildContext`；语言由调用方（表现层从 `context` 取表）在构造时定下。
+  /// English: Which language this preview speaks. **It is a field rather than something looked up** —
+  ///          previews are built in the models layer with no `BuildContext`; the language is fixed at
+  ///          construction by the caller (presentation, which reads the table off `context`).
+  final GraphStrings strings;
+
   final String? errorMessage;
 
   bool get isValid => errorMessage == null;
 
+  /// 中文：屏幕上那一句。两个分支都过 [strings]，所以英文界面拿到的是英文。
+  /// English: the sentence shown on screen. Both branches go through [strings], so the English
+  ///          interface gets English.
   String get message {
     if (errorMessage != null) return errorMessage!;
-    return '将绘制 $label，有效采样 $validSampleCount/5';
+    return strings.willPlot(label, validSampleCount);
   }
 }
-
 
 const String graphWorkspaceSettingKey = 'graph_workspace';
 const int _graphWorkspaceVersion = 1;
@@ -276,7 +287,6 @@ class GraphWorkspace {
   final GraphViewport viewport;
 }
 
-
 String encodeGraphWorkspace({
   required Iterable<GraphFunction> functions,
   required GraphViewport viewport,
@@ -300,7 +310,13 @@ String encodeGraphWorkspace({
   });
 }
 
-GraphWorkspace? decodeGraphWorkspace(String? raw) {
+/// 中文：**表是必填参数。** 理由写在 `graph_strings.dart` 的文件头（模型层没有 `BuildContext`，
+///       语言由调用方在构造时定下；漏传是编译错误而不是静默回落）。
+/// English: **The table is a required parameter.** The reasoning is on `graph_strings.dart`'s file
+///          head (the models layer has no `BuildContext`, so the language is fixed by the caller at
+///          construction; omitting it is a compile error rather than a silent fallback).
+GraphWorkspace? decodeGraphWorkspace(String? raw,
+    {required GraphStrings strings}) {
   if (raw == null || raw.trim().isEmpty) return null;
   try {
     final decoded = jsonDecode(raw);
@@ -314,6 +330,7 @@ GraphWorkspace? decodeGraphWorkspace(String? raw) {
       final function = _graphFunctionFromJson(
         rawFunctions[i],
         fallbackColor: graphPalette[i % graphPalette.length],
+        strings: strings,
       );
       if (function != null) functions.add(function);
     }
@@ -327,16 +344,17 @@ GraphWorkspace? decodeGraphWorkspace(String? raw) {
   }
 }
 
-
 GraphFunction? _graphFunctionFromJson(
   Object? raw, {
   required Color fallbackColor,
+  required GraphStrings strings,
 }) {
   if (raw is! Map) return null;
   final rawExpression = raw['expression'];
   if (rawExpression is! String) return null;
   final color = _colorFromJson(raw['color']) ?? fallbackColor;
-  final preview = previewGraphFunctionInput(rawExpression, color: color);
+  final preview =
+      previewGraphFunctionInput(rawExpression, color: color, strings: strings);
   if (!preview.isValid) return null;
   final visible = raw['visible'] is bool ? raw['visible'] as bool : true;
   return GraphFunction(
@@ -367,10 +385,12 @@ int? _parseColorString(String raw) {
   return int.tryParse(text, radix: 16);
 }
 
-
+/// 中文：**表是必填参数**，理由同 `decodeGraphWorkspace`。
+/// English: **The table is a required parameter**, for the same reason as `decodeGraphWorkspace`.
 GraphFunctionInputPreview previewGraphFunctionInput(
   String raw, {
   required Color color,
+  required GraphStrings strings,
 }) {
   final normalized = GraphFunction.normalizeExpression(raw);
   if (normalized.isEmpty) {
@@ -379,7 +399,8 @@ GraphFunctionInputPreview previewGraphFunctionInput(
       normalizedExpression: normalized,
       label: 'y =',
       validSampleCount: 0,
-      errorMessage: '请输入函数表达式',
+      strings: strings,
+      errorMessage: strings.enterExpression,
     );
   }
 
@@ -398,7 +419,8 @@ GraphFunctionInputPreview previewGraphFunctionInput(
       normalizedExpression: normalized,
       label: probe.label,
       validSampleCount: validSamples,
-      errorMessage: '表达式无法计算，请检查函数名、括号或变量 x',
+      strings: strings,
+      errorMessage: strings.cannotCompute,
     );
   }
 
@@ -407,30 +429,40 @@ GraphFunctionInputPreview previewGraphFunctionInput(
     normalizedExpression: normalized,
     label: probe.label,
     validSampleCount: validSamples,
+    strings: strings,
   );
 }
 
+/// 中文：**表是必填参数。** 小节名（`图形数据` / `函数` / `视窗` / `标记` / `当前标记`）是**线格式**——
+///       写出去、粘贴解析器又读回来；解析器两种语言都收，所以英文界面复制出去的数据在英文界面里
+///       能自己粘回来。理由详见 `graph_strings.dart` 的文件头。
+/// English: **The table is a required parameter.** The section names (`图形数据` / `函数` / `视窗` /
+///          `标记` / `当前标记`) are the **wire format** — written out and read back by the paste
+///          parser; the parser accepts both languages, so data copied out of the English interface
+///          pastes back into it. The reasoning is on `graph_strings.dart`'s file head.
 String buildGraphCopyText({
   required Iterable<GraphFunction> functions,
   required GraphViewport viewport,
   required Iterable<GraphMarker> markers,
+  required GraphStrings strings,
   int? selectedMarker,
 }) {
   final functionList = functions.toList(growable: false);
   final markerList = markers.toList(growable: false);
   final lines = <String>[
-    '图形数据',
+    strings.graphDataTitle,
     '',
-    '函数',
+    strings.functionsSection,
     if (functionList.isEmpty)
-      '无'
+      strings.none
     else
       for (var i = 0; i < functionList.length; i++) ...[
-        '${i + 1}. ${functionList[i].label} (${functionList[i].visible ? '显示' : '隐藏'})',
-        '   表达式: ${functionList[i].expression}',
+        '${i + 1}. ${functionList[i].label} '
+            '(${functionList[i].visible ? strings.show : strings.hide})',
+        strings.expressionLine(functionList[i].expression),
       ],
     '',
-    '视窗',
+    strings.viewportSection,
     'x: ${formatGraphNumber(viewport.xMin)} ~ ${formatGraphNumber(viewport.xMax)}',
     'y: ${formatGraphNumber(viewport.yMin)} ~ ${formatGraphNumber(viewport.yMax)}',
   ];
@@ -441,7 +473,7 @@ String buildGraphCopyText({
     final marker = markerList[selectedMarker];
     lines.addAll([
       '',
-      '当前标记',
+      strings.currentMarkerSection,
       markerCopyLine(marker),
       marker.info,
     ]);
@@ -449,9 +481,9 @@ String buildGraphCopyText({
 
   lines.addAll([
     '',
-    '标记',
+    strings.markersSection,
     if (markerList.isEmpty)
-      '无'
+      strings.none
     else
       for (var i = 0; i < markerList.length; i++)
         '${i + 1}. ${markerCopyLine(markerList[i])}',
@@ -474,7 +506,6 @@ String buildMarkerCopyText(GraphMarker marker) {
 String formatGraphNumber(double value) {
   return formatNumber(value, precision: 8);
 }
-
 
 List<List<Offset>> buildGraphPlotSegments({
   required GraphFunction function,
@@ -523,7 +554,6 @@ void _finishGraphSegment(List<List<Offset>> segments, List<Offset> current) {
   }
 }
 
-
 const List<Color> graphPalette = [
   Color(0xFF1677FF),
   Color(0xFF7C3AED),
@@ -531,7 +561,6 @@ const List<Color> graphPalette = [
   Color(0xFF23B45D),
   Color(0xFFFF4D5E),
 ];
-
 
 class GraphViewport {
   const GraphViewport({
@@ -645,7 +674,6 @@ class GraphViewport {
     return yMax - screenY / size.height * spanY;
   }
 }
-
 
 double? _jsonDouble(Object? value) {
   final parsed = switch (value) {

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/data/local/app_database.dart';
+import 'package:nekocalc/features/graph/models/graph_strings.dart';
 import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 
 void main() {
+  final zh = GraphStrings.graphZh;
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
@@ -48,6 +50,7 @@ void main() {
 
     final savedWorkspace = decodeGraphWorkspace(
       db.savedSettings[graphWorkspaceSettingKey],
+      strings: zh,
     );
     expect(savedWorkspace, isNotNull);
     expect(savedWorkspace!.viewport.spanX, closeTo(9, 1e-9));
@@ -67,6 +70,7 @@ void main() {
       functions: const [sourceFunction],
       viewport: const GraphViewport(centerX: 1, centerY: 2, spanX: 6, spanY: 8),
       markers: const [],
+      strings: zh,
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) {
@@ -95,6 +99,7 @@ void main() {
     expect(find.textContaining('已从图形数据恢复工作区'), findsWidgets);
     final savedWorkspace = decodeGraphWorkspace(
       db.savedSettings[graphWorkspaceSettingKey],
+      strings: zh,
     );
     expect(savedWorkspace, isNotNull);
     expect(savedWorkspace!.functions, hasLength(1));
@@ -141,6 +146,7 @@ sin(x)
     expect(find.textContaining('已从函数文本创建工作区'), findsWidgets);
     final savedWorkspace = decodeGraphWorkspace(
       db.savedSettings[graphWorkspaceSettingKey],
+      strings: zh,
     );
     expect(savedWorkspace, isNotNull);
     expect(savedWorkspace!.functions.map((item) => item.expression), [

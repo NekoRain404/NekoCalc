@@ -9,6 +9,7 @@ import '../../../core/platform/document_export_channel.dart';
 import '../../../core/utils/render_export.dart';
 import '../models/graph_models.dart';
 export '../models/graph_models.dart';
+import '../models/graph_strings.dart';
 import 'graph_function_expression_dialog.dart';
 export 'graph_function_expression_dialog.dart';
 import 'graph_painter.dart';
@@ -40,7 +41,18 @@ class _GraphPageState extends State<GraphPage> {
   GraphViewport _viewport = defaultGraphViewport;
   List<GraphMarker> _markers = const [];
   int? _selectedMarker;
-  String _status = '拖动画布平移，双指缩放';
+
+  /// 中文：状态栏那一句。**`null` 表示"还没发生任何事"，渲染时回落到 `panHint`。** 存 `String?`
+  ///       而不是在 `initState` 里查表，是因为表要等 `context`（`didChangeDependencies` 之后才有），
+  ///       而默认态必须逐字节是今天那句 `拖动画布平移，双指缩放`。每个 handler 在 `context` 可用时
+  ///       查表并写入具体文案，只有这一条初值留空、由 `build` 兜底。
+  /// English: the status bar sentence. **`null` means "nothing has happened yet" and falls back to
+  ///          `panHint` at render time.** It is a `String?` rather than a table lookup in `initState`
+  ///          because the table needs `context` (only available after `didChangeDependencies`), and the
+  ///          default state must stay byte-identical to today's `拖动画布平移，双指缩放`. Every handler
+  ///          looks the table up while `context` is available and stores a concrete sentence; only this
+  ///          initial value stays empty and is covered by `build`.
+  String? _status;
   double _lastScale = 1;
   Timer? _workspacePersistTimer;
   int _workspaceRevision = 0;
@@ -81,10 +93,11 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   Future<void> _addFunction() async {
+    final strings = GraphStrings.of(context);
     final expression = await _showFunctionDialog(
-      title: '添加函数',
+      title: strings.addFunction,
       initialExpression: _functions.length % 2 == 0 ? 'cos(x)' : '0.5*x + 1',
-      confirmLabel: '添加',
+      confirmLabel: strings.addConfirm,
     );
     if (expression == null) return;
     setState(() {
@@ -95,7 +108,7 @@ class _GraphPageState extends State<GraphPage> {
       ));
       _markers = const [];
       _selectedMarker = null;
-      _status = '已添加 y = $expression';
+      _status = strings.addedFunction(expression);
     });
     _scheduleWorkspacePersist();
   }
@@ -116,23 +129,25 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   void _toggle(int index) {
+    final strings = GraphStrings.of(context);
     setState(() {
       _functions[index] =
           _functions[index].copyWith(visible: !_functions[index].visible);
       _markers = const [];
       _selectedMarker = null;
       _status = _functions[index].visible
-          ? '已显示 ${_functions[index].label}'
-          : '已隐藏 ${_functions[index].label}';
+          ? strings.shownFunction(_functions[index].label)
+          : strings.hiddenFunction(_functions[index].label);
     });
     _scheduleWorkspacePersist();
   }
 
   Future<void> _editFunction(int index) async {
+    final strings = GraphStrings.of(context);
     final expression = await _showFunctionDialog(
-      title: '编辑函数',
+      title: strings.editFunction,
       initialExpression: _functions[index].expression,
-      confirmLabel: '保存',
+      confirmLabel: strings.saveConfirm,
     );
     if (expression == null) return;
     setState(() {
@@ -144,22 +159,24 @@ class _GraphPageState extends State<GraphPage> {
           visible: current.visible);
       _markers = const [];
       _selectedMarker = null;
-      _status = '已更新 y = $expression';
+      _status = strings.updatedFunction(expression);
     });
     _scheduleWorkspacePersist();
   }
 
   void _deleteFunction(int index) {
+    final strings = GraphStrings.of(context);
     setState(() {
       final removed = _functions.removeAt(index);
       _markers = const [];
       _selectedMarker = null;
-      _status = '已删除 ${removed.label}';
+      _status = strings.deletedFunction(removed.label);
     });
     _scheduleWorkspacePersist();
   }
 
   void _reset() {
+    final strings = GraphStrings.of(context);
     setState(() {
       for (var i = 0; i < _functions.length; i++) {
         _functions[i] = _functions[i].copyWith(visible: true);
@@ -167,7 +184,7 @@ class _GraphPageState extends State<GraphPage> {
       _viewport = defaultGraphViewport;
       _markers = const [];
       _selectedMarker = null;
-      _status = '视图已重置';
+      _status = strings.viewReset;
     });
     _scheduleWorkspacePersist();
   }
@@ -183,11 +200,25 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   Future<void> _loadWorkspace({bool forceDefaultOnInvalid = false}) async {
+    // 中文：**`initState` 也会走到这里，那时 `context` 还不许查表**（`dependOnInheritedWidgetOfExactType`
+    //       在 `initState` 完成前调用会断言失败）。这里只用到 `strings` 的两句**事后**文案
+    //       （`invalidWorkspace` / `restoredWorkspace`），所以先记下"要不要写、写哪一格"，等
+    //       `await` 回来、`context` 可用之后（`build` 与 `didChangeDependencies` 都已跑过）再查表。
+    //       查表只发生在 `await` 之后这一条路径上，`initState` 路径根本不查。
+    // English: **`initState` reaches here too, and at that point `context` may not look up a table**
+    //          (`dependOnInheritedWidgetOfExactType` asserts when called before `initState` finishes).
+    //          Only two **post-hoc** sentences are needed here (`invalidWorkspace` /
+    //          `restoredWorkspace`), so remember which one to write and look the table up after the
+    //          `await`, by which time `context` is usable (`build` and `didChangeDependencies` have
+    //          already run). The lookup happens only on that post-`await` path; the `initState` path
+    //          never looks anything up.
     final token = ++_workspaceLoadToken;
     final revisionAtStart = _workspaceRevision;
     final settings = await _settingsRepository.load();
     final raw = settings[graphWorkspaceSettingKey];
-    final workspace = decodeGraphWorkspace(raw);
+    if (!mounted) return;
+    final strings = GraphStrings.of(context);
+    final workspace = decodeGraphWorkspace(raw, strings: strings);
     if (!mounted ||
         !widget.restoreState ||
         token != _workspaceLoadToken ||
@@ -197,7 +228,7 @@ class _GraphPageState extends State<GraphPage> {
     if (workspace == null) {
       if (forceDefaultOnInvalid && raw != null && raw.trim().isNotEmpty) {
         setState(() {
-          _restoreDefaultWorkspace(status: '图形工作区数据无效，已恢复默认视图');
+          _restoreDefaultWorkspace(status: strings.invalidWorkspace);
         });
       }
       return;
@@ -209,7 +240,7 @@ class _GraphPageState extends State<GraphPage> {
       _viewport = workspace.viewport;
       _markers = const [];
       _selectedMarker = null;
-      _status = '已恢复上次图形工作区';
+      _status = strings.restoredWorkspace;
     });
   }
 
@@ -233,18 +264,22 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   void _zoom(double factor) {
+    final strings = GraphStrings.of(context);
     setState(() {
       _viewport = _viewport.zoom(factor);
-      _status =
-          '视图范围 x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
+      _status = strings.viewRange(
+        _viewport.xMin.toStringAsFixed(1),
+        _viewport.xMax.toStringAsFixed(1),
+      );
     });
     _scheduleWorkspacePersist();
   }
 
   void _fitVisibleY() {
+    final strings = GraphStrings.of(context);
     final visible = _functions.where((item) => item.visible).toList();
     if (visible.isEmpty) {
-      setState(() => _status = '没有可见函数可适配');
+      setState(() => _status = strings.noVisibleFunction);
       return;
     }
     final values = <double>[];
@@ -257,7 +292,7 @@ class _GraphPageState extends State<GraphPage> {
       }
     }
     if (values.length < 2) {
-      setState(() => _status = '当前视图没有足够的有效采样点');
+      setState(() => _status = strings.notEnoughSamples);
       return;
     }
     values.sort();
@@ -276,37 +311,40 @@ class _GraphPageState extends State<GraphPage> {
       );
       _markers = const [];
       _selectedMarker = null;
-      _status = '已适配当前可见曲线';
+      _status = strings.fittedVisible;
     });
     _scheduleWorkspacePersist();
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = GraphStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       children: [
         Row(
           children: [
-            const Expanded(child: PageTitle('图形')),
+            Expanded(child: PageTitle(strings.pageTitle)),
             IconToolButton(
                 icon: Icons.content_paste,
-                tooltip: '粘贴图形数据',
+                tooltip: strings.pasteTooltip,
                 onTap: _pasteGraphData),
             const SizedBox(width: 8),
             IconToolButton(
                 icon: Icons.copy_outlined,
-                tooltip: '复制图形数据',
+                tooltip: strings.copyTooltip,
                 onTap: _copyGraphData),
             const SizedBox(width: 8),
             IconToolButton(
                 icon: Icons.image_outlined,
-                tooltip: '导出图形 PNG',
+                tooltip: strings.exportPngTooltip,
                 onTap: _exportGraphPng),
             const SizedBox(width: 8),
             IconToolButton(
-                icon: Icons.add, tooltip: '添加函数', onTap: _addFunction),
+                icon: Icons.add,
+                tooltip: strings.addFunction,
+                onTap: _addFunction),
           ],
         ),
         Card(
@@ -316,6 +354,7 @@ class _GraphPageState extends State<GraphPage> {
                 FunctionRow(
                   key: ValueKey(_functions[i].expression),
                   function: _functions[i],
+                  strings: strings,
                   onToggle: () => _toggle(i),
                   onEdit: () => _editFunction(i),
                   onDelete:
@@ -328,8 +367,8 @@ class _GraphPageState extends State<GraphPage> {
                 onTap: _addFunction,
                 leading: const Icon(Icons.add_circle_outline,
                     color: Color(0xFF1677FF)),
-                title: const Text('添加函数',
-                    style: TextStyle(color: Color(0xFF1677FF))),
+                title: Text(strings.addFunction,
+                    style: const TextStyle(color: Color(0xFF1677FF))),
               ),
             ],
           ),
@@ -350,8 +389,10 @@ class _GraphPageState extends State<GraphPage> {
                   if (details.pointerCount == 1) {
                     setState(() {
                       _viewport = _viewport.pan(details.focalPointDelta, size);
-                      _status =
-                          'x: ${_viewport.xMin.toStringAsFixed(1)} ~ ${_viewport.xMax.toStringAsFixed(1)}';
+                      _status = strings.panRange(
+                        _viewport.xMin.toStringAsFixed(1),
+                        _viewport.xMax.toStringAsFixed(1),
+                      );
                     });
                     _scheduleWorkspacePersist();
                     return;
@@ -365,8 +406,8 @@ class _GraphPageState extends State<GraphPage> {
                       details.localFocalPoint,
                       size,
                     );
-                    _status =
-                        '缩放 ${(12 / _viewport.spanX).toStringAsFixed(2)}x';
+                    _status = strings
+                        .zoomed((12 / _viewport.spanX).toStringAsFixed(2));
                   });
                   _scheduleWorkspacePersist();
                 },
@@ -398,7 +439,7 @@ class _GraphPageState extends State<GraphPage> {
           padding: const EdgeInsets.all(14),
           decoration: softPanel(context: context, highlight: true),
           child: Center(
-            child: Text(_status,
+            child: Text(_status ?? strings.panHint,
                 style: TextStyle(
                     color: scheme.secondary, fontWeight: FontWeight.w800)),
           ),
@@ -412,22 +453,24 @@ class _GraphPageState extends State<GraphPage> {
           children: [
             Expanded(
                 child: ActionButton(
-                    icon: Icons.refresh, label: '重置', onTap: _reset)),
+                    icon: Icons.refresh, label: strings.reset, onTap: _reset)),
             const SizedBox(width: 8),
             Expanded(
                 child: ActionButton(
-                    icon: Icons.fit_screen, label: '适配', onTap: _fitVisibleY)),
+                    icon: Icons.fit_screen,
+                    label: strings.fit,
+                    onTap: _fitVisibleY)),
             const SizedBox(width: 8),
             Expanded(
                 child: ActionButton(
                     icon: Icons.zoom_in,
-                    label: '放大',
+                    label: strings.zoomIn,
                     onTap: () => _zoom(0.75))),
             const SizedBox(width: 8),
             Expanded(
                 child: ActionButton(
                     icon: Icons.zoom_out,
-                    label: '缩小',
+                    label: strings.zoomOut,
                     onTap: () => _zoom(1.35))),
           ],
         ),
@@ -436,17 +479,21 @@ class _GraphPageState extends State<GraphPage> {
           children: [
             Expanded(
                 child: ActionButton(
-                    icon: Icons.adjust, label: '零点', onTap: _markZeros)),
+                    icon: Icons.adjust,
+                    label: strings.zerosButton,
+                    onTap: _markZeros)),
             const SizedBox(width: 8),
             Expanded(
                 child: ActionButton(
                     icon: Icons.scatter_plot_outlined,
-                    label: '交点',
+                    label: strings.intersectionsButton,
                     onTap: _markIntersections)),
             const SizedBox(width: 8),
             Expanded(
                 child: ActionButton(
-                    icon: Icons.timeline, label: '极值', onTap: _markExtremes)),
+                    icon: Icons.timeline,
+                    label: strings.extremesButton,
+                    onTap: _markExtremes)),
           ],
         ),
       ],
@@ -484,69 +531,79 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   void _sampleAt(Offset localPosition, Size size) {
+    final strings = GraphStrings.of(context);
     final x = _viewport.xMin + localPosition.dx / size.width * _viewport.spanX;
     final markers = buildSampleMarkers(
       functions: _functions,
       x: x,
       yMin: _viewport.yMin,
       yMax: _viewport.yMax,
+      strings: strings,
     );
     setState(() {
       _markers = markers;
       _selectedMarker = markers.isEmpty ? null : 0;
       _status = markers.isEmpty
-          ? 'x = ${x.toStringAsFixed(6)} 处没有可见有效函数值'
-          : 'x = ${x.toStringAsFixed(6)}，已取样 ${markers.length} 条曲线';
+          ? strings.sampleNone(x.toStringAsFixed(6))
+          : strings.sampleDone(x.toStringAsFixed(6), markers.length);
     });
   }
 
   void _markZeros() {
-    final markers = _findZeroMarkers();
-    setState(() {
-      _markers = markers;
-      _selectedMarker = markers.isEmpty ? null : 0;
-      _status =
-          markers.isEmpty ? '当前视图未找到零点' : '找到 ${markers.length} 个零点，点击高亮点查看详情';
-    });
-  }
-
-  void _markIntersections() {
-    final markers = _findIntersectionMarkers();
-    setState(() {
-      _markers = markers;
-      _selectedMarker = markers.isEmpty ? null : 0;
-      _status =
-          markers.isEmpty ? '当前视图未找到交点' : '找到 ${markers.length} 个交点，点击高亮点查看详情';
-    });
-  }
-
-  void _markExtremes() {
-    final markers = _findExtremeMarkers();
+    final strings = GraphStrings.of(context);
+    final markers = _findZeroMarkers(strings);
     setState(() {
       _markers = markers;
       _selectedMarker = markers.isEmpty ? null : 0;
       _status = markers.isEmpty
-          ? '当前视图没有有效极值采样'
-          : '找到 ${markers.length} 个极值点，点击高亮点查看详情';
+          ? strings.noZeros
+          : strings.foundZeros(markers.length);
+    });
+  }
+
+  void _markIntersections() {
+    final strings = GraphStrings.of(context);
+    final markers = _findIntersectionMarkers(strings);
+    setState(() {
+      _markers = markers;
+      _selectedMarker = markers.isEmpty ? null : 0;
+      _status = markers.isEmpty
+          ? strings.noIntersections
+          : strings.foundIntersections(markers.length);
+    });
+  }
+
+  void _markExtremes() {
+    final strings = GraphStrings.of(context);
+    final markers = _findExtremeMarkers(strings);
+    setState(() {
+      _markers = markers;
+      _selectedMarker = markers.isEmpty ? null : 0;
+      _status = markers.isEmpty
+          ? strings.noExtremes
+          : strings.foundExtremes(markers.length);
     });
   }
 
   Future<void> _copyGraphData() async {
+    final strings = GraphStrings.of(context);
     await Clipboard.setData(ClipboardData(
       text: buildGraphCopyText(
         functions: _functions,
         viewport: _viewport,
         markers: _markers,
         selectedMarker: _selectedMarker,
+        strings: strings,
       ),
     ));
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制图形数据')));
+          .showSnackBar(SnackBar(content: Text(strings.copiedGraphData)));
     }
   }
 
   Future<void> _exportGraphPng() async {
+    final strings = GraphStrings.of(context);
     try {
       final bytes = await captureBoundaryPng(_graphBoundaryKey);
       final saved = await DocumentExportChannel.exportBytes(
@@ -557,22 +614,23 @@ class _GraphPageState extends State<GraphPage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(saved ? '图形已保存为 PNG' : '已取消保存图形'),
+        content: Text(saved ? strings.savedPng : strings.cancelledSave),
       ));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导出图形失败：$error')),
+        SnackBar(content: Text(strings.exportFailed('$error'))),
       );
     }
   }
 
   Future<void> _pasteGraphData() async {
+    final strings = GraphStrings.of(context);
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted) return;
     final text = data?.text;
     if (text == null || text.trim().isEmpty) return;
-    final paste = parseGraphWorkspacePasteText(text);
+    final paste = parseGraphWorkspacePasteText(text, strings: strings);
     if (!paste.hasWorkspace) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(paste.summary)),
@@ -600,12 +658,13 @@ class _GraphPageState extends State<GraphPage> {
     if (selected == null || selected < 0 || selected >= _markers.length) {
       return;
     }
+    final strings = GraphStrings.of(context);
     await Clipboard.setData(
       ClipboardData(text: buildMarkerCopyText(_markers[selected])),
     );
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已复制当前标记')));
+          .showSnackBar(SnackBar(content: Text(strings.copiedMarker)));
     }
   }
 
@@ -614,10 +673,11 @@ class _GraphPageState extends State<GraphPage> {
     if (selected == null || selected < 0 || selected >= _markers.length) {
       return;
     }
+    final strings = GraphStrings.of(context);
     final marker = _markers[selected];
     setState(() {
       _viewport = _viewport.centerOn(marker.x, marker.y);
-      _status = '已居中到 ${markerCopyLine(marker)}';
+      _status = strings.centeredOn(markerCopyLine(marker));
     });
     _scheduleWorkspacePersist();
   }
@@ -633,6 +693,7 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   Widget _markerPanel() {
+    final strings = GraphStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final selected = _selectedMarker == null ||
             _selectedMarker! < 0 ||
@@ -657,26 +718,26 @@ class _GraphPageState extends State<GraphPage> {
                 ),
               ),
               IconButton(
-                tooltip: '上一个标记',
+                tooltip: strings.previousMarker,
                 onPressed: _markers.length <= 1
                     ? null
                     : () => _selectMarkerByOffset(-1),
                 icon: const Icon(Icons.chevron_left),
               ),
               IconButton(
-                tooltip: '下一个标记',
+                tooltip: strings.nextMarker,
                 onPressed: _markers.length <= 1
                     ? null
                     : () => _selectMarkerByOffset(1),
                 icon: const Icon(Icons.chevron_right),
               ),
               IconButton(
-                tooltip: '复制标记',
+                tooltip: strings.copyMarker,
                 onPressed: _copySelectedMarker,
                 icon: const Icon(Icons.copy_outlined),
               ),
               IconButton(
-                tooltip: '居中到标记',
+                tooltip: strings.centerOnMarker,
                 onPressed: _centerSelectedMarker,
                 icon: const Icon(Icons.center_focus_strong_outlined),
               ),
@@ -700,23 +761,26 @@ class _GraphPageState extends State<GraphPage> {
     );
   }
 
-  List<GraphMarker> _findZeroMarkers() {
-    return buildGraphZeroMarkers(functions: _functions, viewport: _viewport);
+  List<GraphMarker> _findZeroMarkers(GraphStrings strings) {
+    return buildGraphZeroMarkers(
+        functions: _functions, viewport: _viewport, strings: strings);
   }
 
-  List<GraphMarker> _findIntersectionMarkers() {
+  List<GraphMarker> _findIntersectionMarkers(GraphStrings strings) {
     return buildGraphIntersectionMarkers(
-        functions: _functions, viewport: _viewport);
+        functions: _functions, viewport: _viewport, strings: strings);
   }
 
-  List<GraphMarker> _findExtremeMarkers() {
-    return buildGraphExtremeMarkers(functions: _functions, viewport: _viewport);
+  List<GraphMarker> _findExtremeMarkers(GraphStrings strings) {
+    return buildGraphExtremeMarkers(
+        functions: _functions, viewport: _viewport, strings: strings);
   }
 }
 
 class FunctionRow extends StatelessWidget {
   const FunctionRow({
     required this.function,
+    required this.strings,
     required this.onToggle,
     required this.onEdit,
     this.onDelete,
@@ -724,6 +788,7 @@ class FunctionRow extends StatelessWidget {
   });
 
   final GraphFunction function;
+  final GraphStrings strings;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
   final VoidCallback? onDelete;
@@ -737,24 +802,24 @@ class FunctionRow extends StatelessWidget {
         spacing: 2,
         children: [
           IconButton(
-            tooltip: function.visible ? '隐藏' : '显示',
+            tooltip: function.visible ? strings.hide : strings.show,
             onPressed: onToggle,
             icon: Icon(
                 function.visible ? Icons.visibility : Icons.visibility_off,
                 color: const Color(0xFF1677FF)),
           ),
           PopupMenuButton<String>(
-            tooltip: '函数操作',
+            tooltip: strings.functionActions,
             onSelected: (value) {
               if (value == 'edit') onEdit();
               if (value == 'delete') onDelete?.call();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'edit', child: Text('编辑函数')),
+              PopupMenuItem(value: 'edit', child: Text(strings.editFunction)),
               PopupMenuItem(
                   value: 'delete',
                   enabled: onDelete != null,
-                  child: const Text('删除函数')),
+                  child: Text(strings.deleteFunction)),
             ],
           ),
         ],
