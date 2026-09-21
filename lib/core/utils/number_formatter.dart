@@ -1,4 +1,8 @@
-String formatNumber(num value, {int precision = 6}) {
+String formatNumber(
+  num value, {
+  int precision = 6,
+  bool groupThousands = false,
+}) {
   if (value.isNaN || value.isInfinite) return '无效';
   if (value == 0) return '0';
   final magnitude = value.abs();
@@ -6,7 +10,24 @@ String formatNumber(num value, {int precision = 6}) {
     return _trimScientific(value.toStringAsExponential(precision));
   }
   final fixed = value.toStringAsFixed(precision);
-  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  final trimmed = fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  return groupThousands ? _groupThousands(trimmed) : trimmed;
+}
+
+String _groupThousands(String value) {
+  final negative = value.startsWith('-');
+  final unsigned = negative ? value.substring(1) : value;
+  final decimalIndex = unsigned.indexOf('.');
+  final integer =
+      decimalIndex < 0 ? unsigned : unsigned.substring(0, decimalIndex);
+  final decimal = decimalIndex < 0 ? '' : unsigned.substring(decimalIndex);
+  final firstGroupLength = integer.length % 3;
+  final groups = <String>[
+    if (firstGroupLength > 0) integer.substring(0, firstGroupLength),
+    for (var index = firstGroupLength; index < integer.length; index += 3)
+      integer.substring(index, index + 3),
+  ];
+  return '${negative ? '-' : ''}${groups.join(',')}$decimal';
 }
 
 String _trimScientific(String value) {

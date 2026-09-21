@@ -13,6 +13,15 @@ void main() {
     expect(formatNumber(12, precision: 3), '12');
   });
 
+  test('optionally groups the integer part with thousands separators', () {
+    expect(
+      formatNumber(1234567.89, groupThousands: true),
+      '1,234,567.89',
+    );
+    expect(formatNumber(-1200, groupThousands: true), '-1,200');
+    expect(formatNumber(0.125, groupThousands: true), '0.125');
+  });
+
   test('uses scientific notation for very small and large values', () {
     expect(formatNumber(0.0000001234), '1.234e-7');
     expect(formatNumber(-0.0000001234, precision: 3), '-1.234e-7');

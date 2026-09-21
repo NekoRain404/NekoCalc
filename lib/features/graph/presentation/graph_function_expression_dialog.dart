@@ -5,6 +5,7 @@ import '../models/graph_models.dart';
 
 class FunctionExpressionDialog extends StatefulWidget {
   const FunctionExpressionDialog({
+    super.key,
     required this.title,
     required this.initialExpression,
     required this.confirmLabel,
@@ -127,4 +128,3 @@ class _FunctionExpressionDialogState extends State<FunctionExpressionDialog> {
     Navigator.pop(context, preview.normalizedExpression);
   }
 }
-

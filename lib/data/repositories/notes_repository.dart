@@ -10,8 +10,9 @@ class NotesRepository {
     required String title,
     required String body,
     String description = '',
+    List<String> tags = const [],
   }) {
-    return _db.addNote(title, body, description: description);
+    return _db.addNote(title, body, description: description, tags: tags);
   }
 
   Future<void> update({
@@ -19,20 +20,55 @@ class NotesRepository {
     required String title,
     required String description,
     required String body,
+    List<String> tags = const [],
   }) {
     return _db.updateNote(
-        id: id, title: title, description: description, body: body);
+      id: id,
+      title: title,
+      description: description,
+      body: body,
+      tags: tags,
+    );
   }
 
   Future<List<NoteItem>> list({
     int limit = 200,
     int offset = 0,
     String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+    NoteSort sort = NoteSort.updatedNewest,
   }) {
-    return _db.notes(limit: limit, offset: offset, query: query);
+    return _db.notes(
+      limit: limit,
+      offset: offset,
+      query: query,
+      tag: tag,
+      archiveFilter: archiveFilter,
+      sort: sort,
+    );
   }
 
-  Future<int> count({String? query}) => _db.noteCount(query: query);
+  Future<int> count({
+    String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) =>
+      _db.noteCount(
+        query: query,
+        tag: tag,
+        archiveFilter: archiveFilter,
+      );
+
+  Future<void> setPinned(int id, bool value) => _db.setNotePinned(id, value);
+
+  Future<void> setArchived(int id, bool value) =>
+      _db.setNoteArchived(id, value);
+
+  Future<List<String>> tags({
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) =>
+      _db.noteTags(archiveFilter: archiveFilter);
 
   Future<int> delete(int id) => _db.deleteNote(id);
 

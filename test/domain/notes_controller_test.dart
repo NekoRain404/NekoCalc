@@ -130,6 +130,127 @@ void main() {
     controller.dispose();
   });
 
+  test('loads the first note page instead of reading every matching note',
+      () async {
+    final db = _FakeNotesControllerDatabase(
+      historyItems: const [],
+      noteItems: List.generate(
+        151,
+        (index) => NoteItem(
+          id: index + 1,
+          title: '笔记 ${index + 1}',
+          description: '',
+          body: '内容 ${index + 1}',
+          createdAt: DateTime(2026, 6, 1),
+          updatedAt: DateTime(2026, 6, 1),
+        ),
+      ),
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+    );
+
+    await controller.load();
+
+    expect(controller.visibleNotes, hasLength(100));
+    expect(db.noteLimits, [100]);
+    controller.dispose();
+  });
+
+  test('loads the next note page on demand without losing prior notes',
+      () async {
+    final db = _FakeNotesControllerDatabase(
+      historyItems: const [],
+      noteItems: List.generate(
+        151,
+        (index) => NoteItem(
+          id: index + 1,
+          title: '笔记 ${index + 1}',
+          description: '',
+          body: '内容 ${index + 1}',
+          createdAt: DateTime(2026, 6, 1),
+          updatedAt: DateTime(2026, 6, 1),
+        ),
+      ),
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+    );
+
+    await controller.load();
+    await controller.loadMoreNotes();
+
+    expect(controller.visibleNotes, hasLength(151));
+    expect(controller.hasMoreNotes, isFalse);
+    expect(db.noteLimits, [100, 100]);
+    controller.dispose();
+  });
+
+  test('applies archive and tag filters before loading notes', () async {
+    final active = NoteItem(
+      id: 1,
+      title: '进行中的校核',
+      description: '',
+      body: '待处理',
+      createdAt: DateTime(2026, 6, 1),
+      updatedAt: DateTime(2026, 6, 1),
+      tags: const ['实验'],
+    );
+    final archived = active.copyWith(
+      title: '已完成的校核',
+      tags: const ['归档'],
+      isArchived: true,
+    );
+    final db = _FakeNotesControllerDatabase(
+      historyItems: const [],
+      noteItems: [active, archived],
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+    );
+
+    controller.applyNoteFilters(
+      archiveFilter: NoteArchiveFilter.archived,
+      sort: NoteSort.updatedNewest,
+      tag: '归档',
+    );
+    await controller.load();
+
+    expect(controller.visibleNotes.map((item) => item.title), ['已完成的校核']);
+    expect(controller.availableNoteTags, ['归档']);
+    controller.dispose();
+  });
+
+  test('keeps date queries out of SQL prefiltering and matches note dates',
+      () async {
+    final datedNote = NoteItem(
+      id: 31,
+      title: note.title,
+      description: note.description,
+      body: note.body,
+      createdAt: DateTime(2026, 6, 8, 12),
+      updatedAt: DateTime(2026, 6, 8, 12),
+    );
+    final db = _FakeNotesControllerDatabase(
+      historyItems: const [],
+      noteItems: [datedNote],
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+    );
+
+    controller.setQuery('2026/06/08');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(db.noteQueries.last, isNull);
+    expect(controller.visibleNotes.map((item) => item.id), [31]);
+    controller.dispose();
+  });
+
   test('delete selected records refreshes once after both repositories finish',
       () async {
     final db = _FakeNotesControllerDatabase(
@@ -314,6 +435,8 @@ class _FakeNotesControllerDatabase implements AppDatabase {
   bool zeroNextHistoryWrite;
   int historyLoads = 0;
   int noteLoads = 0;
+  final List<int> noteLimits = [];
+  final List<String?> noteQueries = [];
   int _nextHistoryId = 50;
   int _nextNoteId = 100;
   final List<int> deletedHistoryIds = [];
@@ -337,19 +460,50 @@ class _FakeNotesControllerDatabase implements AppDatabase {
     int limit = 200,
     int offset = 0,
     String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+    NoteSort sort = NoteSort.updatedNewest,
   }) async {
     noteLoads++;
-    return noteItems;
+    noteLimits.add(limit);
+    noteQueries.add(query);
+    var items = noteItems.where((item) {
+      return switch (archiveFilter) {
+        NoteArchiveFilter.active => !item.isArchived,
+        NoteArchiveFilter.archived => item.isArchived,
+        NoteArchiveFilter.all => true,
+      };
+    });
+    if (tag != null && tag.isNotEmpty) {
+      items = items.where((item) => item.tags.contains(tag));
+    }
+    return items.skip(offset).take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<List<String>> noteTags({
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) async {
+    return noteItems
+        .where((item) => switch (archiveFilter) {
+              NoteArchiveFilter.active => !item.isArchived,
+              NoteArchiveFilter.archived => item.isArchived,
+              NoteArchiveFilter.all => true,
+            })
+        .expand((item) => item.tags)
+        .toSet()
+        .toList(growable: false);
   }
 
   @override
   Future<int> addNote(String title, String body,
-      {String description = ''}) async {
+      {String description = '', List<String> tags = const []}) async {
     final id = _nextNoteId++;
     createdNotes.add(_CreatedNote(
       title: title,
       description: description,
       body: body,
+      tags: tags,
     ));
     final now = DateTime(2026, 6, 10, 9, id % 60);
     noteItems.add(NoteItem(
@@ -359,6 +513,7 @@ class _FakeNotesControllerDatabase implements AppDatabase {
       body: body,
       createdAt: now,
       updatedAt: now,
+      tags: tags,
     ));
     return id;
   }
@@ -446,9 +601,11 @@ class _CreatedNote {
     required this.title,
     required this.description,
     required this.body,
+    required this.tags,
   });
 
   final String title;
   final String description;
   final String body;
+  final List<String> tags;
 }

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../../data/local/app_database.dart';
 import '../../../data/repositories/settings_repository.dart';
+import '../../../core/platform/document_export_channel.dart';
+import '../../../core/utils/render_export.dart';
 import '../models/graph_models.dart';
 export '../models/graph_models.dart';
 import 'graph_function_expression_dialog.dart';
@@ -43,6 +45,7 @@ class _GraphPageState extends State<GraphPage> {
   Timer? _workspacePersistTimer;
   int _workspaceRevision = 0;
   int _workspaceLoadToken = 0;
+  final GlobalKey _graphBoundaryKey = GlobalKey();
 
   @override
   void initState() {
@@ -298,6 +301,11 @@ class _GraphPageState extends State<GraphPage> {
                 onTap: _copyGraphData),
             const SizedBox(width: 8),
             IconToolButton(
+                icon: Icons.image_outlined,
+                tooltip: '导出图形 PNG',
+                onTap: _exportGraphPng),
+            const SizedBox(width: 8),
+            IconToolButton(
                 icon: Icons.add, tooltip: '添加函数', onTap: _addFunction),
           ],
         ),
@@ -305,7 +313,8 @@ class _GraphPageState extends State<GraphPage> {
           child: Column(
             children: [
               for (var i = 0; i < _functions.length; i++) ...[
-                FunctionRow(key: ValueKey(_functions[i].expression), 
+                FunctionRow(
+                  key: ValueKey(_functions[i].expression),
                   function: _functions[i],
                   onToggle: () => _toggle(i),
                   onEdit: () => _editFunction(i),
@@ -363,22 +372,23 @@ class _GraphPageState extends State<GraphPage> {
                 },
                 onScaleEnd: (_) => _lastScale = 1,
                 child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: GraphPainter(
-                    functions: _functions,
-                    viewport: _viewport,
-                    markers: _markers,
-                    selectedMarker: _selectedMarker,
-                    gridColor: scheme.outlineVariant.withValues(alpha: 0.52),
-                    axisColor: scheme.onSurfaceVariant,
-                    labelColor: scheme.onSurfaceVariant,
-                    markerLabelColor: scheme.onSurface,
-                    markerLabelBackground: scheme.surface,
-                    markerLabelBorder: scheme.outlineVariant,
-                  ),
-                  child: const SizedBox.expand(),
-                )
-                ),
+                    key: _graphBoundaryKey,
+                    child: CustomPaint(
+                      painter: GraphPainter(
+                        functions: _functions,
+                        viewport: _viewport,
+                        markers: _markers,
+                        selectedMarker: _selectedMarker,
+                        gridColor:
+                            scheme.outlineVariant.withValues(alpha: 0.52),
+                        axisColor: scheme.onSurfaceVariant,
+                        labelColor: scheme.onSurfaceVariant,
+                        markerLabelColor: scheme.onSurface,
+                        markerLabelBackground: scheme.surface,
+                        markerLabelBorder: scheme.outlineVariant,
+                      ),
+                      child: const SizedBox.expand(),
+                    )),
               );
             },
           ),
@@ -536,6 +546,27 @@ class _GraphPageState extends State<GraphPage> {
     }
   }
 
+  Future<void> _exportGraphPng() async {
+    try {
+      final bytes = await captureBoundaryPng(_graphBoundaryKey);
+      final saved = await DocumentExportChannel.exportBytes(
+        fileName:
+            buildExportFileName(prefix: 'nekocalc_graph', extension: 'png'),
+        mimeType: 'image/png',
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(saved ? '图形已保存为 PNG' : '已取消保存图形'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('导出图形失败：$error')),
+      );
+    }
+  }
+
   Future<void> _pasteGraphData() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted) return;
@@ -683,7 +714,6 @@ class _GraphPageState extends State<GraphPage> {
   }
 }
 
-
 class FunctionRow extends StatelessWidget {
   const FunctionRow({
     required this.function,
@@ -732,4 +762,3 @@ class FunctionRow extends StatelessWidget {
     );
   }
 }
-

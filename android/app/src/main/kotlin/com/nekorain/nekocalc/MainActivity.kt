@@ -16,10 +16,13 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val backupChannelName = "nekocalc/backup_file"
+    private val documentExportChannelName = "nekocalc/document_export"
+    private val appLinkChannelName = "nekocalc/app_link"
     private val hapticsChannelName = "nekocalc/haptics"
     private val qalculateChannelName = "nekocalc/qalculate"
     private val exportRequestCode = 8101
     private val importRequestCode = 8102
+    private val documentExportRequestCode = 8103
 
     // 中文：引擎必须提成字段。每次调用新建一个的话，每次调用都会重新加载一遍全局定义。
     //       内部的 Calculator 是 by lazy，所以这里构造很便宜。
@@ -29,6 +32,7 @@ class MainActivity : FlutterActivity() {
     private val qalculateEngine = QalculateEngine()
 
     private var pendingExportContent: String? = null
+    private var pendingDocumentBytes: ByteArray? = null
     private var pendingResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -63,6 +67,59 @@ class MainActivity : FlutterActivity() {
                         type = "application/json"
                     }
                     startActivityForResult(intent, importRequestCode)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, documentExportChannelName).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "exportBytes" -> {
+                    if (pendingResult != null) {
+                        result.error("busy", "另一个文件操作正在进行", null)
+                        return@setMethodCallHandler
+                    }
+                    val fileName = call.argument<String>("fileName") ?: "nekocalc-export"
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    val bytes = call.argument<ByteArray>("bytes")
+                    if (bytes == null || bytes.isEmpty()) {
+                        result.error("invalid_content", "导出内容为空", null)
+                        return@setMethodCallHandler
+                    }
+                    pendingDocumentBytes = bytes
+                    pendingResult = result
+                    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = mimeType
+                        putExtra(Intent.EXTRA_TITLE, fileName)
+                    }
+                    try {
+                        startActivityForResult(intent, documentExportRequestCode)
+                    } catch (error: Exception) {
+                        pendingDocumentBytes = null
+                        pendingResult = null
+                        result.error("export_unavailable", error.message, null)
+                    }
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, appLinkChannelName).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "openUrl" -> {
+                    val rawUrl = call.argument<String>("url")
+                    val uri = rawUrl?.let(Uri::parse)
+                    if (uri == null || (uri.scheme != "https" && uri.scheme != "http")) {
+                        result.error("invalid_url", "仅支持打开 HTTP(S) 链接", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                        result.success(true)
+                    } catch (error: Exception) {
+                        result.error("open_failed", error.message, null)
+                    }
                 }
 
                 else -> result.notImplemented()
@@ -115,6 +172,7 @@ class MainActivity : FlutterActivity() {
         when (requestCode) {
             exportRequestCode -> handleExportResult(resultCode, data?.data)
             importRequestCode -> handleImportResult(resultCode, data?.data)
+            documentExportRequestCode -> handleDocumentExportResult(resultCode, data?.data)
         }
     }
 
@@ -151,6 +209,29 @@ class MainActivity : FlutterActivity() {
             result.success(content)
         } catch (error: Exception) {
             result.error("import_failed", error.message, null)
+        }
+    }
+
+    private fun handleDocumentExportResult(resultCode: Int, uri: Uri?) {
+        val result = pendingResult ?: return
+        val bytes = pendingDocumentBytes
+        pendingResult = null
+        pendingDocumentBytes = null
+        if (resultCode != Activity.RESULT_OK || uri == null) {
+            result.success(false)
+            return
+        }
+        if (bytes == null) {
+            result.error("export_failed", "导出内容已丢失", null)
+            return
+        }
+        try {
+            contentResolver.openOutputStream(uri, "wt")?.use { stream ->
+                stream.write(bytes)
+            } ?: throw IllegalStateException("无法打开输出文件")
+            result.success(true)
+        } catch (error: Exception) {
+            result.error("export_failed", error.message, null)
         }
     }
 

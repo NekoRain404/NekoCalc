@@ -34,6 +34,13 @@ class NotesController extends ChangeNotifier {
   String? _error;
   int _loadToken = 0;
   bool _disposed = false;
+  static const _notePageSize = 100;
+  bool _hasMoreNotes = false;
+  bool _loadingMoreNotes = false;
+  NoteArchiveFilter _noteArchiveFilter = NoteArchiveFilter.active;
+  NoteSort _noteSort = NoteSort.updatedNewest;
+  String? _noteTag;
+  List<String> _availableNoteTags = const [];
 
   List<NoteItem> get notes => _notes
       .where(_matchesNote)
@@ -55,6 +62,18 @@ class NotesController extends ChangeNotifier {
   String get query => _query;
 
   bool get loading => _loading;
+
+  bool get hasMoreNotes => _hasMoreNotes;
+
+  bool get loadingMoreNotes => _loadingMoreNotes;
+
+  NoteArchiveFilter get noteArchiveFilter => _noteArchiveFilter;
+
+  NoteSort get noteSort => _noteSort;
+
+  String? get noteTag => _noteTag;
+
+  List<String> get availableNoteTags => _availableNoteTags;
 
   String? get error => _error;
 
@@ -177,6 +196,17 @@ class NotesController extends ChangeNotifier {
 
   Future<void> load() => _refresh(showLoading: true);
 
+  String? get _databaseNoteQuery {
+    final value = _query.trim();
+    if (value.isEmpty) return null;
+    // Dates and engineering symbols are normalized by matchesNoteQuery but
+    // cannot be represented faithfully by the raw SQL LIKE search.
+    final plainText = RegExp(
+      r'^[A-Za-z0-9\u4e00-\u9fff]+(?:\s+[A-Za-z0-9\u4e00-\u9fff]+)*$',
+    );
+    return plainText.hasMatch(value) ? value : null;
+  }
+
   Future<void> _refresh({required bool showLoading}) async {
     final token = ++_loadToken;
     if (showLoading) {
@@ -184,10 +214,21 @@ class NotesController extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      final notes = await notesRepository.list(limit: 1000);
+      final notes = await notesRepository.list(
+        limit: _notePageSize,
+        query: _databaseNoteQuery,
+        tag: _noteTag,
+        archiveFilter: _noteArchiveFilter,
+        sort: _noteSort,
+      );
       final history = await historyRepository.list(limit: 500);
+      final availableTags =
+          await notesRepository.tags(archiveFilter: _noteArchiveFilter);
       if (_disposed || token != _loadToken) return;
       _notes = notes;
+      _hasMoreNotes = notes.length == _notePageSize;
+      _availableNoteTags = availableTags;
+      _loadingMoreNotes = false;
       _history = history;
       _error = null;
       _loading = false;
@@ -196,6 +237,7 @@ class NotesController extends ChangeNotifier {
       if (_disposed || token != _loadToken) return;
       _error = error.toString();
       _loading = false;
+      _loadingMoreNotes = false;
       notifyListeners();
     }
   }
@@ -214,11 +256,84 @@ class NotesController extends ChangeNotifier {
     unawaited(_refresh(showLoading: false));
   }
 
+  void setNoteArchiveFilter(NoteArchiveFilter value) {
+    if (_noteArchiveFilter == value) return;
+    _noteArchiveFilter = value;
+    unawaited(_refresh(showLoading: false));
+  }
+
+  void setNoteSort(NoteSort value) {
+    if (_noteSort == value) return;
+    _noteSort = value;
+    unawaited(_refresh(showLoading: false));
+  }
+
+  void setNoteTag(String? value) {
+    final normalized = value?.trim();
+    final next = normalized == null || normalized.isEmpty ? null : normalized;
+    if (_noteTag == next) return;
+    _noteTag = next;
+    unawaited(_refresh(showLoading: false));
+  }
+
+  void applyNoteFilters({
+    required NoteArchiveFilter archiveFilter,
+    required NoteSort sort,
+    String? tag,
+  }) {
+    final normalized = tag?.trim();
+    final nextTag =
+        normalized == null || normalized.isEmpty ? null : normalized;
+    if (_noteArchiveFilter == archiveFilter &&
+        _noteSort == sort &&
+        _noteTag == nextTag) {
+      return;
+    }
+    _noteArchiveFilter = archiveFilter;
+    _noteSort = sort;
+    _noteTag = nextTag;
+    unawaited(_refresh(showLoading: false));
+  }
+
+  Future<void> loadMoreNotes() async {
+    if (_loading || _loadingMoreNotes || !_hasMoreNotes) return;
+    final token = ++_loadToken;
+    _loadingMoreNotes = true;
+    notifyListeners();
+    try {
+      final nextPage = await notesRepository.list(
+        limit: _notePageSize,
+        offset: _notes.length,
+        query: _databaseNoteQuery,
+        tag: _noteTag,
+        archiveFilter: _noteArchiveFilter,
+        sort: _noteSort,
+      );
+      if (_disposed || token != _loadToken) return;
+      final knownIds = _notes.map((item) => item.id).toSet();
+      _notes = [
+        ..._notes,
+        ...nextPage.where((item) => knownIds.add(item.id)),
+      ];
+      _hasMoreNotes = nextPage.length == _notePageSize;
+      _error = null;
+    } catch (error) {
+      if (_disposed || token != _loadToken) return;
+      _error = error.toString();
+    } finally {
+      if (!_disposed && token == _loadToken) {
+        _loadingMoreNotes = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> saveNote(
       {NoteItem? item,
       required String title,
       required String description,
-      required String body}) async {
+      required String body,
+      List<String> tags = const []}) async {
     final normalizedTitle = title.trim().isEmpty ? '未命名笔记' : title.trim();
     final normalizedDescription = description.trim();
     final normalizedBody = body.trim();
@@ -226,14 +341,26 @@ class NotesController extends ChangeNotifier {
       await notesRepository.create(
           title: normalizedTitle,
           body: normalizedBody,
-          description: normalizedDescription);
+          description: normalizedDescription,
+          tags: tags);
     } else {
       await notesRepository.update(
           id: item.id,
           title: normalizedTitle,
           description: normalizedDescription,
-          body: normalizedBody);
+          body: normalizedBody,
+          tags: tags);
     }
+    await _refresh(showLoading: false);
+  }
+
+  Future<void> setNotePinned(NoteItem item, bool value) async {
+    await notesRepository.setPinned(item.id, value);
+    await _refresh(showLoading: false);
+  }
+
+  Future<void> setNoteArchived(NoteItem item, bool value) async {
+    await notesRepository.setArchived(item.id, value);
     await _refresh(showLoading: false);
   }
 
@@ -367,6 +494,9 @@ class NotesController extends ChangeNotifier {
     return [
       '笔记: ${item.title}',
       if (item.description.isNotEmpty) '描述: ${item.description}',
+      if (item.tags.isNotEmpty) '标签: ${item.tags.join('、')}',
+      if (item.isPinned) '状态: 已置顶',
+      if (item.isArchived) '状态: 已归档',
       '创建时间: ${DateFormat('yyyy/MM/dd HH:mm').format(item.createdAt)}',
       '更新时间: ${DateFormat('yyyy/MM/dd HH:mm').format(item.updatedAt)}',
       '',

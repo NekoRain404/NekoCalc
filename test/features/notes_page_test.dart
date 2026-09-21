@@ -118,6 +118,35 @@ void main() {
     expect(find.text('当前筛选下没有历史记录。'), findsNothing);
   });
 
+  testWidgets('formula tab can load later pages when its first page is empty',
+      (tester) async {
+    final notes = List.generate(
+      101,
+      (index) => NoteItem(
+        id: index + 1,
+        title: index == 100 ? '目标公式' : '普通笔记 ${index + 1}',
+        description: '',
+        body: index == 100 ? 'x = y' : '普通内容',
+        createdAt: DateTime(2026, 6, 9, 9),
+        updatedAt: DateTime(2026, 6, 9, 9),
+      ),
+    );
+    final db = _FakeNotesDatabase(noteItems: notes);
+
+    await tester.pumpWidget(_testApp(NotesPage(db: db)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('公式').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无个人笔记。'), findsOneWidget);
+    expect(find.text('加载更多笔记'), findsOneWidget);
+
+    await tester.tap(find.text('加载更多笔记'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('目标公式'), findsOneWidget);
+  });
+
   testWidgets('tab changes clear active selection', (tester) async {
     final db = _FakeNotesDatabase(
       historyItems: [
@@ -427,14 +456,27 @@ class _FakeNotesDatabase implements AppDatabase {
     int limit = 200,
     int offset = 0,
     String? query,
+    String? tag,
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+    NoteSort sort = NoteSort.updatedNewest,
   }) async {
     noteLoads++;
-    return noteItems;
+    return noteItems.skip(offset).take(limit).toList(growable: false);
+  }
+
+  @override
+  Future<List<String>> noteTags({
+    NoteArchiveFilter archiveFilter = NoteArchiveFilter.active,
+  }) async {
+    return noteItems
+        .expand((item) => item.tags)
+        .toSet()
+        .toList(growable: false);
   }
 
   @override
   Future<int> addNote(String title, String body,
-      {String description = ''}) async {
+      {String description = '', List<String> tags = const []}) async {
     final id = _nextNoteId++;
     createdNotes.add(_CreatedNote(
       title: title,
