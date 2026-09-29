@@ -72,7 +72,59 @@ typedef DerivativeResult = ({
   String? derivative,
   List<DerivativeStep> steps,
   String? refusal,
+  String? simplified,
 });
+
+/// 中文：**把推导的结果收拾成"人会写的那个样子"——只做恒等式，不做任何取舍。**
+///
+///       ⚠️ **它与"化简"不是一件事，界线要划清。**
+///       这里做的每一条都是**恒等式**，在任何取值下都成立，也**不改变什么被算了出来**：
+///
+///       | 收拾掉 | 因为 |
+///       |---|---|
+///       | `·1` / `·(1)` / `1·` | 乘 1 不改值 |
+///       | `^1` | 一次方就是它自己 |
+///       | ` + 0` / `0 + ` | 加 0 不改值 |
+///
+///       **它不做的事**（这些才是"化简"，而它们都有取舍，所以留给下一版）：
+///       合并同类项、重新排序、展开括号、把 `2·x` 写成 `2x` 之外的任何排版决定。
+///
+///       ⚠️ **它只作用于这份推导自己生成的那些形状**（`symbolic_derivative.dart` 自己拼的字符串），
+///       不是通用的代数改写器——**所以每条规则都带边界**（`^1` 后面不许跟数字，
+///       否则 `x^12` 会被吃成 `x^2`；`1·` 前面不许是数字，否则 `21·x` 会被吃成 `2·x`）。
+///       **通用改写器是另一个量级的东西，而这个工具只需要收拾自己吐出来的那一份。**
+/// English: **tidies the derivation's result into the shape a human would write — identities only, no
+///          judgement calls.**
+///
+///          ⚠️ **This is not "simplification", and the line has to be drawn.**
+///          Every rule here is an **identity** that holds for every value and **changes nothing about what
+///          was computed** (see the table in the Chinese section: `·1`, `·(1)`, `1·`, `^1`, ` + 0`,
+///          `0 + `).
+///
+///          **What it does not do** (these are the real simplifications and each involves a judgement, so
+///          they are left for a later version): collecting like terms, reordering, expanding brackets, or
+///          any typographic decision beyond what is listed.
+///
+///          ⚠️ **It only touches the shapes this derivation itself generates** (the strings
+///          `symbolic_derivative.dart` builds), not being a general algebra rewriter — **so every rule
+///          carries a boundary** (`^1` may not be followed by a digit or `x^12` becomes `x^2`; `1·` may not
+///          be preceded by a digit or `21·x` becomes `2·x`). **A general rewriter is a different order of
+///          thing, and this tool only needs to tidy what it produced itself.**
+String simplifyDerivative(String text) {
+  var current = text;
+  for (var pass = 0; pass < 8; pass++) {
+    final before = current;
+    current = current
+        .replaceAll('·(1)', '')
+        .replaceAll('(1)·', '')
+        .replaceAll(RegExp(r'·1(?![\d.])'), '')
+        .replaceAll(RegExp(r'(?<![\d.])1·'), '')
+        .replaceAll(RegExp(r'\^1(?![\d.])'), '');
+    current = current.replaceAll(RegExp(r' \+ 0(?![\d.])'), '').replaceAll(RegExp(r'^0 \+ '), '');
+    if (current == before) break;
+  }
+  return current;
+}
 
 /// 中文：法则的名字。**它们是判据不是文案**——界面上那句话由表来拼（本项目「判据与文案分家」）。
 /// English: the rule names. **They are verdicts, not wording** — the sentence on screen is assembled by
@@ -104,11 +156,11 @@ DerivativeResult differentiate(String source, String variable) {
   //          derivative comes out `0`), while "nothing was typed" and "a constant was typed" are two
   //          different things — the second is an answer and the first is not.
   if (source.trim().isEmpty) {
-    return (derivative: null, steps: const [], refusal: 'unreadable');
+    return (derivative: null, steps: const [], refusal: 'unreadable', simplified: null);
   }
   final tree = const ExpressionAstParser().parse(source);
   if (tree is ParseErrorNode) {
-    return (derivative: null, steps: const [], refusal: 'unreadable');
+    return (derivative: null, steps: const [], refusal: 'unreadable', simplified: null);
   }
   // 中文：⚠️ **"整句读完了没有"必须问树里有没有解析错误，不能只看根节点的覆盖面。**
   //
@@ -147,7 +199,7 @@ DerivativeResult differentiate(String source, String variable) {
   //          screen) — the same class as `x<=3` read as `x<`, or an equation read as an expression:
   //          **half of it read, and taken for the whole.**
   if (hasParseError(tree)) {
-    return (derivative: null, steps: const [], refusal: 'unreadable');
+    return (derivative: null, steps: const [], refusal: 'unreadable', simplified: null);
   }
   final steps = <DerivativeStep>[];
   final result = _differentiate(tree, variable, steps);
@@ -159,7 +211,7 @@ DerivativeResult differentiate(String source, String variable) {
     //          input and a parse error were stopped by the two gates above. So it is always `stopped` and
     //          **no longer depends on whether any steps were produced**: `asin(x)` produces none, but it
     //          **was** read, and calling that "unreadable" is **saying the wrong thing**.
-    return (derivative: null, steps: steps, refusal: 'stopped');
+    return (derivative: null, steps: steps, refusal: 'stopped', simplified: null);
   }
   // 中文：**不在这里补一步。** 推导是递归自己的副产品（每一步在用到它的那一层记下），
   //       这里再补一条就会把根那一步**记两遍**——测试第一版抓到的就是这个：
@@ -168,7 +220,19 @@ DerivativeResult differentiate(String source, String variable) {
   //          recorded at the level that used it); adding one here would record the root step **twice** —
   //          which is exactly what the first version of the test caught: `x + 3` came out as
   //          `['1', '0', '1 + 0', '1 + 0']`.
-  return (derivative: result, steps: steps, refusal: null);
+  // 中文：**steps 里印的是法则的样子，`simplified` 是收拾过的那个。**
+  //       两个都给出来：**推导要能读懂，结果要能用**——只给前者，用户得自己收拾；
+  //       只给后者，那些"法则的样子"就没了，而这个工具的全部意义正是它。
+  // English: **`steps` carries what the rules look like and `simplified` is the tidied one.** Both are
+  //          given: **a derivation has to be readable and a result has to be usable** — with only the
+  //          former the user does the tidying, with only the latter the "what the rules look like" is
+  //          gone, and that is the whole point of this tool.
+  return (
+    derivative: result,
+    steps: steps,
+    refusal: null,
+    simplified: simplifyDerivative(result),
+  );
 }
 
 /// 中文：求导的递归。**回 `null` 就是"这一层不会"**——调用方据此停下，**不猜**。

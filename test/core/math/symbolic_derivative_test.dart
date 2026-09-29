@@ -339,4 +339,74 @@ void main() {
       }
     });
   });
+
+  group('收拾（恒等式）：只去掉乘 1、加 0、一次方', () {
+    test('乘法法则那一串收拾成人会写的样子', () {
+      final result = differentiate('x^2', 'x');
+      expect(result.derivative, '2·x^1·(1)', reason: '推导里保留法则的样子');
+      // 中文：**结果是 `2·x` 而不是 `2x`，这是刻意的。** 把 `·` 去掉是**排版决定**
+      //       （"2x 还是 2·x"没有唯一答案），而这一版只做**恒等式**。界线就在这里。
+      // English: **the result is `2·x` and not `2x`, deliberately.** Dropping the `·` is a **typographic
+      //          decision** ("2x or 2·x" has no single answer) while this version only does **identities**.
+      //          That is where the line is.
+      expect(result.simplified, '2·x', reason: '收拾过的那个给人用');
+    });
+
+    test('链式法则的 `·(1)` 也收拾掉', () {
+      expect(differentiate('sin(x)', 'x').simplified, 'cos(x)');
+      expect(differentiate('ln(x)', 'x').simplified, '1/x');
+    });
+
+    test('和里那个 ` + 0` 收拾掉', () {
+      expect(differentiate('x + 3', 'x').simplified, '1');
+    });
+
+    test('⚠️ 边界：`x^12` 不许被吃成 `x^2`', () {
+      // 中文：**这一条是那些边界存在的理由。** `^1` 那条规则如果不带"后面不许跟数字"，
+      //       `x^12` 会被吃成 `x^2`——一个**看着很像但完全不同**的答案。
+      // English: **this is why the boundaries exist.** Without "^1 may not be followed by a digit",
+      //          `x^12` would be eaten down to `x^2` — an answer that **looks similar and is entirely
+      //          different**.
+      expect(simplifyDerivative('x^12'), 'x^12');
+      expect(simplifyDerivative('x^1'), 'x');
+      expect(simplifyDerivative('x^1+x^12'), 'x+x^12');
+    });
+
+    test('⚠️ 边界：`21·x` 不许被吃成 `2·x`', () {
+      expect(simplifyDerivative('21·x'), '21·x');
+      expect(simplifyDerivative('1·x'), 'x');
+      expect(simplifyDerivative('10·1'), '10');
+    });
+
+    test('⚠️ 边界：` + 0` 不许吃掉 ` + 0.5` 的 0', () {
+      expect(simplifyDerivative('1 + 0.5'), '1 + 0.5');
+      expect(simplifyDerivative('1 + 0'), '1');
+      expect(simplifyDerivative('10 + 0'), '10');
+    });
+
+    test('反例：它**不做**真正的化简', () {
+      // 中文：**这条钉的是界线，不是能力。** 合并同类项、重新排序、展开括号都要做取舍
+      //       （"该化到什么程度没有唯一答案"），所以这一版**一件都不做**——
+      //       下面这些原样出来，**这正是设计意图**。
+      // English: **this pins the boundary, not a shortcoming.** Collecting like terms, reordering and
+      //          expanding brackets all involve judgement ("how far to simplify has no single answer"), so
+      //          this version does **none** of them — the forms below come back unchanged, **by design**.
+      expect(simplifyDerivative('x + x'), 'x + x');
+      expect(simplifyDerivative('2 + 3'), '2 + 3');
+      expect(simplifyDerivative('x·1·y'), 'x·y');  // `·` 留着：那是排版决定，不是恒等式
+    });
+
+    test('收拾之后仍然读得通：没有半截运算符', () {
+      // 中文：**去掉一个因子之后不许留下悬空的 `·` 或 `+`。** 这是收拾最容易出的形态错。
+      // English: **removing a factor must not leave a dangling `·` or `+`** — the likeliest shape error
+      //          in tidying.
+      for (final source in <String>['x^2', 'x * x', 'x + 3', 'sin(x)', '3x + 2', 'x - 5']) {
+        final simplified = differentiate(source, 'x').simplified!;
+        expect(simplified, isNot(endsWith('·')), reason: '`$source` → `$simplified`');
+        expect(simplified, isNot(endsWith('+')), reason: '`$source` → `$simplified`');
+        expect(simplified, isNot(startsWith('·')), reason: '`$source` → `$simplified`');
+        expect(simplified, isNot(contains('··')), reason: '`$source` → `$simplified`');
+      }
+    });
+  });
 }

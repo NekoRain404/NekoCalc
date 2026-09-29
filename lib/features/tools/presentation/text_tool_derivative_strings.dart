@@ -34,6 +34,7 @@ class TextToolDerivativeStrings {
     required this.stopped,
     required this.resultLine,
     required this.stepLine,
+    required this.tidiedLine,
     required this.ruleNames,
   });
 
@@ -56,6 +57,12 @@ class TextToolDerivativeStrings {
 
   final String Function(String derivative) resultLine;
   final String Function(int index, String expression, String rule) stepLine;
+
+  /// 中文：**收拾过的那一行**（`= 2·x`）。只在它与推导的最后一步**不同**时才印——
+  ///       相同的时候再印一遍等于说两遍同一件事。
+  /// English: **the tidied line** (`= 2·x`). Printed only when it **differs** from the derivation's last
+  ///          step — printing it when identical would say the same thing twice.
+  final String Function(String expression) tidiedLine;
 
   /// 中文：判据 → 人话。**查不到的名字回原样**（见文件头）。
   /// English: verdict → words. **A name with no entry comes back as itself** (see the head).
@@ -82,6 +89,7 @@ class TextToolDerivativeStrings {
     stopped: '这一步还不会算，上面的推导到这里为止',
     resultLine: (derivative) => derivative,
     stepLine: (index, expression, rule) => '$index. $expression    （$rule）',
+    tidiedLine: (expression) => '= $expression',
     ruleNames: const <String, String>{
       'constant': '常数的导数是 0',
       'self': '对自身求导得 1',
@@ -102,6 +110,7 @@ class TextToolDerivativeStrings {
     stopped: 'This step is not handled yet; the derivation above is where it stops',
     resultLine: (derivative) => derivative,
     stepLine: (index, expression, rule) => '$index. $expression    ($rule)',
+    tidiedLine: (expression) => '= $expression',
     ruleNames: const <String, String>{
       'constant': 'the derivative of a constant is 0',
       'self': 'the variable differentiates to 1',

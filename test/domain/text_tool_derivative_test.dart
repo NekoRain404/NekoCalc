@@ -27,9 +27,15 @@ void main() {
     test('幂法则：结果与"用了哪条法则"都写出来', () {
       final out = _run('x^2');
       expect(out.hasError, isFalse);
-      expect(out.primary, '2·x^1·(1)');
+      // 中文：**结果行是收拾过的那个（`2·x`），推导里保留法则的样子（`2·x^1·(1)`）。**
+      //       两个都要：只给推导，用户得自己收拾；只给结果，"用了哪条法则"就没了。
+      // English: **the result line carries the tidied form (`2·x`) while the derivation keeps what the
+      //          rule looks like (`2·x^1·(1)`).** Both are needed: with only the derivation the user does
+      //          the tidying, with only the result the "which rule" is gone.
+      expect(out.primary, '2·x');
       expect(out.detail, contains('幂法则'));
-      expect(out.detail, contains('2·x^1·(1)'));
+      expect(out.detail, contains('2·x^1·(1)'), reason: '推导里那一步照旧是法则的样子');
+      expect(out.detail, contains('= 2·x'), reason: '末尾多一行收拾过的');
     });
 
     test('和：每一步一行，最后的和法则也写出来', () {
@@ -108,6 +114,22 @@ void main() {
       expect(out.detail, contains('不含要求导的那个变量'));
     });
 
+    test('收拾过的那一行只在**与最后一步不同**时才印', () {
+      // 中文：相同的时候再印一遍等于说两遍同一件事。
+      // English: printing it when identical would say the same thing twice.
+      // 中文：**要挑一个"收拾完还是它自己"的案例**——`-x` 的导数是 `-(1)`，恒等式那几条
+      //       一条都碰不到它。（`sin(x)` **不是**这样的例子：它的 `cos(x)·(1)` 会被收拾成 `cos(x)`，
+      //       所以那一行**应当**印出来——我第一版就拿它当反例，错了。）
+      // English: **pick a case the tidying leaves alone** — `-x` derives to `-(1)` and none of the identity
+      //          rules touch it. (`sin(x)` is **not** such a case: its `cos(x)·(1)` tidies to `cos(x)`, so
+      //          that line **should** print — my first version used it as the counter-example and was
+      //          wrong.)
+      final unchanged = _run('-x');
+      expect(unchanged.detail, contains('-(1)'));
+      expect(unchanged.detail, isNot(contains('= ')), reason: '收拾完还是它自己就不印');
+      expect(unchanged.primary, '-(1)');
+    });
+
     test('英文侧一个汉字都没有，算式原样出', () {
       final han = RegExp(r'[一-鿿]');
       for (final input in <String>['x^2', 'x + 3', 'x + sin(x)', '', '2+']) {
@@ -117,7 +139,7 @@ void main() {
         }
       }
       final en = _run('x^2', language: AppLanguage.en);
-      expect(en.primary, '2·x^1·(1)', reason: '算式是数据，两种语言原样出');
+      expect(en.primary, '2·x', reason: '算式是数据，两种语言原样出');
       expect(en.detail, contains('the power rule'));
     });
 

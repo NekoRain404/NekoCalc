@@ -78,8 +78,21 @@ TextToolOutput _deriveSteps(TextToolDerivativeStrings strings, String input) {
     );
   }
 
+  // 中文：**结果行给"收拾过"的那个，推导里保留法则的样子。** 两个都要：
+  //       只给推导，用户得自己收拾；只给结果，"用了哪条法则"就没了——而那正是这个工具的全部意义。
+  //       收拾只做恒等式（去乘 1、去加 0、去一次方），**不做排版**，所以 `2·x` 不会变成 `2x`——
+  //       那条界线写在 `simplifyDerivative` 上。
+  // English: **the result line carries the tidied form while the derivation keeps what the rules look
+  //          like.** Both are needed: with only the derivation the user does the tidying, with only the
+  //          result the "which rule was used" is gone — and that is this tool's whole point. The tidying
+  //          does identities only (no multiply-by-1, no add-0, no first power) and **no typography**, so
+  //          `2·x` does not become `2x` — the line is drawn on `simplifyDerivative`.
+  final tidied = result.simplified;
+  if (tidied != null && tidied != result.derivative) {
+    lines.add(strings.tidiedLine(tidied));
+  }
   return TextToolOutput(
-    strings.resultLine(result.derivative!),
+    strings.resultLine(tidied ?? result.derivative!),
     lines.join('\n'),
   );
 }
