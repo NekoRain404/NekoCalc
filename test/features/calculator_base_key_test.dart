@@ -112,7 +112,19 @@ void main() {
     expect(_display(tester).result, '100', reason: '前置条件：结果行上是 100');
   }
 
-  testWidgets('按 HEX：问引擎一次 (100) to hex，显示区出现 HEX 64', (tester) async {
+  testWidgets('按 HEX：显示区出现 HEX 64，而且**一次引擎调用都没有**', (tester) async {
+    // 中文：**本轮之前这一条断的是"问了引擎一次 `(100) to hex`"，而那正是坏掉的地方。**
+    //       桥用的 `Calculator::calculate(...)` 把结尾的 `to` 当成一次除法，`100 to hex` 回的是
+    //       `(100 / hex()) * hex()`；因为那个结果里没有单位，`conversionLanded` 的第一句就放行，
+    //       原生侧**如实报 `conversion`**，于是一串垃圾**通过了每一条判据**被当成读数印上屏。
+    //       换成本地算之后，`calls` 为空**就是修复本身**，不是顺手省的一次调用。
+    // English: **before this round the assertion here was "the engine was asked once with
+    //          `(100) to hex`", and that was exactly what was broken.** The bridge's
+    //          `Calculator::calculate(...)` reads a trailing `to` as a division, so `100 to hex` comes
+    //          back as `(100 / hex()) * hex()`; as that result carries no unit, `conversionLanded`'s
+    //          first line lets it through, the native side **truthfully reports `conversion`**, and the
+    //          garbage **passes every judgement** onto the status row as the read-out. With the
+    //          computation moved here, an empty `calls` **is the fix** rather than one call saved.
     respondWith(engine());
     await typeHundred(tester);
     calls.clear();
@@ -120,8 +132,7 @@ void main() {
     await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
 
-    expect(calls, <String>['(100) to hex'],
-        reason: '只该问一次引擎，且问的是十进制形态 + 引擎认得的裸目标词');
+    expect(calls, isEmpty, reason: '进制换算是纯函数，一次引擎调用都不该发');
     expect(find.text('HEX 64'), findsOneWidget, reason: '显示区必须有这个读数');
   });
 
@@ -169,19 +180,37 @@ void main() {
         reason: '十进制形态（Ans/last、记忆、继续使用的唯一来源）一个字都不许变');
   });
 
-  testWidgets('引擎答不出来：不出现任何数字，说明白为什么', (tester) async {
-    // 中文：`ok: false` 是引擎缺席、超时、失败共同的那一条回执。
-    // English: `ok: false` is the one receipt an absent, timed-out or failed engine shares.
-    respondWith(engine(failConversions: true));
-    await typeHundred(tester);
+  testWidgets('没有可换算的数值时：不出现任何数字，说明白为什么', (tester) async {
+    // 中文：**这一条的前身叫「引擎答不出来」——而引擎已经不在那条路上了。**
+    //       原来它用一份 `ok: false` 的回执（引擎缺席/超时/失败共用那一条）去驱动，
+    //       现在进制换算一个字都不问引擎，那种回执**再也到不了读数**。
+    //       所以这里换成**真正还存在的那一支**：结果行上是一个错误，没有十进制形态可换算。
+    //       **守的东西一个字没变**：按下去必须有一句说明，绝不能冒出一个数字，也绝不能动结果行。
+    // English: **this used to be called "the engine cannot answer" — and the engine is no longer on that
+    //          road.** It drove the branch with an `ok: false` receipt (the one an absent, timed-out or
+    //          failed engine shares), which can no longer reach the read-out because base conversion
+    //          asks the engine nothing at all. So this drives **the branch that still exists**: the
+    //          result line carries an error and there is no decimal form to convert. **What it guards is
+    //          unchanged** — a press must produce a sentence, must never produce a digit, and must never
+    //          touch the result line.
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+    // `2+` 是一次不合法的求值：结果行上是一句错误，没有十进制形态。
+    for (final key in <String>['2', '+']) {
+      await tester.tap(_keypadKey(key));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    final before = _display(tester).result;
 
     await tester.tap(_keypadKey('▸HEX'));
     await tester.pumpAndSettle();
 
-    expect(find.text('HEX 64'), findsNothing);
+    expect(find.textContaining('HEX '), findsNothing,
+        reason: '没有东西可换算时，一个读数字符都不许出现');
     expect(find.textContaining('换算'), findsWidgets,
         reason: '用户按了键却什么都没发生，必须有一条说明');
-    expect(_display(tester).result, '100', reason: '换算失败不许动结果行');
+    expect(_display(tester).result, before, reason: '换算不许动结果行');
   });
 
   testWidgets('编辑之后读数消失：它描述的是按下那一刻的那个结果', (tester) async {

@@ -127,7 +127,7 @@ void main() {
   });
 
   // 中文：**名字里的分组数就是每一组的实测条数**，加起来是 52：输入文法 21、粘贴 JSON 键与正则 17、
-  //       检索归一化 10、截断省略号 2、日志 2。**哨兵那一条本轮拆掉了**（53 → 52）：三处判据改读
+  //       检索归一化 10、日志 2。**哨兵那一条本轮拆掉了**（53 → 52）：三处判据改读
   //       `MathResult.isPlaceholder` 之后，`'等待输入'` 在控制器目录里一个字符串字面量都不剩，
   //       留着它就成了一条永远不生效的死豁免。名字写错一个数不会让测试变红，所以下面那条断言量的
   //       是**总数**——分组数靠这一段与源码里的注释对齐。
@@ -140,15 +140,15 @@ void main() {
   //          is the **total** — the group counts are kept honest by this paragraph and the comments in
   //          the source.
   test('豁免表逐条命中：输入文法 21 条、粘贴 JSON 键与正则 17 条、检索归一化 10 条、'
-      '截断省略号 2 条、日志 2 条', () {
+      '日志 2 条', () {
     // 中文：**这一条量的是"豁免表的形状没变"。** 数字会随中文措辞与新增文件一起动，所以它的用处
-    //       不是"证明 52 这个数很对"，而是"豁免表没有空转、也没有在没人看的时候长胖"。
+    //       不是"证明 51 这个数很对"，而是"豁免表没有空转、也没有在没人看的时候长胖"。
     //       上面那条测试已经在数量上钉住了"没有死条目"，这一条钉住的是总量。
     // English: **this measures the shape of the exemption table.** The number moves with Chinese wording
     //          and new files, so its job is not "52 is the right number" but "the table is neither
     //          idling nor quietly fattening when nobody is looking". The test above already pins "no
     //          dead entry"; this one pins the total.
-    expect(_allExemptions.length, 52);
+    expect(_allExemptions.length, 51);
   });
 
   test('占位由身份回答：三处判据读 isPlaceholder，不拿那句话去比', () {
@@ -370,8 +370,15 @@ final Set<String> _dataLiterals = <String>{
   // —— 检索归一化：`searchTextVariants` / `compactMatchText` 拿它们换成 ASCII 写法或截断 ——
   '平方', '立方', '欧姆', '（', '）', '＊', '／', '·', '　',
   r'[\s*/.·-]+',
-  // —— 截断省略号：附在读数字符串后面，两种语言里都是这一个字形，不是句子 ——
-  r'${trimmed.substring(0, kBaseReadoutMaxDigits)}…',
+  // —— 截断省略号：附在被截断的字符串后面，两种语言里都是这一个字形，不是句子 ——
+  // 中文：⚠️ **进制读数那一条本轮删掉了**——它的截断搬进了 `convertToBase`（`lib/core/math/`，
+  //       不在控制器目录里，所以这条豁免够不着它，也不需要）。护栏如实报了"死条目"，
+  //       这就是那张表存在的意义：**豁免会过期，而过期的豁免是一处没人看得见的空洞**。
+  // English: ⚠️ **the base read-out's entry was deleted this round** — its truncation moved into
+  //          `convertToBase` (`lib/core/math/`, outside the controllers directory, so this exemption
+  //          cannot reach it and is not needed). The guard truthfully reported a **dead entry**, which
+  //          is what that table is for: **exemptions expire, and an expired exemption is a hole nobody
+  //          can see**.
   r'${normalized.substring(0, 33)}…',
 };
 

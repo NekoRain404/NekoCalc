@@ -41,14 +41,12 @@ part of 'calculator_controller.dart';
 ///          "may this be displayed" judgement**. That is why nothing below puts a single bracket
 ///          around the target word.
 enum CalculatorBase {
-  /// 中文：二进制。`radix` 只用于给读数编号（显示与查询都用 `engineWord`）。
-  /// English: binary. `radix` only labels the read-out; both display and query use `engineWord`.
-  bin(2, 'BIN', 'bin'),
-  oct(8, 'OCT', 'oct'),
-  dec(10, 'DEC', 'dec'),
-  hex(16, 'HEX', 'hex');
+  bin(2, 'BIN'),
+  oct(8, 'OCT'),
+  dec(10, 'DEC'),
+  hex(16, 'HEX');
 
-  const CalculatorBase(this.radix, this.label, this.engineWord);
+  const CalculatorBase(this.radix, this.label);
 
   /// 中文：进制本身。
   /// English: the radix itself.
@@ -58,9 +56,6 @@ enum CalculatorBase {
   /// English: the prefix on the read-out (the `HEX` in `HEX 64`), and the key face's own text.
   final String label;
 
-  /// 中文：写给引擎的那个裸目标词。
-  /// English: the bare target word written for the engine.
-  final String engineWord;
 }
 
 /// 中文：读数里最多印多少位。**多出来的位必须看得见地被截掉**（末尾一个 `…`），绝不悄悄少印——
@@ -301,29 +296,57 @@ mixin _CalculatorBaseReadout on _CalculatorState {
       return strings.baseReadoutNoValue;
     }
     if (cleared) notifyListeners();
-    final generation = _stateRevision;
-    final reply = await _askEngine('(${source.decimalText}) to ${base.engineWord}');
-    if (_disposed) return null;
-    // 中文：与边打边算同一条过期判据、同一个计数器（`_stateRevision`）：往返期间用户改过输入，
-    //       这一发答的就是一条已经不在屏幕上的时间线。**静默丢弃**——用户按下别的键之后，
-    //       屏幕不该再冒出上一个问题的答案。
-    // English: the same staleness rule and the same counter as as-you-type (`_stateRevision`): if the
-    //          user edited during the round trip, this answer describes a timeline that is no longer
-    //          on screen. **Dropped silently** — after pressing something else, the answer to the
-    //          previous question must not pop up.
-    if (generation != _stateRevision) return null;
-    final converted = reply.result;
-    if (!reply.ok ||
-        converted == null ||
-        converted.resultKind != EngineResultKind.conversion ||
-        !converted.isDisplayable) {
-      return strings.baseReadoutNoAnswer;
-    }
+    // 中文：**自己算，不问引擎——这是本轮改的那一处，而它是被量出来的。**
+    //
+    //       在这之前这里问的是 `'(<十进制>) to <目标词>'`。那条路**从来没有工作过**：桥走的是
+    //       `Calculator::calculate(...)`，而那个入口把结尾的 `to` 当成**一次除法**
+    //       （形参名就叫 `make_to_division`）。宿主实测 `100 to hex` 给的是
+    //       `(100 / hex()) * hex()`——**只有 `calculateAndPrint` 才处理 to-命令**。
+    //
+    //       ⚠️ **最坏的不是"没结果"，是"有结果"。** `conversionLanded` 的第一句是
+    //       「结果里没有单位 ⇒ 算换算发生了」（`QalculateResultKind.kt:192`），而 `(100 / hex()) * hex()`
+    //       里没有单位，于是它**如实报 `conversion`**、**通过下面每一条判据**，
+    //       最后被当成读数印在状态行上——**一个看着像答案的错值**，正是本仓最反对的那一类。
+    //       （旧的注释里其实记着这个形状，但把它归因于"加括号"；真正的原因是这个入口。）
+    //
+    //       换成 `convertToBase` 之后：**精确**（整数部分走 `BigInt`，`2^2000` 也算得对）、
+    //       **可单测**（纯函数，不依赖引擎 ⇒ 证据比真机强）、**没有往返**（不必再防过期）。
+    //       `radix` 从枚举上取，**不再有 `engineWord` 那个只为这条路存在的字段**。
+    //
+    //       截断处仍然看得见（`…`），而 `truncated` 与实际印出来的那条串是同一个函数一次算出来的。
+    // English: **compute it here instead of asking the engine — the one thing this round changed, and
+    //          it was measured.**
+    //
+    //          Before, this asked `'(<decimal>) to <target word>'`. That road **never worked**: the
+    //          bridge goes through `Calculator::calculate(...)`, which reads a trailing `to` as **a
+    //          division** (the parameter is named `make_to_division`). Measured on the host,
+    //          `100 to hex` gives `(100 / hex()) * hex()` — **only `calculateAndPrint` handles
+    //          to-commands**.
+    //
+    //          ⚠️ **The worst part was not "no result" but "a result".** `conversionLanded`'s first line
+    //          is "the result carries no unit ⇒ a conversion happened" (`QalculateResultKind.kt:192`),
+    //          and `(100 / hex()) * hex()` carries none — so it **truthfully reports `conversion`**,
+    //          **passes every judgement below**, and is printed on the status row as the read-out:
+    //          **a wrong value that looks like an answer**, exactly what this repository rejects. (The
+    //          old comment did record that shape but blamed bracketing; the real cause is the entry
+    //          point.)
+    //
+    //          With `convertToBase`: **exact** (the integer part is `BigInt`, so `2^2000` comes out
+    //          right), **unit-testable** (a pure function with no engine dependency ⇒ stronger evidence
+    //          than a device), and **no round trip** (nothing to guard against going stale). The radix
+    //          comes off the enum, and **`engineWord` — the field that existed only for this road — is
+    //          gone**.
+    //
+    //          The cut is still visible (`…`), and `truncated` and the printed string come out of one
+    //          call to one function.
+    final conversion = convertToBase(source.decimalText, base.radix,
+        maxDigits: kBaseReadoutMaxDigits);
+    if (conversion == null) return strings.baseReadoutNoAnswer;
     _baseReadout = BaseReadout(
       base: base,
-      digits: _baseReadoutDigits(converted.displayText),
+      digits: conversion.digits,
       sourceDecimal: source.decimalText,
-      revision: generation,
+      revision: _stateRevision,
     );
     notifyListeners();
     return null;
@@ -338,14 +361,5 @@ mixin _CalculatorBaseReadout on _CalculatorState {
     if (_baseReadout == null) return false;
     _baseReadout = null;
     return true;
-  }
-
-  /// 中文：读数里的位数上限（见 [kBaseReadoutMaxDigits]）。截断**必须留下痕迹**：末尾一个 `…`。
-  /// English: the digit cap for a read-out (see [kBaseReadoutMaxDigits]). A cut **must leave a
-  ///          mark**: an `…` at the end.
-  String _baseReadoutDigits(String text) {
-    final trimmed = text.trim();
-    if (trimmed.length <= kBaseReadoutMaxDigits) return trimmed;
-    return '${trimmed.substring(0, kBaseReadoutMaxDigits)}…';
   }
 }

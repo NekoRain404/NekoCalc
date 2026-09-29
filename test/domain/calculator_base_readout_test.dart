@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/application/controllers/calculator_controller.dart';
@@ -33,57 +31,67 @@ void main() {
     resultKind: EngineResultKind.conversion,
   );
 
-  test('问引擎的是「十进制形态 + 裸目标词」，四个进制各一个词', () async {
-    for (final (base, query) in const [
-      (CalculatorBase.bin, '(100) to bin'),
-      (CalculatorBase.oct, '(100) to oct'),
-      (CalculatorBase.hex, '(100) to hex'),
+  test('四个进制各自算对，而且**根本不问引擎**', () async {
+    // 中文：**这是本轮改的那一处，而它是被量出来的。** 在这之前这里问的是
+    //       `'(<十进制>) to <目标词>'`——**那条路从来没有工作过**：桥走的是
+    //       `Calculator::calculate(...)`，而那个入口把结尾的 `to` 当成一次除法。
+    //       所以 `engine.calls` 为空不是"顺手省了一次调用"，**它就是修复本身**。
+    // English: **this is the one thing this round changed, and it was measured.** Before, this asked
+    //          `'(<decimal>) to <target word>'` — **a road that never worked**: the bridge goes through
+    //          `Calculator::calculate(...)`, which reads a trailing `to` as a division. So an empty
+    //          `engine.calls` is not "one call saved by the way": **it is the fix.**
+    for (final (base, digits) in const [
+      (CalculatorBase.bin, '1100100'),
+      (CalculatorBase.oct, '144'),
+      (CalculatorBase.hex, '64'),
     ]) {
-      final engine = _FakeMathEngine(EngineReply.success(conversion));
+      final engine = _FakeMathEngine(EngineReply.failure('engine_no_decimal'));
       final controller = _controller(engine);
       _typeHundred(controller);
       engine.calls.clear();
 
       final message = await controller.showBaseReadout(base);
 
-      expect(message, isNull, reason: '换算成功时没有话要说');
-      expect(engine.calls, <String>[query],
-          reason: '目标词必须是裸的：加括号会被引擎按除法读（实测），读数就成了错值');
+      expect(message, isNull, reason: '算得出来时没有话要说');
+      expect(engine.calls, isEmpty,
+          reason: '进制换算是纯函数，一次引擎调用都不该发');
+      expect(controller.baseReadout?.digits, digits,
+          reason: '`${base.label}` 的数位应当是独立实现给的那一串');
       controller.dispose();
     }
   });
 
-  test('问引擎用的是**十进制形态**，不是取整过的显示文本', () async {
+  test('用的是**十进制形态**，不是取整过的显示文本', () async {
     // 中文：屏幕上的 `0.333333` 是 `formatNumber` 按精度取整的结果，而这次求值的值是
     //       `0.3333333333333333`（`Ans` 用的就是它）。拿显示文本去换算，得到的是**另一个数**
     //       的进制写法——一个看着像答案、其实不是这个结果的读数。
+    //       这一条在改成自己算之后**照样成立**：`convertToBase` 吃的就是 `decimalText`。
     // English: the `0.333333` on screen is `formatNumber`'s rounding at the user's precision, while
-    //          this evaluation's value is `0.3333333333333333` (the one `Ans` uses). Converting the
-    //          display text would produce the other base's spelling of **a different number** — a
-    //          read-out that looks like an answer and is not this result.
-    final engine = _FakeMathEngine(
-      EngineReply.success(
-        const MathResult(
-          displayText: '0.333333',
-          decimalText: '0.3333333333333333',
-          resultKind: EngineResultKind.number,
-        ),
-      ),
-    );
-    final controller = _controller(engine);
-    controller.setExpression('1/3');
-    // 中文：走提交路径让引擎那一份结果真的上屏——显示形态是取整过的 `0.333333`，十进制形态
-    //       仍是 16 位的那一份。
-    // English: the submit path puts the engine's result on screen — the display form is the rounded
-    //          `0.333333` while the decimal form is still the 16-digit one.
-    await controller.submit();
-    expect(controller.result, '0.333333');
-    expect(controller.resultDecimal, '0.3333333333333333');
-    engine.calls.clear();
+    //          the value of this evaluation is `0.3333333333333333` (what `Ans` reads). Converting the
+    //          display text would give **another number**'s digits — a read-out that looks like an
+    //          answer and is not this result's. The test **still holds** after the change to computing
+    //          it here: `convertToBase` is fed `decimalText`.
+    final controller = _controller(_FakeMathEngine(EngineReply.failure('unused')));
+    // 中文：**两步分开摆**：显示文本是取整过的 `0.333333`，十进制形态是 `0.3333333333333333`。
+    //       这正是真机上引擎回执的样子（`formatNumber` 只管显示那一份）。
+    // English: **the two are set apart on purpose**: the display text is the rounded `0.333333` and the
+    //          decimal form is `0.3333333333333333`, which is what an engine receipt looks like on a
+    //          device (`formatNumber` only touches the display copy).
+    controller.applyMathResult(const MathResult(
+      displayText: '0.333333',
+      decimalText: '0.3333333333333333',
+      resultKind: EngineResultKind.number,
+    ));
+    expect(controller.resultDecimal, '0.3333333333333333',
+        reason: '前置条件：十进制形态比显示文本长');
+    expect(controller.result, isNot('0.3333333333333333'),
+        reason: '前置条件：显示文本是取整过的');
 
     await controller.showBaseReadout(CalculatorBase.hex);
 
-    expect(engine.calls, <String>['(0.3333333333333333) to hex']);
+    expect(controller.baseReadout?.sourceDecimal, '0.3333333333333333');
+    expect(controller.baseReadout?.digits, isNot('0.555555'),
+        reason: '按显示文本算会得到另一个数的写法');
     controller.dispose();
   });
 
@@ -151,39 +159,28 @@ void main() {
     controller.dispose();
   });
 
-  test('引擎答不出来：不显示任何数字，给一句话', () async {
-    final engine = _FakeMathEngine(EngineReply.failure('engine_no_decimal'));
-    final controller = _controller(engine);
-    _typeHundred(controller);
+  test('没有可换算的十进制形态：不给数字，给一句话', () async {
+    // 中文：**这一条原本叫「引擎答不出来」，现在引擎已经不在那条路上了。** 它守的东西没变——
+    //       「算不出来时屏幕上不许出现数字，只许出现一句话」——只是"算不出来"的来源从引擎
+    //       换成了 `convertToBase` 回 `null`。下面这条走的是**前置判据**那一支
+    //       （`!source.hasFiniteDecimal`），它与 `convertToBase` 回 null 那一支是两道不同的闸。
+    // English: **this used to be called "the engine cannot answer"; the engine is no longer on that
+    //          road.** What it guards is unchanged — "when it cannot be computed no digits may appear
+    //          on screen, only a sentence" — only the source of "cannot" moved from the engine to
+    //          `convertToBase` returning `null`. This one drives the **prior judgement**
+    //          (`!source.hasFiniteDecimal`), which is a different gate from the `null` one.
+    final controller = _controller(_FakeMathEngine(EngineReply.failure('unused')));
+    controller.setExpression('2+');
+    controller.evaluate();
+    expect(controller.hasError, isTrue, reason: '前置条件：这一次求值是错的');
 
     final message = await controller.showBaseReadout(CalculatorBase.hex);
 
-    expect(controller.baseReadout, isNull, reason: '一个数字都不许出现');
-    expect(message, isNotNull, reason: '按键没有效果时必须说一句话');
-    expect(controller.result, '100');
-    expect(controller.resultDecimal, '100');
-    controller.dispose();
-  });
-
-  test('引擎答的不是一次换算（unit_mismatch 之类）：同样什么都不显示', () async {
-    final engine = _FakeMathEngine(
-      EngineReply.success(
-        const MathResult(
-          displayText: '5 km',
-          decimalText: '',
-          resultKind: EngineResultKind.unitMismatch,
-        ),
-      ),
-    );
-    final controller = _controller(engine);
-    _typeHundred(controller);
-
-    final message = await controller.showBaseReadout(CalculatorBase.hex);
-
-    expect(controller.baseReadout, isNull);
     expect(message, isNotNull);
+    expect(controller.baseReadout, isNull);
     controller.dispose();
   });
+
 
   test('没有可换算的十进制形态时，连引擎都不问', () async {
     final engine = _FakeMathEngine(EngineReply.failure('engine_no_decimal'));
@@ -269,54 +266,29 @@ void main() {
     controller.dispose();
   });
 
-  test('往返期间用户改过输入：迟到的那一发被丢掉', () async {
-    final engine = _PendingMathEngine();
-    final controller = _controller(engine);
-    _typeHundred(controller);
-
-    final pending = controller.showBaseReadout(CalculatorBase.hex);
-    controller.input('7');
-    controller.evaluate();
-    engine.release(EngineReply.success(conversion));
-    await pending;
-
-    expect(controller.baseReadout, isNull,
-        reason: '它答的是一条已经不在屏幕上的时间线');
-    controller.dispose();
-  });
 
   test('位数超过上限时截断，且截断看得见', () async {
-    final digits = '1' * 30;
-    final engine = _FakeMathEngine(
-      EngineReply.success(
-        MathResult(
-          displayText: digits,
-          resultKind: EngineResultKind.conversion,
-        ),
-      ),
-    );
-    final controller = _controller(engine);
-    _typeHundred(controller);
+    // 中文：**`100` 那种三位数根本到不了上限**，所以这一条要一个真够大的值：
+    //       1e30 的十六进制是 **25 位**，20 位预算装不下。截断处必须留下 `…`——
+    //       一个被截短而没有任何标记的多位数就是屏幕上的错值。
+    // English: **a three-digit `100` never reaches the cap**, so this one needs a value that is really
+    //          big: 1e30 is **25 hex digits** and does not fit a budget of 20. The cut must leave a
+    //          `…` — a truncated multi-digit number with no mark on it is a wrong value on screen.
+    final controller = _controller(_FakeMathEngine(EngineReply.failure('unused')));
+    controller.applyMathResult(const MathResult(
+      displayText: '1e+30',
+      decimalText: '1E30',
+      resultKind: EngineResultKind.number,
+    ));
 
-    await controller.showBaseReadout(CalculatorBase.bin);
+    await controller.showBaseReadout(CalculatorBase.hex);
 
-    final label = controller.baseReadout!.label;
-    expect(label, 'BIN ${'1' * kBaseReadoutMaxDigits}…',
-        reason: '多出来的位必须留下一个看得见的记号，绝不悄悄少印');
+    expect(controller.baseReadout?.digits, 'C9F2C9CD04674EDEA40…');
+    expect(controller.baseReadout?.digits.length, 20,
+        reason: '上限就是上限，`…` 也占一位');
     controller.dispose();
   });
 
-  test('控制器销毁时还挂着的换算会返回，不会永远悬着', () async {
-    final engine = _PendingMathEngine();
-    final controller = _controller(engine);
-    _typeHundred(controller);
-
-    final pending = controller.showBaseReadout(CalculatorBase.hex);
-    controller.dispose();
-
-    await expectLater(pending, completion(isNull));
-    expect(controller.baseReadout, isNull);
-  });
 }
 
 void _typeHundred(CalculatorController controller) {
@@ -370,23 +342,6 @@ class _FakeMathEngine implements MathEngine {
 /// English: a double whose reply the test releases when it wants — it builds the race where a
 ///          conversion is still on the engine while the user has already edited, and the case where
 ///          a call is still outstanding when the controller is disposed.
-class _PendingMathEngine implements MathEngine {
-  final List<Completer<EngineReply>> _pending = <Completer<EngineReply>>[];
-
-  @override
-  Future<EngineReply> evaluate(
-    String expression, {
-    required String angleMode,
-  }) {
-    final completer = Completer<EngineReply>();
-    _pending.add(completer);
-    return completer.future;
-  }
-
-  void release(EngineReply reply) {
-    _pending.removeAt(0).complete(reply);
-  }
-}
 
 class _FakeDatabase implements AppDatabase {
   @override

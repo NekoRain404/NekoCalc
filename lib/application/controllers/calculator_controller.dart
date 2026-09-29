@@ -11,6 +11,7 @@ import '../../core/math/engine_expression.dart';
 import '../../core/math/expression_parser.dart';
 import '../../core/math/app_engine_vocabulary.dart';
 import '../../core/math/app_unit_catalog.dart';
+import '../../core/math/base_conversion.dart';
 import '../../core/math/math_engine.dart';
 import '../../core/math/math_result.dart';
 import '../../core/math/quantity_display.dart';
