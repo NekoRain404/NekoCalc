@@ -464,6 +464,22 @@ void _addToolSearchAliasesB(String id, List<String> aliases) {
         '求导',
         '导数',
       ]);
+    case 'prime_factor':
+      aliases.addAll(const [
+        // 中文：**别名里要有 `prime factorization` 本身。** 英文那一格名字就是
+        //       `Prime Factorization`，而 A 类的判据是"名字去掉大小写与标点后能在别名表里查回来"。
+        //       ⚠️ 这一条**上一轮漏掉了**——见 `tool_catalog_strings_test.dart` 里那段更正。
+        // English: **the aliases must contain `prime factorization` itself.** The English catalogue name is
+        //          `Prime Factorization` and the A-class rule is "the name, stripped of case and
+        //          punctuation, can be found in the alias list". ⚠️ This was **missed last round** — see the
+        //          correction in `tool_catalog_strings_test.dart`.
+        'prime factorization',
+        'prime factorisation',
+        'prime factors',
+        'factorise',
+        '质因数',
+        '分解质因数',
+      ]);
     case 'date_calc':
       aliases.addAll(const [
         // 中文：**别名里要有 `date calculator` 本身。** 英文那一格名字就是 `Date Calculator`，

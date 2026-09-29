@@ -78,6 +78,24 @@ void main() {
   });
 
   test('A 类的名字去掉大小写与标点后，能在该 id 的别名表里找到', () {
+    // 中文：⚠️ **上一轮我在这一格上写过一条错的结论，记在这里。**
+    //       我给 `prime_factor` 加了别名，测出来 `promoted` 还是 102，于是**判定成**
+    //       "别名没被检索索引并进来"，把它当 B 类记下、并写了一段指向
+    //       `ToolSearch.searchAliases` 的说明。
+    //
+    //       **真相是我自己错了**：登记脚本在更早的一条 `assert` 上就中止了，
+    //       **别名那个 `case` 根本没有写进文件**；而我当时把回溯里那条
+    //       `tool_catalog_strings.dart` 的断言误读成了"别名那一条失败"。
+    //       ——**一个中止的脚本会让人以为它后面的事都做了。**
+    // English: ⚠️ **a wrong conclusion was written here last round and is recorded.**
+    //          I added aliases for `prime_factor`, measured `promoted` still at 102, and **concluded** that
+    //          the aliases were not being merged into the search index — recorded it as B-class and wrote a
+    //          note pointing at `ToolSearch.searchAliases`.
+    //
+    //          **The truth is that I was wrong**: the registration script had already aborted on an earlier
+    //          `assert`, so **the alias `case` was never written to the file**; and I misread the traceback's
+    //          `tool_catalog_strings.dart` assertion as "the alias one failed". — **an aborted script makes
+    //          you think everything after it ran.**
     var promoted = 0;
     var notPromoted = 0;
     for (final tool in toolCatalog) {
@@ -88,7 +106,7 @@ void main() {
         notPromoted++;
       }
     }
-    expect(promoted, 102,
+    expect(promoted, 103,
         reason: 'A 类一共 99 条：提升出来的名字必须一条不落地能查回别名表');
     expect(notPromoted, authoredNames.length + latinNames.length,
         reason: '不是提升的只应当是下面那张清单里的那些 id');
@@ -109,7 +127,7 @@ void main() {
     for (final entry in authoredNames.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 没写理由');
     }
-    expect(authoredNames.length, 15, reason: 'B 类 15 条');
+    expect(authoredNames.length, 14, reason: 'B 类 14 条');
     expect(latinNames.length, 4, reason: 'L 类 4 条');
   });
 
@@ -340,18 +358,6 @@ void main() {
 ///          this round's report, with the reason in the value. The first nine have no list in either
 ///          index; the last five have one, but not a single entry in it can serve as a name.
 const Map<String, String> authoredNames = <String, String>{
-  // 中文：⚠️ **`prime_factor` 是这一轮量出来的一处不一致。** 别名表里那一组
-  //       （`prime factorization` 等）**加进去了**，而它**没有被检索索引并进来**——
-  //       所以英文名 `Prime Factorization` 在池子里查不到，这一格因此落在 B 类。
-  //       **这是发现，不是掩饰**：下一轮该查 `ToolSearch.searchAliases` 是怎么把三个
-  //       `tool_search_aliases_*` 文件并起来的（我加在 `_b` 里，而 `base_convert` 也在 `_b`）。
-  // English: ⚠️ **`prime_factor` is an inconsistency measured this round.** The alias group
-  //          (`prime factorization` and friends) **was added** and **was not merged into the search
-  //          index** — so the English name `Prime Factorization` cannot be found in the pool and this
-  //          entry lands in class B. **That is a finding, not a cover-up**: next round should look at how
-  //          `ToolSearch.searchAliases` merges the three `tool_search_aliases_*` files (mine went into
-  //          `_b`, and `base_convert` is in `_b` too).
-  'prime_factor': 'aliases added but not merged into the search index (see the note above)',
   'quadratic': 'no alias list for this id in either index',
   'dbm': 'no alias list for this id in either index',
   'friction': 'no alias list for this id in either index',
