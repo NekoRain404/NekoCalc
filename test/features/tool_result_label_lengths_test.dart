@@ -17,7 +17,7 @@ import '../shared/roboto_regular_advances.dart';
 ///       `DetailMetric` 里那句是 `Text(result.label, maxLines: 1, overflow: ellipsis)`，
 ///       所以"太长"在屏幕上表现为**省略号吃掉后半句**，不是多占一行。
 ///
-///       **因此判据只有一条，而且比前几轮硬：715 条英文一条都不许超过格宽。** 中文那一侧不动——
+///       **因此判据只有一条，而且比前几轮硬：英文一条都不许超过格宽。** 中文那一侧不动——
 ///       它今天有 6 条本来就超过格宽，今天也照样被截断，本轮没有为了给英文腾地方改动任何一条中文；
 ///       这正是"默认语言的那份不许让路"。
 ///
@@ -27,7 +27,7 @@ import '../shared/roboto_regular_advances.dart';
 ///           ASCII 字符，其余按 1em；
 ///         · 把真 Roboto-Regular 与一份真 CJK 字体装进测试环境，用 `TextPainter` 在格宽上**排**，
 ///           读 `didExceedMaxLines`——真断行、真字形。
-///       **两条都要过**：算的那条证明 715 条都有余量，排的那条证明屏幕上的行为与算出来的一致。
+///       **两条都要过**：算的那条证明每一条都有余量，排的那条证明屏幕上的行为与算出来的一致。
 ///       **装不上字体时这条测试不通过、也不假装通过**：它打一行说明然后跳过——那种情况下它什么都没证明。
 ///
 /// English: **the result-label cell's "length"** — unlike the previous rounds this cell **does not wrap,
@@ -35,7 +35,7 @@ import '../shared/roboto_regular_advances.dart';
 ///          `Text(result.label, maxLines: 1, overflow: ellipsis)`, so "too long" shows up on screen as
 ///          **an ellipsis eating the second half**, not as one more line.
 ///
-///          **So there is one rule and it is harder than the previous rounds': not one of the 715 English
+///          **So there is one rule and it is harder than the previous rounds': not one of the English
 ///          labels may exceed the cell width.** The Chinese side does not move — six of its labels
 ///          already exceed the cell today and are already truncated today, and this round changed no
 ///          Chinese label to make room for the English; that is what "the default language's copy must
@@ -48,7 +48,7 @@ import '../shared/roboto_regular_advances.dart';
 ///            · **layout** with real Roboto-Regular and a real CJK face loaded into the test environment,
 ///              a `TextPainter` at the cell width, reading `didExceedMaxLines` — real breaking, real
 ///              glyphs.
-///          **Both must pass**: the arithmetic shows all 715 have room to spare, the layout shows the
+///          **Both must pass**: the arithmetic shows every one has room to spare, the layout shows the
 ///          screen behaves as the arithmetic says. **When the fonts cannot be loaded this test neither
 ///          passes nor pretends to**: it prints one line and returns — in that case it has proved
 ///          nothing.
@@ -119,8 +119,8 @@ void main() {
     expect(letterSpacing, _letterSpacing, reason: '标签的字距变了，尺子得跟着换');
   });
 
-  test('按字宽尺算：715 条英文一条都不超过格宽；中文那一侧仍是 6 条（一个字没动）', () {
-    expect(en.labels.length, 715, reason: '英文表应当是 715 条');
+  test('按字宽尺算：英文一条都不超过格宽；中文那一侧仍是 6 条（一个字没动）', () {
+    expect(en.labels.length, 720, reason: '英文表应当是 720 条');
     expect(zh.labels, isEmpty, reason: '中文表应当是空的——键就是屏幕上那句中文');
 
     final overEnglish = <String>[];
@@ -164,7 +164,7 @@ void main() {
         reason: '最长的中文换了一条——目录被改过，这条断言的前提得重新量');
   });
 
-  testWidgets('真字体排版：715 条英文 × 两种语言在 110dp 上排一行，英文一条都不截断', (tester) async {
+  testWidgets('真字体排版：英文 × 两种语言在 110dp 上排一行，英文一条都不截断', (tester) async {
     if (!await _loadRealFonts(tester)) {
       // 中文：**这里不是"通过"，是"没量"。**
       // English: **this is not a pass, it is a skip.**
@@ -188,7 +188,7 @@ void main() {
       if (_truncates(value)) truncatedEnglish.add('$value（${width.toStringAsFixed(1)}dp）');
       if (_truncates(label)) truncatedChinese.add(label);
     }
-    expect(measured, 715, reason: '量到的条数变了：$measured');
+    expect(measured, 720, reason: '量到的条数变了：$measured');
     expect(truncatedEnglish, isEmpty,
         reason: '这些英文标签在 ${_cellWidth}dp 的真字体排版里被截断了：\n'
             '${truncatedEnglish.join('\n')}');

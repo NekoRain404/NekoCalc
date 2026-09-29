@@ -83,6 +83,18 @@ const Map<String, String> toolResultLabelsMathEn = {
   '平均值': 'Mean',
   '样本数': 'Sample count',
   '中位数': 'Median',
+  // 中文：**HiPER 手册里 `percentil`/`quartil`/`interquartile`/`geometric mean`/`harmonic`
+  //       命中全是 0**（换过拼法复核过），所以这五条是它没有的能力。
+  //       缩写与这一格既有的 `CV`/`Proj.`/`Perms` 同一条理由：110dp 装不下全称。
+  // English: **HiPER's manual scores zero for `percentil`, `quartil`, `interquartile`,
+  //          `geometric mean` and `harmonic`** (re-checked with alternate spellings), so these five are
+  //          capabilities it lacks. The abbreviations follow this cell's existing `CV` / `Proj.` /
+  //          `Perms` for one reason: 110dp does not hold the full name.
+  '第一四分位数': 'Q1',
+  '第三四分位数': 'Q3',
+  '四分位距': 'IQR',
+  '几何平均数': 'Geo. mean',
+  '调和平均数': 'Harm. mean',
   '总和': 'Sum',
   '最小值': 'Minimum',
   '最大值': 'Maximum',

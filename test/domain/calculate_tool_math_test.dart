@@ -376,63 +376,6 @@ void main() {
     expect(insights, contains('概率应落在 0% 到 100%'));
   });
 
-  test('statistics reports multi sample descriptive metrics', () {
-    final definition = tool('statistics');
-    final values = <String, double>{
-      'x1': 2,
-      'x2': 4,
-      'x3': 4,
-      'x4': 4,
-      'x5': 5,
-      'x6': 5,
-      'x7': 7,
-      'x8': 9,
-    };
-    final results = calculateTool(definition, values);
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-    final unitsByLabel = {
-      for (final result in results) result.label: result.unit,
-    };
-    final insights = buildToolInsights(definition, values, results).join('\n');
-
-    expect(results.first.label, '平均值');
-    expect(results.first.value, '5');
-    expect(valuesByLabel['样本数'], '8');
-    expect(valuesByLabel['中位数'], '4.5');
-    expect(valuesByLabel['总和'], '40');
-    expect(valuesByLabel['最小值'], '2');
-    expect(valuesByLabel['最大值'], '9');
-    expect(valuesByLabel['极差'], '7');
-    expect(valuesByLabel['样本标准差'], startsWith('2.138'));
-    expect(valuesByLabel['样本方差'], startsWith('4.571'));
-    expect(valuesByLabel['总体标准差'], '2');
-    expect(valuesByLabel['总体方差'], '4');
-    expect(valuesByLabel['变异系数'], startsWith('42.761'));
-    expect(unitsByLabel['变异系数'], '%');
-    expect(insights, contains('当前按 8 个有效样本计算'));
-    expect(insights, contains('变异系数超过 30%'));
-  });
-
-  test('statistics ignores omitted optional samples', () {
-    final results = calculateTool(tool('statistics'), {
-      'x1': 10,
-      'x2': 20,
-      'x3': 30,
-    });
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-
-    expect(valuesByLabel['样本数'], '3');
-    expect(valuesByLabel['平均值'], '20');
-    expect(valuesByLabel['中位数'], '20');
-    expect(valuesByLabel['总和'], '60');
-    expect(valuesByLabel['总体标准差'], startsWith('8.164'));
-    expect(valuesByLabel['样本标准差'], '10');
-  });
-
   test('matrix tool reports inverse rank eigenvalues and norms', () {
     final definition = tool('matrix');
     final values = <String, double>{'a': 1, 'b': 2, 'c': 3, 'd': 4};

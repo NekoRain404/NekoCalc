@@ -351,6 +351,93 @@ List<ToolResult> _invalidProbabilityResults() {
   ];
 }
 
+
+/// 中文：**分位数，用线性插值（R-7）。**
+///
+///       ⚠️ **分位数有好几种都合法的定义**——Tukey 铰链（取两半的中位数）、Excel 的
+///       `QUARTILE.EXC`、本函数用的线性插值（R 与 NumPy 的默认、Excel 的 `QUARTILE.INC`）。
+///       **样本少的时候它们给出的数不一样**（`12, 18, 21, 25` 的 Q1：R-7 给 16.5，
+///       Tukey 给 15）。所以这里把用的是哪一种写在函数头上，
+///       而不是让读者以为"分位数"只有一个答案——**那正是看起来像答案的错值**。
+/// English: **a quantile, by linear interpolation (R-7).**
+///
+///          ⚠️ **Several definitions of a quantile are all legitimate** — Tukey's hinges (the median of
+///          each half), Excel's `QUARTILE.EXC`, and the linear interpolation used here (the default in R
+///          and NumPy, and Excel's `QUARTILE.INC`). **With few samples they disagree** (`12, 18, 21, 25`
+///          has Q1 = 16.5 under R-7 and 15 under Tukey). So which one is used is written on this
+///          function rather than left for the reader to assume "the" quartile — **an assumption that
+///          produces a plausible-looking wrong value.**
+double _quantile(List<double> sorted, double p) {
+  if (sorted.length == 1) return sorted.first;
+  final position = (sorted.length - 1) * p;
+  final lower = position.floor();
+  final upper = position.ceil();
+  if (lower == upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+
+/// 中文：**几何平均数。** 只有在**全部为正**时才有定义——出现 0 或负数时回 `null`，
+///       由工具照常印 `—`，**不印一个 `NaN`**。它适合"比率连乘"的场合（增长率、倍数）。
+/// English: **the geometric mean.** Defined **only when every value is positive** — a zero or a negative
+///          returns `null` and the tool prints `—` as it does for any unavailable cell, **never a
+///          `NaN`**. It suits quantities that multiply (growth rates, ratios).
+double? _geometricMean(List<double> values) {
+  if (values.any((v) => v <= 0)) return null;
+  final logSum = values.map(math.log).fold<double>(0, (a, b) => a + b);
+  return math.exp(logSum / values.length);
+}
+
+/// 中文：**调和平均数。** 只有在**全部为正**时才有定义。
+///
+///       ⚠️ **闸门是 `<= 0` 而不是 `== 0`，这一条是问过引擎才定下来的。** `n / Σ(1/xᵢ)` 在
+///       `[2, -4, 8]` 上**数学上一路可算**——倒数和 `0.5 - 0.25 + 0.125 = 0.375`，商是 `8`——
+///       但**引擎拒绝算它**：宿主 `qalc` 5.12.0 对 `harmmean([2,-4,8])` 与
+///       `harmmean([-2,-4,-8])` **都原样退回**，只对全正的一组给数。
+///       **Excel 的 `HARMEAN` 是同一条规矩**（有 `≤ 0` 就返回 `#NUM!`）。
+///
+///       原因是这个"平均"只在**全正**时落在最小与最大之间：`[2, -4, 3]` 的倒数和是 `0.5833`，
+///       商是 `5.14`——**比最大值 3 还大**，那个数不是任何意义上的"平均"。
+///       所以放行它就等于印一个**看起来像答案的错值**，正是本项目最反对的那一类。
+/// English: **the harmonic mean.** Defined only when **every value is positive**.
+///
+///          ⚠️ **The gate is `<= 0`, not `== 0`, and that was settled by asking the engine.** On
+///          `[2, -4, 8]` the formula `n / Σ(1/xᵢ)` **does compute** — the reciprocal sum is
+///          `0.5 - 0.25 + 0.125 = 0.375` and the quotient is `8` — yet **the engine refuses it**: host
+///          `qalc` 5.12.0 returns `harmmean([2,-4,8])` and `harmmean([-2,-4,-8])` unevaluated, and only
+///          evaluates an all-positive set. **Excel's `HARMEAN` follows the same rule** (any `≤ 0` gives
+///          `#NUM!`).
+///
+///          The reason is that this "mean" only lands between the minimum and the maximum when all
+///          values are positive: for `[2, -4, 3]` the reciprocal sum is `0.5833` and the quotient is
+///          `5.14` — **larger than the maximum, 3** — which is not an average in any sense. Letting it
+///          through would print **a wrong value that looks like an answer**, exactly the class this
+///          project rejects.
+double? _harmonicMean(List<double> values) {
+  if (values.any((v) => v <= 0)) return null;
+  // 中文：**先按最大值归一，再还原。** 直接 `n / Σ(1/xᵢ)` 在全是大数时**倒数和下溢成 0**，
+  //       商就成了 `∞`——而那正是"闸门把正确结果挡掉"的形状。归一之后每一项都在 `(0, 1]`，
+  //       最大那一项恰好是 `1`，所以**倒数和恒 `≥ 1`，既不下溢也不除零**，而调和平均数是
+  //       齐次的（`H(cx) = c·H(x)`），乘回去就是原答案。
+  //       这一条也过了引擎：`harmmean([1e308, 1e308])` → `1E308`。
+  // English: **normalise by the maximum first, then scale back.** The direct `n / Σ(1/xᵢ)` **underflows
+  //          the reciprocal sum to 0** when every value is huge, and the quotient becomes `∞` — which is
+  //          the shape of a gate throwing away a correct answer. After normalising every term lies in
+  //          `(0, 1]` and the largest is exactly `1`, so **the reciprocal sum is always `≥ 1`**: no
+  //          underflow and no division by zero — and the harmonic mean is homogeneous
+  //          (`H(cx) = c·H(x)`), so multiplying back returns the same answer. The engine agrees:
+  //          `harmmean([1e308, 1e308])` → `1E308`.
+  final scale = values.reduce(math.max);
+  final reciprocalSum =
+      values.map((v) => scale / v).fold<double>(0, (a, b) => a + b);
+  // 中文：**先除后乘，不能先乘。** `n * scale` 在 `scale = 1e308` 时自己就溢出成 `∞`；
+  //       而 `n / reciprocalSum` 恒 `≤ n`（因为倒数和 `≥ 1`），再乘以 `scale` 得到的正是
+  //       `H ≤ scale`，两头都在 `double` 里。
+  // English: **divide before multiplying.** `n * scale` overflows to `∞` on its own at `scale = 1e308`,
+  //          whereas `n / reciprocalSum` is always `≤ n` (the reciprocal sum is `≥ 1`) and the
+  //          subsequent `× scale` yields exactly `H ≤ scale` — both ends are inside `double`.
+  return values.length / reciprocalSum * scale;
+}
+
 List<ToolResult> statisticsResults(Map<String, double> valuesByKey) {
   final values = <double>[];
   for (var index = 1; index <= 8; index++) {
@@ -397,5 +484,18 @@ List<ToolResult> statisticsResults(Map<String, double> valuesByKey) {
     ToolResult.number('总体方差', populationVariance, ''),
     ToolResult.number(
         '变异系数', count > 1 && mean != 0 ? coefficientOfVariation : null, '%'),
+    // 中文：**四分位数与四分位距**——HiPER 手册里 `percentil`/`quartil`/`interquartile` 命中都是 0。
+    //       IQR 的用处是**认离群点**：`[Q1 − 1.5·IQR, Q3 + 1.5·IQR]` 之外就是。
+    // English: **quartiles and the interquartile range** — HiPER's manual scores zero for `percentil`,
+    //          `quartil` and `interquartile`. The IQR is what spots outliers: outside
+    //          `[Q1 − 1.5·IQR, Q3 + 1.5·IQR]`.
+    ToolResult.number('第一四分位数', _quantile(sorted, 0.25), ''),
+    ToolResult.number('第三四分位数', _quantile(sorted, 0.75), ''),
+    ToolResult.number(
+        '四分位距', _quantile(sorted, 0.75) - _quantile(sorted, 0.25), ''),
+    // 中文：几何与调和平均数——HiPER 手册里 `geometric mean` 与 `harmonic` 也都是 0。
+    // English: the geometric and harmonic means — HiPER's manual scores zero for both too.
+    ToolResult.number('几何平均数', _geometricMean(values), ''),
+    ToolResult.number('调和平均数', _harmonicMean(values), ''),
   ];
 }

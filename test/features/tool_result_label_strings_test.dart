@@ -29,7 +29,7 @@ import '../shared/source_scan.dart';
 ///       2) **英文表覆盖所有该翻的标签**：源码里每个**带汉字**的结果标签都有条目，非空、无汉字、
 ///          **没有一条等于它的键**（相等就是没翻）。
 ///       3) **没有死条目**：每个键都必须在源码里真的出现（键是字串，抄错一个字符就会变成一条
-///          永远查不到的条目）；六个分类文件**互不相交**，合并后正好 715 条。
+///          永远查不到的条目）；六个分类文件**互不相交**，合并后正好 720 条。
 ///       4) **数学记号逐字符活着**：中文按 CJK 与全角断开，凡**非 CJK 的连续段**都要在英文里
 ///          原样找得到（尺子是 `test/shared/source_scan.dart` 里那把，不是手写清单）。
 ///       5) **屏幕上真的换了**：详情页的结果卡与主结果框，两种语言各是各的。
@@ -47,7 +47,7 @@ import '../shared/source_scan.dart';
 ///          an entry, none empty, none holding a Han character, and **not one equal to its key**;
 ///          (3) **no dead entries** — every key must really occur in the sources (a one-character typo
 ///          in a key makes an entry that can never be found), the six category files are **disjoint**,
-///          and the merge is exactly 715; (4) **the mathematical notation survives character for
+///          and the merge is exactly 720; (4) **the mathematical notation survives character for
 ///          character** — the Chinese is cut at CJK and full-width boundaries and every **non-CJK run**
 ///          must be found verbatim in the English (the ruler is the one in
 ///          `test/shared/source_scan.dart`, not a hand-written list); (5) **the screen really changed** —
@@ -69,12 +69,12 @@ void main() {
     // English: **both numbers are the proof the walk was not vacuous** — a mis-count is more dangerous
     //          than a wrong assertion.
     expect(sites.fileCount, 17, reason: 'calculate_tool*.dart 一共 17 个文件');
-    expect(sites.siteCount, 1776,
-        reason: '源码里第一个位置参数是字面量的构造处一共 1776 处，少了说明扫描没跑对');
-    expect(sites.allLiterals.length, 794, reason: '去重后全部字面量标签 794 条');
-    expect(sites.labels.length, 715, reason: '去重后带汉字的结果标签一共 715 条');
+    expect(sites.siteCount, 1781,
+        reason: '源码里第一个位置参数是字面量的构造处一共 1781 处，少了说明扫描没跑对');
+    expect(sites.allLiterals.length, 799, reason: '去重后全部字面量标签 799 条');
+    expect(sites.labels.length, 720, reason: '去重后带汉字的结果标签一共 720 条');
     expect(zh.labels, isEmpty,
-        reason: '中文表必须是空的——键就是屏幕上那句中文，写一份只会多出 715 条"值等于键"的行');
+        reason: '中文表必须是空的——键就是屏幕上那句中文，写一份只会多出 720 条"值等于键"的行');
     for (final label in sites.labels) {
       expect(zh.label(label), label,
           reason: '「$label」在中文下不是原样返回——默认语言的那份必须逐字节不变');
@@ -103,7 +103,7 @@ void main() {
     expect(identical, 0, reason: '有 $identical 条英文与中文一字不差——那些行根本没翻');
   });
 
-  test('没有死条目：每个键都在源码里出现；六个文件互不相交，合并正好 715 条', () {
+  test('没有死条目：每个键都在源码里出现；六个文件互不相交，合并正好 720 条', () {
     // 中文：**"死条目"是这张表最可能的坏法**：键抄错一个字符就永远查不到，而屏幕上看不出来
     //       （回落成中文，与"本来就该是中文"长得一模一样）。
     // English: **a dead entry is the likeliest way for this table to go wrong**: a one-character typo in
@@ -136,13 +136,13 @@ void main() {
         seen[key] = part.key;
       }
     }
-    expect(total, 715, reason: '六个文件合起来应当是 715 条，现在是 $total');
-    expect(en.labels.length, 715, reason: '合并后应当是 715 条，现在是 ${en.labels.length}');
+    expect(total, 720, reason: '六个文件合起来应当是 720 条，现在是 $total');
+    expect(en.labels.length, 720, reason: '合并后应当是 720 条，现在是 ${en.labels.length}');
     // 中文：**六个文件的大小是分类的规模**，写下来是为了让"某次编辑把一半条目搬错文件"当场露出来。
     // English: **the six files' sizes are the categories' sizes**; writing them down makes "an edit moved
     //          half the entries into the wrong file" show up at once.
     expect(toolResultLabelsSharedEn.length, 20);
-    expect(toolResultLabelsMathEn.length, 106);
+    expect(toolResultLabelsMathEn.length, 111);
     expect(toolResultLabelsElectronicsEn.length, 221);
     expect(toolResultLabelsMechanicalEn.length, 137);
     expect(toolResultLabelsFinanceEn.length, 107);
@@ -424,12 +424,12 @@ class _LabelSites {
   const _LabelSites(
       this.labels, this.allLiterals, this.siteCount, this.fileCount);
 
-  /// 中文：去重后**带汉字**的标签，715 条。
-  /// English: the de-duplicated **Han-bearing** labels, 715 of them.
+  /// 中文：去重后**带汉字**的标签，720 条。
+  /// English: the de-duplicated **Han-bearing** labels, 720 of them.
   final Set<String> labels;
 
-  /// 中文：去重后**全部**字面量标签，794 条（含 79 条整条都是记号的）。
-  /// English: every de-duplicated literal label, 794 of them (including the 79 that are notation end to
+  /// 中文：去重后**全部**字面量标签，799 条（含 79 条整条都是记号的）。
+  /// English: every de-duplicated literal label, 799 of them (including the 79 that are notation end to
   /// end).
   final Set<String> allLiterals;
 

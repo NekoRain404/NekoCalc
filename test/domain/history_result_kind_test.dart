@@ -89,7 +89,7 @@ void main() {
   });
 
   group('显示侧按第一个 `: ` 切开无歧义', () {
-    test('英文标签表 715 条键里没有一条含 `: `', () {
+    test('英文标签表每一键里没有一条含 `: `', () {
       // 中文：**这是显示侧那个 `indexOf(': ')` 成立的前提。** 只要有一条键带 `: `，切开就会
       //       落在键里面，标签与值都会错位——这条断言就是那道前提本身。
       // English: **this is the premise that makes the display's `indexOf(': ')` valid.** A single key
@@ -100,7 +100,7 @@ void main() {
           .toList();
       expect(offenders, isEmpty,
           reason: '这些标签键含 `: `，按第一个 `: ` 切开会有歧义：\n${offenders.join('\n')}');
-      expect(ToolResultLabelStrings.toolResultLabelsEn.labels.length, 715);
+      expect(ToolResultLabelStrings.toolResultLabelsEn.labels.length, 720);
     });
 
     test('已知标签在英文下翻译、在中文下原样', () {
