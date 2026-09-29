@@ -4,7 +4,7 @@ import '../../../domain/usecases/calculator_report_labels.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：**计算器那几支控制器写的句子。** 状态卡上那两行、复制/笔记/历史正文里的标签、记忆寄存器
-///       的拒绝语、引擎错误翻译成的那十二句话、数据集与拟合读数、进制/记法换算读不出来时的两句。
+///       的拒绝语、引擎错误翻译成的那十三句话、数据集与拟合读数、进制/记法换算读不出来时的两句。
 ///       它们原先逐条写在 `calculator_controller_*.dart` 几家 mixin 的源码里。
 ///
 ///       ### 为什么和 `CalculatorStrings` 分开
@@ -133,6 +133,7 @@ class CalculatorControllerStrings {
     required this.friendlyNotFinite,
     required this.friendlyUnitMismatch,
     required this.friendlyRelationNoSolution,
+    required this.friendlyEngineTimeout,
     required this.friendlyGeneric,
     required this.memoryRefusal,
     required this.angleModeDegrees,
@@ -175,9 +176,9 @@ class CalculatorControllerStrings {
   });
 
   // —— 引擎错误翻译成人话（`_friendlyCalculationError`）——
-  // 中文：判据是引擎**英文**错误串的 `contains`，那些串留在源码里；这里是翻出来的那十二句。
+  // 中文：判据是引擎**英文**错误串的 `contains`，那些串留在源码里；这里是翻出来的那十三句。
   // English: the branch conditions are `contains` over the engine's **English** error strings, which
-  //          stay in the source; these are the twelve sentences they are turned into.
+  //          stay in the source; these are the thirteen sentences they are turned into.
   final String friendlyMissingParen;
   final String friendlyExpectedNumber;
   final String friendlyUnexpectedToken;
@@ -210,6 +211,20 @@ class CalculatorControllerStrings {
   ///          `0` was a **finite decimal**, so the taking rule put it on the result line as **the number
   ///          zero** — the user asks for the roots of x² = −1 and the screen answers `0`.
   final String friendlyRelationNoSolution;
+
+  /// 中文：**引擎超时了，而回落旧解析器也读不懂这个式子。**
+  ///
+  ///       ⚠️ 这句话存在的理由是一次实测：在那之前，屏幕上写的是**旧解析器那句「函数需要括号」**，
+  ///       而用户打的 `sum(1/x^2, 1, 200000, x)` **一个括号都没错**——他会去找一个不存在的问题。
+  ///       **它不改变"超时回落旧解析器"那个设计**：回落读得懂的式子时照旧作答。
+  /// English: **the engine timed out and the fallback could not read it either.**
+  ///
+  ///          ⚠️ This sentence exists because of a measurement: before it the screen carried **the legacy
+  ///          parser's "function needs parentheses"** while the `sum(1/x^2, 1, 200000, x)` the user typed
+  ///          **has no bracket error at all** — they would go looking for a problem that does not exist. It
+  ///          **does not change the "a timeout falls back" design**: a readable expression still gets the
+  ///          fallback's answer.
+  final String friendlyEngineTimeout;
 
   final String friendlyGeneric;
 
@@ -328,6 +343,7 @@ class CalculatorControllerStrings {
     friendlyNotFinite: '结果不是有限数值',
     friendlyUnitMismatch: '单位不匹配：这两个单位不能互相换算',
     friendlyRelationNoSolution: '这条方程没有解（或这个等式恒不成立）',
+    friendlyEngineTimeout: '引擎没在时限内算完，后面的式子也读不出来',
     friendlyGeneric: '表达式错误',
     memoryRefusal: '当前值放不进记忆寄存器，寄存器未改动',
     angleModeDegrees: '${CalculatorReportLabels.zh.angleDegreesWord} DEG',
@@ -407,6 +423,8 @@ class CalculatorControllerStrings {
     friendlyUnitMismatch: 'Unit mismatch: these two units cannot convert into each other',
     friendlyRelationNoSolution:
         'This equation has no solution (or the equality never holds)',
+    friendlyEngineTimeout:
+        'The engine did not finish in time, and the fallback could not read it either',
     friendlyGeneric: 'Expression error',
     memoryRefusal:
         'The current value does not fit the memory register, so the register is unchanged',

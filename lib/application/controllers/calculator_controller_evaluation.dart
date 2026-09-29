@@ -38,6 +38,23 @@ part of 'calculator_controller.dart';
 ///          and **this app's grammar has no equals sign at all**, so the legacy parser never has
 ///          standing on a relation. The user asks for the roots of x² = −1 and reads "I mistyped a
 ///          bracket". This constant is what makes the two paths say one sentence.
+/// 中文：**引擎超时了，而且回落旧解析器也没读懂这个式子。**
+///
+///       ⚠️ **这一条不推翻"超时回落旧解析器"那个设计**（它被三条测试钉着，是刻意的）——
+///       回落**读得懂**的式子时照旧由旧解析器作答，一个字没动。
+///       它补的是回落**也失败**的那一支：那时屏幕上写的是旧解析器那句「函数需要括号」，
+///       而用户打的 `sum(1/x^2, 1, 200000, x)` **一个括号都没错**——他会去找一个不存在的问题。
+///       （实测见 `comparison-with-hiper.md` 第六节。）
+/// English: **the engine timed out and the fallback could not read the expression either.**
+///
+///          ⚠️ **This does not overturn the "a timeout falls back to the legacy parser" design** (three
+///          tests pin it; it is deliberate) — when the fallback **can** read the expression it still answers
+///          exactly as before. What this fills in is the branch where the fallback **also fails**: there the
+///          screen carried the legacy parser's "function needs parentheses" while the
+///          `sum(1/x^2, 1, 200000, x)` the user typed **has no bracket error at all** — they would go looking
+///          for a problem that does not exist. (Measured; section 六 of `comparison-with-hiper.md`.)
+const String kEngineTimeoutVerdict = 'Engine timed out and the fallback could not read it';
+
 const String kRelationTruthValueVerdict =
     'Relation has no numeric answer';
 mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
@@ -320,7 +337,19 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
       '$qalculateLogTag 引擎没有可用结果，提交路径回落到旧解析器: '
       '${reply.error ?? '引擎给出的十进制形态不可用'}',
     );
-    return _calculateResult(source);
+    // 中文：**只包住那一行**，不动"回落"这件事本身：读得懂就照旧由旧解析器作答，
+    //       读不懂时把真原因说出来（超时），而不是让旧解析器那句「函数需要括号」上屏。
+    // English: **wraps that one line and nothing else** — the fallback itself is untouched: if it can read
+    //          the expression it answers as before, and if it cannot, the real cause (a timeout) is said
+    //          instead of letting the legacy parser's "function needs parentheses" reach the screen.
+    try {
+      return _calculateResult(source);
+    } on FormatException {
+      if (reply.error != null && reply.error!.startsWith('engine_timeout')) {
+        throw const FormatException(kEngineTimeoutVerdict);
+      }
+      rethrow;
+    }
   }
 
   /// 中文：问一次引擎，并给它一个上限。**提交路径与边打边算共用这一个入口。** 两件事都在这里做：

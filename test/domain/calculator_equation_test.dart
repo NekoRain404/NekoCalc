@@ -202,6 +202,51 @@ void main() {
     });
   });
 
+  group('⚠️ 超时：设计没动，补的是"回落也读不懂"那一支', () {
+    test('超时 + 旧解析器读不懂 ⇒ 说真原因，而不是「函数需要括号」', () async {
+      // 中文：**这一条不推翻"超时回落旧解析器"那个设计**——它被另外三条测试钉着（名字就叫
+      //       `times out and falls back`）。补的是**回落也失败**的那一支：
+      //       那时屏幕上写的是旧解析器那句「函数需要括号」，而真机上量到的那个输入
+      //       （`sum(1/x^2, 1, 200000, x)`）**一个括号都没错**——用户会去找一个不存在的问题。
+      // English: **this does not overturn the "a timeout falls back" design** — three other tests pin it
+      //          (one is literally named `times out and falls back`). What it fills in is the branch where
+      //          **the fallback also fails**: there the screen carried the legacy parser's "function needs
+      //          parentheses" while the input measured on a device (`sum(1/x^2, 1, 200000, x)`) **has no
+      //          bracket error at all** — the user would hunt a problem that does not exist.
+      final engine = _StubEngine(
+          EngineReply.failure('engine_timeout: 5000ms'));
+      final controller = _controller(engine);
+
+      controller.setExpression('sum(1/x^2, 1, 200000, x)');
+      await controller.submit();
+
+      expect(controller.hasError, isTrue);
+      expect(controller.errorMessage, contains('引擎没在时限内算完'));
+      expect(controller.errorMessage, isNot(contains('括号')),
+          reason: '**这一条是本组的全部意义**：那个式子没有括号问题');
+
+      controller.dispose();
+    });
+
+    test('超时 + 旧解析器**读得懂** ⇒ 照旧由它作答（设计没动）', () async {
+      // 中文：**反面。** `2+3` 旧解析器读得懂，所以超时之后屏幕上仍然是 `5`——
+      //       与那三条既有测试断言的行为逐字相同。
+      // English: **the reverse.** The legacy parser can read `2+3`, so after a timeout the screen still
+      //          shows `5` — byte-for-byte the behaviour the three existing tests assert.
+      final engine = _StubEngine(
+          EngineReply.failure('engine_timeout: 5000ms'));
+      final controller = _controller(engine);
+
+      controller.setExpression('2+3');
+      await controller.submit();
+
+      expect(controller.hasError, isFalse);
+      expect(controller.result, '5');
+
+      controller.dispose();
+    });
+  });
+
   group('那一句话本身', () {
     test('英文侧一个汉字都没有，两种语言说的是同一件事', () {
       // 中文：**这句话是这一轮新加的文案，它得和别的文案同一条规矩。**
