@@ -546,6 +546,57 @@ void main() {
     expect(() => parse('1=1'), throwsFormatException);
   });
 
+  test('方程里的等号不再被当成结果注解剥掉（不闭合就不剥）', () {
+    // 中文：**这一条钉的是一个静默错值。** 剥结果注解那条规则只看「右边是不是数字」，
+    //       不看左边有没有自由变量，于是把**方程**一起吃掉了：
+    //
+    //           粘贴 `2x+1=7`   → 屏幕上是 `2x+1=7`，送进引擎的是 `2x+1`
+    //           粘贴 `x^2-4=0`  → 屏幕上是 `x^2-4=0`，送进引擎的是 `x^2-4`
+    //
+    //       **用户看着一个方程，拿到的是另一个式子的值。** 判据是「左边闭不闭合」：
+    //       `x` 是自由变量，`2x+1` **不可能**等于 7，所以那个 `= 7` 从来就不是「这个算式的结果」。
+    //
+    //       **修完之后方程不会被算错，而是被如实拒绝**（解析器读不懂 `=`）——本项目一贯的取舍：
+    //       **错值比错误坏**。
+    // English: **this pins a silent wrong value.** The result-annotation rule looked only at whether
+    //          the right side is a number and never at whether the left side has a free variable, so it
+    //          swallowed **equations** whole:
+    //
+    //              paste `2x+1=7`   -> the screen reads `2x+1=7`, the engine is handed `2x+1`
+    //              paste `x^2-4=0`  -> the screen reads `x^2-4=0`, the engine is handed `x^2-4`
+    //
+    //          **The user looks at an equation and gets another expression's value.** The criterion is
+    //          whether the left side is closed: `x` is a free variable and `2x+1` **cannot** equal 7,
+    //          so that `= 7` was never "this sum's result".
+    //
+    //          **After the fix an equation is not mis-computed but honestly refused** (the parser
+    //          cannot read `=`) — this project's standing trade: **a wrong value is worse than an
+    //          error.**
+    for (final equation in <String>['2x+1=7', 'x^2-4=0', '3y=12', 'y^2=9']) {
+      expect(ExpressionParser.normalizeExpressionInput(equation), equation,
+          reason: '`$equation` 的等号被当成结果注解剥掉了——左边有自由变量，它不闭合');
+      expect(() => parse(equation), throwsFormatException,
+          reason: '`$equation` 应当被如实拒绝，而不是算成别的式子');
+    }
+
+    // 中文：**刻意避开了带角度的例子。** `sin(90) = 1` 看着更自然，但它**依赖角度模式**
+    //       （这个测试上下文是弧度，`sin(90)` 是 0.894 不是 1）——**那是我第二版写错的地方**，
+    //       而它红了之后看着像闸门坏了，其实只是我拿一个受别的开关影响的例子去量闸门。
+    // English: **angle-dependent examples are deliberately avoided here.** `sin(90) = 1` reads more
+    //          naturally but **depends on the angle mode** (this context is radians, where `sin(90)` is
+    //          0.894, not 1) — **that was my second wrong version**, and when it went red it looked like
+    //          the gate was broken when in fact I had measured the gate with an example another switch
+    //          controls.
+    expect(ExpressionParser.normalizeExpressionInput('2+2=4'), '2+2');
+    expect(ExpressionParser.normalizeExpressionInput('sqrt(81) = 9'), 'sqrt(81)');
+    expect(ExpressionParser.normalizeExpressionInput('2+2='), '2+2');
+    expect(parse('2^10 = 1024'), closeTo(1024, 1e-9));
+    expect(parse('2π = 6.283'), closeTo(2 * math.pi, 1e-9));
+    expect(parse('0xFF = 255'), closeTo(255, 1e-9));
+    expect(parse('1e3 = 1000'), closeTo(1000, 1e-9));
+    expect(parse('sqrt(81) = 9'), closeTo(9, 1e-9));
+  });
+
   test('parses programming radix number literals', () {
     expect(parse('0xff + 0b1010 + 0o10'), closeTo(273, 1e-9));
     expect(parse('0xFF_FF / 0b1111'), closeTo(4369, 1e-9));

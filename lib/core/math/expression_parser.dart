@@ -6,6 +6,7 @@ import 'sexagesimal_literal.dart';
 part 'expression_case_folding.dart';
 part 'expression_input_normalization.dart';
 part 'expression_math_helpers.dart';
+part 'expression_paste_annotation.dart';
 part 'percentage_expansion.dart';
 
 /// 中文：轻量级递归下降表达式解析器，覆盖计算器、图形和工具页共用的数学输入。
