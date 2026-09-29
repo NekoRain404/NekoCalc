@@ -14,6 +14,32 @@ part of 'calculator_controller.dart';
 ///          `calculator_controller.dart`. **All this round moved out of this file is the as-you-type
 ///          flow** (the two debounce timers, the in-flight bound, the generation guard); the submit
 ///          path, the selection of an answer and that shared entrance all stay.
+/// 中文：**上面那条判据的"原文"（verdict）。** 两条路都要说这件事，说法各一处：
+///
+///       - **提交路径**把它抛给 `submit()` 的 catch，由 `_friendlyCalculationError` 翻成人话；
+///       - **边打边算路径**没有 `try` 可抛，就地翻——**用的是同一个
+///         `_friendlyCalculationError`**。
+///
+///       ⚠️ **两条路是量出来的，不是设计出来的。** 本轮真机验证时，`x^2=-1` 在**边打边算**
+///       那条路上显示的是旧解析器那句「函数需要括号」——因为那一支此前对关系的处理是"回落旧
+///       解析器"，而**应用自己的语法里根本没有等号**，旧解析器对一条关系永远没有发言权。
+///       用户问「x²=−1 的解」，看到的是"我括号打错了"。这一条常量就是让两条路说同一句话。
+/// English: **the verdict text of the judgement above.** Both paths have to say this thing, and each
+///          says it in one place:
+///
+///          - the **submit path** throws it to `submit()`'s catch, which `_friendlyCalculationError`
+///            turns into a sentence;
+///          - the **as-you-type path** has no `try` to throw into and turns it in place — **through
+///            the same `_friendlyCalculationError`**.
+///
+///          ⚠️ **Both paths were measured, not designed.** In this round's device verification
+///          `x^2=-1` showed the legacy parser's "function needs parentheses" on the **as-you-type**
+///          path — because that branch's handling of a relation was "fall back to the legacy parser",
+///          and **this app's grammar has no equals sign at all**, so the legacy parser never has
+///          standing on a relation. The user asks for the roots of x² = −1 and reads "I mistyped a
+///          bracket". This constant is what makes the two paths say one sentence.
+const String kRelationTruthValueVerdict =
+    'Relation has no numeric answer';
 mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
 
   /// 中文：把引擎的结果落到屏幕上——与提交路径写的是同一组状态（结果、`_lastFiniteResult`、错误
@@ -260,7 +286,7 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
     //          branch, so nothing is displayed. **Both paths share one judgement**,
     //          [_relationCameBackAsTruthValue].
     if (_relationCameBackAsTruthValue(answer)) {
-      throw const FormatException('Relation has no numeric answer');
+      throw const FormatException(kRelationTruthValueVerdict);
     }
     final selected = _selectEngineResult(answer, source);
     if (selected != null) {

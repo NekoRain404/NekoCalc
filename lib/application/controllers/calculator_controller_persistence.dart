@@ -403,7 +403,7 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          content", which reads as "I typed something wrong", while the real reason is that this
     //          equation has no solution. The judgement's own judgement lives in one place,
     //          `_relationCameBackAsTruthValue`.
-    if (message.contains('Relation has no numeric answer')) {
+    if (message.contains(kRelationTruthValueVerdict)) {
       return strings.friendlyRelationNoSolution;
     }
     return strings.friendlyGeneric;

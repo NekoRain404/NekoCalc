@@ -260,7 +260,23 @@ mixin _CalculatorLiveEvaluation
     }
     final accepted = _selectEngineResult(answer, source)?.result;
     if (accepted == null) {
-      if (!liveResultPolicy.showsLegacyResult) {
+      if (_relationCameBackAsTruthValue(answer)) {
+        // 中文：**一条关系永远不由旧解析器作答。** 应用自己的语法里没有等号，旧解析器对一条关系
+        //       只能说「函数需要括号」——那是**说岔了**，不是答案。真机上量到过这一句（见
+        //       [kRelationTruthValueVerdict]），所以这里与提交路径**说同一句话**，
+        //       翻法也走同一个 `_friendlyCalculationError`。
+        // English: **a relation is never answered by the legacy parser.** This app's grammar has no
+        //          equals sign, so the legacy parser can only say "function needs parentheses" about a
+        //          relation — that is **saying the wrong thing**, not an answer. It was measured on the
+        //          device (see [kRelationTruthValueVerdict]), so this says **the same sentence** the
+        //          submit path says, turned by the same `_friendlyCalculationError`.
+        _result = MathResult.pending;
+        hasError = true;
+        errorMessage = _friendlyCalculationError(
+            const FormatException(kRelationTruthValueVerdict));
+        unawaited(_persistState());
+        notifyListeners();
+      } else if (!liveResultPolicy.showsLegacyResult) {
         _evaluateLegacy();
         unawaited(_persistState());
         notifyListeners();

@@ -83,7 +83,12 @@ class _FakeDatabase implements AppDatabase {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
-CalculatorController _controller(MathEngine engine) => CalculatorController(
+CalculatorController _controller(
+  MathEngine engine, {
+  Duration liveEvaluationDelay = const Duration(minutes: 10),
+  Duration liveEngineFollowUpDelay = const Duration(minutes: 10),
+}) =>
+    CalculatorController(
       historyRepository: HistoryRepository(_FakeDatabase()),
       notesRepository: NotesRepository(_FakeDatabase()),
       settingsRepository: SettingsRepository(_FakeDatabase()),
@@ -98,7 +103,8 @@ CalculatorController _controller(MathEngine engine) => CalculatorController(
         expressionDisplayMode: '数学符号',
       ),
       engine: engine,
-      liveEngineFollowUpDelay: const Duration(minutes: 10),
+      liveEvaluationDelay: liveEvaluationDelay,
+      liveEngineFollowUpDelay: liveEngineFollowUpDelay,
     );
 
 void main() {
@@ -218,6 +224,48 @@ void main() {
       //          and `1=2` give the same `0`, so the app cannot tell them apart — **and must not pretend
       //          to**.
       expect(zh.friendlyRelationNoSolution, contains('没有解'));
+    });
+  });
+
+  group('⚠️ 边打边算那条路上，关系同样不许由旧解析器作答', () {
+    // 中文：**这一组是真机量出来的，不是设计出来的。** 本轮在设备上跑 `x^2=-1`，
+    //       结果行上写的是**旧解析器那句「函数需要括号」**——因为边打边算那一支当时对关系的处理
+    //       是"回落旧解析器"，而**应用自己的语法里根本没有等号**，旧解析器对一条关系永远没有
+    //       发言权。用户问「x²=−1 的解」，读到的是"我括号打错了"。
+    //
+    //       修法是两条路**说同一句话**：判据的原文是一个常量（`kRelationTruthValueVerdict`），
+    //       翻成人话的只有 `_friendlyCalculationError` 一处。
+    // English: **this group came off a device, not off a design.** Running `x^2=-1` on the hardware this
+    //          round, the result line carried **the legacy parser's "function needs parentheses"** —
+    //          because that as-you-type branch's handling of a relation was "fall back to the legacy
+    //          parser", and **this app's grammar has no equals sign at all**, so the legacy parser never
+    //          has standing on a relation. The user asks for the roots of x² = −1 and reads "I mistyped
+    //          a bracket".
+    //
+    //          The fix makes both paths **say one sentence**: the verdict's text is a constant
+    //          (`kRelationTruthValueVerdict`) and `_friendlyCalculationError` is the only place that
+    //          turns it into words.
+    test('`x^2=-1`：边打边算给的是「没有解」，与提交路径同一句话', () async {
+      final engine = _StubEngine(_reply('0', EngineResultKind.number));
+      final controller = _controller(
+        engine,
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+
+      controller.setExpression('x^2=-1');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(controller.hasError, isTrue);
+      expect(controller.result, isNot('0'),
+          reason: '**这一条是本轮的全部意义**：`0` 不许出现在结果行上');
+      expect(controller.errorMessage, contains('没有解'));
+      // 中文：**这一条钉的就是真机上量到的那句错话。** 它不许多出一个字。
+      // English: **this pins the wrong sentence measured on the device.** It may not appear even once.
+      expect(controller.errorMessage, isNot(contains('括号')),
+          reason: '关系不许由旧解析器作答——它只会说「函数需要括号」');
+
+      controller.dispose();
     });
   });
 }
