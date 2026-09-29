@@ -395,9 +395,49 @@ void main() {
     });
 
     test('⚠️ 边界：` + 0` 不许吃掉 ` + 0.5` 的 0', () {
-      expect(simplifyDerivative('1 + 0.5'), '1 + 0.5');
+      // 中文：**这一条查的是那条正则的前瞻。** 少了它，`x + 0.5` 会被啃成 `x + .5`——
+      //       而 `x + .5` 不是这个应用写得出的一步。
+      //       （`1 + 0.5` 会被**常数求和**收拾成 `1.5`，那是另一条恒等式，见下面那一条测试。）
+      // English: **this checks the regex's lookahead.** Without it `x + 0.5` would be bitten down to
+      //          `x + .5` — a form this app never produces. (`1 + 0.5` is tidied to `1.5` by **constant
+      //          folding**, a different identity; see the test below.)
+      expect(simplifyDerivative('x + 0.5'), 'x + 0.5');
       expect(simplifyDerivative('1 + 0'), '1');
       expect(simplifyDerivative('10 + 0'), '10');
+    });
+
+    test('相同项相加合成系数：`x + x` → `2·x`（仍是恒等式）', () {
+      // 中文：**这一条是 `x * x` 那条路的终点。** 乘法法则给出 `x·1 + x·1`，
+      //       去掉乘 1 之后是 `x + x`，而**完全相同的几项相加就是它自己的若干倍**——
+      //       任何取值下都成立，不涉及任何取舍，所以它在界线的这一侧。
+      expect(simplifyDerivative('x + x'), '2·x');
+      expect(simplifyDerivative('x + x + x'), '3·x');
+      expect(differentiate('x * x', 'x').simplified, '2·x');
+    });
+
+    test('全是数字时求和：`2 + 2` → `4`', () {
+      expect(simplifyDerivative('2 + 2'), '4');
+      expect(simplifyDerivative('1 + 2 + 3'), '6');
+      // 去加 0 那一条先跑，所以 `1 + 0` 走的是另一条路，结果一样。
+      expect(simplifyDerivative('1 + 0'), '1');
+    });
+
+    test('⚠️ 边界：`x + 1` 一律不动（合并同类项要判断，那一版不越线）', () {
+      // 中文：**"同类"这个词本身就带取舍**——`2x` 与 `x·2` 算不算同类？`x` 与 `1·x`？
+      //       这一版的界线是**逐字相同**，多一个字都不合并。
+      // English: **the word "like" carries a judgement** — are `2x` and `x·2` alike? `x` and `1·x`? This
+      //          version's line is **literally identical**, and one character more is not merged.
+      expect(simplifyDerivative('x + 1'), 'x + 1');
+      expect(simplifyDerivative('x + 2·x'), 'x + 2·x');
+      expect(simplifyDerivative('x + y'), 'x + y');
+    });
+
+    test('⚠️ 边界：**带括号的一律不动**（` + ` 未必是顶层那一个）', () {
+      // 中文：`(a + b) + (a + b)` 里那个 ` + ` 拆错一次就是一条错答案。
+      // English: in `(a + b) + (a + b)` the ` + ` need not be the top-level one, and mis-splitting once
+      //          produces a wrong answer.
+      expect(simplifyDerivative('(x) + (x)'), '(x) + (x)');
+      expect(simplifyDerivative('sin(x) + sin(x)'), 'sin(x) + sin(x)');
     });
 
     test('反例：它**不做**真正的化简', () {
@@ -407,8 +447,13 @@ void main() {
       // English: **this pins the boundary, not a shortcoming.** Collecting like terms, reordering and
       //          expanding brackets all involve judgement ("how far to simplify has no single answer"), so
       //          this version does **none** of them — the forms below come back unchanged, **by design**.
-      expect(simplifyDerivative('x + x'), 'x + x');
-      expect(simplifyDerivative('2 + 3'), '2 + 3');
+      // 中文：`x + x` **已经**被"相同项"那一条收拾了（那是恒等式），所以这里的反例要换成
+      //       真正跨不过去的那一类：**逐字不同的两项**。
+      // English: `x + x` is **already** tidied by the "identical terms" rule (an identity), so the
+      //          counter-examples here are the ones that genuinely stay: **terms that differ by a
+      //          character**.
+      expect(simplifyDerivative('x·2 + 2·x'), 'x·2 + 2·x');
+      expect(simplifyDerivative('x^2 + x'), 'x^2 + x');
       expect(simplifyDerivative('x·1·y'), 'x·y');  // `·` 留着：那是排版决定，不是恒等式
     });
 

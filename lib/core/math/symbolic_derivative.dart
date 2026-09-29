@@ -121,9 +121,62 @@ String simplifyDerivative(String text) {
         .replaceAll(RegExp(r'(?<![\d.])1·'), '')
         .replaceAll(RegExp(r'\^1(?![\d.])'), '');
     current = current.replaceAll(RegExp(r' \+ 0(?![\d.])'), '').replaceAll(RegExp(r'^0 \+ '), '');
+    final folded = _foldIdenticalTerms(current);
+    if (folded != null) current = folded;
     if (current == before) break;
   }
   return current;
+}
+
+/// 中文：**若干项完全相同时合成一个系数**（`x + x` → `2·x`）。其余一律不动，回 `null`。
+///
+///       这仍然是**恒等式**，不是化简：完全相同的几项相加就是它自己的若干倍，
+///       任何取值下都成立，也不涉及任何取舍（**不合并"同类"、不排序、不展开**）。
+///
+///       ⚠️ **只在"全部项逐字相同"时才动手**，而且**带括号的一律不动**：
+///       带括号的串里 ` + ` 未必是顶层的那一个（`(a + b) + (a + b)`），
+///       而**拆错一次就是一条错答案**。整串全是数字时改做常数求和（`2 + 2` → `4`）。
+///
+///       ⚠️ **`x + 1` 这类一律不动**——合并"同类项"要判断两个式子是不是同类，
+///       那**有取舍**（`2x` 与 `x·2` 算不算同类？），这一版不越那条线。
+/// English: **collapses several identical terms into one coefficient** (`x + x` → `2·x`); everything else is
+///          left alone and returns `null`.
+///
+///          This is still an **identity**, not simplification: identical terms added together are some
+///          multiple of one of them, true for every value, and it involves no judgement (**no collecting
+///          "like" terms, no reordering, no expanding**).
+///
+///          ⚠️ **It acts only when every term is literally identical**, and it **never touches anything with
+///          brackets in it**: in a bracketed string the ` + ` need not be the top-level one
+///          (`(a + b) + (a + b)`), and **mis-splitting once produces a wrong answer**. When every term is a
+///          number it sums them instead (`2 + 2` → `4`).
+///
+///          ⚠️ **`x + 1` and its kind are left alone** — collecting "like" terms means judging whether two
+///          forms are alike, which **involves a judgement call** (`2x` and `x·2`: alike or not?), and this
+///          version does not cross that line.
+String? _foldIdenticalTerms(String text) {
+  if (text.contains('(') || text.contains(')')) return null;
+  if (!text.contains(' + ')) return null;
+  final terms = text.split(' + ');
+  if (terms.length < 2) return null;
+
+  final numbers = <num>[];
+  for (final term in terms) {
+    final value = num.tryParse(term);
+    if (value == null) {
+      numbers.clear();
+      break;
+    }
+    numbers.add(value);
+  }
+  if (numbers.length == terms.length) {
+    final total = numbers.fold<num>(0, (a, b) => a + b);
+    return _formatNumber(total);
+  }
+
+  final first = terms.first;
+  if (terms.any((term) => term != first)) return null;
+  return terms.length == 1 ? first : '${terms.length}·$first';
 }
 
 /// 中文：法则的名字。**它们是判据不是文案**——界面上那句话由表来拼（本项目「判据与文案分家」）。
