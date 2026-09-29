@@ -68,6 +68,10 @@ final List<ToolDefinition> textToolDefinitions = [
       '输入若干「值 ± 不确定度」，给出和与差的合成不确定度、积与商的相对不确定度，以及哪一项是主要误差来源。'),
   // 中文：**质因数分解**——HiPER 手册里 `factor` 有 5 处命中（它有这个能力）。它不走引擎，
   //       理由是量出来的：引擎分不动时**会把输入原样退回来**（见 `text_tool_factor_tools.dart`）。
+  // 中文：**算术分步**——对照表里最后一条「HiPER 有、我们没有」的东西。它不走引擎，
+  //       理由与求导分步同源（纯函数 ⇒ 单测就是全部证据）。
+  _textTool('arithmetic_steps', '算术分步', '把四则运算的运算顺序一步步写出来', ToolCategory.math,
+      '常用', '按运算顺序把式子一步步化简：先乘除后加减、括号优先、同级从左到右；不支持的写法如实说明。'),
   _textTool('prime_factor', '质因数分解', '把一个整数分解成质因数', ToolCategory.math,
       '常用', '输入一个整数，给出质因数分解（指数合并、按质数升序）；1 与 0 没有质因数分解，如实说明。'),
   _textTool('color_convert', 'RGB/HEX颜色', 'RGB、HEX、HSL 颜色转换',

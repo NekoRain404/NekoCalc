@@ -9,6 +9,7 @@ import 'text_tool_stats_strings.dart';
 import 'text_tool_text_strings.dart';
 import 'text_tool_timestamp_strings.dart';
 import 'text_tool_derivative_strings.dart';
+import 'text_tool_steps_strings.dart';
 import 'text_tool_uncertainty_strings.dart';
 import 'text_tool_web_strings.dart';
 
@@ -25,6 +26,7 @@ export 'text_tool_stats_strings.dart';
 export 'text_tool_text_strings.dart';
 export 'text_tool_timestamp_strings.dart';
 export 'text_tool_derivative_strings.dart';
+export 'text_tool_steps_strings.dart';
 export 'text_tool_uncertainty_strings.dart';
 export 'text_tool_web_strings.dart';
 
@@ -146,6 +148,7 @@ class TextToolStrings {
     required this.date,
     required this.uncertainty,
     required this.derivative,
+    required this.steps,
     required this.numericInput,
   });
 
@@ -159,6 +162,7 @@ class TextToolStrings {
   final TextToolDateStrings date;
   final TextToolUncertaintyStrings uncertainty;
   final TextToolDerivativeStrings derivative;
+  final TextToolStepsStrings steps;
 
   /// 中文：**数值解析失败那四句**——自定义公式工具拿 `a`/`b`/`c` 三个变量去问
   ///       `ToolDetailController.parseNumericInputDetailed`，那个解析器不认字，只回一个判据，
@@ -201,6 +205,7 @@ class TextToolStrings {
     date: TextToolDateStrings.textToolDateZh,
     uncertainty: TextToolUncertaintyStrings.textToolUncertaintyZh,
     derivative: TextToolDerivativeStrings.textToolDerivativeZh,
+    steps: TextToolStepsStrings.textToolStepsZh,
     numericInput: NumericInputStrings.numericInputZh,
   );
 
@@ -215,6 +220,7 @@ class TextToolStrings {
     date: TextToolDateStrings.textToolDateEn,
     uncertainty: TextToolUncertaintyStrings.textToolUncertaintyEn,
     derivative: TextToolDerivativeStrings.textToolDerivativeEn,
+    steps: TextToolStepsStrings.textToolStepsEn,
     numericInput: NumericInputStrings.numericInputEn,
   );
 }

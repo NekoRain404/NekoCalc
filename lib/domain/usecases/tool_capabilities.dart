@@ -3,6 +3,7 @@ import '../entities/tool_definition.dart';
 const Set<String> textToolIds = {
   'base_convert',
   'prime_factor',
+  'arithmetic_steps',
   'timestamp',
   'date_calc',
   'derive_steps',

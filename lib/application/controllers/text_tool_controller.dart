@@ -5,6 +5,7 @@ import 'package:characters/characters.dart';
 
 import '../../core/math/expression_parser.dart';
 import '../../core/math/base_conversion.dart';
+import '../../core/math/arithmetic_steps.dart';
 import '../../core/math/prime_factorization.dart';
 import '../../core/math/polynomial_form.dart';
 import '../../core/math/roman_numeral.dart';
@@ -20,6 +21,7 @@ part 'text_tool_csv_tools.dart';
 part 'text_tool_custom_formula_tools.dart';
 part 'text_tool_date_tools.dart';
 part 'text_tool_factor_tools.dart';
+part 'text_tool_steps_tools.dart';
 part 'text_tool_derivative_tools.dart';
 part 'text_tool_binary_tools.dart';
 part 'text_tool_html_entities.dart';
@@ -154,6 +156,7 @@ class TextToolController {
         'derive_steps' => _deriveSteps(strings.derivative, trimmed),
         'uncertainty' =>
             _uncertainty(strings.uncertainty, input, strings.output.labelled),
+        'arithmetic_steps' => _arithmeticSteps(strings.steps, trimmed),
         'prime_factor' => _primeFactors(strings.codec, trimmed),
         'timestamp' => _timestamp(strings.timestamp, trimmed),
         'color_convert' => _colorConvert(strings.web, trimmed),

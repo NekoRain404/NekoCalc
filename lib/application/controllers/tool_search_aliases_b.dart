@@ -464,6 +464,14 @@ void _addToolSearchAliasesB(String id, List<String> aliases) {
         '求导',
         '导数',
       ]);
+    case 'arithmetic_steps':
+      aliases.addAll(const [
+        'step by step',
+        'order of operations',
+        'arithmetic steps',
+        '运算顺序',
+        '分步',
+      ]);
     case 'prime_factor':
       aliases.addAll(const [
         // 中文：**别名里要有 `prime factorization` 本身。** 英文那一格名字就是

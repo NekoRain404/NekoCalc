@@ -184,6 +184,8 @@ const Map<String, String> toolExplanationsEn = {
       'Spans between two dates, or a date plus or minus days, counted from today too, with weekday, day of year and ISO week.',
   '输入若干「值 ± 不确定度」，给出和与差的合成不确定度、积与商的相对不确定度，以及哪一项是主要误差来源。':
       'Enter value ± uncertainty pairs for the combined uncertainty of a sum or difference, the relative uncertainty of a product or quotient, and which term dominates.',
+  '按运算顺序把式子一步步化简：先乘除后加减、括号优先、同级从左到右；不支持的写法如实说明。':
+      'Simplifies an expression one operation at a time: multiply and divide before adding and subtracting, brackets first, left to right within a level; unsupported forms are said so.',
   '输入一个整数，给出质因数分解（指数合并、按质数升序）；1 与 0 没有质因数分解，如实说明。':
       'Takes an integer and gives its prime factorisation, exponents merged and primes ascending; 1 and 0 have none, and it says so.',
   '支持 HEX、RGB/RGBA、HSL/HSLA 和常用 CSS 命名色。': 'Accepts HEX, RGB/RGBA, HSL/HSLA and the common CSS colour names.',

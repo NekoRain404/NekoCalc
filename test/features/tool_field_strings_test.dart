@@ -61,7 +61,7 @@ void main() {
   final en = ToolFieldStrings.forLanguage(AppLanguage.en);
 
   test('中文表是空的（键就是中文），五个字段逐条与目录逐字节相同', () {
-    expect(toolCatalog.length, 121, reason: '目录里一共 121 个工具');
+    expect(toolCatalog.length, 122, reason: '目录里一共 122 个工具');
     expect(zh.inputLabels, isEmpty);
     expect(zh.inputUnits, isEmpty);
     expect(zh.groups, isEmpty);
