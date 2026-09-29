@@ -72,7 +72,15 @@ void main() {
     expect(
         codecZh.integerRecognised('十六进制', '0x 前缀', '0xFF'), '输入识别为十六进制（0x 前缀）: 0xFF。');
     // —— 进制与位运算的输出 ——
-    expect(codecZh.baseLines('1010', '12', '10', 'A'), '二进制: 1010\n八进制: 12\n十进制: 10\n十六进制: A');
+    // 中文：**第五行是这一轮新加的罗马数字。** 两个分支都要钉：有写法的那一支与
+    //       `null`（规范范围之外）的那一支。
+    // English: **the fifth line is this round's Roman numerals.** Both branches are pinned: the one
+    //          with a spelling and the `null` one (outside the canonical range).
+    expect(codecZh.baseLines('1010', '12', '10', 'A', 'X'),
+        '二进制: 1010\n八进制: 12\n十进制: 10\n十六进制: A\n罗马数字: X');
+    expect(codecZh.baseLines('0', '0', '0', '0', null),
+        '二进制: 0\n八进制: 0\n十进制: 0\n十六进制: 0\n'
+        '罗马数字: 这个数没有规范写法（规范范围 1..3999）');
     expect(codecZh.significantBits(4), '有效位数: 4 bit。');
     expect(codecZh.bitLengthAB(4, 8), 'A 位数: 4 bit，B 位数: 8 bit。');
     expect(codecZh.recognisedAB('十进制', '十六进制'), 'A 识别为十进制，B 识别为十六进制。');
@@ -212,8 +220,10 @@ void main() {
         codecEn.integerRecognised('hexadecimal', '0x prefix', '0xFF')
       ],
       'baseLines': [
-        codecZh.baseLines('1010', '12', '10', 'A'),
-        codecEn.baseLines('1010', '12', '10', 'A')
+        codecZh.baseLines('1010', '12', '10', 'A', 'X'),
+        codecEn.baseLines('1010', '12', '10', 'A', 'X'),
+        codecZh.baseLines('0', '0', '0', '0', null),
+        codecEn.baseLines('0', '0', '0', '0', null)
       ],
       'significantBits': [
         codecZh.significantBits(4),

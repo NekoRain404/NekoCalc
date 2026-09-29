@@ -230,6 +230,20 @@ a^2 + sqrt(b) - c
     expect(fullWidthDecimal.detail, contains('二进制: 10000000000'));
 
     expect(octal.primary, '493');
+    // 中文：**罗马数字是这一轮新加的那一行**，而它**不在引擎上**——引擎的 `roman()` 在边界上
+    //       会给错值（`roman(10000)` 把输入原样还回来、`roman(-1)` 回 `"-I"`），
+    //       所以它用自己那份纯函数（`roman_numeral.dart`）。**两条分支都在这里钉住。**
+    // English: **the Roman line is this round's addition and it does not sit on the engine** — the
+    //          engine's `roman()` yields wrong values at the boundaries (`roman(10000)` hands the input
+    //          back, `roman(-1)` gives `"-I"`), so it uses our own pure function (`roman_numeral.dart`).
+    //          **Both branches are pinned here.**
+    expect(hashHex.detail, contains('罗马数字: CCLV'));
+    final outOfRange = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '10000');
+    expect(outOfRange.detail, contains('罗马数字:'),
+        reason: '规范范围之外仍然有这一行，只是不给数字');
+    expect(outOfRange.detail, isNot(contains('罗马数字: 10000')),
+        reason: '**引擎在这里会把输入原样还回来**，我们不许那样');
     expect(octal.insights.join('\n'), contains('八进制'));
   });
 

@@ -24,6 +24,14 @@ extension _TextToolIntegerTools on TextToolController {
         _formatIntegerBase(value, 8),
         value.toString(),
         _formatIntegerBase(value, 16),
+        // 中文：**罗马数字走自己那一份纯函数，不走引擎。** 引擎的 `roman()` 在边界上会给出
+        //       看着像答案的错值（`roman(10000)` 把输入原样还回来、`roman(-1)` 回 `"-I"`），
+        //       见 `roman_numeral.dart` 的文件头。`1..3999` 之外回 `null`，这里照常印一句话。
+        // English: **Roman numerals use our own pure function, not the engine.** The engine's `roman()`
+        //          yields plausible-looking wrong values at the boundaries (`roman(10000)` hands the input
+        //          back, `roman(-1)` gives `"-I"`); see `roman_numeral.dart`'s head. Outside `1..3999` it
+        //          returns `null` and a sentence is printed as usual.
+        toRoman(value),
       ),
       insights: [
         parsed.description(strings),

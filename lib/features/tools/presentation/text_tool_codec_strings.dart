@@ -222,8 +222,13 @@ class TextToolCodecStrings {
       integerRecognised;
 
   // —— 进制与位运算的输出 ——
-  final String Function(String binary, String octal, String decimal, String hex)
-      baseLines;
+  /// 中文：四种进制 + **罗马数字**那五行。第五个参数是 `null` 时印"没有规范写法"——
+  ///       判据在 [toRoman] 那一处（`1..3999` 之外回 `null`），**这句话不重做那个判断**。
+  /// English: the five lines — four bases plus **Roman numerals**. A `null` fifth argument prints "no
+  ///          canonical spelling"; the judgement lives in [toRoman] (outside `1..3999` it returns
+  ///          `null`) and **this sentence does not redo it**.
+  final String Function(String binary, String octal, String decimal, String hex,
+      String? roman) baseLines;
   final String Function(int bits) significantBits;
   final String Function(int a, int b) bitLengthAB;
   final String Function(String a, String b) recognisedAB;
@@ -301,8 +306,9 @@ class TextToolCodecStrings {
     notationWithSuffix: (notation, suffix) => '$notation，$suffix',
     integerRecognised: (radixLabel, notation, token) =>
         '输入识别为$radixLabel（$notation）: $token。',
-    baseLines: (binary, octal, decimal, hex) =>
-        '二进制: $binary\n八进制: $octal\n十进制: $decimal\n十六进制: $hex',
+    baseLines: (binary, octal, decimal, hex, roman) =>
+        '二进制: $binary\n八进制: $octal\n十进制: $decimal\n十六进制: $hex\n'
+        '罗马数字: ${roman ?? '这个数没有规范写法（规范范围 1..3999）'}',
     significantBits: (bits) => '有效位数: $bits bit。',
     bitLengthAB: (a, b) => 'A 位数: $a bit，B 位数: $b bit。',
     recognisedAB: (a, b) => 'A 识别为$a，B 识别为$b。',
@@ -382,8 +388,9 @@ class TextToolCodecStrings {
     notationWithSuffix: (notation, suffix) => '$notation, $suffix',
     integerRecognised: (radixLabel, notation, token) =>
         'Recognised $radixLabel ($notation): $token.',
-    baseLines: (binary, octal, decimal, hex) =>
-        'Binary: $binary\nOctal: $octal\nDecimal: $decimal\nHexadecimal: $hex',
+    baseLines: (binary, octal, decimal, hex, roman) =>
+        'Binary: $binary\nOctal: $octal\nDecimal: $decimal\nHexadecimal: $hex\n'
+        'Roman: ${roman ?? 'this number has no canonical spelling (range 1..3999)'}',
     significantBits: (bits) => 'Significant bits: $bits bit.',
     bitLengthAB: (a, b) => 'A has $a bit, B has $b bit.',
     recognisedAB: (a, b) => 'A recognised as $a, B recognised as $b.',
