@@ -244,6 +244,28 @@ a^2 + sqrt(b) - c
         reason: '规范范围之外仍然有这一行，只是不给数字');
     expect(outOfRange.detail, isNot(contains('罗马数字: 10000')),
         reason: '**引擎在这里会把输入原样还回来**，我们不许那样');
+
+    // 中文：**`base <n>` 是这一轮加的"任意进制"入口。** 在此之前这个工具只会印四种。
+    //       `255 base 7` 的七进制是 `513`（独立实现核过：`255 = 5*49 + 1*7 + 3`）。
+    // English: **`base <n>` is this round's "any base" entry.** Before it the tool printed only four.
+    //          `255` in base 7 is `513` (checked against an independent implementation:
+    //          `255 = 5*49 + 1*7 + 3`).
+    final anyBase = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '255 base 7');
+    expect(anyBase.primary, '255', reason: '主结果仍然是十进制那一个');
+    expect(anyBase.detail, contains('7 进制: 513'));
+    expect(anyBase.detail, contains('十六进制: FF'),
+        reason: '点名一个进制是**加一行**，不是把原来那四行挤掉');
+
+    // 中文：⚠️ **越界要如实拒绝，不许回退成别的进制。** `base 37` 若被当成 16 印出来，
+    //       用户拿到的是一个看着像答案的错值。
+    // English: ⚠️ **out of range must be refused, never rounded into another base.** Printed as base
+    //          16, `base 37` would hand the user a wrong value that looks like an answer.
+    final badBase = controller.calculate(
+        strings: _strings, toolId: 'base_convert', input: '255 base 37');
+    expect(badBase.hasError, isTrue);
+    expect(badBase.detail, isNot(contains('十六进制: FF')),
+        reason: '越界时不许给出任何一个进制的答案');
     expect(octal.insights.join('\n'), contains('八进制'));
   });
 

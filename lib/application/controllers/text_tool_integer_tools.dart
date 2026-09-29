@@ -15,7 +15,24 @@ const String _integerTokenPattern =
 //          stay where they are.
 extension _TextToolIntegerTools on TextToolController {
   TextToolOutput _baseConvert(TextToolCodecStrings strings, String input) {
-    final parsed = _parseIntDetailed(strings, input);
+    // 中文：**`base <n>` 是"任意进制"的入口**，而它是这一轮新加的——在此之前这个工具只会印
+    //       二/八/十/十六四种。写法沿用应用自己的那个词（`base`），与 `romand` 那一行同一个位置。
+    //
+    //       ⚠️ **越界要如实拒绝，不许回退成别的进制**：`base 37` 若被当成 `base 16` 印出来，
+    //       用户拿到的是一个看着像答案的错值。判据与 `convertToBase` 那一处是同一条（`2..36`），
+    //       这里只是把话说出来。
+    // English: **`base <n>` is the entry for "any base"**, added this round — before it this tool only
+    //          printed binary/octal/decimal/hex. The spelling follows the app's own word (`base`) and
+    //          sits in the same place as the Roman line.
+    //
+    //          ⚠️ **Out of range must be refused, never rounded into another base**: if `base 37` were
+    //          printed as base 16 the user would get a wrong value that looks like an answer. The
+    //          judgement is the same one as in `convertToBase` (`2..36`); this only says it out loud.
+    final target = _extractTargetRadix(input);
+    if (target != null && (target.$1 < 2 || target.$1 > 36)) {
+      throw FormatException(strings.arbitraryBaseOutOfRange);
+    }
+    final parsed = _parseIntDetailed(strings, target?.$2 ?? input);
     final value = parsed.value;
     return TextToolOutput(
       value.toString(),
@@ -32,6 +49,17 @@ extension _TextToolIntegerTools on TextToolController {
         //          back, `roman(-1)` gives `"-I"`); see `roman_numeral.dart`'s head. Outside `1..3999` it
         //          returns `null` and a sentence is printed as usual.
         toRoman(value),
+        // 中文：**用户点名要的那个进制**（输入里写了 `base <n>` 才有）。换算是纯函数，
+        //       见 `base_conversion.dart`——那里也是 `2..36` 这条判据的出处。
+        // English: **the base the user named** (present only when the input says `base <n>`). The
+        //          conversion is a pure function, see `base_conversion.dart` — which is also where the
+        //          `2..36` judgement comes from.
+        target == null
+            ? null
+            : strings.arbitraryBaseLine(
+                target.$1,
+                convertToBase(value.toString(), target.$1)!.digits,
+              ),
       ),
       insights: [
         parsed.description(strings),
@@ -339,4 +367,23 @@ extension _TextToolIntegerTools on TextToolController {
     final body = _formatIntegerBase(value.abs(), radix);
     return value < 0 ? '-$prefix$body' : '$prefix$body';
   }
+}
+
+/// 中文：**从输入里摘下 `base <n>`**，返回 `(目标进制, 摘掉之后剩下的输入)`；没有就回 `null`。
+///
+///       只认这一个写法，而且**只认一次**：`255 base 7` 与 `0xFF base 16` 都要能用。
+///       大小写不敏感（`BASE 7` 也收），与这个工具已有的那些前缀/后缀同一条宽松度。
+/// English: **lift `base <n>` out of the input**, returning `(target radix, the rest)`; `null` when
+///          absent.
+///
+///          One spelling only, and **only once**: both `255 base 7` and `0xFF base 16` have to work.
+///          Case-insensitive (`BASE 7` too), the same looseness as this tool's existing
+///          prefixes and suffixes.
+(int, String)? _extractTargetRadix(String input) {
+  final match = RegExp(r'base\s*(\d+)', caseSensitive: false).firstMatch(input);
+  if (match == null) return null;
+  final radix = int.tryParse(match.group(1)!);
+  if (radix == null) return null;
+  final rest = (input.substring(0, match.start) + input.substring(match.end)).trim();
+  return (radix, rest);
 }

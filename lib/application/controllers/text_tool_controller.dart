@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:characters/characters.dart';
 
 import '../../core/math/expression_parser.dart';
+import '../../core/math/base_conversion.dart';
 import '../../core/math/roman_numeral.dart';
 import '../../features/tools/presentation/text_tool_strings.dart';
 import 'text_tool_models.dart';

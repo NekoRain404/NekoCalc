@@ -111,6 +111,8 @@ class TextToolCodecStrings {
     required this.integerRecognised,
     // —— 进制与位运算的输出 ——
     required this.baseLines,
+    required this.arbitraryBaseLine,
+    required this.arbitraryBaseOutOfRange,
     required this.significantBits,
     required this.bitLengthAB,
     required this.recognisedAB,
@@ -228,7 +230,18 @@ class TextToolCodecStrings {
   ///          canonical spelling"; the judgement lives in [toRoman] (outside `1..3999` it returns
   ///          `null`) and **this sentence does not redo it**.
   final String Function(String binary, String octal, String decimal, String hex,
-      String? roman) baseLines;
+      String? roman, String? extraBase) baseLines;
+  /// 中文：**任意进制那一行**（输入里写了 `base <n>` 时才出现）。`n` 单独印出来是因为
+  ///       屏幕上没有别的记号能说明这一行是几进制。
+  /// English: **the arbitrary-base line** (present only when the input says `base <n>`). The `n` is
+  ///          printed because nothing else on screen would say which base this line is.
+  final String Function(int radix, String digits) arbitraryBaseLine;
+
+  /// 中文：`base <n>` 里的 `n` 不在 `2..36` 时说的话。**如实拒绝**，不回退成别的进制。
+  /// English: said when the `n` in `base <n>` is outside `2..36`. **An honest refusal** — it does not
+  ///          fall back to another base.
+  final String arbitraryBaseOutOfRange;
+
   final String Function(int bits) significantBits;
   final String Function(int a, int b) bitLengthAB;
   final String Function(String a, String b) recognisedAB;
@@ -306,9 +319,12 @@ class TextToolCodecStrings {
     notationWithSuffix: (notation, suffix) => '$notation，$suffix',
     integerRecognised: (radixLabel, notation, token) =>
         '输入识别为$radixLabel（$notation）: $token。',
-    baseLines: (binary, octal, decimal, hex, roman) =>
+    baseLines: (binary, octal, decimal, hex, roman, extraBase) =>
         '二进制: $binary\n八进制: $octal\n十进制: $decimal\n十六进制: $hex\n'
-        '罗马数字: ${roman ?? '这个数没有规范写法（规范范围 1..3999）'}',
+        '罗马数字: ${roman ?? '这个数没有规范写法（规范范围 1..3999）'}'
+        '${extraBase == null ? '' : '\n$extraBase'}',
+    arbitraryBaseLine: (radix, digits) => '$radix 进制: $digits',
+    arbitraryBaseOutOfRange: '目标进制要在 2 到 36 之间',
     significantBits: (bits) => '有效位数: $bits bit。',
     bitLengthAB: (a, b) => 'A 位数: $a bit，B 位数: $b bit。',
     recognisedAB: (a, b) => 'A 识别为$a，B 识别为$b。',
@@ -388,9 +404,12 @@ class TextToolCodecStrings {
     notationWithSuffix: (notation, suffix) => '$notation, $suffix',
     integerRecognised: (radixLabel, notation, token) =>
         'Recognised $radixLabel ($notation): $token.',
-    baseLines: (binary, octal, decimal, hex, roman) =>
+    baseLines: (binary, octal, decimal, hex, roman, extraBase) =>
         'Binary: $binary\nOctal: $octal\nDecimal: $decimal\nHexadecimal: $hex\n'
-        'Roman: ${roman ?? 'this number has no canonical spelling (range 1..3999)'}',
+        'Roman: ${roman ?? 'this number has no canonical spelling (range 1..3999)'}'
+        '${extraBase == null ? '' : '\n$extraBase'}',
+    arbitraryBaseLine: (radix, digits) => 'Base $radix: $digits',
+    arbitraryBaseOutOfRange: 'The target base must be between 2 and 36',
     significantBits: (bits) => 'Significant bits: $bits bit.',
     bitLengthAB: (a, b) => 'A has $a bit, B has $b bit.',
     recognisedAB: (a, b) => 'A recognised as $a, B recognised as $b.',

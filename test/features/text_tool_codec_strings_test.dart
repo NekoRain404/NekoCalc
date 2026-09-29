@@ -76,11 +76,18 @@ void main() {
     //       `null`（规范范围之外）的那一支。
     // English: **the fifth line is this round's Roman numerals.** Both branches are pinned: the one
     //          with a spelling and the `null` one (outside the canonical range).
-    expect(codecZh.baseLines('1010', '12', '10', 'A', 'X'),
+    expect(codecZh.baseLines('1010', '12', '10', 'A', 'X', null),
         '二进制: 1010\n八进制: 12\n十进制: 10\n十六进制: A\n罗马数字: X');
-    expect(codecZh.baseLines('0', '0', '0', '0', null),
+    expect(codecZh.baseLines('0', '0', '0', '0', null, null),
         '二进制: 0\n八进制: 0\n十进制: 0\n十六进制: 0\n'
         '罗马数字: 这个数没有规范写法（规范范围 1..3999）');
+    // 中文：**第六行是"用户点名的那个进制"**，只有写了 `base <n>` 才有，所以两个分支都要钉。
+    // English: **the sixth line is "the base the user named"**, present only with `base <n>`, so both
+    //          branches are pinned.
+    expect(codecZh.baseLines('1010', '12', '10', 'A', 'X', '7 进制: 13'),
+        endsWith('罗马数字: X\n7 进制: 13'));
+    expect(codecZh.baseLines('1', '1', '1', '1', 'I', null),
+        endsWith('罗马数字: I'));
     expect(codecZh.significantBits(4), '有效位数: 4 bit。');
     expect(codecZh.bitLengthAB(4, 8), 'A 位数: 4 bit，B 位数: 8 bit。');
     expect(codecZh.recognisedAB('十进制', '十六进制'), 'A 识别为十进制，B 识别为十六进制。');
@@ -220,10 +227,12 @@ void main() {
         codecEn.integerRecognised('hexadecimal', '0x prefix', '0xFF')
       ],
       'baseLines': [
-        codecZh.baseLines('1010', '12', '10', 'A', 'X'),
-        codecEn.baseLines('1010', '12', '10', 'A', 'X'),
-        codecZh.baseLines('0', '0', '0', '0', null),
-        codecEn.baseLines('0', '0', '0', '0', null)
+        codecZh.baseLines('1010', '12', '10', 'A', 'X', null),
+        codecEn.baseLines('1010', '12', '10', 'A', 'X', null),
+        codecZh.baseLines('0', '0', '0', '0', null, null),
+        codecEn.baseLines('0', '0', '0', '0', null, null),
+        codecZh.baseLines('1', '1', '1', '1', 'I', '7 进制: 13'),
+        codecEn.baseLines('1', '1', '1', '1', 'I', 'Base 7: 13')
       ],
       'significantBits': [
         codecZh.significantBits(4),
