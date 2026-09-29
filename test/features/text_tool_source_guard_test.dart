@@ -137,6 +137,7 @@ void main() {
       'text_tool_csv_tools.dart',
       'text_tool_custom_formula_tools.dart',
       'text_tool_date_tools.dart',
+      'text_tool_derivative_tools.dart',
       'text_tool_uncertainty_tools.dart',
       'text_tool_html_entities.dart',
       'text_tool_integer_tools.dart',

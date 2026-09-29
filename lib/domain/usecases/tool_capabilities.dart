@@ -4,6 +4,7 @@ const Set<String> textToolIds = {
   'base_convert',
   'timestamp',
   'date_calc',
+  'derive_steps',
   'uncertainty',
   'color_convert',
   'base64',

@@ -53,8 +53,8 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('工具目录每个 id 都在这张表里，中文一格与 tool_catalog*.dart 逐字节相同', () {
-    expect(toolCatalog.length, 119,
-        reason: '目录里一共 119 个工具（77 条 title: + 22 个 _unitTool + 20 个 _textTool）；'
+    expect(toolCatalog.length, 120,
+        reason: '目录里一共 120 个工具（77 条 title: + 22 个 _unitTool + 21 个 _textTool）；'
             '这个数字变了，说明目录动过，本表要跟着走');
     expect(zh.toolNames.length, toolCatalog.length,
         reason: '中文表与目录要一一对应：多一条少一条都说明有 id 没跟上');
@@ -88,7 +88,7 @@ void main() {
         notPromoted++;
       }
     }
-    expect(promoted, 101,
+    expect(promoted, 102,
         reason: 'A 类一共 99 条：提升出来的名字必须一条不落地能查回别名表');
     expect(notPromoted, authoredNames.length + latinNames.length,
         reason: '不是提升的只应当是下面那张清单里的那些 id');

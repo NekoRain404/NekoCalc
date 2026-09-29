@@ -6,6 +6,7 @@ import 'package:characters/characters.dart';
 import '../../core/math/expression_parser.dart';
 import '../../core/math/base_conversion.dart';
 import '../../core/math/roman_numeral.dart';
+import '../../core/math/symbolic_derivative.dart';
 import '../../features/tools/presentation/text_tool_strings.dart';
 import 'text_tool_models.dart';
 import 'tool_detail_controller.dart';
@@ -16,6 +17,7 @@ part 'text_tool_color_tools.dart';
 part 'text_tool_csv_tools.dart';
 part 'text_tool_custom_formula_tools.dart';
 part 'text_tool_date_tools.dart';
+part 'text_tool_derivative_tools.dart';
 part 'text_tool_binary_tools.dart';
 part 'text_tool_html_entities.dart';
 part 'text_tool_integer_tools.dart';
@@ -146,6 +148,7 @@ class TextToolController {
         //          a pure function. A test passing a fixed date walks the whole path.
         'date_calc' =>
             _dateCalc(strings.date, trimmed, today ?? DateTime.now(), strings.output.labelled),
+        'derive_steps' => _deriveSteps(strings.derivative, trimmed),
         'uncertainty' =>
             _uncertainty(strings.uncertainty, input, strings.output.labelled),
         'timestamp' => _timestamp(strings.timestamp, trimmed),

@@ -102,6 +102,8 @@ const Map<String, String> toolExplanationsEn = {
   '使用克莱姆法则求解 2x2 方程组，输出 D、Dx、Dy、矩阵秩、代回残差，并区分唯一解、无解和无穷多解。': 'Solves a 2x2 system by Cramer\'s rule and gives D, Dx, Dy, the matrix rank and the residual of the back-substitution, telling a unique solution from none and from infinitely many.',
   '基准值、百分比、百分比结果和新值任意填写两项即可反推其余量，输出增加后、减少后、变化率、结果占新值和差值。': 'Fill any two of base, percent, percent value and new value and the rest are back-solved; gives the after-increase and after-decrease values, the change rate, the value as a share of the new value, and the difference.',
   '常见指数与对数运算集合，输出幂、反向幂、自然/常用/换底对数、平方根、y 次根、倒数和实数域状态。': 'A set of everyday power and logarithm operations: power, inverse power, natural / common / base-change logs, square root, y-th root, reciprocal, and whether the result is real.',
+  '对 x 求导并逐步写出用了哪条法则：和、积、幂、负号；不会的那一步如实停下，绝不跳过。':
+      'Differentiates with respect to x and writes out the rule used at each step — sum, product, power, sign; a step it cannot do stops the derivation rather than being skipped.',
   '用于快速求解一元一次方程，输出斜率、截距、x 截距、代回校验，并区分唯一解、无解和恒等式。': 'Quickly solves a linear equation in one unknown and gives the slope, intercept, x-intercept and a back-substitution check, telling a unique solution from none and from an identity.',
   'a、b、c、x 任意填写三项即可反推第四项，并输出比例系数、右侧系数和交叉乘积差。': 'Fill any three of a, b, c and x and the fourth is back-solved, with the ratio factor, the right-hand factor and the cross-product difference.',
   '输入 n 和 k，输出排列数、组合数、n!/k!/(n-k)!、可重复有序抽取、互补组合和选择比例，并校验非负整数条件。': 'Enter n and k for permutations, combinations, n!/k!/(n-k)!, ordered draws with repetition, the complementary combination and the selection ratio, with a non-negative-integer check.',

@@ -457,6 +457,13 @@ void _addToolSearchAliasesB(String id, List<String> aliases) {
         '时间戳转换',
         '毫秒时间戳',
       ]);
+    case 'derive_steps':
+      aliases.addAll(const [
+        'derivative steps',
+        'differentiate',
+        '求导',
+        '导数',
+      ]);
     case 'date_calc':
       aliases.addAll(const [
         // 中文：**别名里要有 `date calculator` 本身。** 英文那一格名字就是 `Date Calculator`，

@@ -61,6 +61,8 @@ final List<ToolDefinition> textToolDefinitions = [
   _textTool('date_calc', '日期计算', '两个日期相差多少天、某个日期加减几天', ToolCategory.math,
       '常用', '支持两个日期的间隔、单日期加减天数、今天起算，并给出星期、年内天数与 ISO 周。'),
   // 中文：**不确定度传播**——HiPER 手册里 `uncertainty` 与 `±` 的命中都是 **0**。
+  _textTool('derive_steps', '求导分步', '把求导的每一步与所用法则写出来', ToolCategory.math,
+      '常用', '对 x 求导并逐步写出用了哪条法则：和、积、幂、负号；不会的那一步如实停下，绝不跳过。'),
   _textTool('uncertainty', '不确定度传播', '多个测量值的合成不确定度与主要误差来源',
       ToolCategory.science, '物理',
       '输入若干「值 ± 不确定度」，给出和与差的合成不确定度、积与商的相对不确定度，以及哪一项是主要误差来源。'),
