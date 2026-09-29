@@ -533,6 +533,28 @@ String? _outerDerivative(String name, ExprNode argument) {
     case 'atan':
       return '1/($u^2+1)';
     case 'log10':
+    case 'log':
+      // 中文：**`log` 在这里等于 `log10`，而这一条是核实过的，不是惯例。**
+      //       应用自己的词表写着 `'log': AppFunction(engineKnowsThisName: false,
+      //       engineFunction: 'log10')`——**它映射到引擎的 `log10`**；
+      //       `expression_parser.dart` 里 `'log10': 'log'` 与 `'lg': 'log'` 两张别名也折到它。
+      //       而 `engineKnowsThisName: false` 正是"两边的 `log` 不是同一个函数"的书面凭据
+      //       （引擎的 `log` 是自然对数，实测 `diff(log(x), x)` → `1 / x`）。
+      //
+      //       ⚠️ 上一版把 `log` **拒绝**了，理由是"两边定义不同，而应用这一边没有核实"。
+      //       **现在核实了**，所以收进来——**这是同一个判据的两种结果，不是改主意**：
+      //       核不实就拒绝，核得实就收，而"核得实"的那一份要用它**自己那一边**的定义。
+      // English: **`log` means `log10` here, and that was verified rather than assumed.** This app's own
+      //          vocabulary says `'log': AppFunction(engineKnowsThisName: false, engineFunction: 'log10')`
+      //          — **it maps to the engine's `log10`** — and `expression_parser.dart` folds both
+      //          `'log10': 'log'` and `'lg': 'log'` onto it. `engineKnowsThisName: false` is the written
+      //          evidence that **the two sides' `log` are not the same function** (the engine's is the
+      //          natural log; measured, `diff(log(x), x)` → `1 / x`).
+      //
+      //          ⚠️ The previous version **refused** `log` on the grounds that the two sides differ and
+      //          this app's side had not been verified. **It has been verified now**, so it is admitted —
+      //          **two outcomes of one judgement, not a change of mind**: refuse when it cannot be
+      //          established, admit when it can, and use **this side's own** definition when it is.
       return '1/($u·ln(10))';
     case 'log2':
       return '1/($u·ln(2))';
@@ -562,12 +584,6 @@ String? _outerDerivative(String name, ExprNode argument) {
       //            tool has nowhere to say so** (a step carries only "the expression" and "the rule"), so
       //            what gets printed is a derivation that **lies at the point 0**. Better to stop. **That
       //            judgement follows measurement**, rather than being "it was never measured".
-      //          - **`log`**: **the two sides do not mean the same function** — the engine's `log` is the
-      //            natural log (measured: `diff(log(x), x)` → `1 / x`), while a calculator's `log`
-      //            conventionally has base ten, and **which side this app's own `log` maps to was not
-      //            verified this round**. **A spelling the two sides define differently is always refused
-      //            here** (the same treatment as `mod` and `!=`).
-      //
       //          **A wrong derivative is far worse than an unsupported function**: the former prints a
       //          plausible-looking, complete, fake derivation.
       return null;

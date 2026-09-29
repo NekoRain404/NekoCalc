@@ -156,6 +156,7 @@ void main() {
         'acos(x)': '-1/sqrt(1-x^2)·(1)',
         'atan(x)': '1/(x^2+1)·(1)',
         'log10(x)': '1/(x·ln(10))·(1)',
+        'log(x)': '1/(x·ln(10))·(1)',
         'log2(x)': '1/(x·ln(2))·(1)',
         'sinh(x)': 'cosh(x)·(1)',
         'cosh(x)': 'sinh(x)·(1)',
@@ -169,17 +170,32 @@ void main() {
       });
     });
 
-    test('⚠️ `abs` 与 `log` 刻意不在表里，各有各的理由', () {
-      // 中文：**这一条钉的是"拒绝"，而不是"忘了"。** 两条理由都是量过之后才敢下的：
+    test('`log` 收进来了：应用这一边是 log10（核实过）', () {
+      // 中文：**上一版拒绝它，这一版收它，用的是同一条判据。** 拒绝的理由是"两边的 `log` 不是
+      //       同一个函数，而应用这一边没有核实"；核实的凭据在应用自己的词表里——
+      //       `'log': AppFunction(engineKnowsThisName: false, engineFunction: 'log10')`。
+      //       **核得实就收，而收的时候用应用这一边的定义**（以 10 为底）。
+      // English: **the previous version refused it and this one admits it, under the same judgement.**
+      //          The refusal was "the two sides' `log` differ and this app's side was not verified"; the
+      //          evidence is in this app's own vocabulary —
+      //          `'log': AppFunction(engineKnowsThisName: false, engineFunction: 'log10')`. **Admit it once
+      //          it can be established, and use this side's definition when admitted** (base ten).
+      expect(differentiate('log(x)', 'x').derivative, '1/(x·ln(10))·(1)');
+      expect(differentiate('ln(x)', 'x').derivative, '1/x·(1)',
+          reason: '`ln` 是自然对数，两者不许混');
+    });
+
+    test('⚠️ `abs` 刻意不在表里', () {
+      // 中文：**这一条钉的是"拒绝"，而不是"忘了"。** 理由是量过之后才敢下的：
       //       `abs` 的导数是 `x/|x|`，在 0 处没有定义，而**这个工具没有地方说这句话**
-      //       （每一步只有"式子"与"法则"两栏）——印出来就是一条**在 0 点上骗人的**推导；
-      //       `log` 则是**两边定义不同**（引擎的是自然对数），那种拼写本仓一律拒绝。
-      // English: **this pins "refused", not "forgotten".** Both reasons follow measurement: `abs`'s
+      //       （每一步只有"式子"与"法则"两栏）——印出来就是一条**在 0 点上骗人的**推导。
+      //       （`log` 原本也在这里，这一轮核实之后收进去了，见上一条。）
+      // English: **this pins "refused", not "forgotten", and the reason follows measurement**: `abs`'s
       //          derivative is `x/|x|`, undefined at 0, and **this tool has nowhere to say so** (a step
       //          carries only "the expression" and "the rule") — printing it would be a derivation that
-      //          **lies at the point 0**; `log` is a spelling **the two sides define differently** (the
-      //          engine's is the natural log) and such spellings are always refused here.
-      for (final source in <String>['abs(x)', 'log(x)']) {
+      //          **lies at the point 0**. (`log` was here too and was admitted this round after
+      //          verification; see the test above.)
+      for (final source in <String>['abs(x)']) {
         final result = differentiate(source, 'x');
         expect(result.derivative, isNull, reason: '`$source` 不该被求导');
         expect(result.refusal, isNotNull);
