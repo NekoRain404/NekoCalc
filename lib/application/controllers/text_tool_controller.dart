@@ -6,6 +6,7 @@ import 'package:characters/characters.dart';
 import '../../core/math/expression_parser.dart';
 import '../../core/math/base_conversion.dart';
 import '../../core/math/prime_factorization.dart';
+import '../../core/math/polynomial_form.dart';
 import '../../core/math/roman_numeral.dart';
 import '../../core/math/symbolic_derivative.dart';
 import '../../features/tools/presentation/text_tool_strings.dart';

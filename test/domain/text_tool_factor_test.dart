@@ -46,6 +46,32 @@ void main() {
       expect(_run('18446744073709551616').primary, '2^64');
     });
 
+    test('⚠️ 同一个工具也管因式分解（`factor` 本来就是一个意思）', () {
+      // 中文：**整数分解与因式分解在 HiPER 与引擎那里都叫 `factor`**，
+      //       所以这里是**一个工具两种输入**，而不是两个工具——同一个意思不该有两个入口。
+      // English: **integer factorisation and polynomial factorisation are both `factor`** in HiPER and in
+      //          the engine, so this is **one tool with two kinds of input** — one meaning should not have
+      //          two entrances.
+      expect(_run('x^2 - 1').primary, '(x - 1) × (x + 1)');
+      expect(_run('x^2 + 2x + 1').primary, '(x + 1) × (x + 1)',
+          reason: '**正是引擎分不动、把输入原样退回的那一个**');
+      expect(_run('2x^2 - 3x + 1').primary, '(x - 1) × (2x - 1)');
+      expect(_run('x^3 - x').primary, 'x × (x - 1) × (x + 1)');
+    });
+
+    test('⚠️ 三句话分得开：读不出整数 / 读不出多项式 / 没有有理因式', () {
+      // 中文：**这三句给用户的信息完全不同**，所以不许合成一句。
+      //       `x^2 - 2` 读得出是多项式，只是没有有理因式（根是无理数）。
+      // English: **these three tell the user entirely different things**, so they are not merged.
+      //          `x^2 - 2` does read as a polynomial; it simply has no rational factor (its roots are
+      //          irrational).
+      expect(_run('x^2 - 2').primary, contains('没有有理因式'));
+      expect(_run('x^2 - 2').primary, isNot(contains('读不出')));
+      expect(_run('sin(x) + 1').primary, contains('读不出'));
+      expect(_run('x + 1').primary, contains('没有有理因式'),
+          reason: '`x + 1` 分出来还是它自己，那等于没分');
+    });
+
     test('⚠️ `< 2` 与"读不出"是两件事', () {
       // 中文：**`1` 与 `0` 读懂了，只是它们没有质因数分解**——所以那句话说的是这个，
       //       不是"读不出"。两者在屏幕上给用户的信息完全不同。

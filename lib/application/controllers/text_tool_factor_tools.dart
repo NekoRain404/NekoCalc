@@ -38,8 +38,22 @@ TextToolOutput _primeFactors(TextToolCodecStrings strings, String input) {
   final cleaned = trimmed.replaceAll(RegExp(r"[\s,_']"), '');
   final value = BigInt.tryParse(cleaned);
   if (value == null) {
-    return TextToolOutput(strings.factorUnreadable, strings.factorExample,
-        hasError: true);
+    // 中文：**整数读不出就试多项式。** `factor` 在 HiPER 与引擎那里都同时管这两件事
+    //       （整数分解与因式分解），所以这里也是**一个工具两种输入**，
+    //       而不是两个工具——**同一个意思不该有两个入口**。
+    //
+    //       ⚠️ 两条路都读不出才说"读不出"，而**两条路的"读不出"不是同一件事**：
+    //       整数那一条说的是"这不是一个整数"，多项式那一条说的是"这不是一个多项式"。
+    //       屏幕上只给一句，但**代码里这两句是分开的**（下面是两条不同的 return）。
+    // English: **when the integer fails, try a polynomial.** `factor` covers both in HiPER and in the
+    //          engine (integer factorisation and polynomial factorisation), so this is **one tool with two
+    //          kinds of input** rather than two tools — **one meaning should not have two entrances**.
+    //
+    //          ⚠️ "Unreadable" is said only when **both** roads fail, and **the two roads' "unreadable" are
+    //          not the same thing**: the integer one means "this is not an integer" and the polynomial one
+    //          means "this is not a polynomial". The screen carries one sentence, but **in the code these
+    //          are separate** (two different returns below).
+    return _factorSymbolic(strings, trimmed);
   }
   final factors = primeFactorization(value);
   if (factors == null) {
@@ -61,5 +75,43 @@ TextToolOutput _primeFactors(TextToolCodecStrings strings, String input) {
     shown,
     strings.factorCount(trimmed, factors.length),
     insights: <String>[strings.factorCount(value.toString(), factors.length)],
+  );
+}
+
+/// 中文：**因式分解那一条路。** 读不出多项式、或者没有有理因式，各说各的一句——
+///       **两者不是同一件事**（见调用点的注释）。
+/// English: **the polynomial road.** "Not a polynomial" and "no rational factor" get a sentence each —
+///          **they are not the same thing** (see the note at the call site).
+TextToolOutput _factorSymbolic(TextToolCodecStrings strings, String input) {
+  final coefficients = polynomialIn(input, 'x');
+  if (coefficients == null) {
+    return TextToolOutput(strings.factorUnreadable, strings.factorExample,
+        hasError: true);
+  }
+  final factored = factorPolynomial(coefficients, 'x');
+  // 中文：**一个因子都没提出来的，等于没分。** 少了这一条，`x^2 - 2` 印出来的会是
+  //       `(x^2 - 2)`——**把输入括起来还给它**，那既不是分解也没给任何信息。
+  //       （`factorPolynomial` 在那一支回的是"非空但没有因子、只有剩余"，那是给分解器看的形状；
+  //       屏幕上该说的是**这句话**。）
+  // English: **nothing extracted is nothing factored.** Without this, `x^2 - 2` would print
+  //          `(x^2 - 2)` — **the input in brackets, handed back**, which is neither a factorisation nor any
+  //          information. (`factorPolynomial` returns "non-null, no factors, only a remainder" in that
+  //          branch, a shape meant for the factoriser; what the screen should say is **this sentence**.)
+  if (factored == null || factored.factors.isEmpty) {
+    return TextToolOutput(strings.factorNoFactors, strings.factorExample,
+        hasError: true);
+  }
+  final parts = <String>[
+    if (factored.constant != BigInt.one) factored.constant.toString(),
+    ...factored.factors,
+    // 中文：**分不动的那一块如实留下**（`x^2 - 2` 那种）——硬拆要引进无理数，那是另一个问题。
+    // English: **the piece that would not factor is left as it is** (the `x^2 - 2` kind) — forcing it apart
+    //          needs irrationals, which is another question.
+    if (factored.remainder != null) '(${factored.remainder})',
+  ];
+  return TextToolOutput(
+    parts.join(' × '),
+    strings.factorCount(input, factored.factors.length),
+    insights: <String>[strings.factorCount(input, factored.factors.length)],
   );
 }

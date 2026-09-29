@@ -117,6 +117,7 @@ class TextToolCodecStrings {
     required this.factorNone,
     required this.factorFailed,
     required this.factorExample,
+    required this.factorNoFactors,
     required this.factorCount,
     required this.arbitraryBaseOutOfRange,
     required this.significantBits,
@@ -271,6 +272,12 @@ class TextToolCodecStrings {
   ///          matches the shape the engine itself prints (`[2 2 2 2 2 2 3 643]`).
   final String factorExample;
 
+  /// 中文：**这个式子读得出是一个多项式，但没有有理因式**（`x^2 - 2`、`x^4 + 1`）。
+  ///       ⚠️ 与"读不出"**不是同一件事**：那个是连多项式都不是。
+  /// English: **this reads as a polynomial but has no rational factor** (`x^2 - 2`, `x^4 + 1`).
+  ///          ⚠️ Not the same as "unreadable": that one is not even a polynomial.
+  final String factorNoFactors;
+
   /// 中文：一句关于这次分解的说明（几个**不同的**质因数）。放在 `detail` 里，
   ///       与"结果"分开——本仓的 `detail`/`insights` 分工一直是这个意思。
   /// English: one sentence about this factorisation (how many **distinct** primes). It goes in `detail`,
@@ -364,7 +371,8 @@ class TextToolCodecStrings {
     factorUnreadable: '读不出一个整数',
     factorNone: '这个数没有质因数分解',
     factorFailed: '这个数分不开',
-    factorExample: '例如：\n123456\n2^64',
+    factorExample: '例如：\n123456\nx^2 - 1',
+    factorNoFactors: '这个式子没有有理因式可分解',
     factorCount: (value, count) => '$value 共 $count 个不同的质因数',
     significantBits: (bits) => '有效位数: $bits bit。',
     bitLengthAB: (a, b) => 'A 位数: $a bit，B 位数: $b bit。',
@@ -455,7 +463,8 @@ class TextToolCodecStrings {
     factorUnreadable: 'No integer could be read',
     factorNone: 'This number has no prime factorisation',
     factorFailed: 'This number cannot be factored',
-    factorExample: 'For example:\n123456\n2^64',
+    factorExample: 'For example:\n123456\nx^2 - 1',
+    factorNoFactors: 'This expression has no rational factor',
     factorCount: (value, count) => '$value has $count distinct prime factors',
     significantBits: (bits) => 'Significant bits: $bits bit.',
     bitLengthAB: (a, b) => 'A has $a bit, B has $b bit.',
