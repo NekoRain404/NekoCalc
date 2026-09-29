@@ -252,6 +252,49 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     }
   }
 
+  /// 中文：**复制为 LaTeX。** 取的是**屏幕上正在显示的那一份**——`texFor(resolve(结果形态))`，
+  ///       与结果行渲染走的是同一个取法（`calculator_display.dart` 里那一处）。**不自己挑一份**：
+  ///       用户在 `x⇔E` 菜单里选了带分数，复制出来就该是带分数的 LaTeX。
+  ///
+  ///       **没有 LaTeX 时如实说**（`decimal` 形态、以及没经过引擎的结果，`texFor` 都回空串），
+  ///       不往剪贴板里放一个空串——那会让用户以为复制成功了。
+  ///
+  ///       这条能力在 HiPER 的官方 v12 手册里命中为 **0**（`latex` 零命中），而本应用从接入引擎起
+  ///       就一直在算 LaTeX，只是从未有出口。
+  /// English: **copy as LaTeX.** What it takes is **the form the screen is showing** —
+  ///          `texFor(resolve(resultForm))`, the same accessor the result row renders through (the one
+  ///          in `calculator_display.dart`). **It does not pick a form of its own**: if the user chose
+  ///          mixed numbers in the `x⇔E` menu, what comes out is that form's LaTeX.
+  ///
+  ///          **When there is no LaTeX it says so** (`decimal`, and any result that never reached the
+  ///          engine, both come back empty from `texFor`) rather than putting an empty string on the
+  ///          clipboard, which would read as a successful copy.
+  ///
+  ///          HiPER's official v12 manual scores **zero** for this (no hits for `latex`), while this app
+  ///          has been computing LaTeX since the engine landed with no way out.
+  Future<void> _copyTex() async {
+    final strings = CalculatorStrings.of(context);
+    final presentation = _resultPresentation;
+    final tex = presentation.texFor(presentation.resolve(_resultForm)).trim();
+    if (tex.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(strings.texUnavailable)));
+      return;
+    }
+    try {
+      await Clipboard.setData(ClipboardData(text: tex));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(strings.texCopied)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(strings.texCopyFailed)));
+      }
+    }
+  }
+
+
   Future<void> _pasteCalculatorDetails() async {
     // 中文：**表在 await 之前取**——与那一行的 `SnackBar` 读的是同一份界面文案：粘贴回执跟着界面
     //       语言走（`paste.summaryIn`），中文界面下逐字节与从前那句相同。

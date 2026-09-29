@@ -78,6 +78,7 @@ class _MoreSheet extends StatelessWidget {
                 _action(context, strings.actionRedo, controller.redo,
                     enabled: controller.canRedo),
                 _action(context, strings.actionCopyResult, page._copyResult),
+                _action(context, strings.actionCopyTex, page._copyTex),
                 // 中文：继续使用。它把结果**替换**成表达式（`ans` 是追加，两者不等价），而显示区在结果
                 //       可用时会写着「结果可继续使用」/「当前值可继续使用」——那句话必须有对应的入口，
                 //       否则 UI 在让用户做一件它不再提供的事。不可用时和撤销/重做一样置灰。

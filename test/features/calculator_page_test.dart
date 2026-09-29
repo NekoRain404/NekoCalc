@@ -426,6 +426,53 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('复制为 LaTeX：入口在 More 面板里，没有 LaTeX 时如实说而不是复制空串', (tester) async {
+    // 中文：**这条钉的是接线那一半。** 「复制的是屏幕上那一份」由 `texFor(resolve(形态))` 决定，
+    //       而 `texFor` 本身已经在三处测试里钉住了（含 `decimal` 形态回空串）。这里缺的只有：
+    //       **入口在不在**，以及**取不到时必须说话**。
+    //
+    //       ⚠️ **「复制到一段真 LaTeX」这一支单测证不了**：单测里引擎从不被 mock（整仓一致，
+    //       因为 `flutter test` 用的是假引擎——见 `HANDOFF` 里那条铁律），所以这里的每个结果都是
+    //       旧解析器给的、`displayTex` 都是空的。那一支**只能在真机上验**，本轮的记录里如实写明。
+    //
+    //       HiPER 的官方 v12 手册里 `latex` 命中为 **0**，所以这一格是它没有的能力。
+    // English: **what this pins is the wiring half.** "It copies what the screen shows" is decided by
+    //          `texFor(resolve(form))`, and `texFor` itself is already pinned in three tests (including
+    //          `decimal` coming back empty). What is missing here is only: **is there an entry point**,
+    //          and **does it speak up when there is nothing to copy**.
+    //
+    //          ⚠️ **the "a real LaTeX string was copied" branch cannot be proven here**: the engine is
+    //          never mocked in unit tests (true across the repository, because `flutter test` runs a fake
+    //          engine — see the rule in `HANDOVER.md`), so every result here comes from the legacy parser
+    //          and every `displayTex` is empty. That branch **is device-only**, and the round's record
+    //          says so.
+    //
+    //          HiPER's official v12 manual scores **zero** for `latex`, so this is a capability it lacks.
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String?;
+      }
+      return null;
+    });
+
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+    await _openMore(tester);
+
+    expect(find.text('复制为 LaTeX'), findsOneWidget,
+        reason: 'More 面板里没有这一格——能力在、入口不在');
+
+    await tester.tap(find.text('复制为 LaTeX'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('这一份结果没有 LaTeX'), findsOneWidget,
+        reason: '取不到 LaTeX 时应当如实说，而不是弹一句"已复制"');
+    expect(copied, isNull,
+        reason: '取不到时不该往剪贴板里放任何东西——空串会让用户以为复制成功了');
+  });
 }
 
 /// 中文：打开显示面板右上角的 `More...` 动作面板（旧工具条与记忆条上的操作现在都住在这里）。

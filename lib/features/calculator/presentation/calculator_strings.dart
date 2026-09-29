@@ -60,6 +60,10 @@ class CalculatorStrings {
     required this.actionUndo,
     required this.actionRedo,
     required this.actionCopyResult,
+    required this.actionCopyTex,
+    required this.texCopied,
+    required this.texCopyFailed,
+    required this.texUnavailable,
     required this.actionContinueWith,
     required this.actionSaveNote,
     required this.actionMoveToStart,
@@ -143,6 +147,23 @@ class CalculatorStrings {
   final String actionUndo;
   final String actionRedo;
   final String actionCopyResult;
+
+  /// 中文：**复制为 LaTeX**。HiPER 的官方 v12 手册里 `latex` 的命中是 **0**——它没有这个能力，
+  ///       而本应用从接入引擎起就一直在向引擎要 LaTeX（`MathResult.displayTex` / `fractionTex` /
+  ///       `mixedTex`，还落了库），只是**从来没有出口**。这一格就是那个出口。
+  /// English: **copy as LaTeX.** HiPER's official v12 manual returns **zero** hits for `latex` — it has
+  ///          no such feature, while this app has been asking the engine for LaTeX since the engine
+  ///          landed (`MathResult.displayTex` / `fractionTex` / `mixedTex`, persisted to the database as
+  ///          well) with **no way out**. This is the way out.
+  final String actionCopyTex;
+  final String texCopied;
+  final String texCopyFailed;
+
+  /// 中文：这一份结果没有 LaTeX（`texFor` 回空串——`decimal` 形态与没有引擎的结果都是）。
+  ///       **如实说，不复制一个空串。**
+  /// English: this result has no LaTeX (`texFor` returns an empty string — the `decimal` form and any
+  ///          result without the engine do). **Say so rather than copying an empty string.**
+  final String texUnavailable;
   final String actionContinueWith;
   final String actionSaveNote;
   final String actionMoveToStart;
@@ -285,6 +306,10 @@ class CalculatorStrings {
     actionUndo: '撤销',
     actionRedo: '重做',
     actionCopyResult: '复制结果',
+    actionCopyTex: '复制为 LaTeX',
+    texCopied: '已复制 LaTeX',
+    texCopyFailed: '无法复制 LaTeX',
+    texUnavailable: '这一份结果没有 LaTeX',
     actionContinueWith: '继续使用',
     actionSaveNote: '保存笔记',
     actionMoveToStart: '移到开头',
@@ -375,6 +400,10 @@ class CalculatorStrings {
     actionUndo: 'Undo',
     actionRedo: 'Redo',
     actionCopyResult: 'Copy result',
+    actionCopyTex: 'Copy as LaTeX',
+    texCopied: 'LaTeX copied',
+    texCopyFailed: 'Could not copy the LaTeX',
+    texUnavailable: 'This result has no LaTeX',
     actionContinueWith: 'Continue with result',
     actionSaveNote: 'Save note',
     actionMoveToStart: 'Move to start',
