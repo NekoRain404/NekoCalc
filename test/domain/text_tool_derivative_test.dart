@@ -102,7 +102,28 @@ void main() {
       }
     });
 
-    test('对 x 求导是工具定的：`y` 是常量', () {
+    test('⚠️ 变量可以点名：`diff(y^2, y)` 与裸式子走同一条路', () {
+      // 中文：**`diff(x^2,x)` 正是应用自己的写法**——`d/dx` 那颗键（`∫dx` 的 SHIFT 变体）
+      //       插的就是它（两个槽，引擎自己的实参顺序）。所以用户手里拿到的原文必须能用。
+      // English: **`diff(x^2,x)` is this app's own spelling** — the `d/dx` key (the SHIFT variant of `∫dx`)
+      //          inserts exactly that (two slots, the engine's own argument order). So the text the user
+      //          already has has to work.
+      final named = _run('diff(y^2, y)');
+      expect(named.hasError, isFalse);
+      expect(named.primary, '2·y', reason: '对 y 求导');
+      expect(named.insights.join(), contains('对 y 求导'), reason: '屏幕上要说清是对谁求的');
+
+      // 另一种写法（同一件事的另一半）也收。
+      final operator = _run('d/dy(y^2)');
+      expect(operator.primary, '2·y');
+
+      // 不点名时退回 `x`，并且**说明**是对 x 求的。
+      final bare = _run('x^2');
+      expect(bare.primary, '2·x');
+      expect(bare.insights.join(), contains('对 x 求导'));
+    });
+
+    test('对 x 求导时 `y` 是常量', () {
       // 中文：**变量不由用户写**——猜错变量会给出一个看着像答案的错值
       //       （对 `y` 求导与对 `x` 求导结果完全不同）。所以工具写死 `x`。
       // English: **the variable is not the user's to write** — guessing wrong gives a wrong value that
@@ -112,6 +133,7 @@ void main() {
       expect(out.hasError, isFalse);
       expect(out.primary, '0');
       expect(out.detail, contains('不含要求导的那个变量'));
+      expect(out.insights.join(), contains('对 x 求导'));
     });
 
     test('收拾过的那一行只在**与最后一步不同**时才印', () {

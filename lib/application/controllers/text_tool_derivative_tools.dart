@@ -40,15 +40,30 @@ TextToolOutput _deriveSteps(TextToolDerivativeStrings strings, String input) {
   if (trimmed.isEmpty) {
     return TextToolOutput(strings.emptyInput, strings.hint, hasError: true);
   }
-  // 中文：**对谁求导由工具决定，不由用户写。** 应用自己的语法里 `x`/`y`/`i` 是仅有的三个变量名，
-  //       而单变量语境下默认对 `x`——**写死在这里而不是从输入里猜**：
-  //       猜错变量会给出一个**看着像答案的错值**（对 `y` 与对 `x` 求导结果完全不同）。
-  // English: **which variable is ours to decide, not something the user writes.** This app's grammar has
-  //          exactly three variable names (`x`/`y`/`i`) and single-variable differentiation defaults to
-  //          `x` — **fixed here rather than guessed from the input**: guessing wrong gives **a wrong value
-  //          that looks like an answer** (differentiating with respect to `y` and to `x` differ entirely).
-  const variable = 'x';
-  final result = differentiate(trimmed, variable);
+  // 中文：**变量可以点名，也可以不点。** 不点就按 `x`（应用自己的惯例），
+  //       点了就按点名的那个——两种写法都收：
+  //
+  //       - `diff(x^2, y)`——**这正是应用自己的写法**：`d/dx` 那颗键（`∫dx` 的 SHIFT 变体）
+  //         插的就是 `diff(x^2,x)`（两个槽，引擎自己的实参顺序），所以用户手里拿到的原文就是它；
+  //       - `d/dy(x^2)`——同一件事的另一半写法，顺手也收。
+  //
+  //       ⚠️ **仍然不许"猜"变量。** 两种写法都是**用户明写的**；猜出来的变量会给出一个
+  //       **看着像答案的错值**（对 `y` 与对 `x` 求导结果完全不同）。所以：
+  //       写不出变量名就退回默认的 `x` 并在屏幕上**说明是对谁求的**（见 `variableLine`）。
+  // English: **the variable may be named, or may be left out.** Left out it follows this app's convention
+  //          (`x`); named it is used — both spellings are accepted:
+  //
+  //          - `diff(x^2, y)` — **this is the app's own spelling**: the `d/dx` key (the SHIFT variant of
+  //            `∫dx`) inserts `diff(x^2,x)` (two slots, the engine's own argument order), so this is the
+  //            text the user already has;
+  //          - `d/dy(x^2)` — the other half of the same notation, accepted as a courtesy.
+  //
+  //          ⚠️ **The variable is still never guessed.** Both spellings are **written by the user**; a
+  //          guessed variable would give **a wrong value that looks like an answer** (differentiating with
+  //          respect to `y` and to `x` differ entirely). So: when no variable can be read, it falls back to
+  //          `x` and the screen **says which one was used** (see `variableLine`).
+  final request = _derivativeRequest(trimmed);
+  final result = differentiate(request.expression, request.variable);
 
   if (result.refusal == 'unreadable') {
     return TextToolOutput(strings.unreadable, strings.hint, hasError: true);
@@ -94,5 +109,34 @@ TextToolOutput _deriveSteps(TextToolDerivativeStrings strings, String input) {
   return TextToolOutput(
     strings.resultLine(tidied ?? result.derivative!),
     lines.join('\n'),
+    // 中文：**屏幕上要说清是对谁求的。** 变量不再写死，用户看不出这一点就会把
+    //       "对 x 求导"的答案当成"对 y 求导"的。
+    // English: **the screen has to say which variable was used.** The variable is no longer hard-wired, and
+    //          a user who cannot see that would take a `d/dx` answer for a `d/dy` one.
+    insights: <String>[strings.variableLine(request.variable)],
   );
+}
+
+/// 中文：**从输入里读出"对谁求导"**，返回 `(式子, 变量)`；没点名就用 `x`。
+///
+///       只认两种写法，都是**用户明写的**：
+///       `diff(<式子>, <一个字母>)`（应用自己的写法，`d/dx` 那颗键插的就是它）
+///       与 `d/d<一个字母>(<式子>)`。
+///       其余一律当成裸式子，变量取 `x`——**不猜**。
+/// English: **read "with respect to which variable" out of the input**, returning `(expression, variable)`;
+///          with nothing named it uses `x`.
+///
+///          Two spellings only, both **written by the user**: `diff(<expr>, <one letter>)` (this app's own
+///          spelling — the one the `d/dx` key inserts) and `d/d<one letter>(<expr>)`. Anything else is
+///          treated as a bare expression with the variable `x` — **nothing is guessed**.
+({String expression, String variable}) _derivativeRequest(String input) {
+  final diff = RegExp(r'^diff\((.*),\s*([A-Za-z])\)$').firstMatch(input);
+  if (diff != null) {
+    return (expression: diff.group(1)!.trim(), variable: diff.group(2)!);
+  }
+  final operator = RegExp(r'^d/d([A-Za-z])\((.*)\)$').firstMatch(input);
+  if (operator != null) {
+    return (expression: operator.group(2)!.trim(), variable: operator.group(1)!);
+  }
+  return (expression: input, variable: 'x');
 }

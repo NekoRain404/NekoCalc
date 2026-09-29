@@ -35,6 +35,7 @@ class TextToolDerivativeStrings {
     required this.resultLine,
     required this.stepLine,
     required this.tidiedLine,
+    required this.variableLine,
     required this.ruleNames,
   });
 
@@ -64,6 +65,13 @@ class TextToolDerivativeStrings {
   ///          step — printing it when identical would say the same thing twice.
   final String Function(String expression) tidiedLine;
 
+  /// 中文：**表明对谁求导。** 变量不再写死为 `x`（输入里可以点名），所以屏幕上必须有这一行——
+  ///       否则用户看不出这一次是对哪个字母求的，而**对 `y` 与对 `x` 的答案完全不同**。
+  /// English: **which variable it differentiated with respect to.** The variable is no longer hard-wired
+  ///          to `x` (the input may name it), so this line has to be on screen — otherwise the user cannot
+  ///          tell which letter was used, and **the answer for `y` and for `x` differ entirely**.
+  final String Function(String variable) variableLine;
+
   /// 中文：判据 → 人话。**查不到的名字回原样**（见文件头）。
   /// English: verdict → words. **A name with no entry comes back as itself** (see the head).
   final Map<String, String> ruleNames;
@@ -90,6 +98,7 @@ class TextToolDerivativeStrings {
     resultLine: (derivative) => derivative,
     stepLine: (index, expression, rule) => '$index. $expression    （$rule）',
     tidiedLine: (expression) => '= $expression',
+    variableLine: (variable) => '对 $variable 求导',
     ruleNames: const <String, String>{
       'constant': '常数的导数是 0',
       'self': '对自身求导得 1',
@@ -111,6 +120,7 @@ class TextToolDerivativeStrings {
     resultLine: (derivative) => derivative,
     stepLine: (index, expression, rule) => '$index. $expression    ($rule)',
     tidiedLine: (expression) => '= $expression',
+    variableLine: (variable) => 'with respect to $variable',
     ruleNames: const <String, String>{
       'constant': 'the derivative of a constant is 0',
       'self': 'the variable differentiates to 1',
