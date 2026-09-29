@@ -407,6 +407,7 @@ class ToolCatalogStrings {
       'bmi': 'BMI',
       'fuel_economy': '油耗计算',
       'base_convert': '进制转换',
+      'prime_factor': '质因数分解',
       'timestamp': '时间戳转换',
       'date_calc': '日期计算',
       'derive_steps': '求导分步',
@@ -680,6 +681,7 @@ class ToolCatalogStrings {
       'bmi': 'Body Mass Index', // A · 'body mass index'
       'fuel_economy': 'Fuel Economy', // A · 'fuel economy'
       'base_convert': 'Base Conversion', // B · no alias in either index
+      'prime_factor': 'Prime Factorization', // A · 'prime factorization'
       'timestamp':
           'Timestamp Converter', // B · four entries: three name a quantity, one is a verb phrase
       'date_calc': 'Date Calculator',

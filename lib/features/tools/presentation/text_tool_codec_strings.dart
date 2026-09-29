@@ -112,6 +112,12 @@ class TextToolCodecStrings {
     // —— 进制与位运算的输出 ——
     required this.baseLines,
     required this.arbitraryBaseLine,
+    required this.factorEmpty,
+    required this.factorUnreadable,
+    required this.factorNone,
+    required this.factorFailed,
+    required this.factorExample,
+    required this.factorCount,
     required this.arbitraryBaseOutOfRange,
     required this.significantBits,
     required this.bitLengthAB,
@@ -242,6 +248,35 @@ class TextToolCodecStrings {
   ///          fall back to another base.
   final String arbitraryBaseOutOfRange;
 
+  // —— 质因数分解 ——
+  final String factorEmpty;
+  final String factorUnreadable;
+
+  /// 中文：`1` 是**空乘积**（没有质因数），`0` 被每个质数整除——
+  ///       两者都不是"分解结果为空"，而是**没有分解这回事**。
+  /// English: `1` is the **empty product** (no prime factors) and `0` is divisible by every prime —
+  ///          neither is "an empty factorisation", both are **no such factorisation**.
+  final String factorNone;
+
+  /// 中文：**分不开的时候引擎会把输入原样退回来**（实测 `factor(x^2+2x+1)` → `x^2 + 2x + 1`，
+  ///       而那一种在屏幕上是被放行的）。所以这一条不是理论上的错误分支。
+  /// English: **when it cannot factor, the engine hands the input straight back** (measured:
+  ///          `factor(x^2+2x+1)` → `x^2 + 2x + 1`, in a form the screen lets through). So this is not a
+  ///          theoretical error branch.
+  final String factorFailed;
+
+  /// 中文：把分解结果连成一行（`2^6 × 3 × 643`）。**指数为 1 的不印 `^1`**——
+  ///       那与引擎自己印出来的形状一致（`[2 2 2 2 2 2 3 643]`）。
+  /// English: joins the factorisation into one line (`2^6 × 3 × 643`). **No `^1` for exponent 1** — that
+  ///          matches the shape the engine itself prints (`[2 2 2 2 2 2 3 643]`).
+  final String factorExample;
+
+  /// 中文：一句关于这次分解的说明（几个**不同的**质因数）。放在 `detail` 里，
+  ///       与"结果"分开——本仓的 `detail`/`insights` 分工一直是这个意思。
+  /// English: one sentence about this factorisation (how many **distinct** primes). It goes in `detail`,
+  ///          apart from the result — which is what this repository's `detail`/`insights` split means.
+  final String Function(String value, int count) factorCount;
+
   final String Function(int bits) significantBits;
   final String Function(int a, int b) bitLengthAB;
   final String Function(String a, String b) recognisedAB;
@@ -325,6 +360,12 @@ class TextToolCodecStrings {
         '${extraBase == null ? '' : '\n$extraBase'}',
     arbitraryBaseLine: (radix, digits) => '$radix 进制: $digits',
     arbitraryBaseOutOfRange: '目标进制要在 2 到 36 之间',
+    factorEmpty: '请输入一个整数',
+    factorUnreadable: '读不出一个整数',
+    factorNone: '这个数没有质因数分解',
+    factorFailed: '这个数分不开',
+    factorExample: '例如：\n123456\n2^64',
+    factorCount: (value, count) => '$value 共 $count 个不同的质因数',
     significantBits: (bits) => '有效位数: $bits bit。',
     bitLengthAB: (a, b) => 'A 位数: $a bit，B 位数: $b bit。',
     recognisedAB: (a, b) => 'A 识别为$a，B 识别为$b。',
@@ -410,6 +451,12 @@ class TextToolCodecStrings {
         '${extraBase == null ? '' : '\n$extraBase'}',
     arbitraryBaseLine: (radix, digits) => 'Base $radix: $digits',
     arbitraryBaseOutOfRange: 'The target base must be between 2 and 36',
+    factorEmpty: 'Enter an integer',
+    factorUnreadable: 'No integer could be read',
+    factorNone: 'This number has no prime factorisation',
+    factorFailed: 'This number cannot be factored',
+    factorExample: 'For example:\n123456\n2^64',
+    factorCount: (value, count) => '$value has $count distinct prime factors',
     significantBits: (bits) => 'Significant bits: $bits bit.',
     bitLengthAB: (a, b) => 'A has $a bit, B has $b bit.',
     recognisedAB: (a, b) => 'A recognised as $a, B recognised as $b.',

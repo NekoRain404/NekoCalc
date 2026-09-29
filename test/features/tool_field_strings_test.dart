@@ -61,7 +61,7 @@ void main() {
   final en = ToolFieldStrings.forLanguage(AppLanguage.en);
 
   test('中文表是空的（键就是中文），五个字段逐条与目录逐字节相同', () {
-    expect(toolCatalog.length, 120, reason: '目录里一共 120 个工具');
+    expect(toolCatalog.length, 121, reason: '目录里一共 121 个工具');
     expect(zh.inputLabels, isEmpty);
     expect(zh.inputUnits, isEmpty);
     expect(zh.groups, isEmpty);
@@ -176,7 +176,7 @@ void main() {
     //          quotes 196 (the de-duplicated one) and this assertion shows the walk missed nobody. The
     //          number moves with the Chinese wording, so it only proves the loop ran; the criterion is
     //          the `contains` above.
-    expect(checked, 222, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
+    expect(checked, 224, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
     expect(missing, isEmpty,
         reason: '这些记号在英文里没了——记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });

@@ -66,6 +66,10 @@ final List<ToolDefinition> textToolDefinitions = [
   _textTool('uncertainty', '不确定度传播', '多个测量值的合成不确定度与主要误差来源',
       ToolCategory.science, '物理',
       '输入若干「值 ± 不确定度」，给出和与差的合成不确定度、积与商的相对不确定度，以及哪一项是主要误差来源。'),
+  // 中文：**质因数分解**——HiPER 手册里 `factor` 有 5 处命中（它有这个能力）。它不走引擎，
+  //       理由是量出来的：引擎分不动时**会把输入原样退回来**（见 `text_tool_factor_tools.dart`）。
+  _textTool('prime_factor', '质因数分解', '把一个整数分解成质因数', ToolCategory.math,
+      '常用', '输入一个整数，给出质因数分解（指数合并、按质数升序）；1 与 0 没有质因数分解，如实说明。'),
   _textTool('color_convert', 'RGB/HEX颜色', 'RGB、HEX、HSL 颜色转换',
       ToolCategory.programming, '编码', '支持 HEX、RGB/RGBA、HSL/HSLA 和常用 CSS 命名色。'),
   _textTool('base64', 'Base64', 'Base64 编码解码', ToolCategory.programming, '编码',
