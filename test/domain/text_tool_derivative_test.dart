@@ -123,6 +123,18 @@ void main() {
       expect(bare.insights.join(), contains('对 x 求导'));
     });
 
+    test('⚠️ 用 `abs` 时，边界那句话**必须在屏幕上**', () {
+      // 中文：**判据读的是步骤里的法则令牌**（`chain_caveat`），不是回读印出来的句子。
+      //       `x/|x|` 在 0 处没有定义——不说这句话，那条推导在 0 点上就是骗人的。
+      // English: **the judgement reads the rule token in the steps** (`chain_caveat`), not the printed
+      //          sentence. `x/|x|` is undefined at 0; without the sentence the derivation lies at that point.
+      final out = _run('abs(x)');
+      expect(out.hasError, isFalse);
+      expect(out.insights.join(), contains('不可导'));
+      expect(_run('sin(x)').insights.join(), isNot(contains('不可导')),
+          reason: '没用 `abs` 就不该出现那句话');
+    });
+
     test('对 x 求导时 `y` 是常量', () {
       // 中文：**变量不由用户写**——猜错变量会给出一个看着像答案的错值
       //       （对 `y` 求导与对 `x` 求导结果完全不同）。所以工具写死 `x`。
