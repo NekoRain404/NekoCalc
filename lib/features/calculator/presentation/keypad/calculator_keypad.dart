@@ -357,10 +357,41 @@ class CalculatorKeypad extends StatelessWidget {
     if (icon == null) {
       return _face(variant.label, color: color, fontSize: fontSize);
     }
-    return KeyFaceIconView(
-      icon: icon,
-      color: color,
-      height: fontSize * _iconFaceFontFactor,
+    // 中文：⚠️ **图形键面要自己带一个语义标签。**
+    //       文字键面不用管：`InkWell` 会**从子节点的文字推出**标签，所以 `SHIFT`/`⌫` 那些
+    //       读屏一直读得出来；而图形键面**没有文字可推**，于是那一颗在语义树里
+    //       **是个没有名字的可点节点**（实测：`labeledTapTargetGuideline` 只在这一颗上失败，
+    //       坐标 `Rect.fromLTRB(270.2, 283.9, 398.5, 309.7)`——`[matrix]` 那一格）。
+    //
+    //       名字取 `variant.label`——**它本来就是这颗键的名字**（键位表里那一栏、
+    //       横带里的提示、逐格快照用的都是它），只是**键面画的不是字**而已（见
+    //       [_variantFace] 的文档注释：名字不会因为画图标而消失）。
+    //       所以这不是"给它取个名字"，是**把已经有的名字接到语义树上**。
+    //
+    //       仍然说清代价：`KeyFaceIconView` 是图形键**共用**的那一个组件，
+    //       这一层对所有图形键生效——而它们的 `label` 都是现成的，**没有一颗需要新取名字**。
+    // English: ⚠️ **a figure-faced key has to carry its own semantic label.**
+    //          A text face needs nothing: `InkWell` **derives** a label from the descendant text, which
+    //          is why `SHIFT`/`⌫` have always been readable. A figure face **has no text to derive
+    //          from**, so that one key is **an unnamed tappable node** in the semantics tree (measured:
+    //          `labeledTapTargetGuideline` fails on exactly that node, `Rect.fromLTRB(270.2, 283.9,
+    //          398.5, 309.7)` — the `[matrix]` cell).
+    //
+    //          The name comes from `variant.label`, which **is already that key's name** (the same one the
+    //          keypad table, the band hint and the per-cell snapshot use) — only the face draws a figure
+    //          instead of characters (see [_variantFace]'s doc: the name does not disappear when an icon is
+    //          drawn). So this is not "giving it a name" but **wiring the name that already exists into the
+    //          semantics tree**.
+    //
+    //          The cost, stated: `KeyFaceIconView` is **shared** by the figure keys and this layer applies to
+    //          all of them — and every one already has a `label`, so **none needs a new name.**
+    return Semantics(
+      label: variant.label,
+      child: KeyFaceIconView(
+        icon: icon,
+        color: color,
+        height: fontSize * _iconFaceFontFactor,
+      ),
     );
   }
 
