@@ -362,12 +362,12 @@ mixin _CalculatorPersistence on _CalculatorState {
     final message = error.toString().replaceFirst('FormatException: ', '');
     // 中文：**左边是判据，右边是文案。** 判据是引擎与旧解析器抛出的 `FormatException` 的
     //       **英文**原文（`Missing )`、`Expected number`…），它们不是界面上的字，所以留在源码里
-    //       不动；被翻的只有右边这十一句。这就是判据与文案分家的地方，别把 `contains` 的入参
+    //       不动；被翻的只有右边这十二句。这就是判据与文案分家的地方，别把 `contains` 的入参
     //       换成表里的东西。
     // English: **the left side is the verdict, the right side is the wording.** The verdicts are the
     //          **English** text of the `FormatException`s the engine and the legacy parser throw
     //          (`Missing )`, `Expected number`, …); they are not on-screen words and stay in the
-    //          source. Only the eleven sentences on the right are translated. This is where verdict and
+    //          source. Only the twelve sentences on the right are translated. This is where verdict and
     //          wording part company — do not swap the `contains` arguments for anything from a table.
     if (message.contains('Missing )')) return strings.friendlyMissingParen;
     if (message.contains('Expected number')) {
@@ -394,6 +394,18 @@ mixin _CalculatorPersistence on _CalculatorState {
     //          not commensurable — instead of "unrecognised content", which reads as "you mistyped
     //          `km`".
     if (message.contains('Unit mismatch')) return strings.friendlyUnitMismatch;
+    // 中文：引擎把一条关系答成了一个数（`x^2=-1`、`1=2`）——**那是一个布尔值**。
+    //       落在这里而不是走通用那一句，是因为通用那句说的是"存在无法识别的内容"，
+    //       而用户看到的是"我打错了"，真正的原因是这个方程没有解。判据的判据在
+    //       `_relationCameBackAsTruthValue` 一处。
+    // English: the engine answered a relation with a number (`x^2=-1`, `1=2`) — **a truth value**. It
+    //          lands here rather than on the generic sentence because that one says "unrecognised
+    //          content", which reads as "I typed something wrong", while the real reason is that this
+    //          equation has no solution. The judgement's own judgement lives in one place,
+    //          `_relationCameBackAsTruthValue`.
+    if (message.contains('Relation has no numeric answer')) {
+      return strings.friendlyRelationNoSolution;
+    }
     return strings.friendlyGeneric;
   }
 

@@ -317,6 +317,57 @@ bool namesSomethingOutsideTheAppLanguage(ExprNode node) {
   }
 }
 
+/// 中文：**这棵树里有没有解析错误。** 与 [namesSomethingOutsideTheAppLanguage] 并排放在一起，
+///       因为 [AppEngineVocabulary.canExpress] 要同时问这两件事——**而它们是两个问题**。
+///
+///       ⚠️ **这一条是量出来的，不是补着好玩的。** [namesSomethingOutsideTheAppLanguage] 对
+///       [ParseErrorNode] 回 `false`（一个错误节点确实**不点名任何东西**，那个回答没错），
+///       于是 `canExpress` 对 `2x+1=7` 答**"应用自己的语言表达得了"**——而应用自己的语法里
+///       **连等号都没有**，旧解析器对它只会抛一句「存在无法识别的内容」。
+///       那条判据的用途是「应用自己答得了时，旧解析器依旧是权威」，它一旦在这一支上误判为真，
+///       引擎给出的 `x = 3` 就会被丢掉、屏幕上留下那句解析错误。**实测就是这样丢的。**
+///
+///       **判据：解析器读不懂 ⇒ 应用自己的语言表达不了它。** 这不是 [ParseErrorNode] 该回什么
+///       的问题（它回 `false` 是对的），而是"表达得了吗"这个问题**还需要第二个前提**：先得读得懂。
+/// English: **does this tree hold a parse error.** It sits next to
+///          [namesSomethingOutsideTheAppLanguage] because [AppEngineVocabulary.canExpress] has to ask
+///          both questions — **and they are two questions.**
+///
+///          ⚠️ **This was measured, not added for tidiness.** [namesSomethingOutsideTheAppLanguage]
+///          answers `false` for a [ParseErrorNode] (an error node really does **name nothing**, so that
+///          answer is not wrong), which made `canExpress` answer **"this app's own language can express
+///          it"** for `2x+1=7` — while this app's grammar **does not even have an equals sign** and the
+///          legacy parser can only throw "unrecognised content" at it. That judgement's purpose is
+///          "when this app can answer, the legacy parser stays the authority"; once it comes back true
+///          here, the engine's `x = 3` is thrown away and the parse error is what stays on screen.
+///          **That is exactly how it was lost, measured.**
+///
+///          **The judgement: if the parser cannot read it, the app's own language cannot express it.**
+///          That is not about what [ParseErrorNode] should return (its `false` is right) but about the
+///          fact that "can it be expressed" **needs a second premise**: it has to be readable first.
+bool hasParseError(ExprNode node) {
+  switch (node) {
+    case NumberNode():
+    case ConstantNode():
+    case OperatorNode():
+    case VariableNode():
+    case SexagesimalNode():
+      return false;
+    case ParseErrorNode():
+      return true;
+    case UnaryNode(:final operand):
+    case PostfixNode(:final operand):
+      return hasParseError(operand);
+    case GroupNode(:final child):
+      return hasParseError(child);
+    case BinaryNode(:final left, :final right):
+    case ImplicitProductNode(:final left, :final right):
+      return hasParseError(left) || hasParseError(right);
+    case FunctionNode(:final args):
+      return args.any(hasParseError);
+  }
+}
+
 /// 中文：应用自己的求值器绑不绑定这个调用名。**复用解析器自己那份数据**——名字表是
 ///       `ExpressionParser.functionNames`，别名与大小写的折叠是
 ///       `ExpressionParser.canonicalFunctionName`（它背后那张 `functionAliases` 表与归一化

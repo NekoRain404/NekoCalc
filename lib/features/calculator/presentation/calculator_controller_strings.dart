@@ -4,7 +4,7 @@ import '../../../domain/usecases/calculator_report_labels.dart';
 import '../../../l10n/app_language.dart';
 
 /// 中文：**计算器那几支控制器写的句子。** 状态卡上那两行、复制/笔记/历史正文里的标签、记忆寄存器
-///       的拒绝语、引擎错误翻译成的那十一句话、数据集与拟合读数、进制/记法换算读不出来时的两句。
+///       的拒绝语、引擎错误翻译成的那十二句话、数据集与拟合读数、进制/记法换算读不出来时的两句。
 ///       它们原先逐条写在 `calculator_controller_*.dart` 几家 mixin 的源码里。
 ///
 ///       ### 为什么和 `CalculatorStrings` 分开
@@ -132,6 +132,7 @@ class CalculatorControllerStrings {
     required this.friendlyEvenRootNegative,
     required this.friendlyNotFinite,
     required this.friendlyUnitMismatch,
+    required this.friendlyRelationNoSolution,
     required this.friendlyGeneric,
     required this.memoryRefusal,
     required this.angleModeDegrees,
@@ -174,9 +175,9 @@ class CalculatorControllerStrings {
   });
 
   // —— 引擎错误翻译成人话（`_friendlyCalculationError`）——
-  // 中文：判据是引擎**英文**错误串的 `contains`，那些串留在源码里；这里是翻出来的那十一句。
+  // 中文：判据是引擎**英文**错误串的 `contains`，那些串留在源码里；这里是翻出来的那十二句。
   // English: the branch conditions are `contains` over the engine's **English** error strings, which
-  //          stay in the source; these are the eleven sentences they are turned into.
+  //          stay in the source; these are the twelve sentences they are turned into.
   final String friendlyMissingParen;
   final String friendlyExpectedNumber;
   final String friendlyUnexpectedToken;
@@ -187,6 +188,29 @@ class CalculatorControllerStrings {
   final String friendlyEvenRootNegative;
   final String friendlyNotFinite;
   final String friendlyUnitMismatch;
+
+  /// 中文：**引擎把一条关系答成了一个数**——那是一个布尔值，不是答案（见
+  ///       `calculator_controller_evaluation.dart` 上的 `_relationCameBackAsTruthValue`）。
+  ///
+  ///       实测三种输入落在这里，而**它们给的都是 `0`**：实数范围内无解的 `x^2=-1`、
+  ///       不成立的 `1=2`。所以这句话要同时说对两种情形——「没有解」对两者都是真的
+  ///       （`1=2` 作为方程也确实没有解）。**不写成"x 没有解"**：那是替用户假定了未知数是 `x`。
+  ///
+  ///       ⚠️ **这句话接住的是一条本来会变成错值的路。** 在这之前，`0` 是一个**有限十进制**，
+  ///       采用规则会把它当成**数字零**放上结果行——用户问「x²=−1 的解」，屏幕答 `0`。
+  /// English: **the engine answered a relation with a number** — that is a truth value, not an answer
+  ///          (see `_relationCameBackAsTruthValue` in `calculator_controller_evaluation.dart`).
+  ///
+  ///          Three inputs were measured landing here and **all of them print `0`**: `x^2=-1`, which
+  ///          has no solution over the reals, and `1=2`, which is false. So the sentence has to be
+  ///          right for both — "no solution" is true of each (`1=2` genuinely has no solution as an
+  ///          equation). **It does not say "x has no solution"**: that would assume the unknown is `x`.
+  ///
+  ///          ⚠️ **This sentence intercepts a road that used to produce a wrong value.** Before it, the
+  ///          `0` was a **finite decimal**, so the taking rule put it on the result line as **the number
+  ///          zero** — the user asks for the roots of x² = −1 and the screen answers `0`.
+  final String friendlyRelationNoSolution;
+
   final String friendlyGeneric;
 
   // —— 记忆寄存器 ——
@@ -303,6 +327,7 @@ class CalculatorControllerStrings {
     friendlyEvenRootNegative: '负数不能开偶次根',
     friendlyNotFinite: '结果不是有限数值',
     friendlyUnitMismatch: '单位不匹配：这两个单位不能互相换算',
+    friendlyRelationNoSolution: '这条方程没有解（或这个等式恒不成立）',
     friendlyGeneric: '表达式错误',
     memoryRefusal: '当前值放不进记忆寄存器，寄存器未改动',
     angleModeDegrees: '${CalculatorReportLabels.zh.angleDegreesWord} DEG',
@@ -380,6 +405,8 @@ class CalculatorControllerStrings {
     friendlyEvenRootNegative: 'An even root of a negative number is not defined',
     friendlyNotFinite: 'The result is not a finite number',
     friendlyUnitMismatch: 'Unit mismatch: these two units cannot convert into each other',
+    friendlyRelationNoSolution:
+        'This equation has no solution (or the equality never holds)',
     friendlyGeneric: 'Expression error',
     memoryRefusal:
         'The current value does not fit the memory register, so the register is unchanged',

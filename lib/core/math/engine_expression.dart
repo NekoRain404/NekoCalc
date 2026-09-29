@@ -85,6 +85,8 @@ import 'app_unit_catalog.dart';
 import 'ast/expression_ast_parser.dart';
 import 'expression_parser.dart';
 
+part 'engine_expression_relation.dart';
+
 /// 中文：**运算符的白名单——写下来的那份，不是散在 `switch` 里的字面量。** 三处用它：二元运算
 ///       （`_binary`）、`OperatorNode`（摊平后的独立运算符）与 `UnaryNode`（前缀运算符）。
 ///       一份而不是三份，是因为它们回答同一个问题：「这个拼法是要写给引擎的，我们确认过它吗」。
@@ -127,9 +129,43 @@ sealed class EngineExpression {
 /// 中文：翻译成功。
 /// English: the translation succeeded.
 final class TranslatedExpression extends EngineExpression {
-  const TranslatedExpression(this.text);
+  const TranslatedExpression(this.text, {this.isRelation = false});
 
   final String text;
+
+  /// 中文：**这一次翻译的是一条关系（一个 `=`），不是一个表达式。**
+  ///
+  ///       它必须一路传到采用规则那一层，因为**引擎对一条关系可以回一个数**——
+  ///       而那个数是一个**布尔值**，不是答案。实测（宿主 `qalc` 5.12.0，桥自己的调用序列，
+  ///       见 `.superpowers/backup/engine-capability-probe.md` 第八节）：
+  ///
+  ///       | 输入 | 引擎种类 | 印出来 | 真实含义 |
+  ///       |---|---|---|---|
+  ///       | `x^2=-1` | `number` | `0` | 实数范围内**无解** |
+  ///       | `1=2` | `number` | `0` | 等式**不成立** |
+  ///       | `x=x` | `number` | `1` | 恒等式 |
+  ///
+  ///       `0` 与 `1` **都是有限十进制**，所以采用规则第二级（「有限十进制 ⇒ 当数字用」）
+  ///       会把它们原样放上结果行——**用户问「x²=−1 的解」，屏幕答 `0`**。
+  ///       这个旗标就是让那一层能把这一支认出来的唯一凭据。
+  /// English: **this translation is a relation (one `=`), not an expression.**
+  ///
+  ///          It has to travel all the way to the taking rule, because **the engine can answer a
+  ///          relation with a number** — and that number is a **truth value**, not an answer. Measured
+  ///          (host `qalc` 5.12.0, the bridge's own call sequence, see section 八 of
+  ///          `.superpowers/backup/engine-capability-probe.md`):
+  ///
+  ///          | input | engine kind | printed | what it means |
+  ///          |---|---|---|---|
+  ///          | `x^2=-1` | `number` | `0` | **no solution** over the reals |
+  ///          | `1=2` | `number` | `0` | the equation is **false** |
+  ///          | `x=x` | `number` | `1` | an identity |
+  ///
+  ///          Both `0` and `1` **are finite decimals**, so the taking rule's second tier ("a finite
+  ///          decimal ⇒ use it as a number") would put them straight on the result line — **the user
+  ///          asks for the roots of x² = −1 and the screen answers `0`**. This flag is the only
+  ///          evidence by which that layer can recognise the branch.
+  final bool isRelation;
 }
 
 /// 中文：这个构造翻译不了，理由见 [reason]——调用方据此**回落旧解析器**。
@@ -211,10 +247,17 @@ final class UntranslatableExpression extends EngineExpression {
 ///          parser are two consumers of one sentence, and if their modes differed, one input would land
 ///          on two different authorities depending on the setting (the whole of the `°` round). The two
 ///          readings of `%` and their evidence are in `percentage_expansion.dart`.
-EngineExpression engineExpressionFor(String source, {bool relativePercent = false}) =>
-    engineExpressionForNode(const ExpressionAstParser().parse(
-        ExpressionParser.normalizeExpressionInput(source,
-            relativePercent: relativePercent)));
+EngineExpression engineExpressionFor(String source, {bool relativePercent = false}) {
+  final normalized = ExpressionParser.normalizeExpressionInput(source,
+      relativePercent: relativePercent);
+  final relation = _splitRelation(normalized);
+  if (relation == null) {
+    return engineExpressionForNode(
+        const ExpressionAstParser().parse(normalized));
+  }
+  return _translateRelation(relation.$1, relation.$2, normalized);
+}
+
 
 /// 中文：翻译一棵**已经解析好的**树。存在的理由只有一个：`UnaryNode`/`OperatorNode` 的运算符白名单
 ///       只能这样被测试到——`ExpressionAstParser` 今天只会产出 `+`/`-` 一元与 `+ - *` 独立运算符，

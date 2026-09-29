@@ -224,7 +224,13 @@ mixin _CalculatorLiveEvaluation
     //          here too, for the same reason as on the submit path: the engine does not know them and
     //          would read `ans` as an unknown variable.
     final generation = _stateRevision;
-    final reply = await _askEngineTranslated(_resolveAnswerReferences(source));
+    // 中文：`answer` 而不是 `reply`——它多带一个「这一次的输入是一条关系」。
+    //       那个布尔在这里只被 [_selectEngineResult] 读一次，用途只有一个：
+    //       分清引擎回的是**一个数**还是**一个布尔值**（两者都是 `0`/`1` 的有限十进制）。
+    // English: `answer` rather than `reply` — it carries one extra fact, "this input was a relation".
+    //          That boolean is read exactly once, by [_selectEngineResult], for one purpose: telling
+    //          **a number** from **a truth value** (both are the finite decimals `0`/`1`).
+    final answer = await _askEngineTranslated(_resolveAnswerReferences(source));
     _liveEngineInFlight = false;
     if (_disposed) return;
     // 中文：先取出「还欠一次」再落地。不管落地与否都要还这一次：欠它的那一刻，用户已经改过输入，
@@ -252,7 +258,7 @@ mixin _CalculatorLiveEvaluation
       if (owed) _scheduleLiveEngineFollowUp();
       return;
     }
-    final accepted = _selectEngineResult(reply, source)?.result;
+    final accepted = _selectEngineResult(answer, source)?.result;
     if (accepted == null) {
       if (!liveResultPolicy.showsLegacyResult) {
         _evaluateLegacy();

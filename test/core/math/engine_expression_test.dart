@@ -415,4 +415,109 @@ void main() {
       }
     });
   });
+
+  group('关系：一个等号两侧各译一次', () {
+    // 中文：**这是一条新接上的路。** 在这之前 `engineExpressionFor` 对含 `=` 的输入一律回
+    //       `UntranslatableExpression`（全文没有一处处理等号），于是 `2x+1=7` 连**引擎都不会被问**
+    //       ——实测：替身引擎的 `asked` 是空的，屏幕上落的是旧解析器的「存在无法识别的内容」。
+    //       引擎那一半是**用它自己的分类器量过的**：`2x+1=7` 在桥自己的调用序列下 kind 是
+    //       `SYMBOLIC`、印出来 `x = 3`，而 `SYMBOLIC` 正是 `isDisplayable` 放行的那一支。
+    //       见 `.superpowers/backup/engine-capability-probe.md` 第八节。
+    // English: **this is a newly wired road.** Before it, `engineExpressionFor` returned
+    //          `UntranslatableExpression` for any input holding an `=` (not one place in the file
+    //          handled the equals sign), so `2x+1=7` was **never even asked of the engine** — measured:
+    //          a double's `asked` list comes back empty and the screen falls to the legacy parser's
+    //          "unrecognised content". The engine half was **measured with its own classifier**:
+    //          through the bridge's call sequence `2x+1=7` has kind `SYMBOLIC` and prints `x = 3`, and
+    //          `SYMBOLIC` is exactly the branch `isDisplayable` lets through. See section 八 of
+    //          `.superpowers/backup/engine-capability-probe.md`.
+    test('两侧各译一次，拼回一个 `=`，并且旗标立起来', () {
+      for (final source in <String>[
+        '2x+1=7',
+        'x^2=4',
+        'x^2+2x+1=0',
+        '3x-5=2x+1',
+        '2^x=8',
+        'sin(x)=0.5',
+        '5=x+2',
+      ]) {
+        final translated = engineExpressionFor(source);
+        expect(translated, isA<TranslatedExpression>(),
+            reason: '`$source` 应当译得出来（引擎那一半量过）');
+        final text = (translated as TranslatedExpression).text;
+        expect(text, contains('='),
+            reason: '`$source` 译出来的句子里那个等号必须在');
+        expect(text.split('=').length, 2,
+            reason: '`$source` 译出来应当恰好一个等号，现在是 `$text`');
+        expect(translated.isRelation, isTrue,
+            reason: '`$source` 是一条关系——这个旗标是挡住"引擎回一个布尔值"的唯一凭据');
+      }
+    });
+
+    test('⚠️ 旗标只在关系上立起来：普通表达式一条都不许带', () {
+      // 中文：**这是上面那条的反面，防的是"旗标写死成 true"。** 旗标一旦泛滥，
+      //       采用规则那一层会对普通表达式也套上关系的判据——那会把合法的 `0`/`1` 结果挡掉。
+      // English: **the reverse of the test above, guarding against a flag hard-wired to `true`.** Were
+      //          the flag to spread, the taking rule would apply the relation judgement to ordinary
+      //          expressions too — which would discard legitimate `0`/`1` results.
+      for (final source in <String>['2+2', '2x', 'x^2+1', 'sqrt(8)', '1-1', '0']) {
+        final translated = engineExpressionFor(source);
+        expect(translated, isA<TranslatedExpression>(), reason: '`$source` 是普通表达式');
+        expect((translated as TranslatedExpression).isRelation, isFalse,
+            reason: '`$source` 不是关系，旗标不许立起来');
+      }
+    });
+
+    test('译出来的形状：两侧各自那套写法都在，`=` 夹在中间', () {
+      // 中文：**钉住的是"两边真的各译了一次"**，不是等号本身。`2x+1=7` 的两侧分别是
+      //       应用的乘法写法与一个裸字面量——照抄下来是因为真机上引擎要读的就是这串。
+      // English: **this pins "each side really was translated"**, not the equals sign. The two sides of
+      //          `2x+1=7` are this app's multiplication spelling and a bare literal; they are written
+      //          out because this is the string the engine really reads on a device.
+      final text = (engineExpressionFor('2x+1=7') as TranslatedExpression).text;
+      expect(text, startsWith('(('), reason: '左边是应用自己的乘法写法：$text');
+      expect(text, endsWith('=7'), reason: '右边是一个裸字面量：$text');
+    });
+
+    test('不是关系的都不许被当成关系', () {
+      // 中文：**三条规则各钉一例。** 零个等号是普通表达式；两个等号是什么，应用没有立场替引擎
+      //       决定；打了一半的不是关系。括号里的等号（`root(x=3,2)`）深度不是 0，同样不算。
+      // English: **three rules, one example each.** No equals sign is an ordinary expression; what two
+      //          equals signs mean is not this app's to decide for the engine; half-typed is not a
+      //          relation. An equals sign inside brackets (`root(x=3,2)`) is not at depth 0 and does
+      //          not count either.
+      for (final source in <String>['a=b=c', '=', '=3', 'x=', 'root(x=3,2)']) {
+        final translated = engineExpressionFor(source);
+        if (translated is TranslatedExpression) {
+          expect(translated.isRelation, isFalse,
+              reason: '`$source` 不是关系，不许立旗标（译出的文本是 `${translated.text}`）');
+        }
+      }
+    });
+
+    test('两边只要有一边译不了，整条就译不了——而且用的是那一边给的理由', () {
+      // 中文：**闭集没有变大。** `x<=3` 里那个 `<` 落在等号位置上，谁也译不出来；
+      //       `npr(2;3)=1` 右边合法而左边是表外名字。两条都该回一条**既有的**理由，
+      //       不是一条新造的（[untranslatableReason] 那张表一个字没动）。
+      // English: **the closed set does not grow.** The `<` in `x<=3` sits at the equals position and
+      //          neither side can translate it; in `npr(2;3)=1` the right side is fine while the left
+      //          is a name outside the table. Both must come back with an **existing** reason, not a
+      //          newly invented one ([untranslatableReason]'s table did not move by a word).
+      // 中文：**`x!=3` 是最要紧的一条。** 第一版没有挡住它，于是 `!` 被当成阶乘、整条读成
+      //       「x 的阶乘等于 3」——而用户打 `!=` 说的是不等于。两边定义不同的拼写一律拒绝。
+      // English: **`x!=3` is the one that matters most.** The first version let it through, so `!` was
+      //          read as factorial and the whole thing as "x factorial equals 3" — while a user typing
+      //          `!=` means not-equal. A spelling the two sides define differently is always refused.
+      for (final source in <String>[
+        'x<=3',
+        'x>=3',
+        'x!=3',
+        'x==3',
+        'npr(2;3)=1',
+      ]) {
+        expect(engineExpressionFor(source), isA<UntranslatableExpression>(),
+            reason: '`$source` 不该被译出来');
+      }
+    });
+  });
 }

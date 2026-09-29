@@ -204,7 +204,8 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   @override
   Future<MathResult?> _submittedResult(String source, int generation) async {
     final resolvedSource = _resolveAnswerReferences(source);
-    final reply = await _askEngineTranslated(resolvedSource);
+    final answer = await _askEngineTranslated(resolvedSource);
+    final reply = answer.reply;
     // 中文：回包到手的**第一件事**是问一句「这还是当前那一代吗」，在碰任何状态之前——包括
     //       回落分支会写的那份 `_lastFiniteResult`。
     // English: The *first* thing to do with a reply is ask "is this still the current generation",
@@ -237,7 +238,31 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
     if (reply.result?.resultKind == EngineResultKind.unitMismatch) {
       throw const FormatException('Unit mismatch: the conversion did not happen');
     }
-    final selected = _selectEngineResult(reply, source);
+    // 中文：**一条关系被引擎答成了一个数 ⇒ 抛出一条人能读的话，不是把那个数放上屏幕。**
+    //       这一支与上面那条 `Unit mismatch` 是同一个形状，理由也一样：回落旧解析器也会得到
+    //       一条错误（应用自己的语法没有等号），但那句话说的是「存在无法识别的内容」——
+    //       用户看到的是"我打错了"，而真正的原因是**这个方程没有解**。所以在这里抛出
+    //       **这一条**理由，由 `submit()` 既有的 catch 变成屏幕上的错误。
+    //
+    //       边打边算那条路**不抛**（它没有 try），它读到的是 [MathResult.isDisplayable] 那一条
+    //       结论——[_selectEngineResult] 对同一支回 `null`，于是屏幕上什么都不显示。
+    //       两条路的**判据是同一个** [_relationCameBackAsTruthValue]。
+    // English: **a relation answered as a number ⇒ raise a sentence a human can read, do not put that
+    //          number on screen.** This branch has the same shape as the `Unit mismatch` one above and
+    //          the reason is the same: falling back to the legacy parser also yields an error (this
+    //          app's grammar has no equals sign), but that error says "unrecognised content" — the user
+    //          reads "I typed something wrong" while the real reason is **this equation has no
+    //          solution**. So **that** reason is raised here and `submit()`'s existing catch turns it
+    //          into the message on screen.
+    //
+    //          The as-you-type path does **not** throw (it has no try): it reads the same conclusion
+    //          through [MathResult.isDisplayable] — [_selectEngineResult] returns `null` for this
+    //          branch, so nothing is displayed. **Both paths share one judgement**,
+    //          [_relationCameBackAsTruthValue].
+    if (_relationCameBackAsTruthValue(answer)) {
+      throw const FormatException('Relation has no numeric answer');
+    }
+    final selected = _selectEngineResult(answer, source);
     if (selected != null) {
       final accepted = selected.result;
       // 中文：`_lastFiniteResult` 只在这一份结果**能当数字用**时才更新，规则与 [applyMathResult]
@@ -316,15 +341,88 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          criterion; see `engine_expression.dart`). When it cannot be translated the engine is
   ///          **not asked**: that counts as "no engine answer" and the legacy parser answers (the same
   ///          route as hard boundary 1).
-  Future<EngineReply> _askEngineTranslated(String source) {
+  /// 中文：**返回值里那个 `isRelation` 与回包是同一个东西的两半，必须一起传。**
+  ///       「这一次的输入是一条关系（`2x+1=7`）」只能由翻译结果回答，而翻译正是在这里做的——
+  ///       少传这一个布尔，采用规则那一层就分不出「引擎回了一个数」与「引擎回了一个布尔值」，
+  ///       而这两者在它眼里**长得一模一样**（都是 `0` 或 `1` 的有限十进制）。
+  ///
+  ///       两半一起返回而不是让调用方自己再译一次：再译一次是同一个纯函数调两遍，
+  ///       而判据会因此有**两个拼法**——本仓的规矩是同一句话只留一个源。
+  /// English: **the `isRelation` in the return value and the reply are two halves of one thing and
+  ///          travel together.** "This input was a relation (`2x+1=7`)" can only be answered by the
+  ///          translation, and the translation happens here — drop that one boolean and the taking rule
+  ///          cannot tell "the engine returned a number" from "the engine returned a truth value",
+  ///          which **look identical to it** (both a finite decimal `0` or `1`).
+  ///
+  ///          Both halves come back together rather than letting the caller re-translate: a second call
+  ///          is one pure function called twice, and the judgement would end up with **two spellings** —
+  ///          this repository keeps one source per sentence.
+  Future<({EngineReply reply, bool isRelation})> _askEngineTranslated(
+      String source) async {
     final translated =
         engineExpressionFor(source, relativePercent: relativePercent);
     if (translated is UntranslatableExpression) {
       debugPrint('$qalculateLogTag 表达式翻译不了，直接走旧解析器: $translated');
-      return Future.value(EngineReply.failure('untranslatable: $translated'));
+      return (
+        reply: EngineReply.failure('untranslatable: $translated'),
+        isRelation: false,
+      );
     }
-    return _askEngine((translated as TranslatedExpression).text);
+    final text = (translated as TranslatedExpression).text;
+    return (
+      reply: await _askEngine(text),
+      isRelation: translated.isRelation,
+    );
   }
+
+  /// 中文：**「一条关系被引擎答成了一个数」——那是一个布尔值，不是答案。**
+  ///
+  ///       实测（宿主 `qalc` 5.12.0，桥自己的调用序列，见
+  ///       `.superpowers/backup/engine-capability-probe.md` 第八节）三种输入落在这一支：
+  ///
+  ///       | 输入 | 引擎种类 | 印出来 | 真实含义 |
+  ///       |---|---|---|---|
+  ///       | `x^2=-1` | `number` | `0` | 实数范围内**无解** |
+  ///       | `1=2` | `number` | `0` | 等式**不成立** |
+  ///       | `x=x` | `number` | `1` | 恒等式 |
+  ///
+  ///       而**真解一条都不在这一支**：`2x+1=7` → `x = 3`、`x^2=4` → `x = 2 || x = -2` 的引擎种类
+  ///       分别是 `COMPARISON` 与 `OR`，在应用这一侧都判成 `symbolic`——那是 `isDisplayable`
+  ///       放行的那一支。**所以「关系 ∧ number」这条判据不误伤任何一个真解。**
+  ///
+  ///       ⚠️ **判据只看形状，不看印出来的文本。** 写成"`0` 或 `1` 就不收"也能挡住今天这三个，
+  ///       但那是一条举例清单：引擎换一种印法（`1.000000`）、或者哪一天多出第四种退化形状，
+  ///       清单就漏了。这里问的是**引擎把这条关系当成了哪一类值**——`number` 意味着它算出了一个
+  ///       **数**，而关系没有"数"这种答案。
+  ///
+  ///       判据只此一处，两个调用点（提交与边打边算）读的都是它。
+  /// English: **"a relation came back as a number" — that is a truth value, not an answer.**
+  ///
+  ///          Measured (host `qalc` 5.12.0, the bridge's own call sequence; see section 八 of
+  ///          `.superpowers/backup/engine-capability-probe.md`) three inputs land here:
+  ///
+  ///          | input | engine kind | printed | what it means |
+  ///          |---|---|---|---|
+  ///          | `x^2=-1` | `number` | `0` | **no solution** over the reals |
+  ///          | `1=2` | `number` | `0` | the equation is **false** |
+  ///          | `x=x` | `number` | `1` | an identity |
+  ///
+  ///          and **not one genuine solution is in this branch**: `2x+1=7` → `x = 3` has engine kind
+  ///          `COMPARISON` and `x^2=4` → `x = 2 || x = -2` has `OR`, both of which this side classifies
+  ///          as `symbolic` — the branch `isDisplayable` lets through. **So "relation ∧ number" costs no
+  ///          real solution anything.**
+  ///
+  ///          ⚠️ **The test reads shape, not printed text.** "Refuse a `0` or a `1`" would also stop
+  ///          today's three, but that is a list of examples: let the engine print `1.000000` or add a
+  ///          fourth degenerate shape and the list misses it. What is asked here is **which kind of
+  ///          value the engine made of this relation** — `number` means it produced a **number**, and a
+  ///          relation has no such answer.
+  ///
+  ///          The judgement lives here alone; both call sites (submit and as-you-type) read it.
+  bool _relationCameBackAsTruthValue(
+          ({EngineReply reply, bool isRelation}) answer) =>
+      answer.isRelation &&
+      answer.reply.result?.resultKind == EngineResultKind.number;
 
   @override
   Future<EngineReply> _askEngine(String expression) {
@@ -452,9 +550,10 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          `_lastFiniteResult` — numeric consumers still accept nothing but a finite decimal, and
   ///          that has **not** been relaxed.
   ({MathResult result, bool usableAsNumber})? _selectEngineResult(
-    EngineReply reply,
+    ({EngineReply reply, bool isRelation}) answer,
     String source,
   ) {
+    final reply = answer.reply;
     // 中文：**引擎读不懂这个表达式时，它的答案一律不算。** 判据在
     //       [AppEngineVocabulary.canRead] 一处（应用自己的封闭词表 × 引擎自己的符号表），
     //       与结果的形状无关——`npr(2,1.5)` 与 `npr(,)` 被引擎读成符号 `n'p''r'`，返回的是**一个
@@ -486,6 +585,14 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
       return null;
     }
 
+    // 中文：**这一条必须排在「有限十进制 ⇒ 直接用」之前。** 它挡下的正是那一条本来会收下的东西：
+    //       `x^2=-1` 的 `0`、`1=2` 的 `0`、`x=x` 的 `1` **全都是有限十进制**。
+    //       判据与理由是 [_relationCameBackAsTruthValue] 那一处，这里只是把它读出来。
+    // English: **this has to come before "a finite decimal ⇒ used directly"**, because what it refuses
+    //          is exactly what that rule would otherwise take: the `0` of `x^2=-1`, the `0` of `1=2` and
+    //          the `1` of `x=x` **are all finite decimals**. The judgement and its reasoning are on
+    //          [_relationCameBackAsTruthValue]; this only reads it.
+    if (_relationCameBackAsTruthValue(answer)) return null;
     if (decimalTextIsFinite(engineResult.decimalText)) {
       // 中文：有限十进制 ⇒ 直接用（与引擎接进提交路径之前逐字节一致：那一步没有形状字段）。
       //       文本有限而 double 装不下的（`2^2000`/`2^-2000`）也在这里：判据在**字符串层面**，

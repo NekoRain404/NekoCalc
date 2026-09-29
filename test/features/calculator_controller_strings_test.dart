@@ -18,7 +18,7 @@ import 'package:nekocalc/features/calculator/presentation/calculator_controller_
 ///
 ///       **判据与文案分家的三处**，各有一条断言钉着：
 ///       - `_friendlyCalculationError` 的 `contains('Missing )')` 那一列是**引擎英文错误的判据**，
-///         留在源码里；被翻的只有右边那十一句。
+///         留在源码里；被翻的只有右边那十二句。
 ///       - 角度模式标签里的 `DEG` / `RAD` 是**令牌**，两种语言里都是这个写法。
 ///       - `result.label` / `input.label` / `tool.formula` 是**数据**，沿参数进来，不在表里。
 /// English: **the two guard rails for the calculator controller's table.** The same shape as the guards
@@ -39,7 +39,7 @@ import 'package:nekocalc/features/calculator/presentation/calculator_controller_
 ///
 ///          **Three places where verdict and wording part company**, each pinned by an assertion:
 ///          - the `contains('Missing )')` column in `_friendlyCalculationError` is the **verdict over
-///            the engine's English error** and stays in the source; only the eleven sentences on the
+///            the engine's English error** and stays in the source; only the twelve sentences on the
 ///            right were translated;
 ///          - `DEG` / `RAD` inside the angle-mode label are **tokens** and read the same in both
 ///            languages;
@@ -50,7 +50,7 @@ void main() {
   final en = CalculatorControllerStrings.calculatorControllerEn;
 
   test('计算器中文表与迁移前源码里那些字逐字节相同', () {
-    // —— 引擎错误翻译成人话（十一句）——
+    // —— 引擎错误翻译成人话（十二句）——
     expect(zh.friendlyMissingParen, '缺少右括号');
     expect(zh.friendlyExpectedNumber, '需要输入数字');
     expect(zh.friendlyUnexpectedToken, '存在无法识别的内容');
@@ -61,6 +61,17 @@ void main() {
     expect(zh.friendlyEvenRootNegative, '负数不能开偶次根');
     expect(zh.friendlyNotFinite, '结果不是有限数值');
     expect(zh.friendlyUnitMismatch, '单位不匹配：这两个单位不能互相换算');
+    // 中文：**这一句是本轮新加的**（解方程那一轮）——它接住的是一条本来会变成错值的路：
+    //       引擎把一条关系答成一个 `0`，而 `0` 是有限十进制，采用规则会把它当成**数字零**放上屏。
+    //       所以它和上面那十一句同一条规矩，也得在这里逐字节钉住。
+    //       实测的三种输入（`x^2=-1`、`1=2`、`x=x`）给的都是 `0`/`1`，所以这句话要同时说对两种情形。
+    // English: **this sentence is new this round** (the equation-solving round) — it intercepts a road
+    //          that used to produce a wrong value: the engine answers a relation with a `0`, and `0` is
+    //          a finite decimal, so the taking rule would put **the number zero** on screen. It follows
+    //          the same rule as the eleven above and is pinned byte for byte here.
+    //          All three measured inputs (`x^2=-1`, `1=2`, `x=x`) print `0`/`1`, so the sentence has to
+    //          be right for both readings.
+    expect(zh.friendlyRelationNoSolution, '这条方程没有解（或这个等式恒不成立）');
     expect(zh.friendlyGeneric, '表达式错误');
 
     // —— 记忆寄存器 ——
@@ -139,6 +150,7 @@ void main() {
       'friendlyEvenRootNegative': zh.friendlyEvenRootNegative,
       'friendlyNotFinite': zh.friendlyNotFinite,
       'friendlyUnitMismatch': zh.friendlyUnitMismatch,
+      'friendlyRelationNoSolution': zh.friendlyRelationNoSolution,
       'friendlyGeneric': zh.friendlyGeneric,
       'memoryRefusal': zh.memoryRefusal,
       'savedNoteTitle': zh.savedNoteTitle,
@@ -188,6 +200,7 @@ void main() {
       'friendlyEvenRootNegative': en.friendlyEvenRootNegative,
       'friendlyNotFinite': en.friendlyNotFinite,
       'friendlyUnitMismatch': en.friendlyUnitMismatch,
+      'friendlyRelationNoSolution': en.friendlyRelationNoSolution,
       'friendlyGeneric': en.friendlyGeneric,
       'memoryRefusal': en.memoryRefusal,
       'savedNoteTitle': en.savedNoteTitle,

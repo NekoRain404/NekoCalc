@@ -526,9 +526,20 @@ class AppEngineVocabulary {
   ///          An unparseable input (`ParseErrorNode`) is **false**: this app's own evaluator cannot
   ///          answer such an input either, so what the engine (or the fallback) gives is this line's
   ///          answer — which is what this judgement is asking about.
-  static bool canExpress(String source) => !namesSomethingOutsideTheAppLanguage(
-        const ExpressionAstParser().parse(
-          ExpressionParser.normalizeExpressionInput(source),
-        ),
-      );
+  /// 中文：⚠️ **两个前提，缺一不可**：先得**读得懂**（[hasParseError] 为假），再问树里有没有
+  ///       表外的名字。少了前一个，`2x+1=7`——应用自己的语法里连等号都没有——会被答成
+  ///       "应用自己的语言表达得了"，于是引擎那句 `x = 3` 被丢掉、屏幕上留下解析错误。
+  ///       实测与理由写在 [hasParseError] 上。
+  /// English: ⚠️ **two premises, both required**: it has to be **readable** ([hasParseError] false)
+  ///          before asking whether the tree names anything outside the table. Without the first,
+  ///          `2x+1=7` — a sentence whose equals sign this app's grammar does not even have — comes back
+  ///          as "this app's own language can express it", so the engine's `x = 3` is discarded and the
+  ///          parse error stays on screen. The measurement and the reasoning are on [hasParseError].
+  static bool canExpress(String source) {
+    final tree = const ExpressionAstParser().parse(
+      ExpressionParser.normalizeExpressionInput(source),
+    );
+    if (hasParseError(tree)) return false;
+    return !namesSomethingOutsideTheAppLanguage(tree);
+  }
 }
