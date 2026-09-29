@@ -298,11 +298,20 @@ void main() {
       // 中文：**这一条防的是"把引擎的调用原文当成答案"**——无解与欠定都走这一支。
       // English: **this stops "the engine's own call text taken for an answer"** — both the inconsistent
       //          and the underdetermined case land here.
-      for (final echoed in <String>[
-        'multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])',
-        'multisolve(x = 3 - y; [x  y])',
+      // 中文：**三种种类都试**，因为真机上报的**不是**宿主报的那一个（见那段判据的注释）。
+      //       判据写成"不是 `structured`/`number`"，所以它不依赖平台报哪一个。
+      // English: **all three kinds**, because the device does **not** report the one the host does (see
+      //          the note on that judgement). It is written as "not `structured`/`number`", so it does
+      //          not depend on which one this platform reports.
+      for (final (echoed, kind) in <(String, EngineResultKind)>[
+        ('multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])',
+            EngineResultKind.symbolic),
+        ('multisolve(x = 3 - y; [x  y])', EngineResultKind.symbolic),
+        ('multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])',
+            EngineResultKind.arithmetic),
+        ('multisolve(x = 3 - y; [x  y])', EngineResultKind.unit),
       ]) {
-        final engine = _StubEngine(_reply(echoed, EngineResultKind.symbolic));
+        final engine = _StubEngine(_reply(echoed, kind));
         final controller = _controller(engine);
 
         controller.setExpression('x+y=3; x-y=1');

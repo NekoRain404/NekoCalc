@@ -476,9 +476,39 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          returns `symbolic` (`2x+1=7` → `x = 3`), and "`symbolic` means do not take it" would
   ///          discard the real answer. Both sides were measured; the reasoning is on that field.
   bool _systemCameBackUnsolved(
-          ({EngineReply reply, TranslatedExpression? translated}) answer) =>
-      _translatedAs(answer)?.isSystem == true &&
-      answer.reply.result?.resultKind == EngineResultKind.symbolic;
+      ({EngineReply reply, TranslatedExpression? translated}) answer) {
+    if (_translatedAs(answer)?.isSystem != true) return false;
+    // 中文：**判据写成"不是那两种"，而不是"是 symbolic"。** 两者在宿主上等价（退回的那一发
+    //       宿主报 `SYMBOLIC`），但**真机上不成立**：同一条输入，屏幕上落的是旧解析器那句，
+    //       说明真机报的种类不是 `symbolic`。**把判据挂在"哪一个是错的"上，就还要知道真机报的
+    //       是哪一个——那是我当时不知道的东西。**
+    //
+    //       反过来问就无需知道：**一组关系的答案只有两种形状**——
+    //       `structured`（向量/矩阵，`[2  1]`）与 `number`（一元方程组，实测
+    //       `multisolve([2x=4], x)` 给的是 `2`，不是向量）。其余一切（`symbolic`、`arithmetic`、
+    //       `unit`…）都不是"解出来了"。这条判据因此**不依赖平台报的是哪一个**。
+    //
+    //       ⚠️ **宁可多挡一格。** 万一有一种合法的解被挡下，后果是"屏幕上说解不了"；
+    //       而漏判的后果是"引擎的调用原文被当成答案印出来"——两害相权，前者可接受。
+    // English: **stated as "not one of those two" rather than "is `symbolic`".** On the host the two are
+    //          equivalent (the echoed receipt comes back `SYMBOLIC`), but **not on the device**: for the
+    //          same input the screen carried the legacy parser's sentence, which says the platform's kind
+    //          is not `symbolic`. **Hanging the judgement on "which one is the broken kind" means having
+    //          to know which kind the device reports — and that is what I did not know.**
+    //
+    //          Asking the other way round needs no such knowledge: **a group's answer has only two
+    //          shapes** — `structured` (a vector or matrix, `[2  1]`) and `number` (a one-unknown system;
+    //          measured, `multisolve([2x=4], x)` gives `2`, not a vector). Everything else (`symbolic`,
+    //          `arithmetic`, `unit`, …) is not "it was solved". The judgement therefore **does not depend
+    //          on which kind this platform reports**.
+    //
+    //          ⚠️ **It errs towards refusing.** If some legitimate answer were refused, the consequence is
+    //          "the screen says it cannot be solved"; missing one instead would put **the engine's own
+    //          call text on screen as the answer**. Of two evils, the first is bearable.
+    final kind = answer.reply.result?.resultKind;
+    return kind != EngineResultKind.structured &&
+        kind != EngineResultKind.number;
+  }
 
   TranslatedExpression? _translatedAs(
           ({EngineReply reply, TranslatedExpression? translated}) answer) =>
