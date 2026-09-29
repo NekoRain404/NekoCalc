@@ -4,6 +4,7 @@ import '../../../l10n/app_language.dart';
 import 'numeric_input_strings.dart';
 import 'text_tool_codec_strings.dart';
 import 'text_tool_data_strings.dart';
+import 'text_tool_date_strings.dart';
 import 'text_tool_stats_strings.dart';
 import 'text_tool_text_strings.dart';
 import 'text_tool_timestamp_strings.dart';
@@ -17,6 +18,7 @@ import 'text_tool_web_strings.dart';
 export 'numeric_input_strings.dart';
 export 'text_tool_codec_strings.dart';
 export 'text_tool_data_strings.dart';
+export 'text_tool_date_strings.dart';
 export 'text_tool_stats_strings.dart';
 export 'text_tool_text_strings.dart';
 export 'text_tool_timestamp_strings.dart';
@@ -137,6 +139,7 @@ class TextToolStrings {
     required this.codec,
     required this.web,
     required this.timestamp,
+    required this.date,
     required this.numericInput,
   });
 
@@ -147,6 +150,7 @@ class TextToolStrings {
   final TextToolCodecStrings codec;
   final TextToolWebStrings web;
   final TextToolTimestampStrings timestamp;
+  final TextToolDateStrings date;
 
   /// 中文：**数值解析失败那四句**——自定义公式工具拿 `a`/`b`/`c` 三个变量去问
   ///       `ToolDetailController.parseNumericInputDetailed`，那个解析器不认字，只回一个判据，
@@ -186,6 +190,7 @@ class TextToolStrings {
     codec: TextToolCodecStrings.codecZh,
     web: TextToolWebStrings.webZh,
     timestamp: TextToolTimestampStrings.timestampZh,
+    date: TextToolDateStrings.textToolDateZh,
     numericInput: NumericInputStrings.numericInputZh,
   );
 
@@ -197,6 +202,7 @@ class TextToolStrings {
     codec: TextToolCodecStrings.codecEn,
     web: TextToolWebStrings.webEn,
     timestamp: TextToolTimestampStrings.timestampEn,
+    date: TextToolDateStrings.textToolDateEn,
     numericInput: NumericInputStrings.numericInputEn,
   );
 }

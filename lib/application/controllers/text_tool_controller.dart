@@ -13,6 +13,7 @@ export 'text_tool_models.dart';
 part 'text_tool_color_tools.dart';
 part 'text_tool_csv_tools.dart';
 part 'text_tool_custom_formula_tools.dart';
+part 'text_tool_date_tools.dart';
 part 'text_tool_binary_tools.dart';
 part 'text_tool_html_entities.dart';
 part 'text_tool_integer_tools.dart';
@@ -123,11 +124,24 @@ class TextToolController {
     String a = '12',
     String b = '3',
     String c = '5',
+    // 中文：**只有日期计算看得见它。** 「今天」在 `date_calc` 里是一个输入，所以它必须可注入——
+    //       写死 `DateTime.now()` 的话，「今天 + 30」这一整条路就只能靠真机验，而它是一个纯函数。
+    //       其余工具不看这个参数。
+    // English: **only the date calculator sees this.** "Today" is an input inside `date_calc`, so it has
+    //          to be injectable — with a hard-wired `DateTime.now()` the whole "today + 30" path would
+    //          be device-only, and it is a pure function. No other tool reads this parameter.
+    DateTime? today,
   }) {
     try {
       final trimmed = input.trim();
       return switch (toolId) {
         'base_convert' => _baseConvert(strings.codec, trimmed),
+        // 中文：**`today` 从参数走**，不在这里写死 `DateTime.now()`——那个写法会让这一条永远只能靠真机验，
+        //       而它本来是一个纯函数。测试传一个固定日期就能把整条路走完。
+        // English: **`today` travels through the parameter list** rather than a hard-wired
+        //          `DateTime.now()` here, which would make this branch device-only — and it is
+        //          a pure function. A test passing a fixed date walks the whole path.
+        'date_calc' => _dateCalc(strings.date, trimmed, today ?? DateTime.now()),
         'timestamp' => _timestamp(strings.timestamp, trimmed),
         'color_convert' => _colorConvert(strings.web, trimmed),
         'base64' => _base64(strings.codec, trimmed),

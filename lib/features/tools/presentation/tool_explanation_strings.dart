@@ -178,6 +178,8 @@ const Map<String, String> toolExplanationsEn = {
   '里程、燃油和百公里油耗任意填写两项即可反推第三项，输出 km/L、成本、油箱续航、年油费和排放粗估。': 'Fill any two of distance, fuel and consumption per 100 km and the third is back-solved, with km/L, cost, tank range, the annual fuel cost and a rough emissions estimate.',
   '支持 0x、#、h、0b、b、0o、o 与全角数字输入。': 'Accepts 0x, #, h, 0b, b, 0o, o and full-width digit input.',
   '支持秒/毫秒时间戳、小数秒、ISO、本地和中文日期时间。': 'Accepts second / millisecond timestamps, fractional seconds, ISO, local and Chinese date-time input.',
+  '支持两个日期的间隔、单日期加减天数、今天起算，并给出星期、年内天数与 ISO 周。':
+      'Spans between two dates, or a date plus or minus days, counted from today too, with weekday, day of year and ISO week.',
   '支持 HEX、RGB/RGBA、HSL/HSLA 和常用 CSS 命名色。': 'Accepts HEX, RGB/RGBA, HSL/HSLA and the common CSS colour names.',
   '自动识别普通文本、Base64、Base64URL 和 data URL，输出标准/Base64URL/data URL 可复制格式。': 'Recognises plain text, Base64, Base64URL and data URLs and gives copyable standard/Base64URL/data URL forms.',
   '自动识别完整 URL、query string 和 URL 组件，输出长度变化、百分号片段和 query 参数数量。': 'Recognises whole URLs, query strings and URL components and gives the length change, the percent-encoded parts and the query parameter count.',

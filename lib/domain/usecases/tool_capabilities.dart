@@ -3,6 +3,7 @@ import '../entities/tool_definition.dart';
 const Set<String> textToolIds = {
   'base_convert',
   'timestamp',
+  'date_calc',
   'color_convert',
   'base64',
   'url_codec',

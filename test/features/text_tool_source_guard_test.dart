@@ -46,6 +46,23 @@ void main() {
     //          left alone".** Every entry carries its reason. None of them is interface copy:
     //          translating any one changes behaviour rather than language.
     const exemptions = <String, String>{
+      // 中文：**日期计算那四条。** 两条正则描绘「两个日期」与「一个日期加天数」的**形状**，
+      //       `今天`/`今日` 是那两个**词**本身——它们判的都是**用户打进来的东西长什么样**，
+      //       与 `text_tool_timestamp_tools.dart` 里那些日期格式标记是同一条判据。
+      //       翻掉它们，中文用户就再也打不出中文的日期问法。
+      // English: **the date calculator's four.** Two patterns describe the **shape** of "two dates" and
+      //          "a date plus a day count"; `今天`/`今日` are the two **words** themselves — all four ask
+      //          what **the user typed** looks like, the same ruling as the date-format markers in
+      //          `text_tool_timestamp_tools.dart`. Translate them and a Chinese user can no longer type
+      //          a Chinese date question.
+      r'^(.+?)\s*(?:到|至|to|~|→|->|\.\.|—|–)\s*(.+)$':
+          '日期区间的分隔符形状',
+      r'^(\d{4}\s*[-/.年]\s*\d{1,2}\s*[-/.月]\s*\d{1,2}\s*日?)\s*([+-])\s*(\d{1,6})\s*天?$':
+          '日期加天数的形状',
+      r'^(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?$':
+          '一个日期本身的形状（含中文年月日）',
+      '今天': '用户打的词',
+      '今日': '用户打的词',
       // —— 输入文法：匹配用户可能敲进来的中文标签 ——
       r"^\s*(formula|expr|expression|公式|表达式|算式|[abc])\s*[:：=]\s*(.+?)\s*$":
           '自定义公式：解析 `公式: …` 这类中文标签的输入文法',
@@ -118,6 +135,7 @@ void main() {
       'text_tool_controller.dart',
       'text_tool_csv_tools.dart',
       'text_tool_custom_formula_tools.dart',
+      'text_tool_date_tools.dart',
       'text_tool_html_entities.dart',
       'text_tool_integer_tools.dart',
       'text_tool_json_tools.dart',
@@ -158,7 +176,7 @@ void main() {
 
     expect(offenders, isEmpty,
         reason: '这些界面字面量还没走 TextToolStrings 那七张表：\n${offenders.join('\n')}');
-    expect(exemptions.length, 34, reason: '豁免表变短或变长都要在这里说一声');
+    expect(exemptions.length, 39, reason: '豁免表变短或变长都要在这里说一声');
     expect(seen, migrated,
         reason: '本族文件多了或少了：目录里是 $seen，名单里是 $migrated——'
             '新加一个 `text_tool_*.dart` 时这里会红，那时请把它也搬进文案表');

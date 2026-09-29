@@ -55,6 +55,11 @@ final List<ToolDefinition> textToolDefinitions = [
       ToolCategory.programming, '编码', '支持 0x、#、h、0b、b、0o、o 与全角数字输入。'),
   _textTool('timestamp', '时间戳转换', 'Unix 时间戳与日期转换', ToolCategory.programming,
       '时间', '支持秒/毫秒时间戳、小数秒、ISO、本地和中文日期时间。'),
+  // 中文：**日期计算**——HiPER 手册里 `date` 与 `calendar` 的命中是 **0**，它没有这一类能力（本仓
+  //       `engine-capability-probe.md` 有齐零验证的做法）。它算日期却不进入引擎，理由写在
+  //       `text_tool_date_tools.dart` 的文件头。
+  _textTool('date_calc', '日期计算', '两个日期相差多少天、某个日期加减几天', ToolCategory.math,
+      '常用', '支持两个日期的间隔、单日期加减天数、今天起算，并给出星期、年内天数与 ISO 周。'),
   _textTool('color_convert', 'RGB/HEX颜色', 'RGB、HEX、HSL 颜色转换',
       ToolCategory.programming, '编码', '支持 HEX、RGB/RGBA、HSL/HSLA 和常用 CSS 命名色。'),
   _textTool('base64', 'Base64', 'Base64 编码解码', ToolCategory.programming, '编码',

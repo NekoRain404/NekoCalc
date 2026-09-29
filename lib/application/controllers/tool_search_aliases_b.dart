@@ -457,6 +457,28 @@ void _addToolSearchAliasesB(String id, List<String> aliases) {
         '时间戳转换',
         '毫秒时间戳',
       ]);
+    case 'date_calc':
+      aliases.addAll(const [
+        // 中文：**别名里要有 `date calculator` 本身。** 英文那一格名字就是 `Date Calculator`，
+        //       而 `tool_catalog_strings_test.dart` 有一条判据：A 类的名字去掉大小写与标点之后
+        //       必须能在别名表里查回来。少了这一条，那条断言就会把这个工具判成"新写的名字"。
+        // English: **the aliases must contain `date calculator` itself.** The English catalogue name is
+        //          `Date Calculator`, and `tool_catalog_strings_test.dart` rules that an A-class name,
+        //          once case and punctuation are removed, must be findable in the alias table. Without
+        //          this entry that assertion would class this tool as an "authored name".
+        'date calculator',
+        'date difference',
+        'days between',
+        'days between dates',
+        'date add',
+        'date plus days',
+        '日期计算',
+        '日期相差',
+        '两个日期相差',
+        '相差天数',
+        '日期加减',
+        '几天后',
+      ]);
     case 'data_size':
       aliases.addAll(const [
         'bytes',

@@ -57,8 +57,8 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('中文表与目录逐条相同，两张表与名字表互为全集（运行期比对，不是照抄）', () {
-    expect(toolCatalog.length, 117,
-        reason: '目录里一共 117 个工具（77 条 title: + 22 个 _unitTool + 18 个 _textTool）');
+    expect(toolCatalog.length, 118,
+        reason: '目录里一共 118 个工具（77 条 title: + 22 个 _unitTool + 19 个 _textTool）');
     expect(zh.toolDescriptions.length, toolCatalog.length,
         reason: '中文描述表的条数与目录不同——多一条或少一条都会让下面那条断言空转');
     expect(en.toolDescriptions.length, toolCatalog.length,
