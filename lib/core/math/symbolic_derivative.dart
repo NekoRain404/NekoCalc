@@ -193,6 +193,12 @@ class DerivativeRules {
   static const String product = 'product';
   static const String power = 'power';
   static const String chain = 'chain';
+
+  /// 中文：**导数在某点不存在的那一类**（`abs`）。与别的法则分开，是因为界面上除了
+  ///       「用了哪条法则」之外**还要说一句边界**。
+  /// English: the class whose **derivative does not exist at a point** (`abs`). Kept apart from the other
+  ///          rules because the screen has to say **one more thing** besides which rule was used.
+  static const String chainWithCaveat = 'chain_caveat';
 }
 
 /// 中文：**对 [variable] 求导，并把每一步写出来。**
@@ -371,7 +377,8 @@ String? _differentiate(ExprNode node, String variable, List<DerivativeStep> step
       final innerText = _differentiate(args.single, variable, steps);
       if (innerText == null) return null;
       final text = '$outer·($innerText)';
-      _record(steps, text, DerivativeRules.chain);
+      _record(steps, text,
+          name == 'abs' ? DerivativeRules.chainWithCaveat : DerivativeRules.chain);
       return text;
     case PostfixNode():
     case OperatorNode():
@@ -617,6 +624,22 @@ String? _outerDerivative(String name, ExprNode argument) {
       return 'sinh($u)';
     case 'tanh':
       return '1-tanh($u)^2';
+    // 中文：**`abs` 收进来了——它此前正是被拒绝的那一个。**
+    //       拒绝的理由是「`x/|x|` 在 0 处没有定义，而这个工具没有地方说这句话」。
+    //       **那个理由现在不成立了**：步骤旁边有一栏 `insights`，而那正是放这种话的地方
+    //       （「对谁求导」那一句就住在那儿）。
+    //       所以收它，**并且把边界同时说出来**——用 [DerivativeRules.chainWithCaveat]
+    //       而不是 `chain`，好让界面上那一层知道要加一句。
+    //       引擎给的也是 `x / |x|`（实测），**这一条与它一致**；不同的是我们会说那句话。
+    // English: **`abs` is admitted — and it is the one that used to be refused.** The reason was that
+    //          `x/|x|` is undefined at 0 and this tool had nowhere to say so. **That reason no longer
+    //          holds**: there is an `insights` column beside the steps and that is exactly where such a
+    //          sentence belongs (the "with respect to" line already lives there). So it is admitted, **with
+    //          the boundary said at the same time** — via [DerivativeRules.chainWithCaveat] rather than
+    //          `chain`, so the screen layer knows to add the sentence. The engine gives `x / |x|` as well
+    //          (measured), so **this agrees with it**; the difference is that we say the sentence.
+    case 'abs':
+      return '$u/abs($u)';
     default:
       // 中文：⚠️ **两条刻意不在表里，理由各是一条，不是"忘了"：**
       //

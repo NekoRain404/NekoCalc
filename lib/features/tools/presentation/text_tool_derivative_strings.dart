@@ -36,6 +36,7 @@ class TextToolDerivativeStrings {
     required this.stepLine,
     required this.tidiedLine,
     required this.variableLine,
+    required this.absCaveat,
     required this.ruleNames,
   });
 
@@ -72,6 +73,14 @@ class TextToolDerivativeStrings {
   ///          tell which letter was used, and **the answer for `y` and for `x` differ entirely**.
   final String Function(String variable) variableLine;
 
+  /// 中文：**`abs` 的边界。** `x/|x|` 在 0 处没有定义——**这句话必须有地方说**，
+  ///       否则那条推导在 0 点上就是一条骗人的推导（这正是它此前被拒绝的理由，
+  ///       而现在有地方放了）。
+  /// English: **`abs`'s boundary.** `x/|x|` is undefined at 0 — **this sentence needs somewhere to live**,
+  ///          or the derivation lies at the point 0 (which is exactly why it used to be refused, and there
+  ///          is somewhere for it now).
+  final String absCaveat;
+
   /// 中文：判据 → 人话。**查不到的名字回原样**（见文件头）。
   /// English: verdict → words. **A name with no entry comes back as itself** (see the head).
   final Map<String, String> ruleNames;
@@ -99,6 +108,7 @@ class TextToolDerivativeStrings {
     stepLine: (index, expression, rule) => '$index. $expression    （$rule）',
     tidiedLine: (expression) => '= $expression',
     variableLine: (variable) => '对 $variable 求导',
+    absCaveat: '绝对值在 0 处不可导，那里的导数不存在',
     ruleNames: const <String, String>{
       'constant': '常数的导数是 0',
       'self': '对自身求导得 1',
@@ -108,6 +118,7 @@ class TextToolDerivativeStrings {
       'product': '乘法法则',
       'power': '幂法则',
       'chain': '链式法则',
+      'chain_caveat': '链式法则（绝对值见下）',
     },
   );
 
@@ -121,6 +132,7 @@ class TextToolDerivativeStrings {
     stepLine: (index, expression, rule) => '$index. $expression    ($rule)',
     tidiedLine: (expression) => '= $expression',
     variableLine: (variable) => 'with respect to $variable',
+    absCaveat: 'The absolute value is not differentiable at 0; the derivative does not exist there',
     ruleNames: const <String, String>{
       'constant': 'the derivative of a constant is 0',
       'self': 'the variable differentiates to 1',
@@ -130,6 +142,7 @@ class TextToolDerivativeStrings {
       'product': 'the product rule',
       'power': 'the power rule',
       'chain': 'the chain rule',
+      'chain_caveat': 'the chain rule (see the note on the absolute value)',
     },
   );
 }

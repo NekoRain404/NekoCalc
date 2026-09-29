@@ -95,7 +95,7 @@ void main() {
       //          plausible-looking, complete, fake derivation. `abs` and `log` are **deliberately absent
       //          after measurement** (not differentiable at 0; the two sides define it differently) while
       //          `acosh` simply **was never measured**. All three stop in the same place.
-      for (final input in <String>['acosh(x)', 'abs(x)']) {
+      for (final input in <String>['acosh(x)', 'erf(x)']) {
         final out = _run(input);
         expect(out.hasError, isTrue, reason: '`$input` 算不了');
         expect(out.detail, contains('这一步还不会算'));

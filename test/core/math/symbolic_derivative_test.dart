@@ -185,21 +185,24 @@ void main() {
           reason: '`ln` 是自然对数，两者不许混');
     });
 
-    test('⚠️ `abs` 刻意不在表里', () {
-      // 中文：**这一条钉的是"拒绝"，而不是"忘了"。** 理由是量过之后才敢下的：
-      //       `abs` 的导数是 `x/|x|`，在 0 处没有定义，而**这个工具没有地方说这句话**
-      //       （每一步只有"式子"与"法则"两栏）——印出来就是一条**在 0 点上骗人的**推导。
-      //       （`log` 原本也在这里，这一轮核实之后收进去了，见上一条。）
-      // English: **this pins "refused", not "forgotten", and the reason follows measurement**: `abs`'s
-      //          derivative is `x/|x|`, undefined at 0, and **this tool has nowhere to say so** (a step
-      //          carries only "the expression" and "the rule") — printing it would be a derivation that
-      //          **lies at the point 0**. (`log` was here too and was admitted this round after
-      //          verification; see the test above.)
-      for (final source in <String>['abs(x)']) {
-        final result = differentiate(source, 'x');
-        expect(result.derivative, isNull, reason: '`$source` 不该被求导');
-        expect(result.refusal, isNotNull);
-      }
+    test('⚠️ `abs` 收进来了——**边界与它一起来**', () {
+      // 中文：**它此前是被拒绝的那一个**，理由是「`x/|x|` 在 0 处没有定义，而这个工具没有地方
+      //       说这句话」。**那个理由现在不成立了**（有 `insights` 那一栏），所以收它，
+      //       同时把它记成 [DerivativeRules.chainWithCaveat] **而不是** `chain`——
+      //       界面那一层据此知道要加一句边界。
+      //       引擎给的也是 `x / |x|`（实测），**这一条与它一致**；不同的是我们会说那句话。
+      // English: **this is the one that used to be refused**, because `x/|x|` is undefined at 0 and the tool
+      //          had nowhere to say so. **That reason no longer holds** (there is an `insights` column), so
+      //          it is admitted — and recorded as [DerivativeRules.chainWithCaveat] **rather than** `chain`,
+      //          so the screen layer knows to add the boundary sentence. The engine gives `x / |x|` too
+      //          (measured), so **this agrees with it**; the difference is that we say the sentence.
+      final result = differentiate('abs(x)', 'x');
+      expect(result.refusal, isNull, reason: '现在它算得出来了');
+      expect(result.derivative, 'x/abs(x)·(1)');
+      expect(result.steps.last.rule, DerivativeRules.chainWithCaveat,
+          reason: '**令牌与 `chain` 不同**——界面据此加那句话');
+      // 没有 `abs` 的那条路**不许**被标上这个令牌。
+      expect(differentiate('sin(x)', 'x').steps.last.rule, DerivativeRules.chain);
     });
 
     test('六个表内函数各一条，形状与定义一致', () {

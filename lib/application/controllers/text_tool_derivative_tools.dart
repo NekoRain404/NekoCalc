@@ -113,7 +113,16 @@ TextToolOutput _deriveSteps(TextToolDerivativeStrings strings, String input) {
     //       "对 x 求导"的答案当成"对 y 求导"的。
     // English: **the screen has to say which variable was used.** The variable is no longer hard-wired, and
     //          a user who cannot see that would take a `d/dx` answer for a `d/dy` one.
-    insights: <String>[strings.variableLine(request.variable)],
+    insights: <String>[
+      strings.variableLine(request.variable),
+      // 中文：**用了 `abs` 就把边界说出来。** 判据读的是**步骤里那一条法则令牌**
+      //       （`chain_caveat`），不是回读印出来的句子——与 `variableLine` 同一条规矩。
+      // English: **when `abs` was used, the boundary is said.** The judgement reads **the rule token in
+      //          the steps** (`chain_caveat`) rather than the printed sentence — the same rule as
+      //          `variableLine`.
+      if (result.steps.any((step) => step.rule == DerivativeRules.chainWithCaveat))
+        strings.absCaveat,
+    ],
   );
 }
 
