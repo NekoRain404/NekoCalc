@@ -18,6 +18,8 @@ import 'graph_workspace_paste.dart';
 export 'graph_workspace_paste.dart';
 import '../../../shared/presentation/app_chrome.dart';
 
+part 'graph_page_output.dart';
+
 class GraphPage extends StatefulWidget {
   const GraphPage({
     required this.db,
@@ -58,6 +60,20 @@ class _GraphPageState extends State<GraphPage> {
   int _workspaceRevision = 0;
   int _workspaceLoadToken = 0;
   final GlobalKey _graphBoundaryKey = GlobalKey();
+
+  /// 中文：**`setState` 的一个普通外壳。** `setState` 是 `@protected`，**extension 里调不了**
+  ///       （`invalid_use_of_protected_member`，实测三条）。`graph_page_output.dart` 里那三处
+  ///       要重绘，但它们搬进 `part` 之后就不在 `State` 的子类里了，所以从这里过一道。
+  ///       **这不是绕开什么，是把"语言不许"换成"一个看得见的方法"**——那三处的调用者因此
+  ///       与其余 187 行一样能整体搬走。理由与量到的三条警告写在那个文件的文件头。
+  /// English: **a plain wrapper around `setState`.** `setState` is `@protected` and **cannot be called
+  ///          from an extension** (`invalid_use_of_protected_member`, three of them measured). The
+  ///          three repaint sites in `graph_page_output.dart` need it, but once they move into a `part`
+  ///          they are no longer inside a subclass of `State`, so they come through here. **This is not
+  ///          routing around anything — it turns "the language forbids it" into a visible method**, which
+  ///          is what lets those three sites move whole with the other 187 lines. The reasoning and the
+  ///          three measured warnings are on that file's head.
+  void _rebuild(VoidCallback fn) => setState(fn);
 
   @override
   void initState() {
@@ -585,196 +601,6 @@ class _GraphPageState extends State<GraphPage> {
     });
   }
 
-  Future<void> _copyGraphData() async {
-    final strings = GraphStrings.of(context);
-    await Clipboard.setData(ClipboardData(
-      text: buildGraphCopyText(
-        functions: _functions,
-        viewport: _viewport,
-        markers: _markers,
-        selectedMarker: _selectedMarker,
-        strings: strings,
-      ),
-    ));
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(strings.copiedGraphData)));
-    }
-  }
-
-  Future<void> _exportGraphPng() async {
-    final strings = GraphStrings.of(context);
-    try {
-      final bytes = await captureBoundaryPng(_graphBoundaryKey);
-      final saved = await DocumentExportChannel.exportBytes(
-        fileName:
-            buildExportFileName(prefix: 'nekocalc_graph', extension: 'png'),
-        mimeType: 'image/png',
-        bytes: bytes,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(saved ? strings.savedPng : strings.cancelledSave),
-      ));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.exportFailed('$error'))),
-      );
-    }
-  }
-
-  Future<void> _pasteGraphData() async {
-    final strings = GraphStrings.of(context);
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!mounted) return;
-    final text = data?.text;
-    if (text == null || text.trim().isEmpty) return;
-    final paste = parseGraphWorkspacePasteText(text, strings: strings);
-    if (!paste.hasWorkspace) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(paste.summary)),
-      );
-      return;
-    }
-    final workspace = paste.workspace!;
-    setState(() {
-      _functions
-        ..clear()
-        ..addAll(workspace.functions);
-      _viewport = workspace.viewport;
-      _markers = const [];
-      _selectedMarker = null;
-      _status = paste.summary;
-    });
-    _scheduleWorkspacePersist();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(paste.summary)),
-    );
-  }
-
-  Future<void> _copySelectedMarker() async {
-    final selected = _selectedMarker;
-    if (selected == null || selected < 0 || selected >= _markers.length) {
-      return;
-    }
-    final strings = GraphStrings.of(context);
-    await Clipboard.setData(
-      ClipboardData(text: buildMarkerCopyText(_markers[selected])),
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(strings.copiedMarker)));
-    }
-  }
-
-  void _centerSelectedMarker() {
-    final selected = _selectedMarker;
-    if (selected == null || selected < 0 || selected >= _markers.length) {
-      return;
-    }
-    final strings = GraphStrings.of(context);
-    final marker = _markers[selected];
-    setState(() {
-      _viewport = _viewport.centerOn(marker.x, marker.y);
-      _status = strings.centeredOn(markerCopyLine(marker));
-    });
-    _scheduleWorkspacePersist();
-  }
-
-  void _selectMarkerByOffset(int delta) {
-    if (_markers.isEmpty) return;
-    final current = _selectedMarker ?? 0;
-    final next = (current + delta) % _markers.length;
-    setState(() {
-      _selectedMarker = next < 0 ? next + _markers.length : next;
-      _status = _markers[_selectedMarker!].info;
-    });
-  }
-
-  Widget _markerPanel() {
-    final strings = GraphStrings.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final selected = _selectedMarker == null ||
-            _selectedMarker! < 0 ||
-            _selectedMarker! >= _markers.length
-        ? 0
-        : _selectedMarker!;
-    final marker = _markers[selected];
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: softPanel(context: context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 18, color: marker.color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${marker.kind} ${selected + 1}/${_markers.length}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              IconButton(
-                tooltip: strings.previousMarker,
-                onPressed: _markers.length <= 1
-                    ? null
-                    : () => _selectMarkerByOffset(-1),
-                icon: const Icon(Icons.chevron_left),
-              ),
-              IconButton(
-                tooltip: strings.nextMarker,
-                onPressed: _markers.length <= 1
-                    ? null
-                    : () => _selectMarkerByOffset(1),
-                icon: const Icon(Icons.chevron_right),
-              ),
-              IconButton(
-                tooltip: strings.copyMarker,
-                onPressed: _copySelectedMarker,
-                icon: const Icon(Icons.copy_outlined),
-              ),
-              IconButton(
-                tooltip: strings.centerOnMarker,
-                onPressed: _centerSelectedMarker,
-                icon: const Icon(Icons.center_focus_strong_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            markerCopyLine(marker),
-            style: TextStyle(
-              color: scheme.primary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            marker.info,
-            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.35),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<GraphMarker> _findZeroMarkers(GraphStrings strings) {
-    return buildGraphZeroMarkers(
-        functions: _functions, viewport: _viewport, strings: strings);
-  }
-
-  List<GraphMarker> _findIntersectionMarkers(GraphStrings strings) {
-    return buildGraphIntersectionMarkers(
-        functions: _functions, viewport: _viewport, strings: strings);
-  }
-
-  List<GraphMarker> _findExtremeMarkers(GraphStrings strings) {
-    return buildGraphExtremeMarkers(
-        functions: _functions, viewport: _viewport, strings: strings);
-  }
 }
 
 class FunctionRow extends StatelessWidget {
