@@ -110,21 +110,43 @@ DerivativeResult differentiate(String source, String variable) {
   if (tree is ParseErrorNode) {
     return (derivative: null, steps: const [], refusal: 'unreadable');
   }
-  // 中文：⚠️ **解析器会接受一个前缀、把后面剩下的丢掉。** 这是量出来的：`2+` 解析出来的是一棵
-  //       **常数**树（于是求导得 `0`），而不是解析错误——测试第一版抓到的就是这个。
-  //       每个节点都带 `[start, end)` 覆盖面，所以"读完了没有"是**可以问的**：
-  //       末尾没被覆盖 ⇒ 有东西没读懂 ⇒ **拒绝**。
+  // 中文：⚠️ **"整句读完了没有"必须问树里有没有解析错误，不能只看根节点的覆盖面。**
   //
-  //       **不带上这一条，`2+` 会被当成 `2` 求导**——那与 `x<=3` 被读成 `x<`、
-  //       方程被读成表达式是同一类：**读了一半就当成读完了**。
-  // English: ⚠️ **the parser accepts a prefix and drops the rest.** This was measured: `2+` parses into a
-  //          **constant** tree (so the derivative comes out `0`) rather than a parse error — which is what
-  //          the first version of the test caught. Every node carries a `[start, end)` span, so "was it
-  //          all read" **is askable**: an uncovered tail means something was not understood ⇒ **refuse**.
+  //       这是量出来的（本轮那处没查清的地方，现在查清了）。`parse('2+')` 给出的是：
   //
-  //          **Without this, `2+` would be differentiated as `2`** — the same class as `x<=3` read as
-  //          `x<`, or an equation read as an expression: **half of it read, and taken for the whole.**
-  if (tree.end != source.length) {
+  //       ```
+  //       Bin(+, Number("2")[0,1), ParseErrorNode("")[2,2))[0,2)
+  //       ```
+  //
+  //       ——**解析错误是嵌在里面的**，而**根节点照样覆盖整句**（`end == 2 == 长度`）。
+  //       所以"根没覆盖到末尾"那条判据在这一例上**看不见问题**；
+  //       而"空的数字字面量"也看不见（`2` 是非空的）。
+  //       **两道都没用**，而真正的判据一直就在手边：[hasParseError]——
+  //       它与 `canExpress` 用的是**同一个**谓词，所以这条判断只有**一个拼法**。
+  //
+  //       **不带上这一条，`2+` 会被当成 `2` 求导**（屏幕上出现一个看着像答案的 `0`）——
+  //       那与 `x<=3` 被读成 `x<`、方程被读成表达式是同一类：
+  //       **读了一半就当成读完了。**
+  // English: ⚠️ **"was the whole sentence read" has to ask whether the tree holds a parse error, not just
+  //          look at the root's span.**
+  //
+  //          This was measured (the point that was unresolved this round, now settled). `parse('2+')`
+  //          gives:
+  //
+  //          ```
+  //          Bin(+, Number("2")[0,1), ParseErrorNode("")[2,2))[0,2)
+  //          ```
+  //
+  //          — the parse error is **nested inside**, while **the root still spans the whole sentence**
+  //          (`end == 2 == length`). So "the root does not reach the end" **cannot see this case**, and
+  //          neither can "an empty numeric literal" (`2` is not empty). **Both gates were useless**, while
+  //          the real judgement was to hand all along: [hasParseError] — the **same** predicate
+  //          `canExpress` uses, so this decision has **one spelling**.
+  //
+  //          **Without it, `2+` is differentiated as `2`** (a `0` that looks like an answer lands on
+  //          screen) — the same class as `x<=3` read as `x<`, or an equation read as an expression:
+  //          **half of it read, and taken for the whole.**
+  if (hasParseError(tree)) {
     return (derivative: null, steps: const [], refusal: 'unreadable');
   }
   final steps = <DerivativeStep>[];

@@ -117,6 +117,53 @@ void main() {
       expect(result.refusal, isNotNull);
     });
 
+    test('⚠️ 读了一半的式子要拒绝：`2+` 不是 `2`', () {
+      // 中文：**这一条是本轮唯一一处"先没查清、后查清"的地方。**
+      //
+      //       现象：`2+` **不是**解析错误——`ExpressionAstParser` 给的是一棵能求导出 `0` 的树，
+      //       于是屏幕上会出现一个看着像答案的 `0`（**读了一半当成读完了**）。
+      //
+      //       我先猜了两条判据（"根节点没覆盖整句"、"空的数字字面量"），**两条都无效**，
+      //       而当时不知道为什么。把它打印出来才看见真相：
+      //
+      //       ```
+      //       Bin(+, Number("2")[0,1), ParseErrorNode("")[2,2))[0,2)
+      //       ```
+      //
+      //       ——**解析错误嵌在里面**，而**根节点照样覆盖整句**；`2` 也不是空字面量。
+      //       真正管用的判据一直就在手边：**`hasParseError`**（`expr_node.dart` 里那个，
+      //       与 `canExpress` 用的是同一个谓词）。
+      //
+      //       👉 **教训**：判据查不出来时，**先把结构打出来**，别接着猜——
+      //       两条猜出来的判据一起失效，正是因为它们都在猜"错误长在哪儿"。
+      // English: **the round's one "unsettled then settled" point.**
+      //
+      //          Symptom: `2+` is **not** a parse error — `ExpressionAstParser` hands back a tree that
+      //          differentiates to `0`, putting a `0` that looks like an answer on screen (**half read,
+      //          taken for the whole**).
+      //
+      //          Two judgements were guessed first ("the root does not span the sentence", "an empty
+      //          numeric literal"); **both were useless**, and at the time it was not clear why. Printing
+      //          it out showed the truth:
+      //
+      //          ```
+      //          Bin(+, Number("2")[0,1), ParseErrorNode("")[2,2))[0,2)
+      //          ```
+      //
+      //          — the **parse error is nested inside** while the **root still spans the whole sentence**,
+      //          and `2` is not an empty literal. The judgement that works was to hand all along:
+      //          **`hasParseError`** (in `expr_node.dart`, the same predicate `canExpress` uses).
+      //
+      //          👉 **The lesson**: when a judgement cannot see something, **print the structure first** —
+      //          do not keep guessing. Both guesses failed because both guessed *where the error lives*.
+      for (final source in <String>['2+', 'x+', '2*']) {
+        final result = differentiate(source, 'x');
+        expect(result.derivative, isNull, reason: '`$source` 不该被求导');
+        expect(result.refusal, isNotNull);
+        expect(result.steps, isEmpty, reason: '`$source` 连完整的树都没有，谈不上步骤');
+      }
+    });
+
     test('空输入：只说读不出，没有步骤可说', () {
       // 中文：空串会被解析器读成**一个常量**（于是求导得 `0`），而"没输入"与"输入了一个常数"
       //       是两件事——后者是答案，前者不是。所以这一条挡在 `differentiate` 的门口。
