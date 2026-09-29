@@ -285,7 +285,7 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
     //          through [MathResult.isDisplayable] — [_selectEngineResult] returns `null` for this
     //          branch, so nothing is displayed. **Both paths share one judgement**,
     //          [_relationCameBackAsTruthValue].
-    if (_relationCameBackAsTruthValue(answer)) {
+    if (_relationHasNoAnswer(answer)) {
       throw const FormatException(kRelationTruthValueVerdict);
     }
     final selected = _selectEngineResult(answer, source);
@@ -383,21 +383,25 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          Both halves come back together rather than letting the caller re-translate: a second call
   ///          is one pure function called twice, and the judgement would end up with **two spellings** —
   ///          this repository keeps one source per sentence.
-  Future<({EngineReply reply, bool isRelation})> _askEngineTranslated(
-      String source) async {
+  Future<({EngineReply reply, TranslatedExpression? translated})>
+      _askEngineTranslated(String source) async {
     final translated =
         engineExpressionFor(source, relativePercent: relativePercent);
-    if (translated is UntranslatableExpression) {
+    // 中文：**反过来说**（`is!` 那一侧直接返回），这样剩下的那一支**类型系统自己**知道它是
+    //       `TranslatedExpression`——正着写 `is UntranslatableExpression` 拿不到这个提升。
+    // English: **stated the other way round** (the `is!` side returns), so the remaining branch is known
+    //          to be a `TranslatedExpression` **by the type system** — writing
+    //          `is UntranslatableExpression` gets no such promotion.
+    if (translated is! TranslatedExpression) {
       debugPrint('$qalculateLogTag 表达式翻译不了，直接走旧解析器: $translated');
       return (
         reply: EngineReply.failure('untranslatable: $translated'),
-        isRelation: false,
+        translated: null,
       );
     }
-    final text = (translated as TranslatedExpression).text;
     return (
-      reply: await _askEngine(text),
-      isRelation: translated.isRelation,
+      reply: await _askEngine(translated.text),
+      translated: translated,
     );
   }
 
@@ -446,9 +450,47 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///
   ///          The judgement lives here alone; both call sites (submit and as-you-type) read it.
   bool _relationCameBackAsTruthValue(
-          ({EngineReply reply, bool isRelation}) answer) =>
-      answer.isRelation &&
+          ({EngineReply reply, TranslatedExpression? translated}) answer) =>
+      _translatedAs(answer)?.isRelation == true &&
       answer.reply.result?.resultKind == EngineResultKind.number;
+
+  /// 中文：**一组关系没有解出来——引擎把 `multisolve(...)` 原样退回了。**
+  ///
+  ///       实测（宿主 `qalc` 5.12.0，桥自己的调用序列，第九节）：无解与欠定**都**是这个形状，
+  ///       种类 `SYMBOLIC`、印出来就是那句 `multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])`。
+  ///       而 `SYMBOLIC` 是 `isDisplayable` **放行**的那一支——**不挡就会把引擎的调用原文印在
+  ///       结果行上**，与 `0`/`1` 那个陷阱同一族。
+  ///
+  ///       ⚠️ **判据只对 [TranslatedExpression.isSystem] 成立。** 一条关系**合法地**回
+  ///       `symbolic`（`2x+1=7` → `x = 3`），"`symbolic` 就不收"套到它身上会把真答案丢掉。
+  ///       两侧都是量出来的，理由写在那个字段上。
+  /// English: **a group of relations was not solved — the engine handed `multisolve(...)` straight back.**
+  ///
+  ///          Measured (host `qalc` 5.12.0, the bridge's own call sequence, section 九): inconsistent and
+  ///          underdetermined **both** look like this — kind `SYMBOLIC`, printing exactly
+  ///          `multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])`. And `SYMBOLIC` is a branch
+  ///          `isDisplayable` **lets through** — **left unguarded, the engine's own call text lands on
+  ///          the result line**, the same family as the `0`/`1` trap.
+  ///
+  ///          ⚠️ **The test holds only for [TranslatedExpression.isSystem].** One relation legitimately
+  ///          returns `symbolic` (`2x+1=7` → `x = 3`), and "`symbolic` means do not take it" would
+  ///          discard the real answer. Both sides were measured; the reasoning is on that field.
+  bool _systemCameBackUnsolved(
+          ({EngineReply reply, TranslatedExpression? translated}) answer) =>
+      _translatedAs(answer)?.isSystem == true &&
+      answer.reply.result?.resultKind == EngineResultKind.symbolic;
+
+  TranslatedExpression? _translatedAs(
+          ({EngineReply reply, TranslatedExpression? translated}) answer) =>
+      answer.translated;
+
+  /// 中文：**上面两条判据合成的一句话**——"这次没算出答案，而原因不是算错"。
+  /// English: **the one sentence both judgements above produce** — "no answer came out this time, and
+  ///          not because of a mistake".
+  bool _relationHasNoAnswer(
+          ({EngineReply reply, TranslatedExpression? translated}) answer) =>
+      _relationCameBackAsTruthValue(answer) ||
+      _systemCameBackUnsolved(answer);
 
   @override
   Future<EngineReply> _askEngine(String expression) {
@@ -576,7 +618,7 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
   ///          `_lastFiniteResult` — numeric consumers still accept nothing but a finite decimal, and
   ///          that has **not** been relaxed.
   ({MathResult result, bool usableAsNumber})? _selectEngineResult(
-    ({EngineReply reply, bool isRelation}) answer,
+    ({EngineReply reply, TranslatedExpression? translated}) answer,
     String source,
   ) {
     final reply = answer.reply;
@@ -618,7 +660,7 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
     //          is exactly what that rule would otherwise take: the `0` of `x^2=-1`, the `0` of `1=2` and
     //          the `1` of `x=x` **are all finite decimals**. The judgement and its reasoning are on
     //          [_relationCameBackAsTruthValue]; this only reads it.
-    if (_relationCameBackAsTruthValue(answer)) return null;
+    if (_relationHasNoAnswer(answer)) return null;
     if (decimalTextIsFinite(engineResult.decimalText)) {
       // 中文：有限十进制 ⇒ 直接用（与引擎接进提交路径之前逐字节一致：那一步没有形状字段）。
       //       文本有限而 double 装不下的（`2^2000`/`2^-2000`）也在这里：判据在**字符串层面**，

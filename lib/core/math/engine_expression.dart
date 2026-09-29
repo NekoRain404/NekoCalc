@@ -129,7 +129,8 @@ sealed class EngineExpression {
 /// 中文：翻译成功。
 /// English: the translation succeeded.
 final class TranslatedExpression extends EngineExpression {
-  const TranslatedExpression(this.text, {this.isRelation = false});
+  const TranslatedExpression(this.text,
+      {this.isRelation = false, this.isSystem = false});
 
   final String text;
 
@@ -166,6 +167,34 @@ final class TranslatedExpression extends EngineExpression {
   ///          asks for the roots of x² = −1 and the screen answers `0`**. This flag is the only
   ///          evidence by which that layer can recognise the branch.
   final bool isRelation;
+
+  /// 中文：**这一次翻译的是一组关系（若干条用分号隔开的方程）。**
+  ///
+  ///       它必须与 [isRelation] 分开，因为**两者的"没算出来"长得不一样**：
+  ///
+  ///       - **一条**关系没解 ⇒ 引擎回一个 `number`（`0` 或 `1`，那是布尔值）；
+  ///       - **一组**关系没解（无解或欠定）⇒ 引擎把 `multisolve(...)` **原样退回**，种类是
+  ///         `symbolic`。
+  ///
+  ///       而**一条**关系**合法地**回 `symbolic`（`2x+1=7` → `x = 3`）。所以"`symbolic` 就不收"
+  ///       这条判据**只对 `isSystem` 成立**——少了这个旗标，要么漏判（屏幕上出现
+  ///       `multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])`），要么误伤（`x = 3` 被丢掉）。
+  ///       两侧都是实测，见 `.superpowers/backup/engine-capability-probe.md` 第九节。
+  /// English: **this translation is a group of relations (several equations separated by semicolons).**
+  ///
+  ///          It has to be kept apart from [isRelation] because **the two fail differently**:
+  ///
+  ///          - **one** relation with no solution ⇒ the engine returns a `number` (`0` or `1`, a truth
+  ///            value);
+  ///          - **a group** with no solution (inconsistent or underdetermined) ⇒ the engine **hands the
+  ///            `multisolve(...)` call straight back**, kind `symbolic`.
+  ///
+  ///          while **one** relation legitimately returns `symbolic` (`2x+1=7` → `x = 3`). So
+  ///          "`symbolic` means do not take it" **holds only for `isSystem`** — without this flag it
+  ///          either misses (the screen shows `multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])`) or
+  ///          over-reaches (`x = 3` gets discarded). Both sides were measured; see section 九 of
+  ///          `.superpowers/backup/engine-capability-probe.md`.
+  final bool isSystem;
 }
 
 /// 中文：这个构造翻译不了，理由见 [reason]——调用方据此**回落旧解析器**。
@@ -250,6 +279,12 @@ final class UntranslatableExpression extends EngineExpression {
 EngineExpression engineExpressionFor(String source, {bool relativePercent = false}) {
   final normalized = ExpressionParser.normalizeExpressionInput(source,
       relativePercent: relativePercent);
+  // 中文：**方程组先判**——切完之后每一条各自还要有等号，那是 [_translateSystem] 里各自做的事，
+  //       这里只回答"有没有分号"。
+  // English: **systems are judged first** — after the split each part still needs its own equals sign,
+  //          which [_translateSystem] handles per part; all this asks is "are there semicolons".
+  final parts = _splitRelations(normalized);
+  if (parts != null) return _translateSystem(parts);
   final relation = _splitRelation(normalized);
   if (relation == null) {
     return engineExpressionForNode(

@@ -317,6 +317,67 @@ bool namesSomethingOutsideTheAppLanguage(ExprNode node) {
   }
 }
 
+/// 中文：**这棵树里出现的变量名，按书写顺序去重收集。**
+///
+///       它服务一处：方程组要告诉引擎"对哪几个未知数求解"（`multisolve([...], x, y)`）。
+///       引擎**不接受空着**——`multisolve([x+y=3, x-y=1])` 原样退回（宿主实测，kind `SYMBOLIC`），
+///       与无解、欠定的形状**一模一样**，所以那个名单必须由我们自己给。
+///
+///       **为什么收集"所有 [VariableNode]"就是"所有未知数"**：应用自己的语法里，
+///       一个没有绑定值的名字**就是**一个 [VariableNode]（见
+///       [namesSomethingOutsideTheAppLanguage] 那一段），而绑定值的变量（键位上的 `X`/`Y`）
+///       在翻译之前就由 `resolveVariableReferences` 换成数字了。所以这里收上来的，
+///       正是"应用自己认不出来的名字"这个集合本身——**不是第二张表**。
+///
+///       ⚠️ **未知数全部列出来，恰恰是安全的那一侧。** 宿主实测：只列 x、y 而式子里还有第三个
+///       自由字母（`multisolve([x+y=a, x-y=1], x, y)`）时，引擎会把 `a` 读成**安培**，
+///       印出 `[(500 ma + 0.5) …]`——**一个看着像答案的错值**。全列出来则方程组欠定、引擎原样退回，
+///       而"退回"由调用方挡下。**宁可它说"解不了"，不可它拿安培当未知数。**
+/// English: **the variable names in this tree, de-duplicated in writing order.**
+///
+///          It serves one place: a system of equations has to tell the engine **which unknowns to
+///          solve for** (`multisolve([...], x, y)`). The engine **does not accept an empty list** —
+///          `multisolve([x+y=3, x-y=1])` is handed back unchanged (measured on the host, kind
+///          `SYMBOLIC`), a shape **identical** to "no solution" and "underdetermined", so that list
+///          has to come from us.
+///
+///          **Why "every [VariableNode]" is "every unknown"**: in this app's own grammar an unbound
+///          name **is** a [VariableNode] (see the note on
+///          [namesSomethingOutsideTheAppLanguage]), while a bound variable (the keypad's `X`/`Y`) is
+///          replaced by a number by `resolveVariableReferences` before translation. So what is
+///          collected here is that set itself — **not a second table**.
+///
+///          ⚠️ **Listing every unknown is the safe side.** Measured on the host: list only x and y
+///          while a third free letter appears (`multisolve([x+y=a, x-y=1], x, y)`) and the engine reads
+///          `a` as **amperes**, printing `[(500 ma + 0.5) …]` — **a wrong value that looks like an
+///          answer**. List them all and the system is underdetermined, so the engine hands it back and
+///          the caller refuses. **Better it says "cannot solve" than takes amperes for an unknown.**
+void collectVariableNames(ExprNode node, List<String> into) {
+  switch (node) {
+    case NumberNode():
+    case ConstantNode():
+    case OperatorNode():
+    case ParseErrorNode():
+    case SexagesimalNode():
+      return;
+    case VariableNode(:final name):
+      if (!into.contains(name)) into.add(name);
+    case UnaryNode(:final operand):
+    case PostfixNode(:final operand):
+      collectVariableNames(operand, into);
+    case GroupNode(:final child):
+      collectVariableNames(child, into);
+    case BinaryNode(:final left, :final right):
+    case ImplicitProductNode(:final left, :final right):
+      collectVariableNames(left, into);
+      collectVariableNames(right, into);
+    case FunctionNode(:final args):
+      for (final arg in args) {
+        collectVariableNames(arg, into);
+      }
+  }
+}
+
 /// 中文：**这棵树里有没有解析错误。** 与 [namesSomethingOutsideTheAppLanguage] 并排放在一起，
 ///       因为 [AppEngineVocabulary.canExpress] 要同时问这两件事——**而它们是两个问题**。
 ///

@@ -268,4 +268,96 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('方程组：`multisolve` 上屏，而"退回"不许上屏', () {
+    // 中文：**两侧都是量出来的**（宿主 `qalc` 5.12.0，桥自己的调用序列，第九节）：
+    //       `multisolve([x+y=3, x-y=1], x, y)` → `[2  1]`，kind `structured`（放行）；
+    //       而无解与欠定**都**把调用原样退回、kind `SYMBOLIC`——那正是 `isDisplayable` 放行的一支。
+    // English: **both sides were measured** (host `qalc` 5.12.0, the bridge's own call sequence, section
+    //          九): `multisolve([x+y=3, x-y=1], x, y)` → `[2  1]`, kind `structured` (let through), while
+    //          inconsistent and underdetermined **both** hand the call back with kind `SYMBOLIC` — a
+    //          branch `isDisplayable` lets through.
+    test('解出来的方程组：`[2  1]` 照常上屏，而且引擎收到的是 `multisolve`', () async {
+      final engine = _StubEngine(_reply('[2  1]', EngineResultKind.structured));
+      final controller = _controller(engine);
+
+      controller.setExpression('x+y=3; x-y=1');
+      await controller.submit();
+
+      expect(engine.asked, isNotEmpty, reason: '方程组必须真的被问出去');
+      expect(engine.asked.single, startsWith('multisolve(['));
+      expect(engine.asked.single, endsWith('], x, y)'),
+          reason: '未知数名单不能空：${engine.asked.single}');
+      expect(controller.hasError, isFalse);
+      expect(controller.result, '[2  1]');
+
+      controller.dispose();
+    });
+
+    test('⚠️ 引擎把调用原样退回：屏幕上不许出现 `multisolve(`', () async {
+      // 中文：**这一条防的是"把引擎的调用原文当成答案"**——无解与欠定都走这一支。
+      // English: **this stops "the engine's own call text taken for an answer"** — both the inconsistent
+      //          and the underdetermined case land here.
+      for (final echoed in <String>[
+        'multisolve([(x = 1 - y)  (x = 2 - y)]; [x  y])',
+        'multisolve(x = 3 - y; [x  y])',
+      ]) {
+        final engine = _StubEngine(_reply(echoed, EngineResultKind.symbolic));
+        final controller = _controller(engine);
+
+        controller.setExpression('x+y=3; x-y=1');
+        await controller.submit();
+
+        expect(controller.hasError, isTrue, reason: '没解出来就不算答案');
+        expect(controller.result, isNot(contains('multisolve')),
+            reason: '**这一条是本组的全部意义**：${controller.result}');
+        expect(controller.errorMessage, contains('没有解'));
+
+        controller.dispose();
+      }
+    });
+
+    test('⚠️ 反过来：**一条**关系回 `symbolic` 照旧收——旗标不许泛滥', () async {
+      // 中文：**这是上面那条的反面，防的是"把 `symbolic` 一律挡掉"。** 一条关系合法地回
+      //       `symbolic`（`2x+1=7` → `x = 3`），挡掉它就是把真答案丢了。
+      //       判据问的是"这一次是不是**一组**关系"，只有 `isSystem` 才套得上。
+      // English: **the reverse, guarding against "refuse every `symbolic`".** One relation legitimately
+      //          returns `symbolic` (`2x+1=7` → `x = 3`), and refusing it throws away the real answer. The
+      //          test asks "was this a **group**?", and only `isSystem` is subject to it.
+      final engine = _StubEngine(_reply('x = 3', EngineResultKind.symbolic));
+      final controller = _controller(engine);
+
+      controller.setExpression('2x+1=7');
+      await controller.submit();
+
+      expect(controller.hasError, isFalse);
+      expect(controller.result, 'x = 3');
+
+      controller.dispose();
+    });
+
+    test('边打边算那条路同样挡住退回，同样不误伤一条关系', () async {
+      final unsolved = _controller(
+        _StubEngine(_reply('multisolve(x = 3 - y; [x  y])',
+            EngineResultKind.symbolic)),
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+      unsolved.setExpression('x+y=3; x-y=1');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(unsolved.result, isNot(contains('multisolve')));
+      expect(unsolved.errorMessage, contains('没有解'));
+      unsolved.dispose();
+
+      final single = _controller(
+        _StubEngine(_reply('x = 3', EngineResultKind.symbolic)),
+        liveEvaluationDelay: const Duration(milliseconds: 1),
+        liveEngineFollowUpDelay: const Duration(milliseconds: 1),
+      );
+      single.setExpression('2x+1=7');
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(single.result, 'x = 3');
+      single.dispose();
+    });
+  });
 }

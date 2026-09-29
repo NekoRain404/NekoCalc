@@ -520,4 +520,80 @@ void main() {
       }
     });
   });
+
+  group('方程组：分号切开的若干条关系', () {
+    // 中文：**这一条也是量出来的。** 引擎那边 host `qalc` 5.12.0 的实测（见
+    //       `.superpowers/backup/engine-capability-probe.md` 第九节）：
+    //       `multisolve([x+y=3, x-y=1], x, y)` → `[2  1]`，kind `structured`；
+    //       **未知数名单不能空**（`multisolve([x+y=3, x-y=1])` 原样退回）；
+    //       而**只列一部分**会把剩下的字母读成单位（`a` → 安培，`[(500 ma + 0.5) …]`）。
+    // English: **this one was measured too.** On the engine side, host `qalc` 5.12.0 (see section 九 of
+    //          `.superpowers/backup/engine-capability-probe.md`):
+    //          `multisolve([x+y=3, x-y=1], x, y)` → `[2  1]`, kind `structured`; the **unknown list may
+    //          not be empty** (`multisolve([x+y=3, x-y=1])` is handed straight back); and **listing only
+    //          some** makes the engine read the remaining letters as units (`a` → amperes,
+    //          `[(500 ma + 0.5) …]`).
+    test('两条关系包成 `multisolve([...], x, y)`，未知数两次都收', () {
+      final translated = engineExpressionFor('x+y=3; x-y=1');
+      expect(translated, isA<TranslatedExpression>());
+      final text = (translated as TranslatedExpression).text;
+      expect(text, startsWith('multisolve(['), reason: text);
+      expect(text, contains('], x, y)'),
+          reason: '未知数名单要按出现顺序列全：$text');
+      expect(translated.isRelation, isTrue);
+    });
+
+    test('未知数只出现一次就算一次，顺序按书写', () {
+      // 中文：⚠️ **我第一版这里写的是 `2a+b=5; a-b=1`，而它该被拒绝**——应用自己的语法只放行
+      //       真未知数（`x`/`y`/`i`）与单位名，`a`/`b` 走的是「引擎不认识这个自由变量」那一支。
+      //       **那道闸恰好也是"安培事件"的解法**：`a` 根本到不了引擎，就不会被读成安培。
+      // English: ⚠️ **my first version used `2a+b=5; a-b=1`, which must be refused** — this app's
+      //          grammar lets through only the real unknowns (`x`/`y`/`i`) and unit names; `a`/`b` take
+      //          the "the engine does not know this free variable" branch. **That gate is also the answer
+      //          to the ampere incident**: `a` never reaches the engine, so it cannot become amperes.
+      final text =
+          (engineExpressionFor('2x+y=5; x-y=1') as TranslatedExpression).text;
+      expect(text, contains('], x, y)'), reason: '重复的名字只列一次：$text');
+    });
+
+    test('单位名不算未知数', () {
+      // `2 km = x` 里 `km` 是一个量的一部分，不是要解的未知数。
+      final text =
+          (engineExpressionFor('2 km=x; x=1 km') as TranslatedExpression).text;
+      expect(text, endsWith('], x)'), reason: '`km` 不许出现在未知数名单里：$text');
+    });
+
+    test('未知数取自两侧，不是只取左边', () {
+      // `x + y = 3` 里 `y` 在左边，`2x = y + 1` 里 `y` 在右边——两边都要收。
+      final text =
+          (engineExpressionFor('x+y=3; 2x=y+1') as TranslatedExpression).text;
+      expect(text, contains('], x, y)'), reason: text);
+    });
+
+    test('⚠️ 一条都没有未知数 ⇒ 拒绝，不交给引擎去原样退回', () {
+      // 中文：`1=2; 3=4` 是两条**判断式**，不是方程组。交给引擎它会把调用原样退回，
+      //       而那个形状与"无解"**一模一样**，用户分辨不出来。**宁可在这里说读不出。**
+      // English: `1=2; 3=4` is two **assertions**, not a system. The engine would hand the call straight
+      //          back, a shape **identical** to "no solution" — indistinguishable to the user. **Better
+      //          to say it cannot be read.**
+      final translated = engineExpressionFor('1=2; 3=4');
+      expect(translated, isA<UntranslatableExpression>());
+    });
+
+    test('⚠️ 分号切出来的每一段都得自己是一条关系', () {
+      for (final source in <String>['x+y=3; x-y', 'x+y=3; 4', ';x=1', 'x=1;']) {
+        expect(engineExpressionFor(source), isA<UntranslatableExpression>(),
+            reason: '`$source` 不是一组关系');
+      }
+    });
+
+    test('分号在括号里不算分隔符', () {
+      // 中文：应用自己的语法里分号没有位置，但**括号里的分号照样不该被当成方程组的分隔符**——
+      //       否则 `max(1;2)=2` 会被切成两段。这里切不出来，于是落回原来那条路（读不懂 ⇒ 拒绝）。
+      // English: a semicolon has no place in this app's grammar, but **one inside brackets still must not
+      //          count as a system separator** — otherwise `max(1;2)=2` would be cut in two. Nothing is
+      //          cut here, so it falls to the existing road (unreadable ⇒ refused).
+      expect(engineExpressionFor('max(1;2)=2'), isA<UntranslatableExpression>());
+    });
+  });
 }

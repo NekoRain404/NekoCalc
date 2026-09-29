@@ -26,6 +26,104 @@ part of 'engine_expression.dart';
 ///          "the parser cannot read `x<`" and `a=b=c` is judged not a relation by [_splitRelation] and
 ///          falls back to the existing route. **Not one new refusal reason: the closed set does not
 ///          grow.**
+/// 中文：**顶层分号切开的若干条关系——方程组。**
+///
+///       一条关系走 [engineExpressionFor] 里原来那条路（一个 `=`，两边各译一次）；
+///       **两条以上**才走这里。返回 `null` 表示"这不是方程组，按原来那条路走"。
+///
+///       ⚠️ **分隔符为什么是分号不是逗号。** 逗号在应用自己的语法里有活干（函数实参、千分位），
+///       拿它当方程组的分隔符会让 `max(1,2)=2` 这种式子有两种读法。分号在应用自己的语法里
+///       **没有位置**，所以它只有一个意思。`grep -n "';'"` 在 `lib/core/math/` 下零命中——
+///       归一化不动它，与等号同一条判据。
+/// English: **the relations cut apart by top-level semicolons — a system.**
+///
+///          One relation takes the existing road in [engineExpressionFor] (a single `=`, each side
+///          translated once); **two or more** come here. `null` means "this is not a system, take the
+///          existing road".
+///
+///          ⚠️ **Why the separator is a semicolon and not a comma.** A comma has a job in this app's
+///          own grammar (function arguments, thousands grouping), so using it as a system separator
+///          would give `max(1,2)=2` two readings. A semicolon has **no place** in this grammar, so it
+///          has exactly one meaning. `grep -n "';'"` finds nothing under `lib/core/math/`: normalisation
+///          leaves it alone, the same judgement as the equals sign.
+List<String>? _splitRelations(String source) {
+  final parts = <String>[];
+  var depth = 0;
+  var start = 0;
+  for (var index = 0; index < source.length; index++) {
+    final ch = source[index];
+    if (ch == '(') {
+      depth++;
+    } else if (ch == ')') {
+      depth--;
+    } else if (ch == ';' && depth == 0) {
+      parts.add(source.substring(start, index).trim());
+      start = index + 1;
+    }
+  }
+  if (parts.isEmpty) return null;
+  parts.add(source.substring(start).trim());
+  if (parts.any((part) => part.isEmpty)) return null;
+  return parts;
+}
+
+/// 中文：**方程组：每一条各自译一遍，再包成引擎的 `multisolve([...], x, y, …)`。**
+///
+///       **未知数名单必须我们自己给**（引擎不收空的，见 [collectVariableNames]），
+///       而它取自每一条关系的**两侧**——`2x+3y=7` 的左边也一样有名字。
+///
+///       任何一条译不过就整条译不过，理由用那一条给的（**不新造一句话**）。
+/// English: **a system: translate each relation, then wrap it in the engine's
+///          `multisolve([...], x, y, …)`.**
+///
+///          **The unknown list is ours to supply** (the engine does not take an empty one; see
+///          [collectVariableNames]), and it is collected from **both sides** of each relation — the
+///          left side of `2x+3y=7` carries names too.
+///
+///          If any relation fails, the whole thing fails, with the reason that one produced (**no new
+///          sentence is invented**).
+EngineExpression _translateSystem(List<String> parts) {
+  final relations = <String>[];
+  final variables = <String>[];
+  for (final part in parts) {
+    final relation = _splitRelation(part);
+    if (relation == null) {
+      return UntranslatableExpression('`$part` 不是一条关系');
+    }
+    final leftNode = const ExpressionAstParser().parse(relation.$1);
+    final rightNode = const ExpressionAstParser().parse(relation.$2);
+    final translatedLeft = _translate(leftNode);
+    if (translatedLeft is UntranslatableExpression) return translatedLeft;
+    final translatedRight = _translate(rightNode);
+    if (translatedRight is UntranslatableExpression) return translatedRight;
+    collectVariableNames(leftNode, variables);
+    collectVariableNames(rightNode, variables);
+    relations.add('${(translatedLeft as TranslatedExpression).text}'
+        '=${(translatedRight as TranslatedExpression).text}');
+  }
+  // 中文：**一个未知数都没有 ⇒ 这不是方程组，是一串判断式。** `1=2; 3=4` 没有解的余地，
+  //       交给 `multisolve` 只会让它原样退回；而"退回"的形状与无解一样，用户看不出区别。
+  //       **索性在这里拒绝。**
+  // English: **no unknown at all ⇒ this is not a system, it is a list of assertions.** `1=2; 3=4` has
+  //          nothing to solve for, and handing it to `multisolve` only makes it echo back — a shape
+  //          indistinguishable from "no solution". **Refuse it here instead.**
+  // 中文：**单位名不是未知数。** `_variable` 放行的名字有两类：真未知数（`x`/`y`/`i`）
+  //       与**单位**（`km` 之类，走的是同一张封闭表）。`2 km = x` 里 `km` 是量的一部分，
+  //       把它当未知数交给 `multisolve` 就是在问引擎"对千米求解"。
+  // English: **a unit name is not an unknown.** `_variable` lets two kinds through: real unknowns
+  //          (`x`/`y`/`i`) and **units** (`km` and friends, which go through the same closed table).
+  //          In `2 km = x` the `km` is part of a quantity, and handing it to `multisolve` asks the
+  //          engine to "solve for kilometres".
+  final unknowns = variables.where((name) => !isAppUnit(name)).toList();
+  if (unknowns.isEmpty) {
+    return const UntranslatableExpression('方程组里没有未知数');
+  }
+  return TranslatedExpression(
+      'multisolve([${relations.join(', ')}], ${unknowns.join(', ')})',
+      isRelation: true,
+      isSystem: true);
+}
+
 EngineExpression _translateRelation(String left, String right, String whole) {
   final leftNode = const ExpressionAstParser().parse(left);
   final rightNode = const ExpressionAstParser().parse(right);

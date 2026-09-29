@@ -260,7 +260,7 @@ mixin _CalculatorLiveEvaluation
     }
     final accepted = _selectEngineResult(answer, source)?.result;
     if (accepted == null) {
-      if (_relationCameBackAsTruthValue(answer)) {
+      if (_relationHasNoAnswer(answer)) {
         // 中文：**一条关系永远不由旧解析器作答。** 应用自己的语法里没有等号，旧解析器对一条关系
         //       只能说「函数需要括号」——那是**说岔了**，不是答案。真机上量到过这一句（见
         //       [kRelationTruthValueVerdict]），所以这里与提交路径**说同一句话**，
