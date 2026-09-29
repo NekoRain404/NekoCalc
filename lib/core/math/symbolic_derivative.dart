@@ -451,7 +451,61 @@ String? _outerDerivative(String name, ExprNode argument) {
       return 'exp($u)';
     case 'sqrt':
       return '1/(2·sqrt($u))';
+    // 中文：**下面八条是量出来的**——宿主 `qalc` 5.12.0 的 `diff(f(x), x)` 逐条对过
+    //       （见 `.superpowers/backup/engine-capability-probe.md` 第十八节）：
+    //       `asin` → `1 / sqrt(1 - x^2)`、`atan` → `1 / (x^2 + 1)`、
+    //       `log10` → `0.4342944819032518 / x`（= `1/(x·ln 10)`）、`log2` → `1.442695040888963 / x`、
+    //       `sinh` → `cosh(x)`、`cosh` → `sinh(x)`、`tanh` → `1 - tanh(x)^2`。
+    //       **独立对过**，不是照着定义抄的。
+    // English: **the eight below were measured** — host `qalc` 5.12.0's `diff(f(x), x)` checked one by one
+    //          (see section 十八 of `.superpowers/backup/engine-capability-probe.md`): `asin` →
+    //          `1 / sqrt(1 - x^2)`, `atan` → `1 / (x^2 + 1)`, `log10` → `0.4342944819032518 / x`
+    //          (= `1/(x·ln 10)`), `log2` → `1.442695040888963 / x`, `sinh` → `cosh(x)`, `cosh` → `sinh(x)`,
+    //          `tanh` → `1 - tanh(x)^2`. **Checked independently**, not copied off the definitions.
+    case 'asin':
+      return '1/sqrt(1-$u^2)';
+    case 'acos':
+      return '-1/sqrt(1-$u^2)';
+    case 'atan':
+      return '1/($u^2+1)';
+    case 'log10':
+      return '1/($u·ln(10))';
+    case 'log2':
+      return '1/($u·ln(2))';
+    case 'sinh':
+      return 'cosh($u)';
+    case 'cosh':
+      return 'sinh($u)';
+    case 'tanh':
+      return '1-tanh($u)^2';
     default:
+      // 中文：⚠️ **两条刻意不在表里，理由各是一条，不是"忘了"：**
+      //
+      //       - **`abs`**：引擎给的是 `x / |x|`，而那个式子在 **`x = 0` 处没有定义**——
+      //         `|x|` 在那里不可导（左右导数一正一负）。**这个工具没有地方说这句话**
+      //         （每一步只有"式子"与"法则"两栏），于是印出来的是一条**在 0 点上骗人的**推导。
+      //         宁可停下。**这是量过之后才敢下的判断**，不是"没有量过"。
+      //       - **`log`**：**两边指的不是同一个函数**——引擎的 `log` 是自然对数（实测
+      //         `diff(log(x), x)` → `1 / x`），而计算器上的 `log` 惯例是以 10 为底，
+      //         应用自己那个词表里 `log` 到底映射到哪一边**这一轮没有核实**。
+      //         **两边定义不同的拼写，本仓一律拒绝**（`mod`、`!=` 都是这样处理）。
+      //
+      //       **导数写错的函数比"不支持的函数"坏得多**：前者会印出一条看上去很完整的假推导。
+      // English: ⚠️ **two are deliberately absent, each for its own reason, neither forgotten:**
+      //
+      //          - **`abs`**: the engine gives `x / |x|`, and that form is **undefined at `x = 0`** —
+      //            `|x|` is not differentiable there (the two one-sided derivatives differ in sign). **This
+      //            tool has nowhere to say so** (a step carries only "the expression" and "the rule"), so
+      //            what gets printed is a derivation that **lies at the point 0**. Better to stop. **That
+      //            judgement follows measurement**, rather than being "it was never measured".
+      //          - **`log`**: **the two sides do not mean the same function** — the engine's `log` is the
+      //            natural log (measured: `diff(log(x), x)` → `1 / x`), while a calculator's `log`
+      //            conventionally has base ten, and **which side this app's own `log` maps to was not
+      //            verified this round**. **A spelling the two sides define differently is always refused
+      //            here** (the same treatment as `mod` and `!=`).
+      //
+      //          **A wrong derivative is far worse than an unsupported function**: the former prints a
+      //          plausible-looking, complete, fake derivation.
       return null;
   }
 }

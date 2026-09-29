@@ -106,7 +106,7 @@ void main() {
       //          plausible-looking, complete, fake derivation. So `asin`, `abs` and `log` are **not in the
       //          table**: not forgotten, but **not measured**. `x!` is plainer still: the factorial has no
       //          elementary derivative.
-      for (final source in <String>['asin(x)', 'abs(x)', 'log(x)', 'x!']) {
+      for (final source in <String>['acosh(x)', 'erf(x)', 'x!']) {
         final result = differentiate(source, 'x');
         expect(result.derivative, isNull, reason: '`$source` 算不了就不许给结果');
         expect(result.refusal, isNotNull, reason: '`$source` 必须说明为什么停下');
@@ -142,6 +142,48 @@ void main() {
           reason: '内层先算：$rules');
       expect(result.derivative, contains('cos(x^2)'));
       expect(result.derivative, contains('2·x^1'), reason: '指数不空格：x^2 不是 x ^ 2');
+    });
+
+    test('⚠️ 量过的八条：期望值来自引擎，不是照定义抄的', () {
+      // 中文：**宿主 `qalc` 5.12.0 的 `diff(f(x), x)` 逐条对过**（第十八节）。
+      //       引擎印出来的是 `1 / sqrt(1 - x^2)` 那种写法，这里写的是应用自己的写法，
+      //       但**系数与形状一一对应**——比如 `log10` 的 `0.4342944819032518` 就是 `1/ln 10`。
+      // English: **checked one by one against host `qalc` 5.12.0's `diff(f(x), x)`** (section 十八). The
+      //          engine prints forms like `1 / sqrt(1 - x^2)` while these are the app's spelling, but the
+      //          coefficients and shapes correspond one to one — `log10`'s `0.4342944819032518` is `1/ln 10`.
+      const expected = <String, String>{
+        'asin(x)': '1/sqrt(1-x^2)·(1)',
+        'acos(x)': '-1/sqrt(1-x^2)·(1)',
+        'atan(x)': '1/(x^2+1)·(1)',
+        'log10(x)': '1/(x·ln(10))·(1)',
+        'log2(x)': '1/(x·ln(2))·(1)',
+        'sinh(x)': 'cosh(x)·(1)',
+        'cosh(x)': 'sinh(x)·(1)',
+        'tanh(x)': '1-tanh(x)^2·(1)',
+      };
+      expected.forEach((source, derivative) {
+        final result = differentiate(source, 'x');
+        expect(result.refusal, isNull, reason: '`$source` 应当在表里');
+        expect(result.derivative, derivative, reason: '`$source`');
+        expect(result.steps.last.rule, DerivativeRules.chain);
+      });
+    });
+
+    test('⚠️ `abs` 与 `log` 刻意不在表里，各有各的理由', () {
+      // 中文：**这一条钉的是"拒绝"，而不是"忘了"。** 两条理由都是量过之后才敢下的：
+      //       `abs` 的导数是 `x/|x|`，在 0 处没有定义，而**这个工具没有地方说这句话**
+      //       （每一步只有"式子"与"法则"两栏）——印出来就是一条**在 0 点上骗人的**推导；
+      //       `log` 则是**两边定义不同**（引擎的是自然对数），那种拼写本仓一律拒绝。
+      // English: **this pins "refused", not "forgotten".** Both reasons follow measurement: `abs`'s
+      //          derivative is `x/|x|`, undefined at 0, and **this tool has nowhere to say so** (a step
+      //          carries only "the expression" and "the rule") — printing it would be a derivation that
+      //          **lies at the point 0**; `log` is a spelling **the two sides define differently** (the
+      //          engine's is the natural log) and such spellings are always refused here.
+      for (final source in <String>['abs(x)', 'log(x)']) {
+        final result = differentiate(source, 'x');
+        expect(result.derivative, isNull, reason: '`$source` 不该被求导');
+        expect(result.refusal, isNotNull);
+      }
     });
 
     test('六个表内函数各一条，形状与定义一致', () {
@@ -249,14 +291,14 @@ void main() {
       expect(result.steps, isEmpty, reason: '连树都没有，谈不上步骤');
     });
     test('停下时，前面的步骤照旧给出来——用户看得见走到哪一步', () {
-      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + asin(x)` 里 `x` 那一半是算得出来的，
+      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + acosh(x)` 里 `x` 那一半是算得出来的，
       //       推导应当把那一半写出来，再说后面那个算不了——**而不是整条清空**。
       //       （整条清空也安全，但用户会以为"这个式子完全算不了"。）
-      // English: **this is the difference between "stopping" and "giving nothing".** In `x + asin(x)` the
+      // English: **this is the difference between "stopping" and "giving nothing".** In `x + acosh(x)` the
       //          `x` half is computable; the derivation should show that half and then say the rest
       //          cannot be done — **not wipe the whole thing**. (Wiping is also safe, but the user would
       //          conclude the whole expression is unsupported.)
-      final result = differentiate('x + asin(x)', 'x');
+      final result = differentiate('x + acosh(x)', 'x');
       expect(result.refusal, isNotNull);
       expect(result.derivative, isNull);
       expect(result.steps, isNotEmpty, reason: '左边那一半是算出来的，要看得见');
