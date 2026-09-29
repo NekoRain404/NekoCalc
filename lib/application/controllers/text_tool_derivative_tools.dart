@@ -68,7 +68,11 @@ TextToolOutput _deriveSteps(TextToolDerivativeStrings strings, String input) {
     //          of it worked.
     lines.add(strings.stopped);
     return TextToolOutput(
-      result.steps.isEmpty ? strings.unreadable : result.steps.last.expression,
+      // 中文：一条步骤都没走出来时，主结果说"这一步还不会算"——**不是"读不出"**：
+      //       式子读懂了，只是这一层不在规则表里。
+      // English: with no steps at all, the primary says "this step is not handled yet" — **not
+      //          "unreadable"**: the expression was read, this level is simply outside the rule table.
+      result.steps.isEmpty ? strings.stopped : result.steps.last.expression,
       lines.join('\n'),
       hasError: true,
     );

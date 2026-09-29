@@ -47,12 +47,14 @@ void main() {
     });
 
     test('⚠️ 不会的那一步：如实停下，**前面几步照旧给出来**', () {
-      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + sin(x)` 里 `x` 那一半算得出来，
+      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + asin(x)` 里 `x` 那一半算得出来，
       //       推导必须把那一半写出来再说后面算不了——否则用户会以为整个式子都不支持。
-      // English: **this is the difference between "stopping" and "giving nothing".** In `x + sin(x)` the
+      //       （`asin` 的导数**没有量过**，所以它不在表里；`sin` 在表里，见下一条。）
+      // English: **this is the difference between "stopping" and "giving nothing".** In `x + asin(x)` the
       //          `x` half is computable and the derivation must show it before saying the rest cannot be
-      //          done — otherwise the user concludes the whole expression is unsupported.
-      final out = _run('x + sin(x)');
+      //          done — otherwise the user concludes the whole expression is unsupported. (`asin`'s
+      //          derivative was **never measured**, so it is not in the table; `sin` is — see below.)
+      final out = _run('x + asin(x)');
       expect(out.hasError, isTrue, reason: '没走完就不算答案');
       expect(out.detail, contains('1. 1'), reason: '左边那一半要看得见');
       expect(out.detail, contains('这一步还不会算'));
@@ -66,6 +68,30 @@ void main() {
       expect(_run('').primary, contains('请输入'));
       expect(_run('2+').primary, contains('读不出'));
       expect(_run('2+').detail, contains('例如'));
+    });
+
+    test('链式法则：`sin(x^2)` 两层都看得见，且内层先出现', () {
+      final out = _run('sin(x^2)');
+      expect(out.hasError, isFalse);
+      expect(out.primary, contains('cos(x^2)'), reason: '指数不空格：x^2 不是 x ^ 2');
+      final detail = out.detail;
+      expect(detail, contains('幂法则'));
+      expect(detail, contains('链式法则'));
+      expect(detail.indexOf('幂法则'), lessThan(detail.indexOf('链式法则')),
+          reason: '内层那一步先写出来：\n$detail');
+    });
+
+    test('⚠️ 表外的函数：停下，且**说明是哪一步**不算', () {
+      // 中文：**导数写错的函数比"不支持的函数"坏得多**——前者会印出一条看上去很完整的假推导。
+      //       所以 `asin`/`abs`/`log` 都不在表里，不是忘了，是**没有量过**。
+      // English: **a wrong derivative is far worse than an unsupported function** — the former prints a
+      //          plausible-looking, complete, fake derivation. So `asin`, `abs` and `log` are not in the
+      //          table: not forgotten, but **not measured**.
+      for (final input in <String>['asin(x)', 'abs(x)']) {
+        final out = _run(input);
+        expect(out.hasError, isTrue, reason: '`$input` 算不了');
+        expect(out.detail, contains('这一步还不会算'));
+      }
     });
 
     test('对 x 求导是工具定的：`y` 是常量', () {

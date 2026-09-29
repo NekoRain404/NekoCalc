@@ -98,12 +98,73 @@ void main() {
   });
 
   group('⚠️ 表外的节点：停下并说明，绝不悄悄跳过', () {
-    test('函数调用这一版不做（链式法则留给下一版）', () {
-      for (final source in <String>['sin(x)', 'ln(x)', 'x!']) {
+    test('⚠️ 表外的函数：停下，不许猜', () {
+      // 中文：**导数写错的函数比"不支持的函数"坏得多**——前者会印出一条看上去很完整的假推导。
+      //       所以 `asin`/`abs`/`log` 这些**不在表里**，不是忘了，是**没有量过**。
+      //       `x!` 更直接：阶乘没有初等导数。
+      // English: **a wrong derivative is far worse than an unsupported function** — the former prints a
+      //          plausible-looking, complete, fake derivation. So `asin`, `abs` and `log` are **not in the
+      //          table**: not forgotten, but **not measured**. `x!` is plainer still: the factorial has no
+      //          elementary derivative.
+      for (final source in <String>['asin(x)', 'abs(x)', 'log(x)', 'x!']) {
         final result = differentiate(source, 'x');
         expect(result.derivative, isNull, reason: '`$source` 算不了就不许给结果');
         expect(result.refusal, isNotNull, reason: '`$source` 必须说明为什么停下');
       }
+    });
+
+    test('二元函数不在链式法则的适用范围里：停下', () {
+      // 中文：`atan2(y, x)` 有两个实参——**不许把第一个当整体**。
+      final result = differentiate('atan2(1, x)', 'x');
+      expect(result.derivative, isNull);
+      expect(result.refusal, isNotNull);
+    });
+
+    test('链式法则：外层与内层**两层都看得见**', () {
+      final result = differentiate('sin(x)', 'x');
+      expect(result.steps.last.rule, DerivativeRules.chain);
+      // `sin` 的外层导数是 `cos(u)`，内层是 `1`。
+      expect(result.derivative, 'cos(x)·(1)');
+    });
+
+    test('链式法则套幂法则：内层那一步先写出来', () {
+      // 中文：`sin(x^2)` 应该先出现内层的幂法则，再出现外层的链式法则——
+      //       **顺序就是推导的顺序**，用户照着读得下去。
+      // English: `sin(x^2)` shows the inner power rule first and the outer chain rule after — **the order
+      //          is the order of the derivation**, so it can be read straight through.
+      final result = differentiate('sin(x^2)', 'x');
+      expect(result.refusal, isNull);
+      final rules = result.steps.map((s) => s.rule).toList();
+      expect(rules.contains(DerivativeRules.power), isTrue);
+      expect(rules.contains(DerivativeRules.chain), isTrue);
+      expect(rules.indexOf(DerivativeRules.power),
+          lessThan(rules.indexOf(DerivativeRules.chain)),
+          reason: '内层先算：$rules');
+      expect(result.derivative, contains('cos(x^2)'));
+      expect(result.derivative, contains('2·x^1'), reason: '指数不空格：x^2 不是 x ^ 2');
+    });
+
+    test('六个表内函数各一条，形状与定义一致', () {
+      // 中文：**这六条的期望值是定义给的，不是量出来的**——`sin`/`cos` 的导数、
+      //       `ln` 与 `exp` 互逆、`sqrt` 是 `u^(1/2)` 的特例。所以这里钉的是**形状**：
+      //       外层写成什么、以及"内层乘在外面"这件事。
+      // English: **these six expectations come from the definitions, not from measurement** — the
+      //          derivatives of `sin`/`cos`, `ln` and `exp` being inverses, `sqrt` as the `u^(1/2)` case.
+      //          So what is pinned here is the **shape**: what the outer factor is written as, and the fact
+      //          that the inner one multiplies it.
+      const expected = <String, String>{
+        'sin(x)': 'cos(x)·(1)',
+        'cos(x)': '-sin(x)·(1)',
+        'tan(x)': '1/cos(x)^2·(1)',
+        'ln(x)': '1/x·(1)',
+        'exp(x)': 'exp(x)·(1)',
+        'sqrt(x)': '1/(2·sqrt(x))·(1)',
+      };
+      expected.forEach((source, derivative) {
+        final result = differentiate(source, 'x');
+        expect(result.derivative, derivative, reason: '`$source`');
+        expect(result.steps.last.rule, DerivativeRules.chain);
+      });
     });
 
     test('指数里含变量：幂法则不适用，如实停下', () {
@@ -188,14 +249,14 @@ void main() {
       expect(result.steps, isEmpty, reason: '连树都没有，谈不上步骤');
     });
     test('停下时，前面的步骤照旧给出来——用户看得见走到哪一步', () {
-      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + sin(x)` 里 `x` 那一半是算得出来的，
+      // 中文：**这一条是"停下"与"什么都不给"的区别。** `x + asin(x)` 里 `x` 那一半是算得出来的，
       //       推导应当把那一半写出来，再说后面那个算不了——**而不是整条清空**。
       //       （整条清空也安全，但用户会以为"这个式子完全算不了"。）
-      // English: **this is the difference between "stopping" and "giving nothing".** In `x + sin(x)` the
+      // English: **this is the difference between "stopping" and "giving nothing".** In `x + asin(x)` the
       //          `x` half is computable; the derivation should show that half and then say the rest
       //          cannot be done — **not wipe the whole thing**. (Wiping is also safe, but the user would
       //          conclude the whole expression is unsupported.)
-      final result = differentiate('x + sin(x)', 'x');
+      final result = differentiate('x + asin(x)', 'x');
       expect(result.refusal, isNotNull);
       expect(result.derivative, isNull);
       expect(result.steps, isNotEmpty, reason: '左边那一半是算出来的，要看得见');

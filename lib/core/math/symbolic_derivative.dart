@@ -152,7 +152,14 @@ DerivativeResult differentiate(String source, String variable) {
   final steps = <DerivativeStep>[];
   final result = _differentiate(tree, variable, steps);
   if (result == null) {
-    return (derivative: null, steps: steps, refusal: steps.isEmpty ? 'unreadable' : 'stopped');
+    // 中文：**走到这里说明"式子读懂了，只是这一层算不了"**——空输入与解析错误在前面两道闸
+    //       已经拦掉了。所以这里一律 `stopped`，**不再看步骤空不空**：
+    //       `asin(x)` 一条步骤都没走出来，但它**读懂了**，说"读不出"就是**说岔了**。
+    // English: **reaching here means "the expression was read, this level just is not handled"** — an empty
+    //          input and a parse error were stopped by the two gates above. So it is always `stopped` and
+    //          **no longer depends on whether any steps were produced**: `asin(x)` produces none, but it
+    //          **was** read, and calling that "unreadable" is **saying the wrong thing**.
+    return (derivative: null, steps: steps, refusal: 'stopped');
   }
   // 中文：**不在这里补一步。** 推导是递归自己的副产品（每一步在用到它的那一层记下），
   //       这里再补一条就会把根那一步**记两遍**——测试第一版抓到的就是这个：
@@ -224,7 +231,31 @@ String? _differentiate(ExprNode node, String variable, List<DerivativeStep> step
       // English: `2x` is an **implicit product** in the tree and takes **the same rule** as an explicit
       //          one — two branches would give "the product rule" two spellings.
       return _differentiateBinary('*', left, right, variable, steps);
-    case FunctionNode():
+    case FunctionNode(:final name, :final args):
+      // 中文：**链式法则**：`d/dx f(u) = f'(u)·u'`。
+      //
+      //       外层的导数由 [_outerDerivative] 给（一张小表），内层照常递归——所以
+      //       `sin(x^2)` 会先写出内层的幂法则，再写出外层的链式法则，**两层都看得见**。
+      //
+      //       ⚠️ **只收一个实参**：`atan2(y, x)` 那种二元函数不在链式法则的适用范围里，
+      //       **如实停下**，不许把第一个实参当整体。
+      // English: **the chain rule**: `d/dx f(u) = f'(u)·u'`.
+      //
+      //          The outer derivative comes from [_outerDerivative] (a small table) and the inner one
+      //          recurses as usual — so `sin(x^2)` writes the inner power rule first and the outer chain
+      //          rule after, **both visible**.
+      //
+      //          ⚠️ **One argument only**: a two-argument function such as `atan2(y, x)` is outside the
+      //          chain rule's reach — it **stops honestly** rather than taking the first argument for the
+      //          whole.
+      if (args.length != 1) return null;
+      final outer = _outerDerivative(name, args.single);
+      if (outer == null) return null;
+      final innerText = _differentiate(args.single, variable, steps);
+      if (innerText == null) return null;
+      final text = '$outer·($innerText)';
+      _record(steps, text, DerivativeRules.chain);
+      return text;
     case PostfixNode():
     case OperatorNode():
     case ParseErrorNode():
@@ -339,7 +370,14 @@ String? _render(ExprNode node) {
       final leftText = _render(left);
       final rightText = _render(right);
       if (leftText == null || rightText == null) return null;
-      return '$leftText $op $rightText';
+      // 中文：**指数不空格。** `x ^ 2` 与屏幕上（以及用户手里）的 `x^2` 不是一个写法——
+      //       而推导里的一步与用户打的式子长得不一样，本身就是一种错值。
+      //       `+`/`-`/`*`/`/` 保留空格：那两个字符连着数字会读错（`x+2` 还行，`x - -2` 不行）。
+      // English: **no spaces around the exponent.** `x ^ 2` is not the same spelling as the `x^2` on screen
+      //          (and in the user's hands) — and a step that looks different from what the user typed is
+      //          itself a kind of wrong value. `+`/`-`/`*`/`/` keep their spaces: those characters next to
+      //          digits read wrongly (`x+2` is fine, `x - -2` is not).
+      return op == '^' ? '$leftText^$rightText' : '$leftText $op $rightText';
     case ImplicitProductNode(:final left, :final right):
       final leftText = _render(left);
       final rightText = _render(right);
@@ -365,3 +403,55 @@ String? _render(ExprNode node) {
 /// English: print a number — integers get no decimal point (`2`, not `2.0`).
 String _formatNumber(num value) =>
     value == value.roundToDouble() ? value.toInt().toString() : '$value';
+
+/// 中文：**外层的导数**——链式法则里那个 `f'(u)`，写成应用的写法；表外回 `null`。
+///
+///       表里只有六个，而且**每一个都是可以直接写出来的**：
+///
+///       | `f(u)` | `f'(u)` |
+///       |---|---|
+///       | `sin` | `cos(u)` |
+///       | `cos` | `-sin(u)` |
+///       | `tan` | `1/cos(u)^2` |
+///       | `ln` | `1/u` |
+///       | `exp` | `exp(u)` |
+///       | `sqrt` | `1/(2·sqrt(u))` |
+///
+///       ⚠️ **表外的一律回 `null`，由调用方停下。** 这是这一版最重要的一条边界：
+///       导数写错的函数比"不支持的函数"坏得多——**前者会印出一条看上去很完整的假推导**。
+///       所以 `log`/`log2`/`asin`/`abs` 这些**都不在表里**，不是忘了，是**没有量过**
+///       （`ln` 与 `exp` 互为反函数、`sqrt` 是幂的特例，这三条是定义给的；其余各有分支，
+///       要写就得先想清楚定义域）。
+/// English: **the outer derivative** — the `f'(u)` of the chain rule, written in the app's spelling;
+///          `null` when outside the table.
+///
+///          Six entries, each of which can be written straight down (see the table in the Chinese
+///          section, which is the same table).
+///
+///          ⚠️ **Anything outside the table returns `null` and the caller stops.** That is this version's
+///          most important boundary: **a wrong derivative is far worse than an unsupported function** —
+///          the former prints a plausible-looking, complete, fake derivation. So `log`, `log2`, `asin`
+///          and `abs` are **not in the table**, not because they were forgotten but because they were
+///          **not measured** (`ln`/`exp` being inverses and `sqrt` being a power case come from the
+///          definitions; the others have branches, and writing one means thinking the domain through
+///          first).
+String? _outerDerivative(String name, ExprNode argument) {
+  final u = _render(argument);
+  if (u == null) return null;
+  switch (name) {
+    case 'sin':
+      return 'cos($u)';
+    case 'cos':
+      return '-sin($u)';
+    case 'tan':
+      return '1/cos($u)^2';
+    case 'ln':
+      return '1/$u';
+    case 'exp':
+      return 'exp($u)';
+    case 'sqrt':
+      return '1/(2·sqrt($u))';
+    default:
+      return null;
+  }
+}
