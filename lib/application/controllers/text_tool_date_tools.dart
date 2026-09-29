@@ -27,7 +27,8 @@ part of 'text_tool_controller.dart';
 ///          **All arithmetic runs in UTC.** A local day is not 24 hours on a daylight-saving switch, and
 ///          `difference().inDays` loses a day on those two days (one per hemisphere). Reading only the
 ///          year, month and day and constructing `DateTime.utc` keeps every day count exact.
-TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime today) {
+TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime today,
+    String Function(String label, String value) labelled) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) {
     return TextToolOutput(strings.emptyInput, strings.hint, hasError: true);
@@ -52,7 +53,7 @@ TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime tod
     if (!left.isReal || !right.isReal) {
       return TextToolOutput(strings.invalidDate, strings.hint, hasError: true);
     }
-    return _between(strings, left, right);
+    return _between(strings, left, right, labelled);
   }
 
   final shift = _splitShift(normalized);
@@ -65,7 +66,7 @@ TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime tod
     if (!base.isReal) {
       return TextToolOutput(strings.invalidDate, strings.hint, hasError: true);
     }
-    return _shifted(strings, base, days);
+    return _shifted(strings, base, days, labelled);
   }
 
   final single = _DateLiteral.parse(normalized);
@@ -73,7 +74,7 @@ TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime tod
     if (!single.isReal) {
       return TextToolOutput(strings.invalidDate, strings.hint, hasError: true);
     }
-    return _single(strings, single);
+    return _single(strings, single, labelled);
   }
 
   // 中文：`+30` / `-30`：从**今天**起算。`+` 那一支要先判，否则 `-30` 会被上面当成日期。
@@ -81,7 +82,7 @@ TextToolOutput _dateCalc(TextToolDateStrings strings, String input, DateTime tod
   final relative = RegExp(r'^([+-])\s*(\d{1,6})$').firstMatch(normalized);
   if (relative != null) {
     final days = int.parse(relative.group(2)!) * (relative.group(1) == '-' ? -1 : 1);
-    return _shifted(strings, from, days);
+    return _shifted(strings, from, days, labelled);
   }
 
   return TextToolOutput(strings.unrecognized, strings.hint, hasError: true);
@@ -121,7 +122,8 @@ String _normalizeDateInput(String source, DateTime today) {
       .trim();
 }
 
-TextToolOutput _between(TextToolDateStrings strings, _DateLiteral a, _DateLiteral b) {
+TextToolOutput _between(TextToolDateStrings strings, _DateLiteral a, _DateLiteral b,
+    String Function(String label, String value) labelled) {
   final days = b.utc.difference(a.utc).inDays;
   final abs = days.abs();
   final ordered = days >= 0 ? (a, b) : (b, a);
@@ -130,10 +132,10 @@ TextToolOutput _between(TextToolDateStrings strings, _DateLiteral a, _DateLitera
   final insights = <String>[
     strings.weekCount(abs ~/ 7, abs % 7),
     strings.monthDayCount(calendar.$1, calendar.$2, calendar.$3),
-    strings.labelled(
+    labelled(
         strings.dayOfYearLabel,
         strings.arrow(ordered.$2.text, '${ordered.$2.dayOfYear}')),
-    strings.labelled(
+    labelled(
         strings.weekdayLabel,
         strings.arrow(ordered.$2.text,
             _weekdayName(strings, ordered.$2.utc.weekday))),
@@ -142,7 +144,7 @@ TextToolOutput _between(TextToolDateStrings strings, _DateLiteral a, _DateLitera
   if (days == 0) {
     return TextToolOutput(
       strings.dayCount(0),
-      strings.labelled(strings.between(a.text, b.text), strings.sameDay),
+      labelled(strings.between(a.text, b.text), strings.sameDay),
       insights: insights,
     );
   }
@@ -153,31 +155,33 @@ TextToolOutput _between(TextToolDateStrings strings, _DateLiteral a, _DateLitera
   );
 }
 
-TextToolOutput _shifted(TextToolDateStrings strings, _DateLiteral base, int days) {
+TextToolOutput _shifted(TextToolDateStrings strings, _DateLiteral base, int days,
+    String Function(String label, String value) labelled) {
   final result = base.utc.add(Duration(days: days));
   final resultLiteral = _DateLiteral.fromUtc(result);
   return TextToolOutput(
     strings.resultDate(resultLiteral.text),
     strings.shifted(base.text, days),
     insights: <String>[
-      strings.labelled(
+      labelled(
           strings.weekdayLabel, _weekdayName(strings, result.weekday)),
-      strings.labelled(
+      labelled(
           strings.dayOfYearLabel, '${resultLiteral.dayOfYear}'),
-      strings.labelled(strings.isoWeekLabel, '${resultLiteral.isoWeek}'),
+      labelled(strings.isoWeekLabel, '${resultLiteral.isoWeek}'),
     ],
   );
 }
 
-TextToolOutput _single(TextToolDateStrings strings, _DateLiteral date) {
+TextToolOutput _single(TextToolDateStrings strings, _DateLiteral date,
+    String Function(String label, String value) labelled) {
   return TextToolOutput(
     strings.readAsDate(date.text),
-    strings.labelled(
+    labelled(
         strings.weekdayLabel, _weekdayName(strings, date.utc.weekday)),
     insights: <String>[
-      strings.labelled(strings.dayOfYearLabel, '${date.dayOfYear}'),
-      strings.labelled(strings.isoWeekLabel, '${date.isoWeek}'),
-      strings.labelled(
+      labelled(strings.dayOfYearLabel, '${date.dayOfYear}'),
+      labelled(strings.isoWeekLabel, '${date.isoWeek}'),
+      labelled(
           strings.leapYearLabel, date.isLeapYear ? strings.yes : strings.no),
     ],
   );

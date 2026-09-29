@@ -57,8 +57,8 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('中文表与目录逐条相同，两张表与名字表互为全集（运行期比对，不是照抄）', () {
-    expect(toolCatalog.length, 118,
-        reason: '目录里一共 118 个工具（77 条 title: + 22 个 _unitTool + 19 个 _textTool）');
+    expect(toolCatalog.length, 119,
+        reason: '目录里一共 119 个工具（77 条 title: + 22 个 _unitTool + 20 个 _textTool）');
     expect(zh.toolDescriptions.length, toolCatalog.length,
         reason: '中文描述表的条数与目录不同——多一条或少一条都会让下面那条断言空转');
     expect(en.toolDescriptions.length, toolCatalog.length,
@@ -120,7 +120,7 @@ void main() {
         reason: '这些记号在英文里没了——数学记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });
 
-  testWidgets('卡片那一行装得下：英文宽 ≤ max(中文宽, 那一行的宽)（117 条逐条量）',
+  testWidgets('卡片那一行装得下：英文宽 ≤ max(中文宽, 那一行的宽)（逐条量）',
       (tester) async {
     final rows = await _descriptionRows(tester);
     expect(rows, isNotEmpty, reason: '分类页上一张带说明的工具卡都没有，下面每条断言都会空转');

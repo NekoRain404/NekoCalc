@@ -8,6 +8,7 @@ import 'text_tool_date_strings.dart';
 import 'text_tool_stats_strings.dart';
 import 'text_tool_text_strings.dart';
 import 'text_tool_timestamp_strings.dart';
+import 'text_tool_uncertainty_strings.dart';
 import 'text_tool_web_strings.dart';
 
 // 中文：`TextToolController` 的各个 `part` 文件要看得见这几张表；它们 `part of` 控制器，
@@ -22,6 +23,7 @@ export 'text_tool_date_strings.dart';
 export 'text_tool_stats_strings.dart';
 export 'text_tool_text_strings.dart';
 export 'text_tool_timestamp_strings.dart';
+export 'text_tool_uncertainty_strings.dart';
 export 'text_tool_web_strings.dart';
 
 /// 中文：文本 / 编程类工具这一族的界面文案表。机制本身（为什么是手写分表而不是 ARB /
@@ -140,6 +142,7 @@ class TextToolStrings {
     required this.web,
     required this.timestamp,
     required this.date,
+    required this.uncertainty,
     required this.numericInput,
   });
 
@@ -151,6 +154,7 @@ class TextToolStrings {
   final TextToolWebStrings web;
   final TextToolTimestampStrings timestamp;
   final TextToolDateStrings date;
+  final TextToolUncertaintyStrings uncertainty;
 
   /// 中文：**数值解析失败那四句**——自定义公式工具拿 `a`/`b`/`c` 三个变量去问
   ///       `ToolDetailController.parseNumericInputDetailed`，那个解析器不认字，只回一个判据，
@@ -191,6 +195,7 @@ class TextToolStrings {
     web: TextToolWebStrings.webZh,
     timestamp: TextToolTimestampStrings.timestampZh,
     date: TextToolDateStrings.textToolDateZh,
+    uncertainty: TextToolUncertaintyStrings.textToolUncertaintyZh,
     numericInput: NumericInputStrings.numericInputZh,
   );
 
@@ -203,6 +208,7 @@ class TextToolStrings {
     web: TextToolWebStrings.webEn,
     timestamp: TextToolTimestampStrings.timestampEn,
     date: TextToolDateStrings.textToolDateEn,
+    uncertainty: TextToolUncertaintyStrings.textToolUncertaintyEn,
     numericInput: NumericInputStrings.numericInputEn,
   );
 }
@@ -219,6 +225,7 @@ class TextToolOutputStrings {
     required this.unsupportedTool,
     required this.unsupportedToolDetail,
     required this.retryHint,
+    required this.labelled,
     required this.statusNeedsFix,
     required this.statusReusable,
     required this.emptySize,
@@ -249,6 +256,15 @@ class TextToolOutputStrings {
   /// English: The fallback sentence when an error carries no detail; the catch-all also uses it as
   ///          the insight line.
   final String retryHint;
+
+  /// 中文：**`标签 · 值` 这种形状。** 三个文本工具（时间戳族的读数、日期计算、不确定度传播）
+  ///       都要印"一行标签 ＋ 一个值"，而**形状是排版不是数据**——所以它只有一份，住在这里。
+  ///       （它原先长在日期计算那张表里，本工具要第二份时搬了上来：**同一句话只留一个源**。）
+  /// English: **the shape `label · value`.** Three text tools (the timestamp family's readings, the date
+  ///          calculator, the uncertainty tool) each print "a label and a value", and **the shape is
+  ///          layout, not data** — so there is one copy, here. (It used to live in the date table and
+  ///          moved up when a second tool needed it: **one sentence, one source**.)
+  final String Function(String label, String value) labelled;
 
   // —— 状态卡 ——
   final String statusNeedsFix;
@@ -289,6 +305,7 @@ class TextToolOutputStrings {
     unsupportedTool: '不支持的文本工具',
     unsupportedToolDetail: '请从工具中心打开已登记的编程与数据工具。',
     retryHint: '请检查输入格式后重试。',
+    labelled: (label, value) => '$label · $value',
     statusNeedsFix: '输入需要修正',
     statusReusable: '结果可复用',
     emptySize: '为空',
@@ -316,6 +333,7 @@ class TextToolOutputStrings {
     unsupportedToolDetail:
         'Open a registered programming or data tool from the tool centre.',
     retryHint: 'Check the input format and try again.',
+    labelled: (label, value) => '$label · $value',
     statusNeedsFix: 'Input needs fixing',
     statusReusable: 'Result is reusable',
     emptySize: 'empty',

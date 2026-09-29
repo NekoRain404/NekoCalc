@@ -24,6 +24,7 @@ part 'text_tool_regex_tools.dart';
 part 'text_tool_shared_text.dart';
 part 'text_tool_text_stats_tools.dart';
 part 'text_tool_timestamp_tools.dart';
+part 'text_tool_uncertainty_tools.dart';
 part 'text_tool_url_codec_tools.dart';
 part 'text_tool_url_query_tools.dart';
 part 'text_tool_uuid_tools.dart';
@@ -141,7 +142,10 @@ class TextToolController {
         // English: **`today` travels through the parameter list** rather than a hard-wired
         //          `DateTime.now()` here, which would make this branch device-only — and it is
         //          a pure function. A test passing a fixed date walks the whole path.
-        'date_calc' => _dateCalc(strings.date, trimmed, today ?? DateTime.now()),
+        'date_calc' =>
+            _dateCalc(strings.date, trimmed, today ?? DateTime.now(), strings.output.labelled),
+        'uncertainty' =>
+            _uncertainty(strings.uncertainty, input, strings.output.labelled),
         'timestamp' => _timestamp(strings.timestamp, trimmed),
         'color_convert' => _colorConvert(strings.web, trimmed),
         'base64' => _base64(strings.codec, trimmed),

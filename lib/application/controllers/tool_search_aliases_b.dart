@@ -479,6 +479,19 @@ void _addToolSearchAliasesB(String id, List<String> aliases) {
         '日期加减',
         '几天后',
       ]);
+    case 'uncertainty':
+      aliases.addAll(const [
+        'uncertainty propagation',
+        'error propagation',
+        'measurement uncertainty',
+        'quadrature',
+        'combined uncertainty',
+        '不确定度',
+        '不确定度传播',
+        '误差传播',
+        '合成不确定度',
+        '主要误差来源',
+      ]);
     case 'data_size':
       aliases.addAll(const [
         'bytes',

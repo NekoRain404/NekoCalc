@@ -61,6 +61,7 @@ void main() {
           '日期加天数的形状',
       r'^(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?$':
           '一个日期本身的形状（含中文年月日）',
+      r'[\r\n,，;；]+': '把输入切成一项一项的分隔符（含中英文顿号与分号）',
       '今天': '用户打的词',
       '今日': '用户打的词',
       // —— 输入文法：匹配用户可能敲进来的中文标签 ——
@@ -136,6 +137,7 @@ void main() {
       'text_tool_csv_tools.dart',
       'text_tool_custom_formula_tools.dart',
       'text_tool_date_tools.dart',
+      'text_tool_uncertainty_tools.dart',
       'text_tool_html_entities.dart',
       'text_tool_integer_tools.dart',
       'text_tool_json_tools.dart',
@@ -176,7 +178,7 @@ void main() {
 
     expect(offenders, isEmpty,
         reason: '这些界面字面量还没走 TextToolStrings 那七张表：\n${offenders.join('\n')}');
-    expect(exemptions.length, 39, reason: '豁免表变短或变长都要在这里说一声');
+    expect(exemptions.length, 40, reason: '豁免表变短或变长都要在这里说一声');
     expect(seen, migrated,
         reason: '本族文件多了或少了：目录里是 $seen，名单里是 $migrated——'
             '新加一个 `text_tool_*.dart` 时这里会红，那时请把它也搬进文案表');

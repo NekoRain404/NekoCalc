@@ -60,6 +60,10 @@ final List<ToolDefinition> textToolDefinitions = [
   //       `text_tool_date_tools.dart` 的文件头。
   _textTool('date_calc', '日期计算', '两个日期相差多少天、某个日期加减几天', ToolCategory.math,
       '常用', '支持两个日期的间隔、单日期加减天数、今天起算，并给出星期、年内天数与 ISO 周。'),
+  // 中文：**不确定度传播**——HiPER 手册里 `uncertainty` 与 `±` 的命中都是 **0**。
+  _textTool('uncertainty', '不确定度传播', '多个测量值的合成不确定度与主要误差来源',
+      ToolCategory.science, '物理',
+      '输入若干「值 ± 不确定度」，给出和与差的合成不确定度、积与商的相对不确定度，以及哪一项是主要误差来源。'),
   _textTool('color_convert', 'RGB/HEX颜色', 'RGB、HEX、HSL 颜色转换',
       ToolCategory.programming, '编码', '支持 HEX、RGB/RGBA、HSL/HSLA 和常用 CSS 命名色。'),
   _textTool('base64', 'Base64', 'Base64 编码解码', ToolCategory.programming, '编码',

@@ -409,6 +409,7 @@ class ToolCatalogStrings {
       'base_convert': '进制转换',
       'timestamp': '时间戳转换',
       'date_calc': '日期计算',
+      'uncertainty': '不确定度传播',
       'color_convert': 'RGB/HEX颜色',
       'base64': 'Base64',
       'url_codec': 'URL编码',
@@ -681,6 +682,7 @@ class ToolCatalogStrings {
       'timestamp':
           'Timestamp Converter', // B · four entries: three name a quantity, one is a verb phrase
       'date_calc': 'Date Calculator',
+      'uncertainty': 'Uncertainty Propagation',
       'color_convert': 'Hex Colour', // A · 'hex color'
       'base64': 'Base64', // L · title already Latin
       'url_codec':

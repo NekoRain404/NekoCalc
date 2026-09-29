@@ -29,7 +29,6 @@ class TextToolDateStrings {
     required this.no,
     required this.hint,
     required this.weekdayNames,
-    required this.labelled,
     required this.arrow,
     required this.readAsDate,
     required this.between,
@@ -65,14 +64,6 @@ class TextToolDateStrings {
   ///          the controller only does `weekday - 1` (`DateTime.weekday` is 1 = Monday).
   final List<String> weekdayNames;
 
-  /// 中文：**`标签 · 值` 与 `前 → 后` 这两种形状**。它们是**排版**，不是数据——所以它们在表里，
-  ///       而不是散在控制器里拼。中文用 ` · ` 与 `→`，英文用 ` · ` 与 `→`（两种语言这里恰好一样，
-  ///       但形状仍归表管：哪天英文想换成 `: ` 只改这一处）。
-  /// English: **the two shapes `label · value` and `from → to`.** They are **layout, not data**, which is
-  ///          why they live in the table rather than being assembled in the controller. Chinese uses
-  ///          ` · ` and `→` and so does English (they happen to coincide here), but the shape still
-  ///          belongs to the table: changing English to `: ` would touch this one entry.
-  final String Function(String label, String value) labelled;
   final String Function(String from, String to) arrow;
 
   /// 中文：下面这几条是**带槽的句子**，槽里填的是**日期与天数**——它们都是数据，两种语言原样出。
@@ -110,7 +101,6 @@ class TextToolDateStrings {
     no: '否',
     hint: '例如：2026-09-20 ／ 2026-01-01 到 2026-09-20 ／ 今天 + 30',
     weekdayNames: const ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'],
-    labelled: (label, value) => '$label · $value',
     arrow: (from, to) => '$from → $to',
     readAsDate: (date) => '$date 这一天',
     between: (from, to) => '$from 到 $to',
@@ -138,7 +128,6 @@ class TextToolDateStrings {
     weekdayNames: const [
       'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
     ],
-    labelled: (label, value) => '$label · $value',
     arrow: (from, to) => '$from → $to',
     readAsDate: (date) => 'the day $date',
     between: (from, to) => '$from to $to',
