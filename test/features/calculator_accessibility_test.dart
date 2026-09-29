@@ -15,12 +15,16 @@ import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 ///       （`variant.label`——键位表、横带提示、逐格快照用的都是它）接到语义树上。
 ///       **不是给它取名字，是把它已有的名字接上去。**
 ///
-/// ⚠️ **另一条判据（`androidTapTargetGuideline`，每个可点目标 ≥48dp）仍然不通过**，
-/// 而那是**布局权衡**：键盘每一行只有约 26 dp 高，加高会挤动整块键盘，
-/// 而键盘是照着 HiPER 排的。**所以这里没有断言它**——
-/// 一条会把"权衡"说成"缺陷"的测试，与本仓那条"判据要挂在哪一个是错的"是同一类问题。
-/// 数（每行约 26 dp、抽屉按钮 40×40、`More...` 112×34）记在
+/// ⚠️ **另一条判据（`androidTapTargetGuideline`，每个可点目标 ≥48dp）在这里也没有断言——
+/// 而理由变了。** 我第一版量出来"每行只有 26 dp、不达标"，那是**默认 800×600 测试面**
+/// 把键盘压扁造成的；**按真机尺寸（360×800）重量，它通过。**
+/// **所以它不断言不是因为"那是权衡"，是因为它本来就过**——而这一条更正留在
 /// `.superpowers/backup/comparison-with-hiper.md` 第十一节。
+/// English: **the other guideline is not asserted here either — but the reason changed.** My first version
+///          measured "every row is only 26 dp, below the guideline", which was the **default 800×600 test
+///          surface** squashing the keypad; **re-measured at device size (360×800) it passes.** So it is
+///          unasserted not because "it is a trade-off" but because **it already passes** — and that
+///          correction lives in section 十一 of `.superpowers/backup/comparison-with-hiper.md`.
 /// English: **the main screen's semantic labels, measured against Flutter's own guideline.**
 ///
 ///          ⚠️ **It used to fail across the keypad**, for a specific reason (measured): a key face is either
@@ -53,6 +57,17 @@ class _FakeDatabase implements AppDatabase {
 
 void main() {
   testWidgets('主屏：每个可点的东西都有名字（读屏读得出来）', (tester) async {
+    // 中文：**按真机尺寸量**（360×800 dp）。默认的 800×600 测试面会把键盘压扁——
+    //       我第一版就是这么量的，于是得出"每行只有 26 dp、不达标"这个**假的**结论。
+    //       凡是量"屏幕上多大"的东西，先把测试面设成真机尺寸。
+    // English: **measured at device size** (360×800 dp). The default 800×600 surface squashes the keypad —
+    //          that is how my first version measured it, and it produced a **false** conclusion ("every row is
+    //          only 26 dp, below the guideline"). Anything measuring "how big is it on screen" has to set the
+    //          surface to a device size first.
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: CalculatorPage(
