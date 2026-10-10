@@ -531,12 +531,21 @@ bundles) through the same `Calculator::calculate` the bridge enters, with the br
 app's two-path design requires, so "both modes agree on ±infinity" is a real agreement — not two modes that
 were silently the same object.
 
-⚠️ **What this does *not* measure: whether the app surfaces it.** Reachability is plausible — the app routes
-expressions through this same engine with these same options, and the keypad carries an `∫dx` key — but
-**plausible is not measured**, and that distinction is this file's whole point. Settling it needs either the
-Dart/Kotlin result path read for an `infinity` guard, or the device's zero-touch channel (which rewrites
-`app_settings`, so back it up and restore it byte for byte). **Recorded as measured *engine* behaviour, not
-as an app defect.**
+⚠️ **How far this reaches into the app — carried as far as the repository allows, and no further.**
+
+- **The keypad never produces the indefinite form.** `∫dx` inserts `integrate(x^2,0,1,x)`
+  (`calculator_key_dispatch.dart:387`, `case 'ins:integrate'`) — **with bounds** — and that is the branch the
+  engine answers **correctly** (`1/3`). So the **key-driven path is safe.**
+- **The indefinite form is typeable** (or reachable by editing the inserted template), and there the display
+  path decides. **Read, not measured**: `_engineMathResult` (`calculator_controller_engine_display.dart:74`)
+  has three routes and this answer takes the third — `decimalValue` is null, because Dart's
+  `double.tryParse('-infinity')` **rejects the lowercase spelling** (it accepts only `Infinity` /
+  `-Infinity` / `NaN`), and it is not a quantity, so route 3 **returns the engine's own text as it stands**
+  ⇒ the screen would carry `-infinity`.
+- ⚠️ **That last line is an inference from the code, and this file does not record inferences as findings.**
+  Confirming it needs the device's zero-touch channel (which rewrites `app_settings`, so back it up and
+  restore it byte for byte), or a widget test that feeds this exact reply through a stubbed engine.
+  **So: the engine behaviour is measured; the app's display is inferred; the key-driven path is safe.**
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
