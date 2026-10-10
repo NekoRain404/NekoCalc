@@ -39,10 +39,32 @@ my app-arm64-v8a-release.apk : CN=NekoCalc, OU=NekoRain, ... SHA-256 bbb28c50…
 ```
 
 **Same certificate ⇒ `adb install -r` replaces in place and keeps the data** (it also went `2009 → 4009`, an
-upgrade, so no downgrade guard fires). Both release rows above come from that install. **What remains true** is
-the *reverse* direction: release is `versionCode=4009` and debug is `2009` (`versionCode = flutter.versionCode`,
-nothing else in `build.gradle.kts`), so **going back to a debuggable build needs `-d`** — that, and not an
-uninstall, is the real asymmetry. Two errors in one paragraph, both caught by measuring instead of reasoning.
+upgrade, so no downgrade guard fires). Both release rows above come from that install.
+
+⚠️ **The reverse direction is worse than "needs `-d`" — measured, `-d` is not enough on this device.** Going back
+to a debuggable build means installing `2009` over `4009`, and **both entry points refuse it**:
+
+```
+adb install -r -d …                  → INSTALL_FAILED_VERSION_DOWNGRADE: Downgrade detected: Update version code 2009 is older than current 4009
+adb shell pm install -r -d --user 0 … → same
+```
+
+`-d` is documented as "debuggable packages only" and the APK **is** debuggable (verified: `CN=NekoCalc`,
+`bbb28c50…`), so this is the ROM refusing the downgrade rather than the flag being omitted.
+
+⚠️ **Consequence, plainly: `flutter run` / `flutter install` on this device is now blocked.** It builds the
+**debug** variant at `2009`, which is a downgrade from the installed `4009`. The paths out are (a) uninstall +
+reinstall — which **costs the app's data**, and the database *cannot* be pulled first because `run-as` needs a
+debuggable build — or (b) install something with `versionCode ≥ 4009` (raise pubspec's build number, or make the
+release variant debuggable). **The release install was deliberately left in place**: a downgrade is refused, and
+there is no reachable backup of the app's private data from here, so undoing it would have risked data for
+tidiness. What the device holds is exactly what `flutter build apk --release --split-per-abi` produces from
+HEAD — a clean, reproducible state, and the one whose baselines this table now records.
+
+⚠️ **The `versionCode` split itself**: measured, the debug variant is `2009` and release is `4009`, while this
+project's `build.gradle.kts` contains only `versionCode = flutter.versionCode` (grepped). So the `+2000` on
+release comes from Flutter's own Gradle plugin — **not verified here**, and worth knowing before anyone changes
+version numbers by hand.
 
 ⚠️ **And a trap that nearly produced a false regression.** The *same* arm64-v8a artifact reads **32.64 MB** from
 `ls -l` (binary MiB — the unit this table uses) and **"34.2MB"** in Flutter's own build output (decimal MB,
