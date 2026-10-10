@@ -504,6 +504,81 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     );
   }
 
+  /// 中文：⚠️ **这是一颗 34dp 的按钮，`androidTapTargetGuideline` 要 48dp，而 34 → 48 在这里不是
+  ///       免费的——量过，代价**正好** 28dp 宽，而且**全落在文字上**。**
+  ///
+  ///       全屏实测（`ToolDetailScreen` + `battery_life`，360 × 2200dp，六个输入框）：
+  ///       **12 个矮节点**就是它（6 行 × 2 颗，tooltip `增大` / `减小`），每个 **34 × 34**。
+  ///       撑到 48 之后：
+  ///
+  ///       | 量的是什么 | 34dp | 48dp | 差 |
+  ///       |---|---|---|---|
+  ///       | 输入框 | 118.9dp | 102.9dp | **−16.0** |
+  ///       | 标签那一格 | **89.142857dp** | 77.142857dp | **−12.0** |
+  ///       | 行高 | 48.0 | 48.0 | **0** |
+  ///
+  ///       **行高是 0 代价的**——这一行的行高由那个 `TextField` 定（它本来就是 48），所以纵向白拿。
+  ///       28dp 由两个 `Expanded`（`flex: 3` 标签 / `flex: 4` 输入框）按比例吸掉：3/7 × 28 = 12.0、
+  ///       4/7 × 28 = 16.0，与上表**分毫不差**。
+  ///
+  ///       ⚠️ **而那 12dp 正是这条设计的命门。** 标签那一格的宽度是
+  ///       `tool_field_strings_test.dart` 里那条**行数判据的分母**（`_lines = (advance / labelBox).ceil()`，
+  ///       `labelBox = 89.142857`），英文标签上限 **2 行**。把 `labelBox` 换成实测的 77.14 再跑那条判据：
+  ///       **一屏英文标签越线**——`op_amp_gain.vin`「Input voltage」84.0dp、`ldo_power.current`
+  ///       「Load current」81.7dp、`capacitor_charge.c`「Capacitance」80.3dp、`complex.b`
+  ///       「z1 imag part」80.7dp、`circle.circumference`「Circumference」161.1dp（3 行）、
+  ///       `op_amp_gain.fullPowerFrequency`「Full-power BW」158.9dp（3 行）……**十几条。**
+  ///
+  ///       ⚠️ **所以我事先的那个假设是错的。** 我以为这里的耦合比结果卡那颗复制键**软**——因为这一格
+  ///       的标签**会换行**（没有 `maxLines: 1`），换行总比截断轻。**量下来不软**：那格宽度本身就是
+  ///       「英文最多两行」这条判据的分母，一格窄 12dp 就是判据整体收紧 12dp。**两者是同一类耦合，
+  ///       只是表现不同**（那边是截断，这边是行数超限）。
+  ///
+  ///       **能化解而不是交换的改法**（本版没做）：把这一颗拆成「34dp 的视觉 + 48dp 的命中区」，
+  ///       照 `IconToolButton` 那一套（`SizedBox(48,48) > 不透明手势 > Center > 34 的视觉`）。
+  ///       ⚠️ **但那省的是视觉，不是布局宽度**——盒子仍是 48，上面那 28dp 照付。要真省下宽度只有
+  ///       让步进键**另起一行**（改的是设计，不是参数）。**动这颗之前先读这一整段，并重跑
+  ///       `tool_field_strings_test.dart`。**
+  /// English: ⚠️ **This is a 34dp button, `androidTapTargetGuideline` wants 48dp, and 34 → 48 is not free
+  ///          here — measured, the cost is *exactly* 28dp of width, and it lands entirely on the text.**
+  ///
+  ///          Measured across the screen (`ToolDetailScreen` + `battery_life`, 360 × 2200dp, six inputs):
+  ///          these are **12** of the sub-48 nodes (6 rows × 2, tooltips `增大` / `减小`), each **34 × 34**.
+  ///          At 48:
+  ///
+  ///          | what | 34dp | 48dp | delta |
+  ///          |---|---|---|---|
+  ///          | the input field | 118.9dp | 102.9dp | **−16.0** |
+  ///          | the label cell | **89.142857dp** | 77.142857dp | **−12.0** |
+  ///          | the row height | 48.0 | 48.0 | **0** |
+  ///
+  ///          **The row height is free** — it is set by the `TextField` (already 48), so the vertical half
+  ///          costs nothing. The 28dp is absorbed by the two `Expanded`s (`flex: 3` label / `flex: 4` field)
+  ///          in proportion: 3/7 × 28 = 12.0 and 4/7 × 28 = 16.0, matching the table to the digit.
+  ///
+  ///          ⚠️ **And those 12dp are this design's weak point.** The label cell's width is the
+  ///          **denominator of the line criterion** in `tool_field_strings_test.dart`
+  ///          (`_lines = (advance / labelBox).ceil()`, `labelBox = 89.142857`) whose cap for English is
+  ///          **2 lines**. Feed in the measured 77.14 and **a screenful of English labels crosses it** —
+  ///          `op_amp_gain.vin` "Input voltage" 84.0dp, `ldo_power.current` "Load current" 81.7dp,
+  ///          `capacitor_charge.c` "Capacitance" 80.3dp, `complex.b` "z1 imag part" 80.7dp,
+  ///          `circle.circumference` "Circumference" 161.1dp (3 lines), `op_amp_gain.fullPowerFrequency`
+  ///          "Full-power BW" 158.9dp (3 lines) — **a dozen or more.**
+  ///
+  ///          ⚠️ **So the hypothesis I started with was wrong.** I expected the coupling here to be
+  ///          **softer** than the result card's copy key, because this cell's label **wraps** (it has no
+  ///          `maxLines: 1`) and wrapping beats truncation. **Measured, it is not softer**: that cell's
+  ///          width *is* the denominator of the "English stays within two lines" criterion, so narrowing
+  ///          it 12dp tightens the whole criterion by 12dp. **Same class of coupling, different
+  ///          symptom** — truncation there, an exceeded line count here.
+  ///
+  ///          **A change that would resolve rather than trade** (not done in this revision): split this into
+  ///          a "34dp visual + 48dp hit area", the way `IconToolButton` does
+  ///          (`SizedBox(48,48) > opaque gesture > Center > the 34 visual`). ⚠️ **But that saves the visual,
+  ///          not the layout width** — the box is still 48 and the 28dp is still paid. The only way to
+  ///          actually save the width is to give the steppers **their own row**, which is a design change
+  ///          rather than a parameter. **Read this whole note before touching it, and re-run
+  ///          `tool_field_strings_test.dart` if you do.**
   Widget _stepButton({
     required IconData icon,
     required String tooltip,

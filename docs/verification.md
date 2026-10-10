@@ -271,6 +271,40 @@ another (truncated labels), and the second would need many labels re-abbreviated
 structural** — put the copy button *below* or *over* the value instead of beside the label, or accept the
 28 dp button. **Both are design calls, and this file now carries the numbers for either.**
 
+### ⚠️ The steppers are the **second** instance of the same coupling — and I predicted it wrong
+
+The other 12 sub-48 nodes on that screen are the **input-row steppers** (`增大` / `减小`, 6 rows × 2). They were
+tried at 48 dp on 2026-10-10 and **reverted**, because:
+
+| what | 34dp | 48dp | delta |
+|---|---|---|---|
+| the row height | 48.0 | 48.0 | **0** |
+| the input field | 118.9dp | 102.9dp | **−16.0** |
+| the label cell | **89.142857dp** | 77.142857dp | **−12.0** |
+
+**The height is free** — that row's height comes from the `TextField` (already 48), so 34 → 48 costs nothing
+vertically. The 28dp of width is split by the two `Expanded`s (`flex: 3` label / `flex: 4` field) as
+3/7 × 28 = 12.0 and 4/7 × 28 = 16.0 — matching the table to the digit.
+
+⚠️ **And the 12dp is the whole argument.** The label cell's width is the **denominator** of the English
+line criterion in `tool_field_strings_test.dart`
+(`_lines = (advance / labelBox).ceil()`, cap **2 lines**). Re-run it with the measured 77.14 and **a screenful
+of English labels cross it** — `op_amp_gain.vin` "Input voltage" 84.0dp, `ldo_power.current` "Load current"
+81.7dp, `capacitor_charge.c` "Capacitance" 80.3dp, `complex.b` "z1 imag part" 80.7dp, `circle.circumference`
+"Circumference" 161.1dp (3 lines), `op_amp_gain.fullPowerFrequency` "Full-power BW" 158.9dp (3 lines) — **a
+dozen or more.**
+
+⚠️ **My hypothesis was that this one would be *softer* than the copy button** — this cell's label **wraps**
+(no `maxLines: 1`), and wrapping beats truncation. **Measured, it is not softer at all**: the cell width *is*
+the criterion's denominator, so narrowing it 12dp tightens the criterion by 12dp. **Same class of coupling,
+different symptom** — truncation there, an exceeded line count here. That is worth writing down precisely
+because the *prediction* was the error, not the arithmetic.
+
+**And the `IconToolButton` pattern does not buy its way out here**: splitting it into a "34dp visual + 48dp hit
+area" saves the *visual*, not the *layout width* — the box is still 48 and the 28dp is still paid. The only
+change that actually keeps the width is giving the steppers **their own row**, which is a design change rather
+than a parameter. The numbers are in `_stepButton`'s comment in `tool_detail_screen.dart`.
+
 **Where the audit stands** (a dimension with **zero** coverage before this work). ⚠️ **Two rows of this table
 were re-measured and rewritten on 2026-10-10** — the keypad row carried a number that reproduces at no
 screen size, and the structured row attributed its nodes to the wrong widget. Both corrections are in §5c.
