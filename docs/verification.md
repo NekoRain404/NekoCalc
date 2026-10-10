@@ -711,6 +711,47 @@ correct per the platform documentation and is present in the installed APK; the 
 **untested**, and the untested part is precisely the tablet path, since this device reports **sw = 411dp**
 (1440 × 3200 at 560 dpi) and is therefore outside the Android-16 change altogether.
 
+### 5g. UI consistency: a role-based audit of every hard-coded inset and radius (2026-10-10)
+
+**Method.** Rather than arguing about "there are too many different values", every `EdgeInsets.all(N)` and
+`BorderRadius.circular(N)` in `lib/` was listed with its **role** — what widget it sits in, and whether that
+widget is a top-level surface or nested inside another one. The question is not *how many values exist* but
+*does the same role use the same value*.
+
+**Two standards came out real**, both already majority-held:
+
+| standard | uses | what it is |
+|---|---|---|
+| `EdgeInsets.all(14)` | 16 | the card-content inset — in two spellings that already agree: `Card > Padding(all(14))` and `Container(padding: all(14), decoration: softPanel(...))` |
+| `BorderRadius.circular(8)` | 28 | the surface/control radius — `softPanel`'s decoration, `CardThemeData`, every `TextField`, and the ripples clipped to match it |
+
+**The tier rule that emerged: top-level surface = 14, nested tonal block = 12.** Five genuine drifts were fixed
+against it (the `fix(ui)` commit of 2026-10-10): `EmptyPanel` 16 → 14 (a *shared* widget — it occupies the
+card slot, so one edit aligns every empty state), `graph_page_output.dart`'s marker panel 12 → 14, two
+chart-frame radii 10 → 8 (`data_fit_cards.dart` — where the same role 50 lines below in the same file was
+already 8 — and `regression_graph_sheet.dart`), and a nested dialog panel 10 → 12.
+
+⚠️ **One edit was made and then reverted by a test, and that is the useful part.** `tool_widgets.dart`'s
+category card was changed 12 → 14 under the rule above, and `tool_catalog_strings_test` went red at once: the
+title row **no longer fits all eight English names**. That test reads the box width out of the render tree, so
+those 4dp were guarded all along; the 12 is a **deliberate exception** (like `DetailMetric`'s 10). **A rule
+yields to a measurement** — and a rule invented from a census is exactly the kind that has to.
+
+**The other 11 outliers are genuinely different roles and are left alone**: 18 = the emphasis tier (all three
+occurrences are the same highlighted primary-result panel), 12 = nested tinted blocks (4/4 consistent), 10 =
+fixed-size tiles (the 78dp tool tile; `DetailMetric`, whose label cell is measured at 110.00 against a 109.1dp
+longest string), 6 = the inset between a chart's border and its painted content.
+
+**Removable weight found in the same pass** (evidence = reference counts, not opinion; *candidates* — nothing
+here is deleted yet):
+
+| candidate | evidence | what would be lost |
+|---|---|---|
+| `lib/features/calculator/presentation/widgets/math_expression_text.dart` (**702 lines**) + its own test | the only `lib/` file with **no importer anywhere in `lib/`**; `MathExpressionText` appears only in its own file and its own test. Superseded by `math_expression_view.dart` (230 lines), which 2 `lib/` files and ~28 tests do import | nothing user-visible |
+| `NekoAppMark` (`app_chrome.dart`) | 2 hits in `lib/` — the class and its constructor; **zero call sites** | nothing user-visible |
+| `NotesController.setNoteArchiveFilter` / `setNoteSort` / `setNoteTag` | zero references in `lib/`, `test/`, `android/`; superseded by `applyNoteFilters`, which the filter sheet does call — so no filter choice becomes unreachable | nothing |
+| `MathResult.hasFractionTex` / `hasMixedTex` / `hasDmsText`, `ResultPresentation.hasFraction` | zero readers (the live siblings `hasTex`, `hasMixed` and `hasDms` are used) | a small dead API |
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran

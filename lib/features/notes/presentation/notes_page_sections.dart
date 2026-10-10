@@ -171,7 +171,8 @@ extension _NotesPageSections on _NotesPageState {
                         value: _selectedNoteIds.contains(item.id),
                         onChanged: (_) => _toggleNoteSelection(item.id),
                       )
-                    : Icon(_noteIcon(item), color: const Color(0xFF23B45D)),
+                    : Icon(_noteIcon(item),
+                        color: Theme.of(context).colorScheme.primary),
                 title: Text(item.title),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

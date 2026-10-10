@@ -39,11 +39,11 @@ extension _SettingsDialogs on _SettingsPageState {
                           color: scheme.primary.withValues(alpha: 0.24)),
                       boxShadow: Theme.of(context).brightness == Brightness.dark
                           ? const []
-                          : const [
+                          : [
                               BoxShadow(
-                                  color: Color(0x1A5B47FF),
+                                  color: scheme.primary.withValues(alpha: 0.10),
                                   blurRadius: 24,
-                                  offset: Offset(0, 10))
+                                  offset: const Offset(0, 10))
                             ],
                     ),
                     child: Icon(Icons.calculate_rounded,
@@ -83,8 +83,8 @@ extension _SettingsDialogs on _SettingsPageState {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      const Icon(Icons.privacy_tip_outlined,
-                          size: 18, color: Color(0xFF23B45D)),
+                      Icon(Icons.privacy_tip_outlined,
+                          size: 18, color: scheme.primary),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(s.aboutPrivacyNote,

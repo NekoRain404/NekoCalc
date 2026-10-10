@@ -381,10 +381,9 @@ class _GraphPageState extends State<GraphPage> {
               const Divider(height: 1),
               ListTile(
                 onTap: _addFunction,
-                leading: const Icon(Icons.add_circle_outline,
-                    color: Color(0xFF1677FF)),
+                leading: Icon(Icons.add_circle_outline, color: scheme.primary),
                 title: Text(strings.addFunction,
-                    style: const TextStyle(color: Color(0xFF1677FF))),
+                    style: TextStyle(color: scheme.primary)),
               ),
             ],
           ),
@@ -632,7 +631,7 @@ class FunctionRow extends StatelessWidget {
             onPressed: onToggle,
             icon: Icon(
                 function.visible ? Icons.visibility : Icons.visibility_off,
-                color: const Color(0xFF1677FF)),
+                color: Theme.of(context).colorScheme.primary),
           ),
           PopupMenuButton<String>(
             tooltip: strings.functionActions,

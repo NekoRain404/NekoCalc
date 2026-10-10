@@ -120,7 +120,7 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
     final color = hasInputErrors
         ? scheme.error
         : hasResultIssues
-            ? Colors.orange.shade700
+            ? scheme.tertiary
             : scheme.primary;
     final icon = hasInputErrors
         ? Icons.error_outline
