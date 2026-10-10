@@ -492,6 +492,18 @@ screen size, and the structured row attributed its nodes to the wrong widget. Bo
 | Structured tool detail | ✓ | **✗ one measured class** (§5c): 1 × **`119×32` unnamed** input. **The other two were resolved on 2026-10-10** — the 14 × **`28×28`** copy buttons now use the whole card as their target, and the 12 × **`34×34`** steppers are now **48 × 48** (the card's whitespace paid for the growth) |
 | Settings | ✓ | ✓ |
 
+⚠️ **The same "reclaim the whitespace" question the steppers were fixed with (§5c), asked of the keypad, comes
+back negative — and quantified.** The keypad's own padding is `_panelPadding = 6` (**12dp** of vertical
+whitespace) plus `_cellInsets = all(1.5)` (**3dp** per row group), and its band/key split is a
+`_bandFlex : _mainFlex = 2 : 5` flex inside each row group. Measured, a band is **15.0dp** at 360×800 and there
+are **~6 band rows**; bringing each band to 48 needs **+33dp** ⇒ roughly **198dp** of extra height, against
+roughly **30dp** of reclaimable padding — **short by a factor of about 6.6**. The keys are short as well
+(29.0–46.3dp, each needing between +2 and +19dp).
+*(The constants and the heights are measured; the shortfall is arithmetic on them — stated as arithmetic, since
+a deduced limit is what hid the steppers' route for a while.)*
+**So the keypad is a structural trade, not a whitespace question** — which is what "raising them shoves the whole
+keypad around" meant, now with numbers.
+
 ### 5d. The two list screens: a **section header** is 29 dp — ⚠️ **and my first reading of this was wrong**
 
 `androidTapTargetGuideline` on both the tools home and the category screen reports the same shape:
