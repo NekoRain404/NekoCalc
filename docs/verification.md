@@ -160,8 +160,44 @@ MIMIC maxLines1+size12 = 14
 reddens four guards *because* the cells vanish") was **wrong about the mechanism**.
 
 **What is still true**: the four guards do redden when the ratio changes, and one of them reports `boxes`
-empty. **What is no longer believed**: that the ratio makes the cells vanish. **The next attempt should read
-that guard's own body line by line** — the difference is inside it, not in the fixture and not in the ratio.
+empty. **What is no longer believed**: that the ratio makes the cells vanish.
+
+**The guard's body has now been read, and its one extra condition tested.** Its loop (`:91`) filters
+`maxLines == 1` → `fontSize == 12` → non-empty `data` → **`renderObject is RenderParagraph`**. A probe at
+`1.35` with the guard's exact fixture reports:
+
+```
+MIMIC2 matched=14 renderParagraph=14
+```
+
+**All fourteen are `RenderParagraph`s.** So that condition is not the difference either.
+
+**Five hypotheses have now been tested and all five are dead**:
+
+| # | Hypothesis | Verdict |
+|---|---|---|
+| 1 | the test surface is too short | no — `360×2200` |
+| 2 | the guards do not set a device surface | no — they do |
+| 3 | the screen throws before layout | no — a `TestFailure`, not an exception |
+| 4 | the fixture / pre-pump differs | no — a mimic reproduces it and finds 14 |
+| 5 | the `RenderParagraph` filter rejects them | no — 14 of 14 pass it |
+
+**A sixth hypothesis (no `Scaffold` ancestor) has since been tested and is dead too**:
+
+```
+NOSCAFFOLD matched=14
+```
+
+**Six hypotheses tested, six dead.** Every probe, at `1.35`, finds **14** cells; the guard reports **0**.
+
+⚠️ **So the observation itself is now in doubt — and there is a precedent for that in this very session.**
+Twice today a `flutter test` run served a **stale build** and reported the opposite of what a fresh run said
+(the two cases are recorded above). **Before believing "the guards redden when the ratio changes", re-run
+that one guard cleanly with the ratio applied and check it twice.** If the second run agrees with the probes,
+then grep in this file is chasing an artifact, and the ratio change is simply *fine*.
+
+**That is where this stands: six explanations ruled out, and the leading remaining suspect is the
+observation, not the code.**
 
 ⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
 this defect is measured; only this last step is open.
