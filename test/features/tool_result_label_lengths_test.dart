@@ -354,9 +354,19 @@ class _DetailErrors {
 
   void expectNothingElse() {
     expect(others, isEmpty, reason: '详情页上出现了这条已知溢出之外的异常：${others.join('；')}');
-    expect(knownOverflows, greaterThan(0),
-        reason: '那条已知溢出一条都没出现——溢出没了要么是好事（那就把这段拆掉），'
-            '要么是这屏根本没渲染出来');
+    // 中文：**这一条按它自己的话拆掉了。** 它原本要求那处 12 px 溢出**必须出现**，
+    //       理由是「溢出没了要么是好事（那就把这段拆掉），要么是这屏根本没渲染出来」。
+    //       而它真的没了——`childAspectRatio` 从 1.55 改到 1.35（四个手机尺寸上量过），
+    //       于是按那句话把这段拆掉。
+    //       ⚠️ **`others` 那条留着**：它仍然挡"冒出一条新的异常"，那与溢出在不在无关。
+    // English: **removed, exactly as its own sentence said to.** It used to require that 12 px overflow to
+    //          **appear**, on the grounds that "if the overflow is gone, either that is good (then remove
+    //          this block) or the screen did not render". It is gone — `childAspectRatio` moved from 1.55 to
+    //          1.35 (measured at four phone sizes) — so the block goes.
+    //          ⚠️ **The `others` assertion stays**: it still guards "a new exception appeared", which has
+    //          nothing to do with whether the overflow is there.
+    expect(knownOverflows, greaterThanOrEqualTo(0),
+        reason: '溢出没了不再算失败；这条留着只是为了让那个计数器仍被读到');
   }
 }
 

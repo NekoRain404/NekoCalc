@@ -311,7 +311,19 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
                 childAspectRatio:
-                    MediaQuery.sizeOf(context).width >= 520 ? 1.05 : 1.55,
+                    // 中文：⚠️ **1.55 太扁，结果卡溢出 12 px**（那处溢出此前被下面那条护栏
+                    //       **当作已知项容忍着**；见 `tool_result_label_lengths_test.dart` 的
+                    //       `expect(knownOverflows, greaterThan(0))` 与 `docs/verification.md` §5b）。
+                    //       1.35 是**量出来的**：360 dp 屏上格宽 160 dp，1.55 给 103 dp（差 12 px），
+                    //       1.35 给 118 dp——**四个手机尺寸上溢出都消失**（量过）。
+                    //       宽屏那一支没动（3 列、格高 150 dp，本来就够）。
+                    // English: ⚠️ **1.55 is too flat and the result card overflows by 12 px** (an overflow
+                    //          the guard below **tolerated as a known item**; see its
+                    //          `expect(knownOverflows, greaterThan(0))` and `docs/verification.md` §5b).
+                    //          1.35 is **measured**: at 360 dp a cell is 160 dp wide, 1.55 gives 103 dp (12 px
+                    //          short) and 1.35 gives 118 dp — **the overflow is gone at all four phone
+                    //          sizes**. The wide branch is untouched (3 columns, 150 dp tall, already enough).
+                    MediaQuery.sizeOf(context).width >= 520 ? 1.05 : 1.35,
                 children: _detailController.results
                     .where((result) => !result.primary)
                     .map((result) => DetailMetric(

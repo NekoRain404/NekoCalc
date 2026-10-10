@@ -72,151 +72,44 @@ Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
   exceeds it.
 - Camera / natural-language input — not implemented (engineering scale, not a defect).
 
-## 5b. A layout defect found by measuring (open)
+## 5b. The tool detail screen's overflow — **found, explained, and fixed**
 
-The structured **tool detail screen** overflows on **every phone size tested**
-(360×640 / 360×800 / 411×731 / 412×915): `A RenderFlex overflowed by 12 pixels on the bottom`, the
-offending tree being
+`DetailMetric`'s content (label + value + unit) was **12 px taller than its grid cell**, at **every** phone
+size tested (360×640 / 360×800 / 411×731 / 412×915):
 
 ```
+A RenderFlex overflowed by 12 pixels on the bottom.
 Column ← Padding ← DecoratedBox ← Container ← DetailMetric
 ```
 
-i.e. **a result-card cell** (`tool_widgets.dart:420`) whose content (label + value + unit) is taller than
-its grid cell. The cells are sized by **`childAspectRatio: 1.55`** (`tool_detail_screen.dart:313`), which
-is wider than tall.
+⚠️ **Why it survived so long**: a **release** build does not paint the yellow/black stripes — it **clips
+silently**, so the content was quietly cut rather than loudly wrong.
 
-**Why this was invisible until now**: in a release build an overflow does not paint the yellow/black
-stripes — it **clips silently**, so the content is quietly cut rather than loudly wrong.
+**Fixed** by `childAspectRatio: 1.55 → 1.35` (`tool_detail_screen.dart`), measured at all four sizes: 360 dp
+gives a 160 dp-wide cell, 1.55 gives 103 dp (12 px short) and 1.35 gives 118 dp.
 
-**Not fixed, and the cost of fixing it is now measured.** I tried `1.55 → 1.35` (which does remove the
-overflow — verified at all four sizes) and **four guards went red**:
+### The four guards that "blocked" it were tolerating it on purpose
 
-```
-tool_result_label_lengths_test.dart   「那一格的三个数从渲染树里读出来：盒宽 110.0dp…」
-tool_field_strings_test.dart  (×2)    「标签那一格的三个数从渲染树里读出来：盒宽 89.1dp…」
-tool_result_label_strings_test.dart   「详情页：结果卡…两种语言各是各的」
-```
+Each of the four layout guards carried
 
-They measure the **result-cell geometry from the render tree** — that is exactly what they exist for, and
-they did their job: **the change is not a one-liner, it is a coordinated update of four guards.**
-
-**So the entries are two separate things, and both are recorded**: the overflow is real, and the price of
-fixing it is four guard updates plus a proportions decision. **Anyone doing it knows both up front.**
-
-⚠️ **One level deeper**: `tool_result_label_lengths_test.dart` does not merely disagree about a number — it
-reports **`boxes` is empty**, i.e. it found **zero** label cells, and its own message says the assertion
-would then be **vacuous**.
-
-⚠️⚠️ **And my first explanation of that was wrong — corrected here rather than deleted.** I wrote "so the
-guards need to measure at a device-sized surface first". **They already do**: measured,
-`grep -c physicalSize` returns **1 / 1 / 2** across
-`tool_result_label_lengths_test.dart` / `tool_result_label_strings_test.dart` / `tool_field_strings_test.dart`.
-So the cause of the empty `boxes` is **not** the viewport, **and I do not know what it is.**
-
-**The observation stands; the explanation is withdrawn.** Anyone picking this up starts from: the overflow is
-real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the four guards then redden with
-`boxes` empty for a reason that is **still open**.
-
-**What has been ruled out, and what has not** (so the next attempt does not repeat it):
-
-| Checked | Result |
-|---|---|
-| Is the surface too short? | **No** — that guard uses `Size(360*3, 2200*3)`, so cards cannot be pushed off |
-| Do the guards set a device surface? | **Yes** — `physicalSize` is set in all three |
-| Does the screen throw before layout (which would leave no `Text` widgets at all)? | **No** — tested: with `1.35` applied the guard reports a **`TestFailure`** (its own assertion), not an exception during layout. That candidate is ruled out. |
-
-**Four candidates examined, and the cause is still unexplained — the evidence now contradicts itself:**
-
-| Checked | Result |
-|---|---|
-| Is the assertion running at the default 800×600 surface? | **No** — the `boxes` assertion (`:105`) is inside the same `testWidgets` that sets `physicalSize = Size(360*3, 2200*3)` (`:63`) |
-| Does `DetailMetric`'s label have `maxLines: 1` / `fontSize: 12` only under some condition? | **No** — read the source: `tool_widgets.dart:436` renders that `Text` **unconditionally**, with `maxLines: 1` and `fontSize: 12` |
-| Does the screen render anything at all at `1.35`? | **Yes** — a probe at `1.35` found **73** non-empty `Text` widgets |
-
-**So the source says "that label always exists", the probe says "73 texts are there", and the guard says
-"zero match". Three facts that cannot all be true of one run.** The most likely remaining difference is that
-**the guard and my probe are not looking at the same screen state** (different fixture / different tool /
-different point in the pump), and that is the first thing to check next — not the ratio.
-
-**Narrowed once more**: the guard and the probe use the **same tool** (`toolById('battery_life')`), so the
-difference is not which screen. The two remaining deltas are:
-
-1. the guard uses **`const _EmptyDatabase()`**, the probe used a stub whose `noSuchMethod` returns
-   `Future<void>.value()`;
-2. the guard **pre-pumps `const MaterialApp(home: SizedBox.shrink())`** and `pump()`s before mounting the
-   screen — the probe went straight to the screen.
-
-**And that pair has now been tested — the answer is "neither".** A probe that mimics the guard's fixture
-exactly (`const _EmptyDb()`, the `SizedBox.shrink()` pre-pump, `toolById('battery_life')`, the 360×2200
-surface) reports, **at `1.35`**:
-
-```
-MIMIC maxLines1+size12 = 14
+```dart
+expect(knownOverflows, greaterThan(0),
+    reason: '那条已知溢出一条都没出现——溢出没了要么是好事（那就把这段拆掉），要么是这屏根本没渲染出来');
 ```
 
-**Fourteen matching cells at the new ratio.** So the taller cells do **not** make the labels disappear, and
-**the ratio is not why that guard's `boxes` is empty** — which also means my earlier reading ("the change
-reddens four guards *because* the cells vanish") was **wrong about the mechanism**.
+— i.e. they **required the overflow to be present**. Fixing it made all four red **by design**, and their own
+sentence said what to do. All four now read `greaterThanOrEqualTo(0)`, with `others` (the "no *new* exception"
+half) left in place.
 
-**What is still true**: the four guards do redden when the ratio changes, and one of them reports `boxes`
-empty. **What is no longer believed**: that the ratio makes the cells vanish.
+### ⚠️ And I spent a long detour misreading one of them
 
-**The guard's body has now been read, and its one extra condition tested.** Its loop (`:91`) filters
-`maxLines == 1` → `fontSize == 12` → non-empty `data` → **`renderObject is RenderParagraph`**. A probe at
-`1.35` with the guard's exact fixture reports:
+I attributed the failures to the **`boxes`** assertion (`一格的单行结果标签都没找到`) and hunted that — six
+hypotheses, all ruled out by probes that kept finding the cells. **The actual failing assertion was the
+`knownOverflows` one, in the same test.** `boxes` came from a *different, earlier* run whose message I carried
+forward without re-reading.
 
-```
-MIMIC2 matched=14 renderParagraph=14
-```
-
-**All fourteen are `RenderParagraph`s.** So that condition is not the difference either.
-
-**Five hypotheses have now been tested and all five are dead**:
-
-| # | Hypothesis | Verdict |
-|---|---|---|
-| 1 | the test surface is too short | no — `360×2200` |
-| 2 | the guards do not set a device surface | no — they do |
-| 3 | the screen throws before layout | no — a `TestFailure`, not an exception |
-| 4 | the fixture / pre-pump differs | no — a mimic reproduces it and finds 14 |
-| 5 | the `RenderParagraph` filter rejects them | no — 14 of 14 pass it |
-
-**A sixth hypothesis (no `Scaffold` ancestor) has since been tested and is dead too**:
-
-```
-NOSCAFFOLD matched=14
-```
-
-**Six hypotheses tested, six dead.** Every probe, at `1.35`, finds **14** cells; the guard reports **0**.
-
-⚠️ **So the observation itself is now in doubt — and there is a precedent for that in this very session.**
-Twice today a `flutter test` run served a **stale build** and reported the opposite of what a fresh run said
-(the two cases are recorded above). **Before believing "the guards redden when the ratio changes", re-run
-that one guard cleanly with the ratio applied and check it twice.** If the second run agrees with the probes,
-then grep in this file is chasing an artifact, and the ratio change is simply *fine*.
-
-**The decisive re-run was done: the failure is reproducible, not a stale build.**
-
-```
-run1: ... 那一格的三个数从渲染树里读出来：盒宽 110.0dp、字号 12、字距 0.25   [fails]
-run2: ... 那一格的三个数从渲染树里读出来：盒宽 110.0dp、字号 12、字距 0.25   [fails]
-```
-
-So the guard fails **twice in a row** at `1.35` while six probes find **14** cells at `1.35`. **The stale-build
-suspect is dead too — and the contradiction is real.**
-
-**What my probes never reproduced, and is now the prime suspect**: that test file installs an **error
-collector** (`final errors = _DetailErrors()..install();` near the top, with `errors.expectNothingElse()`
-later). **Six probes reproduced the fixture, the surface, the pre-pump and the filter — none reproduced that.**
-It is the one part of the test that behaves differently from a plain `pumpWidget`, and it is the next thing to
-read.
-
-**That is where this stands: six explanations ruled out, the failure reproducible, and one unexamined
-difference left in the test itself.**
-
-⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
-this defect is measured; only this last step is open.
+**The lesson is cheap and general**: when a test file has several assertions, **read the one that failed** —
+not the first one in the file. Six probes' worth of budget went into a sentence I had mis-attributed.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 

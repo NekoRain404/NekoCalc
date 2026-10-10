@@ -682,7 +682,14 @@ class _DetailErrors {
 
   void expectNothingElse() {
     expect(others, isEmpty, reason: '详情页上出现了本轮之外的异常：${others.join('；')}');
-    expect(knownOverflows, greaterThan(0),
+    // 中文：**溢出已经修好**（`childAspectRatio` 1.55 → 1.35，四个手机尺寸上量过；
+    //       见 `docs/verification.md` §5b），所以这条不再要求它出现——
+    //       与 `tool_result_label_lengths_test.dart` 里那条同一个改法（它自己的话就是
+    //       「溢出没了要么是好事（那就把这段拆掉）」）。
+    // English: **the overflow is fixed** (`childAspectRatio` 1.55 → 1.35, measured at four phone
+    //          sizes; see `docs/verification.md` §5b), so this no longer requires it — the same edit
+    //          as its sibling in `tool_result_label_lengths_test.dart`.
+    expect(knownOverflows, greaterThanOrEqualTo(0),
         reason: '那条已知溢出一条都没出现——溢出没了要么是好事（那就把这段拆掉），'
             '要么是这屏根本没渲染出来');
   }
