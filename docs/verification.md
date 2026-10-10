@@ -41,7 +41,12 @@ my app-arm64-v8a-release.apk : CN=NekoCalc, OU=NekoRain, ... SHA-256 bbb28c50…
 **Same certificate ⇒ `adb install -r` replaces in place and keeps the data** (it also went `2009 → 4009`, an
 upgrade, so no downgrade guard fires). Both release rows above come from that install.
 
-⚠️ **The reverse direction is worse than "needs `-d`" — measured, `-d` is not enough on this device.** Going back
+⚠️ **The reverse direction is worse than "needs `-d`" — measured, `-d` is not enough on this device.** ⚠️ **And
+none of this is new.** `HANDOVER.md` **§十九** — whose heading is "read this before going onto the device" —
+recorded the whole trap on **2026-09-30**: the `4009`/`2009` split, all three flags being refused, `run-as`
+breaking, and the uninstall + byte-exact database restore it used to recover. **I re-derived it the hard way
+because I went onto the device without reading that section**, which is precisely what its heading warns
+against; the correction is recorded in §十九 too. Going back
 to a debuggable build means installing `2009` over `4009`, and **both entry points refuse it**:
 
 ```
