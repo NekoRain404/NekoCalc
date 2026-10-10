@@ -196,8 +196,24 @@ Twice today a `flutter test` run served a **stale build** and reported the oppos
 that one guard cleanly with the ratio applied and check it twice.** If the second run agrees with the probes,
 then grep in this file is chasing an artifact, and the ratio change is simply *fine*.
 
-**That is where this stands: six explanations ruled out, and the leading remaining suspect is the
-observation, not the code.**
+**The decisive re-run was done: the failure is reproducible, not a stale build.**
+
+```
+run1: ... 那一格的三个数从渲染树里读出来：盒宽 110.0dp、字号 12、字距 0.25   [fails]
+run2: ... 那一格的三个数从渲染树里读出来：盒宽 110.0dp、字号 12、字距 0.25   [fails]
+```
+
+So the guard fails **twice in a row** at `1.35` while six probes find **14** cells at `1.35`. **The stale-build
+suspect is dead too — and the contradiction is real.**
+
+**What my probes never reproduced, and is now the prime suspect**: that test file installs an **error
+collector** (`final errors = _DetailErrors()..install();` near the top, with `errors.expectNothingElse()`
+later). **Six probes reproduced the fixture, the surface, the pre-pump and the filter — none reproduced that.**
+It is the one part of the test that behaves differently from a plain `pumpWidget`, and it is the next thing to
+read.
+
+**That is where this stands: six explanations ruled out, the failure reproducible, and one unexamined
+difference left in the test itself.**
 
 ⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
 this defect is measured; only this last step is open.
