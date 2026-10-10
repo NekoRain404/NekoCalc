@@ -397,8 +397,9 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   Widget _inputCard() {
     final strings = ToolsStrings.of(context);
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -458,7 +459,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             flex: 3,
             child: Text(
                 input.optional ? strings.optionalInput(label) : label)),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         _stepButton(
           icon: Icons.remove,
           tooltip: strings.decrease,
@@ -521,7 +522,19 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///       28dp 由两个 `Expanded`（`flex: 3` 标签 / `flex: 4` 输入框）按比例吸掉：3/7 × 28 = 12.0、
   ///       4/7 × 28 = 16.0，与上表**分毫不差**。
   ///
-  ///       ⚠️ **2026-10-10 补：那 28dp 不必全从文字里拿——量过了，其中 20dp 可以从留白拿。**
+  ///       ✅ **2026-10-10 采用：那 28dp 全部由留白承担，文字一个 dp 不动。** 行两侧各 34dp 的构成是
+  ///       **实测的**（页面 **16** + `Card` 的 margin **4** + 卡片 `padding` **14**）；收掉后两项与一处间距
+  ///       （`margin: EdgeInsets.zero`、`padding: all(6)`、标签与第一颗步进键之间的 `SizedBox`
+  ///       **8 → 4**），合计正好 **28dp**——与步进键的涨幅**分毫不差**，于是弹性空间仍是 **208**：
+  ///       `label = 3/7 × 208 = 89.142857`、`field = 4/7 × 208 = 118.857`，**两者逐字节不变**。实测：
+  ///       步进键 **48.0 × 48.0** ✓、该屏矮于 48dp 的可点节点 **13 → 1**（只剩输入框）✓、
+  ///       `tool_field_strings_test.dart` **9 条原样通过**——其中那条断言的正是「标签格**就是**
+  ///       89.142857」，**它原样通过本身就证明没有一条英文标签被碰到** ✓、全量 **1807 全过** ✓。
+  ///       **代价是纯视觉的**：卡片外边距归零、内边距 14 → 6、一处间距 8 → 4。
+  ///
+  ///       ⚠️ **下面两段是试过并撤回的路，留着是因为各自的实测代价仍然有用**（要换别的折中时看它们）。
+  ///
+  ///       ⚠️ **撤回之一（只还回 20dp）：那 28dp 里有 20dp 可以从留白拿，剩下 8dp 由文字分。**
   ///       行两侧各 34dp 的**构成是实测的**：页面 **16** + `Card` 的 margin **4** + 卡片 `padding` **14**
   ///       （`CARD w=328 left=16` / `PAD14 w=320 left=20`）。把后两项收掉
   ///       （`margin: EdgeInsets.zero` + `padding: all(8)`）就还回 **20dp**，剩下 **8dp** 才由标签与
@@ -578,9 +591,25 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///          costs nothing. The 28dp is absorbed by the two `Expanded`s (`flex: 3` label / `flex: 4` field)
   ///          in proportion: 3/7 × 28 = 12.0 and 4/7 × 28 = 16.0, matching the table to the digit.
   ///
-  ///          ⚠️ **Added 2026-10-10: those 28dp do not have to come out of the text — measured, 20dp of
-  ///          them can come out of the whitespace instead.** The 34dp on each side of a row is **measured**:
-  ///          page **16** + the `Card`'s margin **4** + the card's `padding` **14**
+  ///          ✅ **Adopted 2026-10-10: all 28dp comes out of the whitespace, and the text does not move a
+  ///          pixel.** The 34dp on each side of a row is **measured** (page **16** + the `Card`'s margin
+  ///          **4** + the card's `padding` **14**); reclaiming the last two plus one gap
+  ///          (`margin: EdgeInsets.zero`, `padding: all(6)`, and the `SizedBox` between the label and the
+  ///          first stepper **8 → 4**) comes to exactly **28dp** — matching the steppers' growth to the
+  ///          digit — so the flexible space is still **208**: `label = 3/7 × 208 = 89.142857` and
+  ///          `field = 4/7 × 208 = 118.857`, **both byte-identical**. Measured: the steppers are
+  ///          **48.0 × 48.0** ✓, sub-48 tap targets on that screen go **13 → 1** (the input field alone) ✓,
+  ///          `tool_field_strings_test.dart` passes **all 9 unchanged** — and what it asserts is precisely
+  ///          "the label cell **is** 89.142857", so **passing is itself the proof that no English label was
+  ///          touched** ✓ — and the full suite is **1807 green** ✓. **The cost is purely visual**: the
+  ///          card's outer margin gone, its padding 14 → 6, one gap 8 → 4.
+  ///
+  ///          ⚠️ **The paragraph below is a route that was tried and reverted**, kept because its measured
+  ///          cost is still useful (look at it if you want a different compromise).
+  ///
+  ///          ⚠️ **Reverted route (only 20dp came back): 20 of those 28dp comes out of the whitespace and
+  ///          the remaining 8dp is split by the label and the field.** The 34dp on each side of a row is
+  ///          **measured**: page **16** + the `Card`'s margin **4** + the card's `padding` **14**
   ///          (`CARD w=328 left=16` / `PAD14 w=320 left=20`). Reclaiming the last two
   ///          (`margin: EdgeInsets.zero` + `padding: all(8)`) returns **20dp**, leaving only **8dp** to be
   ///          split between the label and the field at 3:4. Measured:
@@ -633,8 +662,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     required VoidCallback onTap,
   }) {
     return SizedBox(
-      width: 34,
-      height: 34,
+      width: 48,
+      height: 48,
       child: IconButton.filledTonal(
         tooltip: tooltip,
         onPressed: onTap,

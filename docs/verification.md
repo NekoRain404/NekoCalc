@@ -138,7 +138,7 @@ pointer to the wrong file, and the second row's owner is identified and fixed in
 | Where | Measured (2026-10-10) | Code |
 |---|---|---|
 | Calculator keypad — the **label bands**, *not* "every row" | bands **9.8–18.8 dp** at the six sizes measured; keys **29.0–46.3 dp**, and **clearing 48 at 412×915** | geometry: `calculator_keypad.dart` (`_row`'s two `Expanded`, `_bandCell`, `_keyButton`). `hiper_keypad_function_rows.dart` is the row/label **table**, not the geometry |
-| Structured tool detail — **two** classes (a third was **resolved 2026-10-10**) | **12 × `34×34`** steppers (增大/减小), **1 × `119×32`** input field. The **14 × `28×28`** copy buttons now have the **whole card** as their target | `tool_detail_screen.dart:512`, `tool_widgets.dart` |
+| Structured tool detail — **one** class left (the other two were **resolved 2026-10-10**) | **1 × `119×32`** input field. The **12 × `34×34`** steppers are now **48 × 48** (paid for out of the card's whitespace) and the **14 × `28×28`** copy buttons use the **whole card** as their target | `tool_detail_screen.dart`, `tool_widgets.dart` |
 | Calculator display (status row) — **fixed 2026-10-10** | ☰ was **`40 × 40`**, `More...` **`111.7 × 34.0`** → both 48; display floor 176 → 182 dp | `display_status_row.dart` |
 
 ⚠️ **Only one of these is deliberately left unfixed:**
@@ -439,7 +439,27 @@ area" saves the *visual*, not the *layout width* — the box is still 48 and the
 change that actually keeps the width is giving the steppers **their own row**, which is a design change rather
 than a parameter. The numbers are in `_stepButton`'s comment in `tool_detail_screen.dart`.
 
-⚠️ **A third route, measured 2026-10-10: reclaim the whitespace.** A row's **34dp per side is measured** as
+### ✅ 2026-10-10: the steppers are **fixed** — the whitespace absorbed the growth exactly
+
+Every route above spends *text* width. **A route that spends none exists, and it is now in the code.** A row's
+**34dp per side is measured** as page **16** + the `Card`'s margin **4** + the card's `padding` **14**, so
+reclaiming the last two plus one gap (`margin: EdgeInsets.zero`, `padding: all(6)`, and the `SizedBox` between
+the label and the first stepper **8 → 4**) returns exactly **28dp** — matching the steppers' growth (34 → 48) to
+the digit. The flexible space is therefore still **208**, and the text does not move:
+
+| quantity | before | after |
+|---|---|---|
+| the steppers | 34 × 34 | **48.0 × 48.0** ✓ |
+| sub-48 tappable nodes on that screen | **13** | **1** (the input field alone) |
+| the label cell | **89.142857 dp** | **89.142857 dp — byte-identical** |
+| the input field | 118.86 | **118.86 — byte-identical** |
+
+⚠️ **The proof that no English label was touched is the criterion itself**: `tool_field_strings_test.dart`
+asserts that the label cell **is** 89.142857, and it now passes **all 9 unchanged** — passing *is* the evidence.
+**Cost: purely visual** (the card's outer margin gone, its padding 14 → 6, one gap 8 → 4). Full suite after:
+**1807 green**.
+
+⚠️ **A variant that was reverted: reclaim only 20dp — and it costs exactly three English labels.** A row's **34dp per side is measured** as
 page **16** + the `Card`'s margin **4** + the card's `padding` **14** (`CARD w=328 left=16`,
 `PAD14 w=320 left=20`). Reclaiming the last two (`margin → 0`, `padding → 8`) returns **20dp**, so only the
 remaining **8dp** comes out of the text (label : field = 3 : 4):
@@ -469,7 +489,7 @@ screen size, and the structured row attributed its nodes to the wrong widget. Bo
 | Tools home | ✓ (fixed) | **fixed 2026-10-10**: the one tappable section header (`收藏工具`) was **29 dp** (§5d) |
 | Tool category | ✓ (fixed) | same fix — shared `SectionHeader` |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✗ two measured classes** (§5c): 12 × **`34×34`** steppers, 1 × **`119×32` unnamed** input. The 14 × **`28×28`** copy buttons are **resolved 2026-10-10** — the whole card is the target now |
+| Structured tool detail | ✓ | **✗ one measured class** (§5c): 1 × **`119×32` unnamed** input. **The other two were resolved on 2026-10-10** — the 14 × **`28×28`** copy buttons now use the whole card as their target, and the 12 × **`34×34`** steppers are now **48 × 48** (the card's whitespace paid for the growth) |
 | Settings | ✓ | ✓ |
 
 ### 5d. The two list screens: a **section header** is 29 dp — ⚠️ **and my first reading of this was wrong**
