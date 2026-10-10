@@ -350,11 +350,6 @@ class ResultPresentation {
   ///          draw (e.g. `2+2`: the exact spelling *is* that decimal, so there is no second one).
   final List<ResultForm> cycle;
 
-  /// 中文：这个结果有没有分数写法——`d/c` 那一颗键据此判断自己有没有事可做。
-  /// English: whether this result has a fraction spelling — what the `d/c` key asks before doing
-  ///          anything at all.
-  bool get hasFraction => fractionTex.isNotEmpty;
-
   /// 中文：这个结果有没有度分秒写法——`D°M'S` 那一颗键据此判断自己有没有事可做。
   /// English: whether this result has a DMS spelling — what the `D°M'S` key asks before doing
   ///          anything at all.

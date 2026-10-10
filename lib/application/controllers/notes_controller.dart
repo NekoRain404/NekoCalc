@@ -256,26 +256,6 @@ class NotesController extends ChangeNotifier {
     unawaited(_refresh(showLoading: false));
   }
 
-  void setNoteArchiveFilter(NoteArchiveFilter value) {
-    if (_noteArchiveFilter == value) return;
-    _noteArchiveFilter = value;
-    unawaited(_refresh(showLoading: false));
-  }
-
-  void setNoteSort(NoteSort value) {
-    if (_noteSort == value) return;
-    _noteSort = value;
-    unawaited(_refresh(showLoading: false));
-  }
-
-  void setNoteTag(String? value) {
-    final normalized = value?.trim();
-    final next = normalized == null || normalized.isEmpty ? null : normalized;
-    if (_noteTag == next) return;
-    _noteTag = next;
-    unawaited(_refresh(showLoading: false));
-  }
-
   void applyNoteFilters({
     required NoteArchiveFilter archiveFilter,
     required NoteSort sort,

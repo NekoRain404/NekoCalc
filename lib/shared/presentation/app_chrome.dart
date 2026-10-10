@@ -12,31 +12,6 @@ class PageTitle extends StatelessWidget {
   }
 }
 
-class NekoAppMark extends StatelessWidget {
-  const NekoAppMark({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: dark
-            ? scheme.primary.withValues(alpha: 0.16)
-            : const Color(0xFFEDEBFF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: dark
-                ? scheme.primary.withValues(alpha: 0.34)
-                : const Color(0xFFD8D3FF)),
-      ),
-      child: Icon(Icons.calculate_outlined, color: scheme.primary, size: 21),
-    );
-  }
-}
-
 class IconToolButton extends StatelessWidget {
   const IconToolButton({
     required this.icon,

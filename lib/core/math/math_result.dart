@@ -690,30 +690,6 @@ class MathResult {
   ///          degrading to plain text with this.
   bool get hasTex => displayTex.trim().isNotEmpty;
 
-  /// 中文：是否带分数写法。与 [hasTex] 同一条判据、同一个位置——**不另写一份**（写第二份就会漂）。
-  ///       它只回答「有没有」，排不排得出来仍由渲染器自己的 `typesetsTex` 回答。
-  /// English: Whether a fraction spelling is present. The same judgement in the same place as
-  ///          [hasTex] — **not a second copy** (a second copy would drift). It only answers "is
-  ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
-  bool get hasFractionTex => fractionTex.trim().isNotEmpty;
-
-  /// 中文：是否带**带分数写法**。与 [hasTex]、[hasFractionTex] 同一条判据、同一个位置——同样
-  ///       **不另写一份**。它只回答「有没有」；排不排得出来仍由渲染器自己的 `typesetsTex` 回答。
-  /// English: Whether a **mixed-number spelling** is present. The same judgement in the same place as
-  ///          [hasTex] and [hasFractionTex] — likewise **not a second copy**. It only answers "is
-  ///          there one"; whether it typesets is still the renderer's own `typesetsTex`.
-  bool get hasMixedTex => mixedTex.trim().isNotEmpty;
-
-  /// 中文：是否带度分秒写法。与 [hasTex]、[hasFractionTex] 同一条判据、同一个位置——同样**不另写
-  ///       一份**。它只回答「有没有」；这一串**画不画得出**（形状对不对、这一份结果配不配印它）仍由
-  ///       `ResultPresentation` 一处回答——判据在那里，不在这里。
-  /// English: Whether a DMS spelling is present. The same judgement in the same place as [hasTex] and
-  ///          [hasFractionTex], and likewise **not a second copy**. It answers only "is there one";
-  ///          whether the string can be **drawn** (does it have the right shape, and should this
-  ///          result print it at all) is still answered in one place, `ResultPresentation` — the
-  ///          judgement lives there, not here.
-  bool get hasDmsText => dmsText.trim().isNotEmpty;
-
   @override
   bool operator ==(Object other) {
     return other is MathResult &&
