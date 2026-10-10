@@ -246,8 +246,24 @@ structural** — put the copy button *below* or *over* the value instead of besi
 | Tools home | ✓ (fixed) | not measured |
 | Tool category | ✓ (fixed) | not measured |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✗ 34 × 34 ×N — owner unidentified** |
+| Structured tool detail | ✓ | **✗ 60 × `34 × 34`** — the copy button in a `SizedBox(28, 28)`; coupled to the cell's proportions (§5c) |
 | Settings | ✓ | ✓ |
+
+### 5d. The two list screens: the rows are 29 dp tall
+
+`androidTapTargetGuideline` on **both** the tools home and the category screen reports the same node shape:
+
+```
+expected tap target size of at least Size(48.0, 48.0), but found Size(328.0, 29.0)
+```
+
+**`328.0 × 29.0` is a full-width row** — the tool list item, i.e. **the app's main navigation target** — and it is
+**29 dp tall**. (A Material `ListTile` is 56 dp; a 48 dp minimum applies to anything tappable.)
+
+**Recorded, not fixed**: this is the same class as the keypad rows (a dense layout), and changing it makes every
+list item taller — a proportions decision. **It is the third gap of this kind, and the first one on a screen
+every user starts from**, which is why it is worth the owner's attention even though the numbers alone do not
+decide it.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
