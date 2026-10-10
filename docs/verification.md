@@ -118,6 +118,14 @@ So the cause of the empty `boxes` is **not** the viewport, **and I do not know w
 real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the four guards then redden with
 `boxes` empty for a reason that is **still open**.
 
+**What has been ruled out, and what has not** (so the next attempt does not repeat it):
+
+| Checked | Result |
+|---|---|
+| Is the surface too short? | **No** — that guard uses `Size(360*3, 2200*3)`, so cards cannot be pushed off |
+| Do the guards set a device surface? | **Yes** — `physicalSize` is set in all three |
+| Candidate not yet tested | the screen may be **throwing before layout** (an exception leaves no `Text` widgets at all, which is exactly what "0 boxes" looks like). ⚠️ My own probe hit a `_TypeError` right after the ratio change — **suggestive, not proof**: that stub's `noSuchMethod` also returns `Future<void>` for non-void methods, so the throw may be mine. **Untested.** |
+
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
 All three guard the **same shape**: an action that did nothing looks exactly like one that ran
