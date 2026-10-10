@@ -206,6 +206,22 @@ by 20 dp and the cell can no longer hold its content).
 guards' numbers.** That is one coherent piece of work, and it is written down as such rather than attempted
 in halves — **which is exactly what happened here: the half was attempted and reverted.**
 
+**And the number the coupled fix has to absorb is now measured**: with the copy button at 48 dp the cell
+overflows **by 16 pixels** (not 12):
+
+```
+详情页上出现了这条已知溢出之外的异常：A RenderFlex overflowed by 16 pixels on the bottom.
+```
+
+⚠️ **Why that reddens those four guards while a 12 px overflow did not**: `_DetailErrors._collect` tolerates
+one **exact** string — `'A RenderFlex overflowed by 12 pixels on the bottom'` **and** `DetailMetric` in the
+information. A **16 px** overflow matches neither, so it lands in `others`, and `expect(others, isEmpty)`
+goes red. **The tolerance is a literal, not a rule** — which is worth knowing before "fixing" it.
+
+**So the coupled change is: copy button 28 → 48 dp, and the cell given ~16 px more room** (i.e.
+`childAspectRatio` down from 1.35), **plus** whichever of the four guards' numbers that moves. All three
+parts are now measured; none is guessed.
+
 **Where the audit stands** (a dimension with **zero** coverage before this work):
 
 | Screen | labels | tap targets |
