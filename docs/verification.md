@@ -89,10 +89,20 @@ is wider than tall.
 **Why this was invisible until now**: in a release build an overflow does not paint the yellow/black
 stripes — it **clips silently**, so the content is quietly cut rather than loudly wrong.
 
-**Not fixed here on purpose.** The obvious "fix" is a smaller number for the aspect ratio, but the width
-of the content varies per tool, so any single number is a guess that trades clipping for a different
-amount of wasted space — **that is a proportions decision, and it should be made by looking at the
-screens, not by picking a number at the end of a session.**
+**Not fixed, and the cost of fixing it is now measured.** I tried `1.55 → 1.35` (which does remove the
+overflow — verified at all four sizes) and **four guards went red**:
+
+```
+tool_result_label_lengths_test.dart   「那一格的三个数从渲染树里读出来：盒宽 110.0dp…」
+tool_field_strings_test.dart  (×2)    「标签那一格的三个数从渲染树里读出来：盒宽 89.1dp…」
+tool_result_label_strings_test.dart   「详情页：结果卡…两种语言各是各的」
+```
+
+They measure the **result-cell geometry from the render tree** — that is exactly what they exist for, and
+they did their job: **the change is not a one-liner, it is a coordinated update of four guards.**
+
+**So the entries are two separate things, and both are recorded**: the overflow is real, and the price of
+fixing it is four guard updates plus a proportions decision. **Anyone doing it knows both up front.**
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
