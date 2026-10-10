@@ -104,6 +104,12 @@ they did their job: **the change is not a one-liner, it is a coordinated update 
 **So the entries are two separate things, and both are recorded**: the overflow is real, and the price of
 fixing it is four guard updates plus a proportions decision. **Anyone doing it knows both up front.**
 
+⚠️ **One level deeper, measured on the second attempt**: `tool_result_label_lengths_test.dart` does not
+merely disagree about a number — it reports **`boxes` is empty**, i.e. it found **zero** label cells, and its
+own message says the assertion would then be **vacuous**. Taller cells push cards past the test's default
+800×600 surface, so fewer labels are laid out. **So the guards do not need new numbers; they need to measure
+at a device-sized surface first** — exactly the mistake this file records elsewhere (§11).
+
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
 All three guard the **same shape**: an action that did nothing looks exactly like one that ran
