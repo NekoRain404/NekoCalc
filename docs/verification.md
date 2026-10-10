@@ -34,9 +34,25 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 
 ## 4. Where it is **below** the platform's own standard
 
-`androidTapTargetGuideline` (every tappable ≥ 48 dp) **fails at every screen size tested**:
-each keypad row is **48.3 × 24.2 dp**. Deliberately **not** fixed — raising the rows shoves the whole
-keypad around, and the keypad is laid out to match HiPER; that trade-off is the owner's.
+`androidTapTargetGuideline` (every tappable ≥ 48 dp) fails in **two** places, both measured:
+
+| Where | Measured | Code |
+|---|---|---|
+| Calculator keypad — every row | **48.3 × 24.2 dp** | `hiper_keypad_function_rows.dart` |
+| Tool detail screen — the paste / clear / copy buttons | **36 × 36 dp** | `text_tool_detail_screen.dart:405, 410, 471, 503` |
+
+Both are deliberately **not** fixed:
+
+- the keypad's rows are **laid out to match HiPER** and raising them shoves the whole keypad around;
+- the tool buttons are stock `IconButton`s whose size comes from the **theme's density**, so changing
+  them is a theme-level decision, not a local edit.
+
+⚠️ **They are not the same defect**: the keypad one is a HiPER-parity trade-off, the tool one is a
+theme-density consequence. Both are the owner's call; the numbers are here so the call has evidence.
+
+`labeledTapTargetGuideline` **passes** on both (the keypad's figure-faced key was fixed — it had no text
+for `InkWell` to derive a label from; see `calculator_keypad.dart`'s `_variantFace`).
+
 Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
 
 ## 5. What is **not** verified
