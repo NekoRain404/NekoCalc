@@ -187,10 +187,24 @@ same family as the two earlier wrong guesses on this item, and worth recording f
 
 > **When a probe says "not found", check that the probe printed everything before believing it.**
 
-**The owner is still not named** (sixty `34 × 34` nodes and seventy `28 × 28` ones suggest a repeated small
-button — `DetailMetric`'s copy button is an `IconButton` inside a `SizedBox(28, 28)`, which is a strong
-candidate — but **that is a candidate, not a measurement**, and this item has already absorbed two bad
-guesses).
+**The owner has since been found by reading the source**: `DetailMetric` wraps its copy `IconButton` in
+`SizedBox(width: 28, height: 28)` (`tool_widgets.dart:443`) — a repeated small button, which is what the 60 and
+70 counts are.
+
+**And enlarging it to 48 dp was tried, and reverted** — it reddens **the same four layout guards** the
+aspect-ratio change did, i.e. **it re-introduces the overflow this file just had fixed** (the label row grows
+by 20 dp and the cell can no longer hold its content).
+
+⚠️ **So the two gaps are coupled, and neither can be fixed alone**:
+
+| Want | Cost |
+|---|---|
+| cell holds its content (no overflow) | needs a **shorter** cell or **taller** rows |
+| copy button at 48 dp | makes the row **20 dp taller** ⇒ overflow returns |
+
+**Fixing both means changing the cell's proportions *and* the button together, then re-deriving the four
+guards' numbers.** That is one coherent piece of work, and it is written down as such rather than attempted
+in halves — **which is exactly what happened here: the half was attempted and reverted.**
 
 **Where the audit stands** (a dimension with **zero** coverage before this work):
 
