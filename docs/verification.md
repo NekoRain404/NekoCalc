@@ -1,0 +1,63 @@
+# Verification — what is proven, how, and what is not
+
+The long-form measurements, engine probe logs and hand-over narrative live in
+`.superpowers/backup/` (gitignored). This file is the **committed** summary.
+
+## 1. How each layer is proven
+
+| Layer | Proven by | Where |
+|---|---|---|
+| Pure maths (base conversion, Roman numerals, prime factorisation, polynomial factoring, differentiation, arithmetic steps) | unit tests; expected values from an **independent implementation** (sympy / Python `hex` / the engine itself) | `test/core/math/*_test.dart` |
+| Engine selection (which answer is taken, which is refused) | controller tests with stub engines returning **measured** engine strings | `test/domain/calculator_engine_*_test.dart` |
+| On-screen behaviour of engine-backed features | **a real device** — `flutter test` cannot prove engine behaviour | `.superpowers/backup/engine-capability-probe.md` §6, §8 |
+| Tool registration | guards: catalogue tables, name/description/field tables, two source whitelists | `test/features/tool_*_test.dart` |
+| Tools reachable **on screen** | widget tests that open the tool and assert its output | `test/features/new_text_tools_screen_test.dart` |
+| Accessibility labels | Flutter's `labeledTapTargetGuideline`, at device size | `test/features/calculator_accessibility_test.dart` |
+
+## 2. Baselines (measured 2026-09-30; numbers, not impressions)
+
+| Quantity | Value |
+|---|---|
+| Release APK, `--split-per-abi` arm64-v8a | 32.6 MB |
+| Cold start `am start -W` | debug 1.75 s / **release 0.33 s** |
+| Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms |
+| Memory, release, idle | TOTAL PSS 216 MB |
+
+⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
+
+## 3. Where this project is *more correct than the engine*
+
+- `factor(x^2+2x+1)` — the engine hands the input back; this app returns `(x+1)²`.
+- `roman(10000)` / `roman(-1)` / `roman(0)` — the engine returns `"10000"` / `"-I"` / the number `0`;
+  this app refuses, because none has a canonical spelling.
+- Step-by-step differentiation — the engine gives no derivation at all.
+
+## 4. Where it is **below** the platform's own standard
+
+`androidTapTargetGuideline` (every tappable ≥ 48 dp) **fails at every screen size tested**:
+each keypad row is **48.3 × 24.2 dp**. Deliberately **not** fixed — raising the rows shoves the whole
+keypad around, and the keypad is laid out to match HiPER; that trade-off is the owner's.
+Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
+
+## 5. What is **not** verified
+
+- HiPER's own figures (size, version, memory) — seven sources tried, all blocked.
+- Appearance / interaction versus HiPER — nothing measured.
+- Device-side **pure** evaluation latency — the end-to-end path is measured, the evaluation alone is not.
+  The decision-relevant part *is*: the controller's `engineTimeout` is 5 s and a mid-weight symbolic sum
+  exceeds it.
+- Camera / natural-language input — not implemented (engineering scale, not a defect).
+
+## 6. Three mechanical checks that exist because of repeated mistakes
+
+All three guard the **same shape**: an action that did nothing looks exactly like one that ran
+and had no effect.
+
+| Check | Guards against |
+|---|---|
+| `test/features/math_reachability_test.dart` | a file under `lib/core/math/` that **nothing references** |
+| `test/features/new_text_tools_screen_test.dart` | a tool **registered but unreachable on screen** |
+| `tool/pull_device_db.sh` | pulling the SQLite database **without its `-wal`** (reads a stale value) |
+
+⚠️ **Measuring trap, learned the hard way**: `meetsGuideline` reports failures **asynchronously** —
+`expect(...)` does not throw. try/catch cannot be used to see whether it passes.
