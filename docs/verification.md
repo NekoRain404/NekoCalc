@@ -552,12 +552,30 @@ were silently the same object.
   engineCalls=1   result="函数需要括号"   hasError=true   submitted=false     (×4: ±infinity × 2 kinds)
   ```
 
-  - **`engineCalls=1`** — the engine **was** consulted, so the expression does have an engine translation.
-  - **The screen does not carry `-infinity`.** The reply is **rejected before display** and the app falls back
-    to the legacy parser, whose message is what reaches the user (`函数需要括号`, "the function needs brackets").
+  - **`engineCalls=1`** — the engine **was** consulted.
+  - **The screen does not carry `-infinity`**: what reaches the user is the legacy parser's message
+    (`函数需要括号`, "the function needs brackets").
 
   So the sentence this replaces — "route 3 returns the engine's text as it stands ⇒ the screen would carry
-  `-infinity`" — **is not how it goes**: the reply never gets as far as route 3. **The app does not show it.**
+  `-infinity`" — **is not how it goes. The app does not show it.**
+
+- ⚠️ **And the previous revision's wording over-claimed in turn.** It said "the reply is **rejected before
+  display**" — **that is an inference, not what was measured.** What was measured is the four-column line
+  above. At least two readings fit it, and nothing measured yet separates them:
+  (i) the reply was offered and refused somewhere between the engine and the screen; or
+  (ii) the counter's single call came from the **live / as-you-type** path, while the **submit** path never
+  used the engine at all (e.g. the translation refused this expression) — in which case the reply was never
+  a candidate for display.
+
+  Separating them means following the submit path (which call site the counter saw); getting the *real*
+  reply's shape means reproducing the bridge's own print options on the host (`QalculateResultPrints.kt`)
+  or reading the bridge off the device.
+
+  **Left here deliberately**: the practically-live facts are established (the engine's behaviour is measured
+  above; the key-driven path inserts the definite form and is safe; the app does not display `-infinity`),
+  and what is left is a question about a **hand-typed** indefinite integral. The next layer of digging should
+  be a deliberate choice, not a reflex — this thread has already had six of its own claims corrected today,
+  and the errors were all in the *attributions*, never in the numbers.
 
 - ⚠️ **What is still not established: whether a *real* bridge reply has this shape.** The reply above was
   **synthetic** (its `displayTex` is not valid LaTeX, and a real `resultKind` comes from the Kotlin
