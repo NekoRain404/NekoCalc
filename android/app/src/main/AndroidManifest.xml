@@ -16,8 +16,40 @@
             android:exported="true"
             android:hardwareAccelerated="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
             android:theme="@style/LaunchTheme"
             android:windowSoftInputMode="adjustResize">
+            <!--
+              中文：⚠️ 只写 `screenOrientation` 是**不够的**，因为 `targetSdk = 36`（跟随
+                    `flutter.targetSdkVersion`，Flutter 3.44 解析为 36）。**Android 16 起，以 API 36
+                    为目标的应用在最小宽度 ≥ 600dp 的屏幕上会被系统忽略方向限制**——属性写了也照样转。
+                    Android 官方给的退出开关就是下面这个 property：声明它是"我们要保持不可调整大小"，
+                    系统才恢复旧行为。
+                    ⇒ 两个一起写才是「禁止屏幕旋转」；少一个，平板/折叠屏上就会转。
+                    ⚠️ 应用的界面**没有横屏布局**（`lib/` 里 `isLandscape` / `OrientationBuilder` /
+                    `MediaQuery.orientationOf` 各 **0** 处），所以锁竖屏不会留下任何死代码。
+              English: ⚠️ `screenOrientation` **alone is not enough**, because `targetSdk = 36` (it follows
+                    `flutter.targetSdkVersion`, which Flutter 3.44 resolves to 36). **From Android 16, an
+                    app targeting API 36 has its orientation restriction ignored by the system on screens
+                    with smallest width ≥ 600dp** — the attribute is simply not applied. Android's
+                    documented opt-out is the property below: by declaring it the app asks to stay
+                    non-resizable, and the system restores the old behaviour.
+                    ⇒ Both lines together are "no screen rotation"; either alone and a tablet or foldable
+                    will still rotate.
+                    ⚠️ The UI has **no landscape layout at all** (`lib/` has **0** occurrences each of
+                    `isLandscape`, `OrientationBuilder` and `MediaQuery.orientationOf`), so locking to
+                    portrait leaves no dead code behind.
+                    ⚠️ **This opt-out has an expiry date, and losing it would be silent.** Android's
+                    behaviour-changes page (checked 2026-10-10) states the opt-out **no longer applies when
+                    targeting API level 37** — from there the restrictions are ignored on `sw600dp` and up
+                    regardless. So **the day `flutter.targetSdkVersion` becomes 37, this file silently stops
+                    locking tablets and foldables**; a phone is unaffected either way (`sw < 600dp` is an
+                    explicit exception, which is also why the attribute alone is enough on phones). The
+                    durable answer at that point is a real large-screen layout, not another flag.
+            -->
+            <property
+                android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+                android:value="true" />
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />

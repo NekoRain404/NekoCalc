@@ -656,6 +656,61 @@ for the shape. **Add a call counter to the fake**: without it, "the screen says 
 has two very different readings (the engine answered and the display rewrote it, versus the expression never
 reaching the engine).
 
+### 5f. The portrait lock (禁止屏幕旋转) — **declared and merged ✓; the device-side rotation test could not be run**
+
+The requirement is "no screen rotation". Two lines implement it, in `AndroidManifest.xml`:
+
+```xml
+<activity android:name=".MainActivity" android:screenOrientation="portrait" …>
+    <property android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+              android:value="true" />
+```
+
+**Why two and not one.** `targetSdk` is **36** (it follows `flutter.targetSdkVersion`, which Flutter 3.44
+resolves to 36 — confirmed by reading `FlutterExtension.kt`, and by the installed package reporting
+`targetSdk=36`). Android's behaviour-changes page for API 36 states that for apps targeting 36 the system
+**ignores** `screenOrientation`, `resizeableActivity`, `minAspectRatio`/`maxAspectRatio` and
+`setRequestedOrientation()` on displays with **smallest width ≥ 600dp** — with `portrait`, `reversePortrait`,
+`sensorPortrait` and `userPortrait` named explicitly in the ignored list. The documented opt-out is the
+`<property>` above, declared as a child of the **activity** (per-activity form; an `<application>`-level form
+also exists). **Worth knowing for later: the opt-out itself expires** — the same page says it will not apply
+when targeting **API 37**, so the day `flutter.targetSdkVersion` becomes 37 this lock silently stops working on
+tablets and foldables. Phones are unaffected either way, because `sw < 600dp` is an explicit exception to the
+whole change. That is also why the plain attribute alone is sufficient on a phone.
+
+**What is verified — mechanically, from the build product rather than from the source**: the merge kept both.
+`aapt2 dump xmltree --file AndroidManifest.xml build/app/outputs/flutter-apk/app-debug.apk` gives
+
+```
+E: activity (line=31)
+  A: …android:screenOrientation(0x0101001e)=1        ← enum 1 = portrait
+    E: property (line=69)
+      A: …android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+      A: …android:value=true
+```
+
+and the app launches and runs with it (window measured at `[0,0][1440,3200]`, i.e. the full portrait display).
+Checking the **merged** manifest matters here: the property is an unusual element, and a source-level check
+would not have shown whether the merge dropped it.
+
+⚠️ **What is NOT verified: that the app actually refuses a rotation — because this device would not rotate.**
+Five routes were tried, all of which left `mCurrentRotation=ROTATION_0`:
+
+| route | result |
+|---|---|
+| `settings put system accelerometer_rotation 0` + `user_rotation 1` | writes confirmed by `settings get` (0, 1), display unmoved |
+| `cmd window user-rotation lock 1` | no output, display unmoved |
+| `wm user-rotation lock 1` (syntax confirmed via `wm help`) | display unmoved |
+| screen power cycle (`input keyevent 26` ×2) to force a re-apply | display unmoved |
+| relaunching the activity while the rotation was locked | window `[0,0][1440,3200]`, display still portrait |
+
+So there was **no rotation to resist**, and this measurement cannot answer the question on this hardware/ROM
+(rotation appears to be governed by MIUI, which also runs a cover-screen UI, `com.xiaomi.misubscreenui`). All
+device settings were restored afterwards (`accelerometer_rotation=1`, `user_rotation=0`). The declaration is
+correct per the platform documentation and is present in the installed APK; the on-device *behaviour* is
+**untested**, and the untested part is precisely the tablet path, since this device reports **sw = 411dp**
+(1440 × 3200 at 560 dpi) and is therefore outside the Android-16 change altogether.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
