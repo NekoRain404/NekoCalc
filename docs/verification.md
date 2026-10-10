@@ -439,6 +439,25 @@ area" saves the *visual*, not the *layout width* — the box is still 48 and the
 change that actually keeps the width is giving the steppers **their own row**, which is a design change rather
 than a parameter. The numbers are in `_stepButton`'s comment in `tool_detail_screen.dart`.
 
+⚠️ **A third route, measured 2026-10-10: reclaim the whitespace.** A row's **34dp per side is measured** as
+page **16** + the `Card`'s margin **4** + the card's `padding` **14** (`CARD w=328 left=16`,
+`PAD14 w=320 left=20`). Reclaiming the last two (`margin → 0`, `padding → 8`) returns **20dp**, so only the
+remaining **8dp** comes out of the text (label : field = 3 : 4):
+
+| what | as it stands | reclaimed + steppers at 48 |
+|---|---|---|
+| the steppers | 34 × 34 | **48.0 × 48.0** ✓ |
+| sub-48 tap targets on that screen | **13** | **1** (the input field alone) ✓ |
+| the input field | 118.86 | 114.29 (**−4.57**) |
+| the label cell | 89.142857 | **85.714286** (**−3.43**) |
+
+⚠️ **And the price is exactly three English labels.** With `labelBox = 85.714286` the line criterion reports
+**exactly three** crossings — `wire_voltage_drop.parallel` "Parallel wires" (86.7dp), `npv.rate` "Discount
+rate" (86.2dp), `work_power.distance` "Displacement" (88.4dp); each one's Chinese fits a single line, so its
+English is allowed one. **So the reclaim is a trade as well** — unless the padding goes to 4 (visually
+cramped), those three are allowed to wrap, or the tightening is generalised to every card on the screen.
+**The route was tried in full and reverted** (byte-exact; suite green after).
+
 **Where the audit stands** (a dimension with **zero** coverage before this work). ⚠️ **Two rows of this table
 were re-measured and rewritten on 2026-10-10** — the keypad row carried a number that reproduces at no
 screen size, and the structured row attributed its nodes to the wrong widget. Both corrections are in §5c.

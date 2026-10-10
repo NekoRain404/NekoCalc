@@ -521,6 +521,28 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///       28dp 由两个 `Expanded`（`flex: 3` 标签 / `flex: 4` 输入框）按比例吸掉：3/7 × 28 = 12.0、
   ///       4/7 × 28 = 16.0，与上表**分毫不差**。
   ///
+  ///       ⚠️ **2026-10-10 补：那 28dp 不必全从文字里拿——量过了，其中 20dp 可以从留白拿。**
+  ///       行两侧各 34dp 的**构成是实测的**：页面 **16** + `Card` 的 margin **4** + 卡片 `padding` **14**
+  ///       （`CARD w=328 left=16` / `PAD14 w=320 left=20`）。把后两项收掉
+  ///       （`margin: EdgeInsets.zero` + `padding: all(8)`）就还回 **20dp**，剩下 **8dp** 才由标签与
+  ///       输入框按 3:4 分。实测：
+  ///
+  ///       | 量的是什么 | 原样 | 收留白 + 步进键 48 |
+  ///       |---|---|---|
+  ///       | 步进键 | 34 × 34 | **48.0 × 48.0** ✓ |
+  ///       | 该屏矮于 48dp 的可点节点 | **13** | **1**（只剩输入框）✓ |
+  ///       | 输入框 | 118.86 | 114.29（**−4.57**）|
+  ///       | 标签那一格 | 89.142857 | **85.714286**（**−3.43**）|
+  ///
+  ///       ⚠️ **代价是精确的三条英文标签。** 把 `tool_field_strings_test.dart` 的 `labelBox` 换成实测的
+  ///       85.714286 之后，行数判据报出**恰好三条**越线——它们的中文都是 1 行（英文因此只允许 1 行），
+  ///       而英文分别要 **86.7 / 86.2 / 88.4 dp**：`wire_voltage_drop.parallel`「Parallel wires」、
+  ///       `npv.rate`「Discount rate」、`work_power.distance`「Displacement」。
+  ///
+  ///       **所以这条路也不是白拿**——除非把卡片内边距继续压到 4（视觉上太挤）、接受那三条折行、
+  ///       或者把收紧**推广到全屏卡片**（那是改整体密度，不是改这一处）。
+  ///       **要动它，就照这张表动，并重跑 `tool_field_strings_test.dart`。**
+  ///
   ///       ⚠️ **而那 12dp 正是这条设计的命门。** 标签那一格的宽度是
   ///       `tool_field_strings_test.dart` 里那条**行数判据的分母**（`_lines = (advance / labelBox).ceil()`，
   ///       `labelBox = 89.142857`），英文标签上限 **2 行**。把 `labelBox` 换成实测的 77.14 再跑那条判据：
@@ -555,6 +577,32 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///          **The row height is free** — it is set by the `TextField` (already 48), so the vertical half
   ///          costs nothing. The 28dp is absorbed by the two `Expanded`s (`flex: 3` label / `flex: 4` field)
   ///          in proportion: 3/7 × 28 = 12.0 and 4/7 × 28 = 16.0, matching the table to the digit.
+  ///
+  ///          ⚠️ **Added 2026-10-10: those 28dp do not have to come out of the text — measured, 20dp of
+  ///          them can come out of the whitespace instead.** The 34dp on each side of a row is **measured**:
+  ///          page **16** + the `Card`'s margin **4** + the card's `padding` **14**
+  ///          (`CARD w=328 left=16` / `PAD14 w=320 left=20`). Reclaiming the last two
+  ///          (`margin: EdgeInsets.zero` + `padding: all(8)`) returns **20dp**, leaving only **8dp** to be
+  ///          split between the label and the field at 3:4. Measured:
+  ///
+  ///          | what | as it stands | whitespace reclaimed + steppers at 48 |
+  ///          |---|---|---|
+  ///          | the steppers | 34 × 34 | **48.0 × 48.0** ✓ |
+  ///          | sub-48 tap targets on that screen | **13** | **1** (the input field alone) ✓ |
+  ///          | the input field | 118.86 | 114.29 (**−4.57**) |
+  ///          | the label cell | 89.142857 | **85.714286** (**−3.43**) |
+  ///
+  ///          ⚠️ **And the price is exactly three English labels.** With the `labelBox` in
+  ///          `tool_field_strings_test.dart` set to the measured 85.714286, the line criterion reports
+  ///          **exactly three** crossings — each one's Chinese label fits a single line (so its English is
+  ///          allowed one), while the English needs **86.7 / 86.2 / 88.4 dp**:
+  ///          `wire_voltage_drop.parallel` "Parallel wires", `npv.rate` "Discount rate",
+  ///          `work_power.distance` "Displacement".
+  ///
+  ///          **So this route is not free either** — unless the card padding goes to 4 (visually cramped),
+  ///          or those three labels are allowed to wrap, or the tightening is **generalised to every card on
+  ///          the screen** (which changes overall density rather than this one spot).
+  ///          **Take this table if you act on it, and re-run `tool_field_strings_test.dart`.**
   ///
   ///          ⚠️ **And those 12dp are this design's weak point.** The label cell's width is the
   ///          **denominator of the line criterion** in `tool_field_strings_test.dart`
