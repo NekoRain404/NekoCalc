@@ -123,12 +123,24 @@ class SectionHeader extends StatelessWidget {
           InkWell(
             onTap: onActionTap,
             borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-              child: Text(action!,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700)),
+            // 中文：**点击区撑到 48 dp。** 这里原来是「文字高度 + 8 dp 下内边距」≈ **29 dp**，
+            //       而它是可点的——实测：`androidTapTargetGuideline` 在工具首页与分类页上报的
+            //       那个 `328 × 29` 就是它（走语义树才认出名字：`label=收藏工具`，带 tap 动作）。
+            //       文字**一个像素没动**：多出来的高度落在它下面。
+            // English: **the tap target is brought up to 48 dp.** This used to be "the text's height plus
+            //          8 dp of bottom padding" ≈ **29 dp**, and it is tappable — measured: that is exactly
+            //          the `328 × 29` node `androidTapTargetGuideline` reports on the tools home and the
+            //          category screen (walking the semantics tree is what named it: `label=收藏工具`, with a
+            //          tap action). **The text does not move by a pixel**: the extra height goes below it.
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                child: Text(action!,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700)),
+              ),
             ),
           ),
       ],
