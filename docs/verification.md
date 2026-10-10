@@ -249,39 +249,39 @@ structural** — put the copy button *below* or *over* the value instead of besi
 | Structured tool detail | ✓ | **✗ 60 × `34 × 34`** — the copy button in a `SizedBox(28, 28)`; coupled to the cell's proportions (§5c) |
 | Settings | ✓ | ✓ |
 
-### 5d. The two list screens: the rows are 29 dp tall
+### 5d. The two list screens: a **section header** is 29 dp — ⚠️ **and my first reading of this was wrong**
 
-`androidTapTargetGuideline` on **both** the tools home and the category screen reports the same node shape:
+`androidTapTargetGuideline` on both the tools home and the category screen reports the same shape:
 
 ```
 expected tap target size of at least Size(48.0, 48.0), but found Size(328.0, 29.0)
 ```
 
-**`328.0 × 29.0` is a full-width row** — the tool list item, i.e. **the app's main navigation target** — and it is
-**29 dp tall**. (A Material `ListTile` is 56 dp; a 48 dp minimum applies to anything tappable.)
-
-**Recorded, not fixed**: this is the same class as the keypad rows (a dense layout), and changing it makes every
-list item taller — a proportions decision. **It is the third gap of this kind, and the first one on a screen
-every user starts from**, which is why it is worth the owner's attention even though the numbers alone do not
-decide it.
-
-⚠️ **And the tooling that named `IconToolButton` cannot reach this node.** A census over
-`find.byType(Semantics)` filtering for exactly that shape (`width >= 300 && height < 48`) on the same screen
-**found nothing**:
+**I first wrote that `328 × 29` was "the tool list item, the app's main navigation target". That was an
+inference, and it is wrong.** Walking the **semantics tree** (not the widget tree — that was the previous
+probe's mistake) names the nodes directly:
 
 ```
-(no output)
+SEM 328x29 actions=0       label=推荐工具
+SEM 328x29 actions=4194305 label=收藏工具
+SEM 328x29 actions=0       label=分类
+SEMTOTAL 6
 ```
 
-So the guideline and the widget census **disagree** this time. `find.byType(Semantics)` finds `Semantics`
-**widgets**; the guideline walks the semantics **tree**, where a node can be produced by a widget that is not a
-`Semantics` (a `ListTile`'s internals, a `MergeSemantics`, an `InkResponse`). **Which of those it is has not
-been determined.**
+**They are section headers**, and only **`收藏工具`** carries a tap action — the other two have `actions=0`.
+So the finding is **one tappable section header at 29 dp**, not "every row in the app's main list".
 
-**The next step is a different instrument, not a third guess**: walk the semantics tree itself
-(`tester.binding.pipelineOwner.semanticsOwner`) or bisect the subtree. ⚠️ **Two of the three gaps so far have
-cost a guess that turned out wrong**, and on this one the probe came back empty while the guideline said
-otherwise — **so check the instrument before believing the census.**
+**And the tool rows themselves are not implicated at all**: `ToolListTile` is a `ListTile`, and its own file
+comment records a **minimum of 88 dp** in search mode. Nothing here is 29 dp except the headers.
+
+⚠️ **Three corrections of this kind in one day** (`knownOverflows` misread as `boxes`; "the buttons are 36 dp";
+now "the rows are 29 dp"). The common shape is the same each time: **an inference about what a measurement was
+of, where the measurement was available and I did not take it.** The semantics-tree walk — the instrument the
+previous entry said to use — cost one probe and was right.
+
+**Recorded, not fixed**: one tappable section header is 29 dp. That is a small, local fix (`收藏工具`'s row needs
+a 48 dp target), **not** a proportions decision about the list — which is what I wrongly told the reader one
+revision ago.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
