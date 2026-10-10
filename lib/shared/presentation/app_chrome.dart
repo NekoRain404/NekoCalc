@@ -58,7 +58,15 @@ class IconToolButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
-          child: AnimatedContainer(
+          // 中文：**36 dp 的视觉 + 48 dp 的点击区。** 判据量的是 `InkWell` 那个语义节点，
+          //       而它原来与视觉同为 36 ⇒ **全应用每一颗 `IconToolButton` 都低于平台的 48 dp**。
+          // English: **a 36 dp visual with a 48 dp tap target.** The guideline measures the `InkWell`'s
+          //          semantics node, which used to be 36 like the visual — so **every `IconToolButton` in
+          //          the app** sat below the platform's 48 dp.
+          child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             width: 36,
@@ -76,7 +84,7 @@ class IconToolButton extends StatelessWidget {
               ],
             ),
             child: Icon(icon, size: 20, color: scheme.onSurface),
-          ),
+          ))),
         ),
       ),
     );

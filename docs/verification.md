@@ -82,9 +82,16 @@ Both are deliberately **not** fixed:
   width: 36,
   ```
 
-  **So the root cause is found: a shared chrome widget pins its box to 36 dp.** The standard fix is a 48 dp
-  *tap target* around a 36 dp *visual*, which **changes its footprint app-wide** — so it needs the layout
-  guards re-checked, and that is why it is **recorded rather than changed here.**
+  **So the root cause was a shared chrome widget pinning its box to 36 dp — and it is now fixed.** The
+  `InkWell` is wrapped in a `SizedBox(48, 48)` + `Center`, giving **a 48 dp tap target around the unchanged
+  36 dp visual**. Verified two ways:
+
+  - `androidTapTargetGuideline` on that screen: **passes** (it was `36 × 36` before);
+  - the full suite: **1806 pass** — so the footprint change (36 → 48) broke **no** layout guard.
+
+  **This fixes every `IconToolButton` in the app at once**, which is why it was worth measuring rather than
+  guessing: two guesses about which *Flutter* widget was at fault cost budget, and the run that printed the
+  ancestor chain named the project's own widget in one probe.
 
   **The transferable part**: two guesses were wrong and cost budget; the run that printed the ancestor chain
   cost one probe and was right. **When a measurement can name the owner, take that instead of guessing the
