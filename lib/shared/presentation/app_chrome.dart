@@ -126,20 +126,58 @@ class SectionHeader extends StatelessWidget {
             // 中文：**点击区撑到 48 dp。** 这里原来是「文字高度 + 8 dp 下内边距」≈ **29 dp**，
             //       而它是可点的——实测：`androidTapTargetGuideline` 在工具首页与分类页上报的
             //       那个 `328 × 29` 就是它（走语义树才认出名字：`label=收藏工具`，带 tap 动作）。
-            //       文字**一个像素没动**：多出来的高度落在它下面。
+            //
+            //       ⚠️ **我第一次改这一处时写下的「文字一个像素没动」是错的，这里是更正后的版本。**
+            //       原来那版只加了 `minHeight: 48`，而这一行是 `Row(crossAxisAlignment: center)`：
+            //       行高由 29 变成 48 之后，**标题被居中**（往下挪了约 9.5dp），而**动作那一段的文字
+            //       仍钉在自己那个被撑高的盒子的顶上**（往上挪了约 3.5dp）——两段文字因此差了约 13dp。
+            //       实测（360×800，`SectionHeader(title: 收藏工具, action: 添加)`）：
+            //
+            //       | 量的是什么 | 第一次改完之后 |
+            //       |---|---|
+            //       | 整行 | `265.0..313.0`（h **48.0**）|
+            //       | 标题那一格 | `274.5..303.5`（h 29.0，被居中）|
+            //       | 动作那个 `Text` | `265.0..305.0`（h **40.0** —— 被 `minHeight` 撑高，文字在**顶**上）|
+            //
+            //       **修法**：把动作的文字 `Center` 到那 48dp 里（与标题同一套居中），并去掉那 8dp 下内边距
+            //       ——它是为旧的 29dp 几何写的，留着会让文字偏上。点击区仍是 48dp，判据照过。
+            //       **教训**：撑高一个居中对齐的行里的**一格**，改变的不只是那一格的盒子——同排别的格子
+            //       会跟着重新居中。**"多出来的高度落在它下面"这句话在居中行里不成立。**
             // English: **the tap target is brought up to 48 dp.** This used to be "the text's height plus
             //          8 dp of bottom padding" ≈ **29 dp**, and it is tappable — measured: that is exactly
             //          the `328 × 29` node `androidTapTargetGuideline` reports on the tools home and the
             //          category screen (walking the semantics tree is what named it: `label=收藏工具`, with a
-            //          tap action). **The text does not move by a pixel**: the extra height goes below it.
+            //          tap action).
+            //
+            //          ⚠️ **The "the text does not move by a pixel" I wrote on the first attempt was wrong,
+            //          and this is the corrected version.** That version only added `minHeight: 48`, and
+            //          this row is a `Row(crossAxisAlignment: center)`: once the row went 29 → 48 the
+            //          **title got centred** (moving down ≈ 9.5dp) while the **action's text stayed pinned
+            //          to the top of its stretched box** (moving up ≈ 3.5dp) — leaving the two texts about
+            //          13dp apart. Measured (360×800, `SectionHeader(title: 收藏工具, action: 添加)`):
+            //
+            //          | what | after the first attempt |
+            //          |---|---|
+            //          | the whole row | `265.0..313.0` (h **48.0**) |
+            //          | the title cell | `274.5..303.5` (h 29.0, centred) |
+            //          | the action `Text` | `265.0..305.0` (h **40.0** — stretched by `minHeight`, text at the **top**) |
+            //
+            //          **The repair**: `Center` the action's text in that 48dp band (the same centring the
+            //          title gets) and drop the 8dp of bottom padding — it was written for the old 29dp
+            //          geometry and would now push the text up. The tap target is still 48dp and the
+            //          guideline still passes. **The lesson**: raising one cell of a centre-aligned row does
+            //          not only change that cell's box — every other cell in the row re-centres. **"The
+            //          extra height goes below it" is not true in a centre-aligned row.**
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 48),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-                child: Text(action!,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700)),
+                padding: const EdgeInsets.only(left: 8),
+                child: Center(
+                  child: Text(action!,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700)),
+                ),
               ),
             ),
           ),

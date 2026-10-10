@@ -367,9 +367,29 @@ the reader one revision ago. The fix is a `ConstrainedBox(minHeight: 48)` around
 `SectionHeader` (`app_chrome.dart`), and it was verified **single-variable**: toggling that one `minHeight`
 between **0 and 48** — same screen, same probe, nothing else touched — took the guideline from
 `expected tap target size of at least Size(48.0, 48.0), but found Size(328.0, 29.0)` to **pass**. So the node is
-provably that one. The text does not move a pixel; the extra height goes below it. ⚠️ **A synthetic
+provably that one. ⚠️ **A synthetic
 reconstruction of the same shape is a false negative** — I built one and it *passed* the guideline, so this
 class of question has to be measured on the real screen.
+
+⚠️ **And "the text does not move a pixel" — which this section said when it was first written — is itself
+wrong.** Caught the same day by re-reading my own commit rather than by any test. `minHeight` alone leaves the
+row a `Row(crossAxisAlignment: center)`, so raising it 29 → 48 **centred the title** (down ≈ 9.5dp) while the
+**action's text stayed pinned to the top of its stretched box** (up ≈ 3.5dp) — leaving the two texts ≈ 13dp
+apart. Measured on the tools home:
+
+| what | after the first attempt |
+|---|---|
+| the row | `265.0..313.0` (h **48.0**) |
+| the title cell | `274.5..303.5` (h 29.0 — centred) |
+| the action `Text` | `265.0..305.0` (h **40.0** — stretched by `minHeight`, text at the top) |
+
+The repair: `Center` the action's text in that 48dp band (the same centring the title gets) and drop the 8dp of
+bottom padding, which was written for the old 29dp geometry. Alignment then measures **Δcenters = 0.00** and
+the guideline still passes (1807 green after).
+
+⚠️ **The generalisable part**: raising one cell of a **centre-aligned** row does not only change that cell's
+box — every other cell in the row re-centres. **"The extra height goes below it" is not true in a
+centre-aligned row**, and that is exactly the sentence I wrote first.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
