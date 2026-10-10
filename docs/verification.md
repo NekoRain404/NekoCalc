@@ -543,16 +543,34 @@ were silently the same object.
 - **The keypad never produces the indefinite form.** `∫dx` inserts `integrate(x^2,0,1,x)`
   (`calculator_key_dispatch.dart:387`, `case 'ins:integrate'`) — **with bounds** — and that is the branch the
   engine answers **correctly** (`1/3`). So the **key-driven path is safe.**
-- **The indefinite form is typeable** (or reachable by editing the inserted template), and there the display
-  path decides. **Read, not measured**: `_engineMathResult` (`calculator_controller_engine_display.dart:74`)
-  has three routes and this answer takes the third — `decimalValue` is null, because Dart's
-  `double.tryParse('-infinity')` **rejects the lowercase spelling** (it accepts only `Infinity` /
-  `-Infinity` / `NaN`), and it is not a quantity, so route 3 **returns the engine's own text as it stands**
-  ⇒ the screen would carry `-infinity`.
-- ⚠️ **That last line is an inference from the code, and this file does not record inferences as findings.**
-  Confirming it needs the device's zero-touch channel (which rewrites `app_settings`, so back it up and
-  restore it byte for byte), or a widget test that feeds this exact reply through a stubbed engine.
-  **So: the engine behaviour is measured; the app's display is inferred; the key-driven path is safe.**
+- ⚠️ **Measured — and it refutes the inference that stood here.** Feeding a stubbed `MathEngine` a reply of
+  exactly the shape the host probe says the engine produces (`displayText` / `displayTex` = `±infinity`,
+  `decimalText` empty, two different non-quantity kinds) and submitting `integrate(x^3, x)`, a domain-level
+  probe found:
+
+  ```
+  engineCalls=1   result="函数需要括号"   hasError=true   submitted=false     (×4: ±infinity × 2 kinds)
+  ```
+
+  - **`engineCalls=1`** — the engine **was** consulted, so the expression does have an engine translation.
+  - **The screen does not carry `-infinity`.** The reply is **rejected before display** and the app falls back
+    to the legacy parser, whose message is what reaches the user (`函数需要括号`, "the function needs brackets").
+
+  So the sentence this replaces — "route 3 returns the engine's text as it stands ⇒ the screen would carry
+  `-infinity`" — **is not how it goes**: the reply never gets as far as route 3. **The app does not show it.**
+
+- ⚠️ **What is still not established: whether a *real* bridge reply has this shape.** The reply above was
+  **synthetic** (its `displayTex` is not valid LaTeX, and a real `resultKind` comes from the Kotlin
+  classifier), so the *reason* for the rejection is unknown — a gate on the reply's shape, the `-infinity`
+  spelling itself, or the stub being malformed. Settling that needs the real reply (the device's zero-touch
+  channel, or a JVM test of the bridge).
+
+**Reproducing the measurement**: `lib/core/math/math_engine.dart` is an interface, so a domain-level test can
+carry its own `_FakeMathEngine implements MathEngine`, build the controller, call `setExpression(...)`,
+`await controller.submit()`, and read `controller.result` / `hasError` — see `quantity_decimal_places_test.dart`
+for the shape. **Add a call counter to the fake**: without it, "the screen says the function needs brackets"
+has two very different readings (the engine answered and the display rewrote it, versus the expression never
+reaching the engine).
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
