@@ -120,6 +120,16 @@ class CategoryCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
+        // 中文：⚠️ **这 12 是被测量逼出来的，不是漂移。** 我按"顶层卡片 = 14"这条规则把它改成过 14，
+        //       `tool_catalog_strings_test` 立刻红：分类卡标题那一行**容不下八个英文名**了。那条测试是
+        //       从渲染树里读盒子宽度的，所以这 4dp 一直有人守着。⇒ **12 保留，记成有意例外**
+        //       （与 `DetailMetric` 的 10 同类）。**规则让位于测量——这次是测量赢了。**
+        // English: ⚠️ **This 12 is forced by a measurement, not drift.** I changed it to 14 under the
+        //          "top-level card = 14" rule and `tool_catalog_strings_test` went red at once: that row
+        //          **no longer fits all eight English names**. The test reads the box width out of the
+        //          render tree, so those 4dp have been guarded all along. ⇒ 12 stays, recorded as a
+        //          **deliberate exception** (the same kind as `DetailMetric`'s 10). A rule yields to a
+        //          measurement; here the measurement won.
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: category.color.withValues(alpha: 0.07),

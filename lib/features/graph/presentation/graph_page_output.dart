@@ -166,7 +166,13 @@ extension _GraphPageOutput on _GraphPageState {
         : _selectedMarker!;
     final marker = _markers[selected];
     return Container(
-      padding: const EdgeInsets.all(12),
+      // 中文：这是**顶层**面板（`graph_page.dart:465` 调用，与同层那条 `all(14)` 的 softPanel 状态条是
+      //       兄弟），所以取 **14**。本应用区分层级靠**嵌套与否**：12 是**嵌套**色块的层级（4 处，全部套在
+      //       卡片或对话框里），不是顶层面板的。
+      // English: a **top-level** panel (`graph_page.dart:465` — a sibling, at the same nesting level, of the
+      //          `all(14)` softPanel status strip), so it takes **14**. In this app the tier is decided by
+      //          **nesting**: 12 is the *nested* tinted-block tier (4 sites, all inside a card or a dialog).
+      padding: const EdgeInsets.all(14),
       decoration: softPanel(context: context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

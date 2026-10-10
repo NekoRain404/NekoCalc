@@ -262,7 +262,11 @@ class _RegressionGraphSheetState extends State<RegressionGraphSheet> {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: theme.display.background,
-                borderRadius: BorderRadius.circular(10),
+                // 中文：圆角 **8**，与"带边框的图表框"这一角色取齐——`data_fit_cards.dart` 里同角色的那对
+                //       `ClipRRect`/`BoxDecoration` 是 8，`softPanel` 也是 8。这里原来是 10，属漂移。
+                // English: radius **8**, matching the "bordered chart frame" role — the same role in
+                //          `data_fit_cards.dart` is 8, and `softPanel` is 8. This was 10, which is drift.
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                     color: theme.display.statusFg.withValues(alpha: 0.28)),
               ),

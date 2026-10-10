@@ -281,7 +281,13 @@ class EmptyPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      // 中文：**空状态占的就是卡片那一格**（`tools_home_page.dart:250` 就是
+      //       `favorites.isEmpty ? EmptyPanel(...) : Card(...)`），所以内边距跟卡片走 **14**，不是 16。
+      //       而且这是**共享组件**——改这一处，全应用的空状态一起对齐。
+      // English: an empty state occupies the *card slot* (`tools_home_page.dart:250` is literally
+      //          `favorites.isEmpty ? EmptyPanel(...) : Card(...)`), so its inset follows the card's **14**,
+      //          not 16. It is also a **shared widget**, so this one edit aligns every empty state in the app.
+      padding: const EdgeInsets.all(14),
       decoration: softPanel(context: context),
       child: Text(message,
           style:

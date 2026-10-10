@@ -475,11 +475,18 @@ extension _DataFitCards on _DataFitToolScreenState {
             AspectRatio(
               aspectRatio: 1.55,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                // 中文：这两个 **10** 是漂移。**同一个文件、50 行之后**同一个角色（包住 `DataTable` 的那对
+                //       `ClipRRect`/`BoxDecoration`，`:531`/`:535`）用的是 **8**，而 `softPanel` 也是 8——
+                //       同角色就得同值。10 在本应用另有归属（`app_chrome.dart` 的小控件/图块一族），不属这里。
+                // English: these two **10**s are drift. **Fifty lines below, in this same file**, the identical
+                //          role — the `ClipRRect`/`BoxDecoration` pair around the `DataTable` at `:531`/`:535` —
+                //          uses **8**, and so does `softPanel`. Same role, same value. The 10 is spoken for
+                //          elsewhere in this app (`app_chrome.dart`'s small-control/tile family), not here.
+                borderRadius: BorderRadius.circular(8),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: scheme.surface,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: scheme.outlineVariant),
                   ),
                   child: RepaintBoundary(

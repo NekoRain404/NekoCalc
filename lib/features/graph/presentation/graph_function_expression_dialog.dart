@@ -91,7 +91,13 @@ class _FunctionExpressionDialogState extends State<FunctionExpressionDialog> {
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              // 中文：这是**嵌套**在对话框内容里的面板 ⇒ 取嵌套层的 **12**（本应用 4 处嵌套色块全部是 12）。
+              //       10 在本应用只属于"固定尺寸小方格"那一族（78dp 工具卡、`DetailMetric`），而这个不是——
+              //       它宽度是 `double.infinity`，跟着对话框走。
+              // English: this panel is **nested** inside a dialog's content ⇒ the nested tier's **12** (all four
+              //          nested tinted blocks in this app are 12). The 10 belongs to the fixed-size tile family
+              //          (the 78dp tool tile, `DetailMetric`); this is not one — its width is `double.infinity`.
+              padding: const EdgeInsets.all(12),
               decoration: softPanel(context: context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
