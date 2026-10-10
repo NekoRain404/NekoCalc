@@ -17,6 +17,7 @@ import 'tool_catalog_strings.dart';
 import 'tool_detail_strings.dart';
 import 'tool_field_strings.dart';
 import 'tool_result_label_strings.dart';
+import 'tool_save_message.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
 
@@ -185,8 +186,16 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     try {
       final result = await _detailController.saveResult(expression);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        // 中文：回执在**呈现边缘**翻译——领域层只给令牌，字在 `ToolsStrings` 里，取表的语言就是
+        //       屏幕的语言（`tool_save_message.dart`）。这里从前印的是 `result.message`。
+        // English: the receipt is translated **at the presentation edge** — the domain hands over the
+        //          token and the words live in `ToolsStrings`, so the table's language is the screen's
+        //          (`tool_save_message.dart`). This used to print `result.message`.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
+          ),
+        );
       }
     } finally {
       _savingResult = false;
@@ -199,8 +208,11 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     try {
       final result = await _detailController.saveNote();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
+          ),
+        );
       }
     } finally {
       _savingNote = false;

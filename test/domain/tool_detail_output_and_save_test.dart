@@ -9,6 +9,9 @@ import 'package:nekocalc/domain/usecases/tool_catalog.dart';
 import 'package:nekocalc/domain/usecases/tool_save_result.dart';
 import 'package:nekocalc/features/tools/presentation/tool_detail_strings.dart';
 import 'package:nekocalc/features/tools/presentation/tool_result_label_strings.dart';
+import 'package:nekocalc/features/tools/presentation/tool_save_message.dart';
+import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 /// 中文：有没有汉字。英文那一侧不许有，中文那一侧必须有——两边的断言都不许空转。
 /// English: whether a Han character is present. The English side may not have one and the Chinese
@@ -160,7 +163,7 @@ void main() {
     expect(history.status, ToolSaveStatus.saved);
     expect(history.saved, isTrue);
     expect(history.recordId, 1);
-    expect(history.message, '结果已保存到历史记录');
+    expect(_saveReceipt(history), '结果已保存到历史记录');
     expect(note.status, ToolSaveStatus.saved);
     expect(note.recordId, 1);
     expect(db.savedHistory.single['toolId'], 'ohms_law');
@@ -183,8 +186,8 @@ void main() {
     final note = await controller.saveNote();
 
     expect(history.status, ToolSaveStatus.inputInvalid);
-    expect(history.message, contains('请先修正输入参数'));
-    expect(history.message, contains('电阻 R'));
+    expect(_saveReceipt(history), contains('请先修正输入参数'));
+    expect(_saveReceipt(history), contains('电阻 R'));
     expect(note.status, ToolSaveStatus.inputInvalid);
     expect(db.savedHistory, isEmpty);
     expect(db.savedNotes, isEmpty);
@@ -208,9 +211,9 @@ void main() {
         await controller.saveResult(controller.inputSummary());
     final missingNote = await controller.saveNote();
     expect(missingHistory.status, ToolSaveStatus.notWritten);
-    expect(missingHistory.message, '历史记录没有写入，请重试');
+    expect(_saveReceipt(missingHistory), '历史记录没有写入，请重试');
     expect(missingNote.status, ToolSaveStatus.notWritten);
-    expect(missingNote.message, '笔记没有写入，请重试');
+    expect(_saveReceipt(missingNote), '笔记没有写入，请重试');
 
     final failureDb = _FakeToolSaveDatabase(
       nextHistoryError: StateError('history locked'),
@@ -227,9 +230,9 @@ void main() {
         await failureController.saveResult(failureController.inputSummary());
     final failedNote = await failureController.saveNote();
     expect(failedHistory.status, ToolSaveStatus.failed);
-    expect(failedHistory.message, contains('保存历史失败'));
+    expect(_saveReceipt(failedHistory), contains('保存历史失败'));
     expect(failedNote.status, ToolSaveStatus.failed);
-    expect(failedNote.message, contains('保存笔记失败'));
+    expect(_saveReceipt(failedNote), contains('保存笔记失败'));
   });
 
   test('结果行的两个读者：屏幕侧走标签表，数据侧与拆分前逐字节相同', () async {
@@ -339,6 +342,16 @@ void main() {
         controller.resultSummary());
   });
 }
+
+/// 中文：**保存回执在呈现边缘渲染**（领域层只给令牌，字在 `ToolsStrings` 里）。这份测试量的是
+///       控制器与领域的行为，所以读回执时走与屏幕同一条路：中文表 + `toolSaveMessage`——也正是
+///       从前 `result.message` 那句话的出处。
+/// English: **the save receipt is rendered at the presentation edge** (the domain layer hands over the
+///          token, the words live in `ToolsStrings`). This test measures the controller's and the
+///          domain's behaviour, so it reads the receipt the way the screen does: the Chinese table plus
+///          `toolSaveMessage` — which is exactly where the old `result.message` came from.
+String _saveReceipt(ToolSaveResult result) =>
+    toolSaveMessage(result, ToolsStrings.forLanguage(AppLanguage.zh));
 
 class _FakeToolSaveDatabase implements AppDatabase {
   _FakeToolSaveDatabase({

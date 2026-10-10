@@ -341,8 +341,18 @@ extension _CalculatorPageSheets on _CalculatorPageState {
     try {
       final result = await _controller.saveToNote();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(result.message)));
+      // 中文：回执在**呈现边缘**翻译——领域层只给令牌，字在 `CalculatorStrings` 里，取表的语言
+      //       就是屏幕的语言（`calculator_save_message.dart`）。这里从前印的是 `result.message`。
+      // English: the receipt is translated **at the presentation edge** — the domain hands over the
+      //          token and the words live in `CalculatorStrings`, so the table's language is the
+      //          screen's (`calculator_save_message.dart`). This used to print `result.message`.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            calculatorSaveNoteMessage(result, CalculatorStrings.of(context)),
+          ),
+        ),
+      );
     } finally {
       _savingNote = false;
     }

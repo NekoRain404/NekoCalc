@@ -303,8 +303,20 @@ extension _DataFitActions on _DataFitToolScreenState {
     try {
       final save = await _saveHistoryResult();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(save.message)));
+        // 中文：回执在**呈现边缘**翻译（`tool_save_message.dart`）——领域层只给令牌，字在
+        //       `ToolsStrings` 里（三屏同源，理由见 `data_fit_tool_screen.dart` 的文件头）。
+        //       这里从前印的是 `save.message`。
+        // English: the receipt is translated **at the presentation edge**
+        //          (`tool_save_message.dart`) — the domain hands over the token and the words live in
+        //          `ToolsStrings` (one source for three screens; the reason is at the head of
+        //          `data_fit_tool_screen.dart`). This used to print `save.message`.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              toolSaveMessage(save, ToolsStrings.of(context)),
+            ),
+          ),
+        );
       }
     } finally {
       _savingHistory = false;
@@ -319,8 +331,13 @@ extension _DataFitActions on _DataFitToolScreenState {
     try {
       final save = await _saveNoteResult();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(save.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              toolSaveMessage(save, ToolsStrings.of(context)),
+            ),
+          ),
+        );
       }
     } finally {
       _savingNote = false;

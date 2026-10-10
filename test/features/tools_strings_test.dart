@@ -118,6 +118,24 @@ void main() {
     expect(zh.fixInputsFirstWith('s'), '请先修正输入参数：s');
     expect(zh.inputsCopied, '已复制输入参数');
     expect(zh.copiedLabel('a'), '已复制a');
+    // —— 工具详情页：保存回执 ——
+    // 中文：这七句原先在领域层（`tool_save_result.dart` 的 `message:`）当场拼好并直接上屏（三屏的
+    //       `SnackBar`），所以英文界面下也是中文。搬进本表时**一个字节都没动**；`inputInvalid`
+    //       那一对用的就是上面的 `fixInputsFirst` / `fixInputsFirstWith`（屏幕上的字本来就和它们
+    //       一样）。这里与 `test/domain/tool_save_result_test.dart` 那份旧文案对照表一起钉住这件事。
+    // English: these seven used to be composed in the domain layer (`message:` in
+    //          `tool_save_result.dart`) and printed straight (three screens' `SnackBar`s), so an English
+    //          interface showed Chinese too. Moving them into this table **changed not one byte**; the
+    //          `inputInvalid` pair is the `fixInputsFirst` / `fixInputsFirstWith` pair above (whose words
+    //          were already what the screen showed). This block and the legacy-sentence table in
+    //          `test/domain/tool_save_result_test.dart` pin that together.
+    expect(zh.saveHistorySaved, '结果已保存到历史记录');
+    expect(zh.saveNoteSaved, '已保存到笔记');
+    expect(zh.saveNothingToStore, '没有可保存的计算结果');
+    expect(zh.saveHistoryNotWritten, '历史记录没有写入，请重试');
+    expect(zh.saveNoteNotWritten, '笔记没有写入，请重试');
+    expect(zh.saveHistoryFailed('Bad state: db locked'), '保存历史失败：Bad state: db locked');
+    expect(zh.saveNoteFailed('Bad state: db locked'), '保存笔记失败：Bad state: db locked');
     // —— 文本工具详情页 ——
     expect(zh.formulaAndVariables, '公式与变量');
     expect(zh.inputLabel, '输入');
@@ -313,6 +331,19 @@ void main() {
       ],
       'inputsCopied': [zh.inputsCopied, en.inputsCopied],
       'copiedLabel': [zh.copiedLabel('a'), en.copiedLabel('a')],
+      'saveHistorySaved': [zh.saveHistorySaved, en.saveHistorySaved],
+      'saveNoteSaved': [zh.saveNoteSaved, en.saveNoteSaved],
+      'saveNothingToStore': [zh.saveNothingToStore, en.saveNothingToStore],
+      'saveHistoryNotWritten': [
+        zh.saveHistoryNotWritten,
+        en.saveHistoryNotWritten
+      ],
+      'saveNoteNotWritten': [zh.saveNoteNotWritten, en.saveNoteNotWritten],
+      'saveHistoryFailed': [
+        zh.saveHistoryFailed('e'),
+        en.saveHistoryFailed('e')
+      ],
+      'saveNoteFailed': [zh.saveNoteFailed('e'), en.saveNoteFailed('e')],
       'formulaAndVariables': [zh.formulaAndVariables, en.formulaAndVariables],
       'inputLabel': [zh.inputLabel, en.inputLabel],
       'formulaHint': [zh.formulaHint, en.formulaHint],
@@ -500,7 +531,10 @@ void main() {
     expect(en.matchLabels.keys.toSet(), zh.matchLabels.keys.toSet(),
         reason: '两张令牌表的键必须一模一样');
 
-    expect(pairs.length, 160, reason: '两张表一共 88 + 72 条，漏一条这里就会少一条');
+    // 中文：数字本轮跟着保存回执那七格一起长（88 → 95）：漏一条这里就会少一条。
+    // English: the number grew with this round's seven save-receipt cells (88 → 95): a line going
+    //          missing shows up here.
+    expect(pairs.length, 167, reason: '两张表一共 95 + 72 条，漏一条这里就会少一条');
   });
 
   testWidgets('没有装作用域时工具首页仍渲染中文（默认态不变）', (tester) async {

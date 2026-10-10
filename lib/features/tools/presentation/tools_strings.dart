@@ -26,10 +26,14 @@ import '../../../l10n/app_language.dart';
 ///          `tool_catalog_strings.dart`，那边的文件头正面写着这条新分界。
 ///          留这段话是因为**一句话被推翻时该在这里说一声**，免得下一轮的读者照着旧边界去找。
 ///          （分类说明进表是因为**检索打分**要读它，屏幕上没有读者。）
-///       2. **工具页拿到的动态摘要也不进来。** `paste.summary`、`result.message`、
+///       2. **工具页拿到的动态摘要也不进来。** `paste.summary`、
 ///          `_output.statusTitle` / `statusMessage`、`_detailController.inputErrorSummary()` /
 ///          `resultIssueSummary()` / `resultHealthSummary()` / `insights` 都是控制器与领域层产出的
 ///          中文句子，今天仍是中文——**这是已知的残留**，不是漏翻。
+///          ⚠️ 这一条原先还把 `result.message` 列在里面。**保存回执（`ToolSaveResult`）本轮已经
+///          进表**——它不再是动态摘要，而是领域层给令牌（`ToolSaveStatus` × `ToolSaveTarget`）、
+///          本表给字、由 `tool_save_message.dart` 在呈现边缘取，所以那一项从这份名单里删掉了。
+///          留这句话是因为**名单短了一项时该说一声**，免得下一页的读者以为它从来不在名单上。
 /// English: The string table for the tools home, category, tool detail and text tool detail screens,
 ///          **split by feature** — one table holding every language side by side. (The fit screen has
 ///          its own; see `data_fit_strings.dart`'s file head.) The mechanism itself (why hand-written
@@ -47,11 +51,17 @@ import '../../../l10n/app_language.dart';
 ///             `lib/application/controllers`). That is content data rather than interface copy and not
 ///             one entry of it was touched this round. This table translates only the shell around it.
 ///          2. **Dynamic summaries the tool pages receive do not come in either.** `paste.summary`,
-///             `result.message`, `_output.statusTitle` / `statusMessage`,
+///             `_output.statusTitle` / `statusMessage`,
 ///             `_detailController.inputErrorSummary()` / `resultIssueSummary()` /
 ///             `resultHealthSummary()` / `insights` are Chinese sentences produced by the controllers
 ///             and the domain layer, and they are still Chinese today — a **known remainder**, not a
 ///             missed translation.
+///             ⚠️ This item used to list `result.message` too. **The save receipt (`ToolSaveResult`) went
+///             into the table this round** — it is no longer a dynamic summary: the domain hands over
+///             the tokens (`ToolSaveStatus` × `ToolSaveTarget`), this table holds the words, and
+///             `tool_save_message.dart` reads them at the presentation edge, so that item was struck
+///             from this list. The note is kept because **a list that loses an item should say so**, so
+///             the next reader does not think it was never on it.
 @immutable
 class ToolsStrings {
   const ToolsStrings({
@@ -124,6 +134,14 @@ class ToolsStrings {
     required this.fixInputsFirstWith,
     required this.inputsCopied,
     required this.copiedLabel,
+    // —— 工具详情页：保存回执 ——
+    required this.saveHistorySaved,
+    required this.saveNoteSaved,
+    required this.saveNothingToStore,
+    required this.saveHistoryNotWritten,
+    required this.saveNoteNotWritten,
+    required this.saveHistoryFailed,
+    required this.saveNoteFailed,
     // —— 文本工具详情页 ——
     required this.formulaAndVariables,
     required this.inputLabel,
@@ -276,6 +294,51 @@ class ToolsStrings {
   final String Function(String summary) fixInputsFirstWith;
   final String inputsCopied;
   final String Function(String label) copiedLabel;
+
+  // —— 工具详情页：保存回执 ——
+  /// 中文：**保存历史 / 保存笔记那两条路的七句话。** 它们原先住在领域层
+  ///       （`lib/domain/usecases/tool_save_result.dart` 上 `message` 字段当场拼出来的句子），
+  ///       由工具详情页、文本工具详情页、拟合页三处 `SnackBar` 直接印。**领域对象活得比界面长**，
+  ///       这张表够不着它，所以那几句话在任何界面语言下都是中文——`docs/verification.md` §5i 记着
+  ///       这条层次性缺陷（提交路径与保存笔记路径先一步改成了这个形状）。
+  ///
+  ///       现在领域层只留两个令牌（`ToolSaveStatus` × `ToolSaveTarget`），字在这里，由
+  ///       `tool_save_message.dart` 的 `toolSaveMessage(result, strings)` 在呈现边缘取。
+  ///       **`inputInvalid` 那一种不在这里新开格**：它的两句就是上面那对
+  ///       [fixInputsFirst] / [fixInputsFirstWith]（屏幕上本来就是同一句话），呈现层按
+  ///       `summary` 去掉空白后是否为空选一格。**中文逐字节与从前相同**（默认语言是中文），由
+  ///       `test/domain/tool_save_result_test.dart` 那份旧文案对照表与 `tools_strings_test.dart`
+  ///       逐条钉住。
+  ///
+  ///       两格是函数（`$error` 那个载荷由调用方递进来，是异常的技术串）。
+  /// English: **the seven sentences of the save-to-history / save-to-note roads.** They used to live in
+  ///          the domain layer (`message`, composed on the spot in
+  ///          `lib/domain/usecases/tool_save_result.dart`) and were printed straight by three
+  ///          `SnackBar`s — the tool detail screen, the text tool detail screen and the fit screen.
+  ///          **A domain object outlives the UI**, so this table could not reach it and those sentences
+  ///          were Chinese under every interface language — the layering defect recorded in
+  ///          `docs/verification.md` §5i, whose earlier slices were the submit path and the
+  ///          save-to-note path.
+  ///
+  ///          The domain now keeps only the two tokens (`ToolSaveStatus` × `ToolSaveTarget`); the words
+  ///          are here, read at the presentation edge by `toolSaveMessage(result, strings)` in
+  ///          `tool_save_message.dart`. **`inputInvalid` gets no new cell here**: its two sentences are
+  ///          the [fixInputsFirst] / [fixInputsFirstWith] pair above (the same words were already on
+  ///          screen), and the presentation layer picks one by whether `summary` is empty after
+  ///          trimming. **The Chinese is byte-identical to what it was** (Chinese is the default
+  ///          language), pinned by the legacy-sentence table in `test/domain/tool_save_result_test.dart`
+  ///          and cell by cell in `tools_strings_test.dart`.
+  ///
+  ///          Two cells are functions (the `$error` payload comes from the caller and is an exception's
+  ///          technical string).
+  final String saveHistorySaved;
+  final String saveNoteSaved;
+  final String saveNothingToStore;
+  final String saveHistoryNotWritten;
+  final String saveNoteNotWritten;
+  final String Function(String error) saveHistoryFailed;
+  final String Function(String error) saveNoteFailed;
+
   // —— 文本工具详情页 ——
   final String formulaAndVariables;
   final String inputLabel;
@@ -439,6 +502,18 @@ class ToolsStrings {
     fixInputsFirstWith: (summary) => '请先修正输入参数：$summary',
     inputsCopied: '已复制输入参数',
     copiedLabel: (label) => '已复制$label',
+    // 中文：与迁移前领域层那七句话逐字节相同（`inputInvalid` 那一对用的是上面 `fixInputsFirst`
+    //       / `fixInputsFirstWith`，屏幕上的字本来就和它们一样）。
+    // English: byte-identical to the seven sentences in the domain layer before the move (the
+    //          `inputInvalid` pair is the `fixInputsFirst` / `fixInputsFirstWith` pair above, whose
+    //          words were already what the screen showed).
+    saveHistorySaved: '结果已保存到历史记录',
+    saveNoteSaved: '已保存到笔记',
+    saveNothingToStore: '没有可保存的计算结果',
+    saveHistoryNotWritten: '历史记录没有写入，请重试',
+    saveNoteNotWritten: '笔记没有写入，请重试',
+    saveHistoryFailed: (error) => '保存历史失败：$error',
+    saveNoteFailed: (error) => '保存笔记失败：$error',
     formulaAndVariables: '公式与变量',
     inputLabel: '输入',
     formulaHint: '例如 a * b + sqrt(c)',
@@ -536,6 +611,18 @@ class ToolsStrings {
     fixInputsFirstWith: (summary) => 'Fix the input parameters first: $summary',
     inputsCopied: 'Input parameters copied',
     copiedLabel: (label) => '$label copied',
+    // 中文：与中文那一份逐条对应，语声与相邻几格一致（短回执、句末不带句号；「保存到…」与菜单
+    //       那两格 `saveHistory` / `saveNote` 同一个说法）。
+    // English: one for one with the Chinese side, in the voice of the neighbouring cells (short
+    //          receipts without a final period; "save to…" is worded as in the menu's `saveHistory` /
+    //          `saveNote` cells).
+    saveHistorySaved: 'Result saved to history',
+    saveNoteSaved: 'Saved to a note',
+    saveNothingToStore: 'Nothing to save',
+    saveHistoryNotWritten: 'The history entry was not written; try again',
+    saveNoteNotWritten: 'The note was not written; try again',
+    saveHistoryFailed: (error) => 'Saving to history failed: $error',
+    saveNoteFailed: (error) => 'Saving to a note failed: $error',
     formulaAndVariables: 'Formula and variables',
     inputLabel: 'Input',
     formulaHint: 'e.g. a * b + sqrt(c)',

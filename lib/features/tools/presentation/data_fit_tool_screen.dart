@@ -20,6 +20,16 @@ import '../../../domain/usecases/tool_save_result.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'data_fit_strings.dart';
 import 'tool_catalog_strings.dart';
+// 中文：**保存回执那几格不在这张表里，在 `ToolsStrings` 里。** 拟合页自己的表装的是这一屏独有的
+//       字；保存回执是工具子树三屏共用的一句话（`ToolSaveResult` 只有一套结局），所以它的字与
+//       另外两屏同源，由 `tool_save_message.dart` 在呈现边缘取——分表切的是屏幕，不是这句话。
+// English: **the save-receipt cells are not in the fit table but in `ToolsStrings`.** The fit screen's
+//          own table holds the words unique to this screen; a save receipt is one sentence shared by
+//          three screens of the tools subtree (`ToolSaveResult` has a single set of outcomes), so its
+//          words come from the same source as the other two screens, read at the presentation edge by
+//          `tool_save_message.dart` — the split is by screen, not by this sentence.
+import 'tool_save_message.dart';
+import 'tools_strings.dart';
 
 part 'data_fit_cards.dart';
 part 'data_fit_actions.dart';

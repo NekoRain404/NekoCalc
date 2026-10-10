@@ -9,6 +9,7 @@ import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/settings_repository.dart';
 import 'package:nekocalc/domain/usecases/calculator_save_result.dart';
 import 'package:nekocalc/domain/usecases/calculator_submit_result.dart';
+import 'package:nekocalc/features/calculator/presentation/calculator_save_message.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_strings.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_submit_message.dart';
 import 'package:nekocalc/l10n/app_language.dart';
@@ -277,7 +278,7 @@ void main() {
     expect(result.saved, isTrue);
     expect(result.status, CalculatorSaveNoteStatus.saved);
     expect(result.noteId, 1);
-    expect(result.message, '已保存到笔记');
+    expect(_noteReceipt(result), '已保存到笔记');
     expect(db.savedNotes, hasLength(1));
     expect(db.savedNotes.single.title, '计算结果');
     expect(db.savedNotes.single.body, contains('表达式: 8*9'));
@@ -295,12 +296,12 @@ void main() {
     final empty = await controller.saveToNote();
     expect(empty.saved, isFalse);
     expect(empty.status, CalculatorSaveNoteStatus.emptyExpression);
-    expect(empty.message, '请输入有效表达式后再保存');
+    expect(_noteReceipt(empty), '请输入有效表达式后再保存');
     controller.setExpression('1+');
     final invalid = await controller.saveToNote();
     expect(invalid.saved, isFalse);
     expect(invalid.status, CalculatorSaveNoteStatus.invalidExpression);
-    expect(invalid.message, '表达式需要修正：需要输入数字');
+    expect(_noteReceipt(invalid), '表达式需要修正：需要输入数字');
 
     expect(db.savedNotes, isEmpty);
     expect(controller.hasError, isTrue);
@@ -319,7 +320,7 @@ void main() {
 
     expect(result.saved, isFalse);
     expect(result.status, CalculatorSaveNoteStatus.notWritten);
-    expect(result.message, '笔记没有写入，请重试');
+    expect(_noteReceipt(result), '笔记没有写入，请重试');
     expect(db.savedNotes, isEmpty);
 
     controller.dispose();
@@ -592,6 +593,18 @@ void main() {
 ///          plus `calculatorSubmitMessage` — which is exactly where the old `result.message` came from.
 String _receipt(CalculatorSubmitResult result) => calculatorSubmitMessage(
     result, CalculatorStrings.forLanguage(AppLanguage.zh));
+
+/// 中文：**保存笔记回执同样在呈现边缘渲染**（领域层只给令牌，字在 `CalculatorStrings` 里）。
+///       与 [_receipt] 同一条理由、同一张表：这份测试量的是控制器与领域的行为，所以读回执时走
+///       与屏幕同一条路——也正是从前 `result.message` 那句话的出处。
+/// English: **the save-to-note receipt is rendered at the presentation edge too** (the domain layer
+///          hands over the token, the words live in `CalculatorStrings`). Same reason and same table as
+///          [_receipt]: this test measures the controller's and the domain's behaviour, so it reads the
+///          receipt the way the screen does — which is exactly where the old `result.message` came
+///          from.
+String _noteReceipt(CalculatorSaveNoteResult result) =>
+    calculatorSaveNoteMessage(
+        result, CalculatorStrings.forLanguage(AppLanguage.zh));
 
 CalculatorController _controller(
   _FakeDatabase db, {

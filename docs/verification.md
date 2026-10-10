@@ -813,7 +813,8 @@ stale-language path was found**.
 sentences that reach the screen via `SnackBar(content: Text(result.message))`
 (`calculator_key_dispatch.dart:236`) and `Text(result.message)` (`calculator_page_sheets.dart:345`). A domain
 object that outlives the UI cannot be localised by a widget-level strings table; the fix is a **token or enum
-on the result, translated at the presentation edge** — the shape the tool-result path already uses.
+on the result, translated at the presentation edge** — the shape the tool-result path already uses. Both cited
+call sites have since been converted; converted vs remaining families are tracked below.
 
 **First path done (2026-10-10).** The calculator submit path now has that shape: the domain result carries only
 its `CalculatorSubmitStatus` token plus payloads — its unnamed constructor is **private**, so a variant whose
@@ -821,8 +822,20 @@ payload is missing cannot be constructed and the edge never renders half a sente
 in `calculator_strings.dart` (Chinese byte-identical, English added), and one new presentation function
 `calculatorSubmitMessage(result, strings)` renders them where the `SnackBar` is built. The guard mirrors the
 tool path's: a legacy-sentence table in both directions, an en-rendering check that forbids CJK, and a source
-scan that fails if a wide literal reappears in the domain file. **The remaining families listed above are still
-in the old shape** — this was the first slice, not the sweep.
+scan that fails if a wide literal reappears in the domain file.
+
+**Second slice done (2026-10-11): the two save-receipt families.** `CalculatorSaveNoteResult` and
+`ToolSaveResult` shed their `message` fields under the same shape. The tokens are the pre-existing
+`CalculatorSaveNoteStatus` (calculator) and `ToolSaveStatus` × `ToolSaveTarget` (tools) — no new token type was
+invented. The prose lives in `calculator_strings.dart` and `tools_strings.dart` (Chinese byte-identical,
+English added), rendered at the edge by `calculatorSaveNoteMessage` / `toolSaveMessage` where the `SnackBar`s
+are built (`calculator_page_sheets.dart` and the tool / text-tool / fit screens' save paths). One rule moved
+to the edge because it is wording rather than outcome: an `inputInvalid` summary that is empty after trimming
+drops the colon; `notWritten`/`superseded` deliberately share one cell. Each family carries the same guard
+(legacy-sentence table both directions, en-rendering forbids CJK, source scan of the domain file). **The
+remaining families listed above (`recent_tool_action_result.dart`, `notes_clipboard_import.dart`,
+`notes_controller.dart`, `backup_snapshot_validator.dart`, `data_backup_repository.dart`,
+`github_release_checker.dart`) are still in the old shape** — three paths converted, not the sweep.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 

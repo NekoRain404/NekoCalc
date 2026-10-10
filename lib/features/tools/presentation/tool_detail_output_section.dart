@@ -140,14 +140,17 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
     final resultLabel = ToolResultLabelStrings.of(context).label;
     // 中文：**参数有错那一支的两格走参数卡表**（与输入卡左侧那列、输入框里那个 `suffixText` 同一个
     //       来源）。这一支是屏幕自己的：`inputErrorSummary()` 在库里没有读者，另外两条调用它的路
-    //       （保存到历史、保存到笔记）都走默认的原样读法——那句 `请先修正输入参数：…` 的外壳由
-    //       `ToolSaveResult` 在域层拼、本来就是中文——所以那些路一个字节没动。
+    //       （保存到历史、保存到笔记）递的是**默认的原样读法**——所以控制器交给 `ToolSaveResult` 的
+    //       **载荷**仍是目录里那串中文（参数标签与单位是内容数据）；壳那句 `请先修正输入参数：…`
+    //       本轮已搬去 `ToolsStrings`，由 `tool_save_message.dart` 在呈现边缘拼。**载荷没动，壳动了。**
     // English: **the invalid-input branch's two cells go through the input-card table** (the same source
     //          as the input card's left column and the field's `suffixText`). This branch is the screen's
     //          own: `inputErrorSummary()` has no reader that writes to the database, and its two other
-    //          callers (save to history, save to note) take the default raw reading — the
-    //          `请先修正输入参数：…` wrapper around them is assembled by `ToolSaveResult` in the domain
-    //          layer and is Chinese anyway — so those routes have not moved by a byte.
+    //          callers (save to history, save to note) hand in the **default raw reading** — so the
+    //          payload the controller gives `ToolSaveResult` is still the catalogue's Chinese (labels and
+    //          units are content data); the `请先修正输入参数：…` wrapper moved into `ToolsStrings` this
+    //          round, assembled at the presentation edge by `tool_save_message.dart`. **The payload did
+    //          not move; the wrapper did.**
     final inputFields = ToolFieldStrings.of(context);
     final details = hasInputErrors
         ? _detailController.inputErrorSummary(

@@ -87,6 +87,12 @@ class CalculatorStrings {
     required this.submitHistoryNotWritten,
     required this.submitHistoryFailed,
     required this.submitSuperseded,
+    // —— `保存笔记` 路径的回执 ——
+    required this.saveNoteSaved,
+    required this.saveNoteEmptyExpression,
+    required this.saveNoteInvalidExpression,
+    required this.saveNoteNotWritten,
+    required this.saveNoteFailed,
     // —— `CONV` 单位面板 ——
     required this.unitSearchHint,
     required this.unitSheetHint,
@@ -250,6 +256,52 @@ class CalculatorStrings {
   final String Function(String error) submitHistoryFailed;
   final String submitSuperseded;
 
+  // —— `保存笔记` 路径的回执 ——
+  /// 中文：**「保存笔记」那条路的五句话。** 它们原先住在领域层
+  ///       （`lib/domain/usecases/calculator_save_result.dart` 上 `message` 字段当场拼出来的
+  ///       五句话），由 `calculator_page_sheets.dart` 的 `SnackBar` 直接印。**领域对象活得比界面
+  ///       长**，这张表够不着它，所以那几句话在任何界面语言下都是中文——`docs/verification.md`
+  ///       §5i 记着这条层次性缺陷，提交路径先一步改成了这个形状。
+  ///
+  ///       现在领域层只留令牌（`CalculatorSaveNoteStatus`，六格一一对应下面这五格——
+  ///       `notWritten` 与 `superseded` **故意共用** [saveNoteNotWritten]），字在这里，由
+  ///       `calculator_save_message.dart` 的 `calculatorSaveNoteMessage(result, strings)` 在呈现
+  ///       边缘取。**中文逐字节与从前相同**（默认语言是中文），由
+  ///       `test/domain/calculator_save_result_test.dart` 那份旧文案对照表与
+  ///       `calculator_strings_test.dart` 逐条钉住。
+  ///
+  ///       两格是函数（`$errorMessage` / `$error` 那个载荷由调用方递进来）：`invalidExpression`
+  ///       接的是控制器翻好的出错原因，`failed` 接的是异常的技术串。
+  /// English: **the five receipts of the "save to a note" path.** They used to live in the domain layer
+  ///          (`message`, composed on the spot in `lib/domain/usecases/calculator_save_result.dart`) and
+  ///          were printed straight by `calculator_page_sheets.dart`'s `SnackBar`. **A domain object
+  ///          outlives the UI**, so this table could not reach it and those sentences were Chinese under
+  ///          every interface language — the layering defect recorded in `docs/verification.md` §5i,
+  ///          whose first slice was the submit path.
+  ///
+  ///          The domain now keeps only the token (`CalculatorSaveNoteStatus`, six values one for one
+  ///          with the five cells below — `notWritten` and `superseded` **deliberately share**
+  ///          [saveNoteNotWritten]); the words are here, read at the presentation edge by
+  ///          `calculatorSaveNoteMessage(result, strings)` in `calculator_save_message.dart`. **The
+  ///          Chinese is byte-identical to what it was** (Chinese is the default language), pinned by the
+  ///          legacy-sentence table in `test/domain/calculator_save_result_test.dart` and cell by cell in
+  ///          `calculator_strings_test.dart`.
+  ///
+  ///          Two cells are functions (the `$errorMessage` / `$error` payload comes from the caller):
+  ///          `invalidExpression` receives the controller's translated reason, `failed` an exception's
+  ///          technical string.
+  final String saveNoteSaved;
+  final String saveNoteEmptyExpression;
+  final String Function(String errorMessage) saveNoteInvalidExpression;
+
+  /// 中文：`notWritten`（库里没写进去）与 `superseded`（过期时间线，什么都没落地）共用这一格——
+  ///       对用户来说是同一件事：这次没写进去，再按一次。理由在领域层那两格上。
+  /// English: `notWritten` (the database took nothing) and `superseded` (a stale timeline where nothing
+  ///          landed) share this cell — the same thing to the user: this attempt wrote nothing, press
+  ///          again. The reason is on those two values in the domain layer.
+  final String saveNoteNotWritten;
+  final String Function(String error) saveNoteFailed;
+
   // —— `CONV` 单位面板 ——
   final String unitSearchHint;
   final String unitSheetHint;
@@ -400,6 +452,16 @@ class CalculatorStrings {
     submitHistoryNotWritten: '已计算，但历史没有写入，请重试',
     submitHistoryFailed: (error) => '已计算，但保存历史失败：$error',
     submitSuperseded: '输入已更新，本次计算结果未采用',
+    // 中文：与迁移前领域层那五句话逐字节相同；`notWritten` 与 `superseded` 共用其中一句
+    //       （理由在领域层那两格上）。
+    // English: byte-identical to the five sentences in the domain layer before the move;
+    //          `notWritten` and `superseded` share one of them (the reason is on those two values in
+    //          the domain layer).
+    saveNoteSaved: '已保存到笔记',
+    saveNoteEmptyExpression: '请输入有效表达式后再保存',
+    saveNoteInvalidExpression: (errorMessage) => '表达式需要修正：$errorMessage',
+    saveNoteNotWritten: '笔记没有写入，请重试',
+    saveNoteFailed: (error) => '保存笔记失败：$error',
     unitSearchHint: '搜索单位（米、km、mile…）',
     unitSheetHint: '点一个单位插进表达式；两个单位之间点「到」',
     noMatchingUnits: '没有匹配的单位',
@@ -515,6 +577,15 @@ class CalculatorStrings {
     submitHistoryFailed: (error) =>
         'Calculated, but saving to history failed: $error',
     submitSuperseded: 'The input changed, so this result was not adopted',
+    // 中文：与提交回执同一组语声（短回执、句末不带句号；「表达式需要修正」那半句同一个说法）。
+    // English: the same voice as the submit receipts (short, no final period; the "expression needs
+    //          fixing" half is worded identically).
+    saveNoteSaved: 'Saved to a note',
+    saveNoteEmptyExpression: 'Enter a valid expression before saving',
+    saveNoteInvalidExpression: (errorMessage) =>
+        'The expression needs fixing: $errorMessage',
+    saveNoteNotWritten: 'The note was not written; try again',
+    saveNoteFailed: (error) => 'Saving to a note failed: $error',
     unitSearchHint: 'Search units (m, km, mile…)',
     unitSheetHint: 'Tap a unit to insert it; tap "to" between the two units',
     noMatchingUnits: 'No matching units',

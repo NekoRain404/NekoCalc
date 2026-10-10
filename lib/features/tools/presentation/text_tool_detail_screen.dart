@@ -18,6 +18,7 @@ import 'text_tool_inputs.dart';
 import 'text_tool_result_saver.dart';
 import 'text_tool_strings.dart';
 import 'tool_catalog_strings.dart';
+import 'tool_save_message.dart';
 import 'tools_strings.dart';
 
 /// 中文：文本/编程类工具详情页，承载 JSON、Base64、URL、正则等输入输出型工具。
@@ -303,8 +304,18 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     try {
       final result = await _saveHistoryResult();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        // 中文：回执在**呈现边缘**翻译（`tool_save_message.dart`）——领域层只给令牌，字在
+        //       `ToolsStrings` 里。这里从前印的是 `result.message`。
+        // English: the receipt is translated **at the presentation edge**
+        //          (`tool_save_message.dart`) — the domain hands over the token and the words live in
+        //          `ToolsStrings`. This used to print `result.message`.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              toolSaveMessage(result, ToolsStrings.of(context)),
+            ),
+          ),
+        );
       }
     } finally {
       _savingHistory = false;
@@ -319,8 +330,13 @@ class _TextToolDetailScreenState extends State<TextToolDetailScreen> {
     try {
       final result = await _saveNoteResult();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              toolSaveMessage(result, ToolsStrings.of(context)),
+            ),
+          ),
+        );
       }
     } finally {
       _savingNote = false;

@@ -182,20 +182,23 @@ extension ToolDetailSentences on ToolDetailController {
   /// 中文：**这一句有屏幕一个读者，另外两条保存路径各一个。** 屏幕侧（状态卡与那句拒绝提示）要的
   ///       是显示层查好的参数标签与单位，所以按 [resultIssueSummary] 同一形状**收**两个读法；
   ///       **这两个参数有默认值，不是可选的礼貌**：两条保存路径（[saveResult] / [saveNote]）不递，
-  ///       拿到的就是原样，那句 `请先修正输入参数：…` 由 `ToolSaveResult` 在域层拼、外壳本来就是中文，
-  ///       所以这两条路一个字节没动。**参数卡这张表不在结果标签那条边界里**——那条「域层与控制器层
-  ///       一个文件都不提它」的断言只钉结果标签表，没有一条断言禁止控制器提 `ToolFieldStrings`
-  ///       （本轮加的是**结果标签那张表的名字**，加了就会当场变红，所以这里连名字都不写）；形状仍按
-  ///       结果标签那一轮办，读方向只走显示层。
+  ///       拿到的就是原样——所以控制器交给 `ToolSaveResult` 的**载荷**仍是目录里那串中文（参数标签
+  ///       与单位是内容数据）；壳那句 `请先修正输入参数：…` 本轮已搬去 `ToolsStrings`，由呈现边缘的
+  ///       `toolSaveMessage` 拼。**载荷没动，壳动了。** **参数卡这张表不在结果标签那条边界里**——
+  ///       那条「域层与控制器层一个文件都不提它」的断言只钉结果标签表，没有一条断言禁止控制器提
+  ///       `ToolFieldStrings`（本轮加的是**结果标签那张表的名字**，加了就会当场变红，所以这里连名字
+  ///       都不写）；形状仍按结果标签那一轮办，读方向只走显示层。
   /// English: **the screen is one reader of this sentence and the two save paths are the others.** The
   ///          screen side (the status card and the refusal hint) needs the parameter label and unit the
   ///          display layer looked up, so it **takes** two ways of reading them, the same shape as
   ///          [resultIssueSummary]; **the defaults are not politeness**: the two save paths
-  ///          ([saveResult] / [saveNote]) hand nothing in and get the raw reading, because their sentence
-  ///          is assembled in the domain layer by `ToolSaveResult` and its wrapper is Chinese anyway, so
-  ///          those two routes have not moved by a byte. **The input-card table is not inside the result
-  ///          label's boundary** — that "not one file in the domain or controller layers may mention it"
-  ///          assertion pins the result-label table only, and no assertion forbids a controller mentioning
+  ///          ([saveResult] / [saveNote]) hand nothing in and get the raw reading — so the payload the
+  ///          controller gives `ToolSaveResult` is still the catalogue's Chinese (labels and units are
+  ///          content data); the `请先修正输入参数：…` wrapper moved into `ToolsStrings` this round,
+  ///          assembled at the presentation edge by `toolSaveMessage`. **The payload did not move; the
+  ///          wrapper did.** **The input-card table is not inside the result label's boundary** — that
+  ///          "not one file in the domain or controller layers may mention it" assertion pins the
+  ///          result-label table only, and no assertion forbids a controller mentioning
   ///          `ToolFieldStrings` (what would turn red at once is **writing the result-label table's name
   ///          here**, so this comment does not); the shape of the result-label round is followed anyway,
   ///          so the reading direction still runs through the display layer only.

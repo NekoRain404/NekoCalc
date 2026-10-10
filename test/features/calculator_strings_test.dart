@@ -77,6 +77,22 @@ void main() {
     expect(zh.submitHistoryFailed('Bad state: db locked'),
         '已计算，但保存历史失败：Bad state: db locked');
     expect(zh.submitSuperseded, '输入已更新，本次计算结果未采用');
+    // —— `保存笔记` 路径的回执 ——
+    // 中文：这五句原先在领域层（`calculator_save_result.dart` 的 `message:`）当场拼好并直接上屏，
+    //       所以英文界面下也是中文。搬进本表时**一个字节都没动**；`notWritten` 与 `superseded`
+    //       共用其中一句（理由在领域层那两格上），这里与
+    //       `test/domain/calculator_save_result_test.dart` 那份旧文案对照表一起钉住这件事。
+    // English: these five used to be composed in the domain layer (`message:` in
+    //          `calculator_save_result.dart`) and printed straight, so an English interface showed
+    //          Chinese too. Moving them into this table **changed not one byte**; `notWritten` and
+    //          `superseded` share one of them (the reason is on those two values in the domain layer),
+    //          which is what this block and the legacy-sentence table in
+    //          `test/domain/calculator_save_result_test.dart` pin together.
+    expect(zh.saveNoteSaved, '已保存到笔记');
+    expect(zh.saveNoteEmptyExpression, '请输入有效表达式后再保存');
+    expect(zh.saveNoteInvalidExpression('缺少右括号'), '表达式需要修正：缺少右括号');
+    expect(zh.saveNoteNotWritten, '笔记没有写入，请重试');
+    expect(zh.saveNoteFailed('Bad state: db locked'), '保存笔记失败：Bad state: db locked');
     // —— `CONV` 单位面板 ——
     expect(zh.unitSearchHint, '搜索单位（米、km、mile…）');
     expect(zh.unitSheetHint, '点一个单位插进表达式；两个单位之间点「到」');
@@ -207,6 +223,14 @@ void main() {
       [zh.submitHistoryNotWritten, en.submitHistoryNotWritten],
       [zh.submitHistoryFailed('x'), en.submitHistoryFailed('x')],
       [zh.submitSuperseded, en.submitSuperseded],
+      // 中文：保存笔记回执的五句也走这一组（两格里是函数的用一组固定载荷比）。
+      // English: the five save-to-note receipts join this group too (the two function cells are compared
+      //          with one fixed payload each).
+      [zh.saveNoteSaved, en.saveNoteSaved],
+      [zh.saveNoteEmptyExpression, en.saveNoteEmptyExpression],
+      [zh.saveNoteInvalidExpression('x'), en.saveNoteInvalidExpression('x')],
+      [zh.saveNoteNotWritten, en.saveNoteNotWritten],
+      [zh.saveNoteFailed('x'), en.saveNoteFailed('x')],
       [zh.unitSearchHint, en.unitSearchHint],
       [zh.unitSheetHint, en.unitSheetHint],
       [zh.noMatchingUnits, en.noMatchingUnits],
@@ -295,6 +319,11 @@ void main() {
       'submitHistoryNotWritten': en.submitHistoryNotWritten,
       'submitHistoryFailed': en.submitHistoryFailed('Bad state: db locked'),
       'submitSuperseded': en.submitSuperseded,
+      'saveNoteSaved': en.saveNoteSaved,
+      'saveNoteEmptyExpression': en.saveNoteEmptyExpression,
+      'saveNoteInvalidExpression': en.saveNoteInvalidExpression('missing )'),
+      'saveNoteNotWritten': en.saveNoteNotWritten,
+      'saveNoteFailed': en.saveNoteFailed('Bad state: db locked'),
       'unitSearchHint': en.unitSearchHint,
       'unitSheetHint': en.unitSheetHint,
       'noMatchingUnits': en.noMatchingUnits,
