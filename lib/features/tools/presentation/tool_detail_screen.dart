@@ -545,6 +545,10 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///       89.142857」，**它原样通过本身就证明没有一条英文标签被碰到** ✓、全量 **1807 全过** ✓。
   ///       **代价是纯视觉的**：卡片外边距归零、内边距 14 → 6、一处间距 8 → 4。
   ///
+  ///       ⚠️ **图标也跟着长大了（18 → 24）。** 圆的直径从 34 涨到 48 而图标不动的话，**图标 : 圆**
+  ///       会从 `18/34 = 0.53` 掉到 `18/48 = 0.375`——一个空荡的大圆。`24/48 = 0.50`，正是 Material
+  ///       自己在 48dp 按钮里用的比例。**命中区与视觉是两件事，两个都得量**——我第一版只量了前者。
+  ///
   ///       ⚠️ **下面两段是试过并撤回的路，留着是因为各自的实测代价仍然有用**（要换别的折中时看它们）。
   ///
   ///       ⚠️ **撤回之一（只还回 20dp）：那 28dp 里有 20dp 可以从留白拿，剩下 8dp 由文字分。**
@@ -617,6 +621,12 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///          touched** ✓ — and the full suite is **1807 green** ✓. **The cost is purely visual**: the
   ///          card's outer margin gone, its padding 14 → 6, one gap 8 → 4.
   ///
+  ///          ⚠️ **The glyph grew with it (18 → 24).** Had the circle gone 34 → 48 while the glyph stayed, the
+  ///          **glyph : circle** ratio would have fallen from `18/34 = 0.53` to `18/48 = 0.375` — a big empty
+  ///          circle. `24/48 = 0.50`, which is Material's own proportion for a 48dp button. **The hit area and
+  ///          the visual are two different things, and both have to be measured** — my first version measured
+  ///          only the former.
+  ///
   ///          ⚠️ **The paragraph below is a route that was tried and reverted**, kept because its measured
   ///          cost is still useful (look at it if you want a different compromise).
   ///
@@ -681,7 +691,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
         tooltip: tooltip,
         onPressed: onTap,
         padding: EdgeInsets.zero,
-        iconSize: 18,
+        iconSize: 24,
         icon: Icon(icon),
       ),
     );

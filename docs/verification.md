@@ -466,6 +466,12 @@ asserts that the label cell **is** 89.142857, and it now passes **all 9 unchange
 **Cost: purely visual** (the card's outer margin gone, its padding 14 → 6, one gap 8 → 4). Full suite after:
 **1807 green**.
 
+⚠️ **And the *visual* half needed a second pass, because the first one measured only the hit area.** Growing the
+circle 34 → 48 while `iconSize` stayed **18** drops the **glyph : circle** ratio from `18/34 = 0.53` to
+`18/48 = 0.375` — a big empty circle; that is what the first version shipped. `iconSize: 24` restores
+`24/48 = 0.50`, which is **Material's own proportion for a 48dp button** (measured: `BUTTON 48.0  GLYPH 24.0
+ratio = 0.500`). **The hit area and the visual are two different things, and both have to be measured.**
+
 ⚠️ **A variant that was reverted: reclaim only 20dp — and it costs exactly three English labels.** A row's **34dp per side is measured** as
 page **16** + the `Card`'s margin **4** + the card's `padding` **14** (`CARD w=328 left=16`,
 `PAD14 w=320 left=20`). Reclaiming the last two (`margin → 0`, `padding → 8`) returns **20dp**, so only the
