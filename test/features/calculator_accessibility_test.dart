@@ -52,7 +52,7 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 /// **本应用自己的**按钮在下面：那颗 ☰ 实测语义节点 **40 × 40**、`More...` **111.7 × 34.0**——
 /// 两者都不是 HiPER 的排布，是**纯缺陷**，已修（状态行 40 → 48dp，`display_status_row.dart`；
 /// 连带 `CalculatorDisplay` 的固定部分 74 → 82dp、下限 176 → 182dp，推导在该组件类注释里）。
-/// 下面那条「键盘之外不许有矮于 48dp 的可点目标」就是钉这件事的。
+/// 下面那条「主屏的键盘之外不许有矮于 48dp 的可点目标」就是钉这件事的。
 ///
 /// ⚠️ **还有一条方法上的坑**：`meetsGuideline` 的失败是**异步上报**的——
 /// `expect(...)` 不抛异常，测试在结尾才红。**所以不能用 try/catch 去"看它过不过"。**
@@ -230,13 +230,20 @@ void main() {
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
   });
 
-  testWidgets('键盘之外：没有矮于 48dp 的可点按钮', (tester) async {
+  testWidgets('主屏的键盘之外：没有矮于 48dp 的可点按钮', (tester) async {
     // 中文：**这条不是引用判据，是量出来的那条结论的钉子。**
     //
     //       整屏的 `androidTapTargetGuideline` 断言不了（键盘那两片横带是有意为之，见文件头），
     //       但**键盘不是全部**——状态行里那两颗属于本应用自己的按钮原来也不达标（☰ 40 × 40、
-    //       `More...` 111.7 × 34.0）。它们不是权衡，是缺陷。这条判据把「键盘之外」切出来单独钉住：
-    //       键盘以外的每一个可点按钮都必须 ≥48 × 48，键盘本身按 HiPER 的机制豁免。
+    //       `More...` 111.7 × 34.0）。它们不是权衡，是缺陷。这条判据把**本屏**的键盘之外切出来
+    //       单独钉住：那里每一个可点按钮都必须 ≥48 × 48，键盘本身按 HiPER 的机制豁免。
+    //
+    //       ⚠️ **范围就是「主屏」（它 pump 的是 `CalculatorPage`），别把它读成全应用。**
+    //       全应用还有一处**已知**的矮于 48dp 的可点按钮：结果卡 `DetailMetric` 角上那颗复制键
+    //       **28 × 28**（工具详情页）。那一条**没有修**，理由是量出来的权衡而不是疏忽——
+    //       同排的标签格实测**正好 110.00dp**，而英文最长的一条标签要 109.1dp（零余量），
+    //       按钮一涨 20dp 就有 12 条英文标签被省略号吃掉。数记在 `tool_widgets.dart` 的
+    //       `DetailMetric` 注释里。**这条判据不覆盖它，所以既不会误报也不会替它遮掩。**
     //
     //       ⚠️ **`checked` 那一条断言是不许省的**：这个循环如果哪天一个元素都找不到（类名改了、
     //       或 `find.byType` 换了），`offenders` 会是空的、测试照样绿——那是**空转的判据**。
@@ -249,8 +256,17 @@ void main() {
     //          are deliberate — see the file head), but **the keypad is not everything**: the status
     //          row's two buttons belong to this app and used to be under the bar too (☰ 40 × 40,
     //          `More...` 111.7 × 34.0). Those were not a trade-off, they were defects. This test cuts
-    //          "everything outside the keypad" out and pins it on its own: every tappable button there
+    //          **this screen's** non-keypad area out and pins it on its own: every tappable button there
     //          must be ≥48 × 48, while the keypad itself is exempt under HiPER's mechanism.
+    //
+    //          ⚠️ **The scope is "the main screen" (it pumps `CalculatorPage`) — do not read it as the
+    //          whole app.** One **known** sub-48dp tappable exists elsewhere: the copy key in the corner
+    //          of the result card `DetailMetric`, **28 × 28** (the tool detail screen). That one is
+    //          **not fixed**, and the reason is a measured trade-off rather than an oversight — the
+    //          label box in the same row measures **exactly 110.00dp** while the longest English label
+    //          needs 109.1dp (no slack at all), so a 20dp bigger button costs 12 English labels to the
+    //          ellipsis. The numbers are in `DetailMetric`'s comment in `tool_widgets.dart`. **This test
+    //          does not cover it, so it neither false-alarms on it nor hides it.**
     //
     //          ⚠️ **The `checked` assertion must not be dropped**: if the loop ever finds no elements at
     //          all (a renamed class, a changed `find.byType`), `offenders` stays empty and the test
@@ -312,8 +328,8 @@ void main() {
     }
 
     expect(checked, greaterThan(0),
-        reason: '键盘之外一个可点按钮都没找到——这条判据成了空转，先查 find.byType 还对不对');
+        reason: '主屏的键盘之外一个可点按钮都没找到——这条判据成了空转，先查 find.byType 还对不对');
     expect(offenders, isEmpty,
-        reason: '键盘之外有矮于 48dp 的可点按钮：${offenders.join("，")}');
+        reason: '主屏的键盘之外有矮于 48dp 的可点按钮：${offenders.join("，")}');
   });
 }

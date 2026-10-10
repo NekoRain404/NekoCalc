@@ -439,6 +439,72 @@ class DetailMetric extends StatelessWidget {
                         color: scheme.onSurfaceVariant, fontSize: 12)),
               ),
               if (onCopy != null)
+                // 中文：⚠️ **28 × 28 是已知的、量过的权衡，不是疏忽——`androidTapTargetGuideline`
+                //       要求 48dp，这里做不到，原因在这一排的宽度预算上。** 实测（360dp 屏、两列、
+                //       间距 8、页面内边距 16、`childAspectRatio: 1.35`）：
+                //
+                //       | 量的是什么 | 实测 |
+                //       |---|---|
+                //       | 结果卡 | 160.0 × 118.5 dp |
+                //       | **同排那句标签的格子** | **正好 110.00 dp** |
+                //       | 这颗按钮 | 28 × 28 dp |
+                //       | 英文标签最长的一条（`Speed for tgt speed`） | 109.1 dp，**12 条在 105dp 以上** |
+                //
+                //       标签走 `maxLines: 1` + 省略号，而**标签格正好 110.00dp、最长那条要 109.1dp——
+                //       余量只有 0.9dp**。按钮每涨 1dp 都从标签嘴里拿：涨到 48 就只剩 90.0dp，
+                //       上面那 12 条英文标签**全部**被省略号吃掉。那条 110dp 的线是
+                //       `tool_result_label_strings.dart` 里 715 条英文的硬判据（不许超 110dp）。
+                //       **所以「把按钮撑到 48」在这个布局里是拿英文可读性换达标，不是修缺陷。**
+                //
+                //       有一条**能化解而不是交换**的改法，本版**没做**：把这颗 `IconButton` 降成装饰
+                //       （去掉它自己的 `onTap`，只留图标），把整张结果卡包进 `InkWell` —— 命中区于是
+                //       是 160 × 118.5，远在 48 之上，而标签一个 dp 都不让。没做的理由：它改的是
+                //       **交互语义**（点卡片任意处即复制），受益只有可达性这一项，而同一个屏幕下方
+                //       已经有一颗全宽的 `ActionButton`（复制整条结果，`tool_detail_screen.dart`），
+                //       所以这条 28dp 的路径是**逐项**复制的便利，不是唯一的复制入口。
+                //       **要动它的人先读这两段：能化解就别交换；若只把它撑到 48，请先重跑
+                //       `tool_result_label_lengths_test.dart`。**
+                //
+                //       ⚠️ **别用 `TextPainter` 去量这些宽度。** `flutter test` 里的字体是 Ahem——
+                //       **每个字形都是字号见方**：`Speed for tgt speed` 19 个字符 × 12 = **228.00dp**，
+                //       与真机的 109.1dp 差了整整一倍。真机宽度只有本仓那把
+                //       `roboto_regular_advances.dart` 的尺子量得出来（我自己在这上面量错过一次）。
+                // English: ⚠️ **28 × 28 is a known, measured trade-off, not an oversight** —
+                //          `androidTapTargetGuideline` wants 48dp and this cannot give it, for a reason
+                //          in this row's width budget. Measured (360dp screen, two columns, 8 spacing,
+                //          16 page padding, `childAspectRatio: 1.35`):
+                //
+                //          | what | measured |
+                //          |---|---|
+                //          | result card | 160.0 × 118.5 dp |
+                //          | **the label box in this same row** | **exactly 110.00 dp** |
+                //          | this button | 28 × 28 dp |
+                //          | longest English label (`Speed for tgt speed`) | 109.1 dp, **12 above 105dp** |
+                //
+                //          The label is `maxLines: 1` with an ellipsis, and **its box is exactly
+                //          110.00dp while the longest one needs 109.1dp — 0.9dp of slack**. Every dp the
+                //          button grows comes out of the label: at 48 it leaves 90.0dp and those 12
+                //          English labels **all** go to the ellipsis. That 110dp line is a hard
+                //          criterion over 715 English strings in `tool_result_label_strings.dart`
+                //          (nothing may exceed 110dp). **So "push the button to 48" would trade English
+                //          legibility for compliance here — it is not fixing a defect.**
+                //
+                //          One change **resolves rather than trades**, and this revision does **not** do
+                //          it: demote this `IconButton` to decoration (drop its own `onTap`, keep the
+                //          icon) and wrap the whole result card in an `InkWell` — the target then is
+                //          160 × 118.5, far above 48, and the label gives up nothing. Why not: it
+                //          changes **interaction semantics** (tap anywhere on a card copies) for an
+                //          accessibility-only gain, and a full-width `ActionButton` already sits lower
+                //          on the same screen (copying the whole result, `tool_detail_screen.dart`), so
+                //          this 28dp path is the **per-item** convenience, not the only way to copy.
+                //          **Read both paragraphs before touching it: resolve instead of trading; and if
+                //          you only grow it to 48, re-run `tool_result_label_lengths_test.dart` first.**
+                //
+                //          ⚠️ **Do not measure these widths with `TextPainter`.** The font in
+                //          `flutter test` is Ahem — **every glyph is a square of the font size**:
+                //          `Speed for tgt speed` is 19 characters × 12 = **228.00dp**, double the real
+                //          109.1dp. Only this repository's `roboto_regular_advances.dart` ruler gives
+                //          real-device widths (I got this wrong here once myself).
                 SizedBox(
                   width: 28,
                   height: 28,
