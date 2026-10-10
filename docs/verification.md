@@ -138,7 +138,7 @@ pointer to the wrong file, and the second row's owner is identified and fixed in
 | Where | Measured (2026-10-10) | Code |
 |---|---|---|
 | Calculator keypad — the **label bands**, *not* "every row" | bands **9.8–18.8 dp** at the six sizes measured; keys **29.0–46.3 dp**, and **clearing 48 at 412×915** | geometry: `calculator_keypad.dart` (`_row`'s two `Expanded`, `_bandCell`, `_keyButton`). `hiper_keypad_function_rows.dart` is the row/label **table**, not the geometry |
-| Structured tool detail — **one** class left (the other two were **resolved 2026-10-10**) | **1 × `119×32`** input field. The **12 × `34×34`** steppers are now **48 × 48** (paid for out of the card's whitespace) and the **14 × `28×28`** copy buttons use the **whole card** as their target | `tool_detail_screen.dart`, `tool_widgets.dart` |
+| Structured tool detail — **none left** (three fixes on 2026-10-10) | The **12 × `34×34`** steppers are **48 × 48** (the card's whitespace paid for it), the **14 × `28×28`** copy buttons use the **whole card** as their target, and the input field's **`119×32`** editable area is fixed by **`isDense: false`** (its box was already 48 ⇒ no layout cost) | `tool_detail_screen.dart`, `tool_widgets.dart` |
 | Calculator display (status row) — **fixed 2026-10-10** | ☰ was **`40 × 40`**, `More...` **`111.7 × 34.0`** → both 48; display floor 176 → 182 dp | `display_status_row.dart` |
 
 ⚠️ **Only one of these is deliberately left unfixed:**
@@ -333,6 +333,13 @@ inference from "label empty, value empty, tooltip empty" is "a screen reader ann
 correct, and the three empties are recorded here **only** so the next reader does not re-derive the defect I
 nearly recorded. (An empty `value` is also just what an empty input looks like.)
 
+⚠️ **And as of 2026-10-10 it is not a tap-target defect either.** That `119 × 32` node is the field's
+**editable area** — a *child* of a render box that was **already 118.86 × 48.00** — so "make the field 48 tall"
+was the wrong question (I asked it first, and the measurement said no). `isDense: false` lets the editable area
+fill that existing 48, and it **costs no layout**: the box and the row height measure identical before and
+after. The screen's sub-48 tappable count goes **1 → 0**, and `tool_detail_screen.dart` now carries a note at
+that line saying why it must stay `false` — the next reader's instinct will be to tighten it back.
+
 **And enlarging the copy button to 48 dp was tried, and reverted** — it reddens **the same four layout guards**
 the aspect-ratio change did, i.e. **it re-introduces the overflow this file just had fixed** (the label row grows
 by 20 dp and the cell can no longer hold its content). The width half of that coupling is measured further down:
@@ -489,7 +496,7 @@ screen size, and the structured row attributed its nodes to the wrong widget. Bo
 | Tools home | ✓ (fixed) | **fixed 2026-10-10**: the one tappable section header (`收藏工具`) was **29 dp** (§5d) |
 | Tool category | ✓ (fixed) | same fix — shared `SectionHeader` |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✗ one measured class** (§5c): 1 × **`119×32` unnamed** input. **The other two were resolved on 2026-10-10** — the 14 × **`28×28`** copy buttons now use the whole card as their target, and the 12 × **`34×34`** steppers are now **48 × 48** (the card's whitespace paid for the growth) |
+| Structured tool detail | ✓ | **✓ all clear** — three separate fixes on 2026-10-10: the 14 × **`28×28`** copy buttons (target = the whole card), the 12 × **`34×34`** steppers (**48 × 48**, paid for by the card's whitespace), and the input field's **`119×32`** editable area (**`isDense: false`** — its box was already 48 tall, so this cost no layout). **`SUB48 = 0` on that screen now** |
 | Settings | ✓ | ✓ |
 
 ⚠️ **The same "reclaim the whitespace" question the steppers were fixed with (§5c), asked of the keypad, comes

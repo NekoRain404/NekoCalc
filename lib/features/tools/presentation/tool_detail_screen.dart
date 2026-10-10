@@ -475,7 +475,20 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                 decimal: true, signed: true),
             textAlign: TextAlign.right,
             decoration: InputDecoration(
-              isDense: true,
+              // 中文：⚠️ **这一行必须是 `false`，是可达性要的——别为了"紧凑"改回 `true`。** 实测：`true` 时
+              //       框内那块可编辑区的语义节点只有 **119 × 32**（`isDense` 压掉的正是这一圈内边距），
+              //       而 `androidTapTargetGuideline` 要 48；改成 `false` 之后**该屏矮于 48dp 的可点节点从 1 变成 0**。
+              //       **而它不花任何布局代价**：这一行的行高由那两颗步进键定（已经是 48），输入框的渲染盒
+              //       本来就是 **118.86 × 48.00**——框内吃满那 48 并不把行撑高（实测：改前改后盒宽盒高都不变）。
+              // English: ⚠️ **this line must be `false`; accessibility is why — do not "tighten" it back to
+              //          `true`.** Measured: with `true` the editable area's semantics node is only
+              //          **119 × 32** (`isDense` is exactly what squeezes that padding away) while
+              //          `androidTapTargetGuideline` wants 48; with `false` **the screen's sub-48dp tappable
+              //          nodes go from 1 to 0**. **And it costs no layout at all**: this row's height is set
+              //          by the two steppers (already 48) and the field's render box is **118.86 × 48.00**
+              //          either way, so filling that 48 does not grow the row (measured: box and row height
+              //          identical before and after).
+              isDense: false,
               suffixText: fields.inputUnit(input.unit),
               errorText: error,
               suffixIcon: controller.text.isEmpty
