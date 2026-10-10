@@ -50,8 +50,16 @@ Both are deliberately **not** fixed:
 ⚠️ **They are not the same defect**: the keypad one is a HiPER-parity trade-off, the tool one is a
 theme-density consequence. Both are the owner's call; the numbers are here so the call has evidence.
 
-`labeledTapTargetGuideline` **passes** on both (the keypad's figure-faced key was fixed — it had no text
-for `InkWell` to derive a label from; see `calculator_keypad.dart`'s `_variantFace`).
+`labeledTapTargetGuideline` passes on the screens measured so far — **four unnamed buttons were found
+and fixed**: the keypad's figure-faced `[matrix]` key (no text for `InkWell` to derive from; see
+`calculator_keypad.dart`'s `_variantFace`), the tools home's search button, and the category screen's
+back + search buttons (`IconButton` with no `tooltip`). A repo-wide scan for "`IconButton` with no
+`tooltip`" now comes back clean.
+
+⚠️ **Not yet measured**: the structured **tool detail screen** and the settings screen. Adding the former
+to `calculator_accessibility_test.dart` hit a **layout assertion** (the screen overflows at the test's
+360×800 surface), which is a harness problem, not a finding — **it is unwired here, not unmeasured**, and
+that distinction is the point of this file.
 
 Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
 
