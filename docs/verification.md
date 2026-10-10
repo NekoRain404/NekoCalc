@@ -34,18 +34,24 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 
 ## 4. Where it is **below** the platform's own standard
 
-`androidTapTargetGuideline` (every tappable ≥ 48 dp) fails in **two** places, both measured:
+`androidTapTargetGuideline` (every tappable ≥ 48 dp) fails in the places below. ⚠️ **This table was
+re-measured on 2026-10-10** — the first row carried a number that reproduces at **no** screen size and a code
+pointer to the wrong file, and the second row's owner is identified and fixed in the prose directly below it.
 
-| Where | Measured | Code |
+| Where | Measured (2026-10-10) | Code |
 |---|---|---|
-| Calculator keypad — every row | **48.3 × 24.2 dp** | `hiper_keypad_function_rows.dart` |
-| Tool detail screen — the paste / clear / copy buttons | **36 × 36 dp** | `text_tool_detail_screen.dart:405, 410, 471, 503` |
+| Calculator keypad — the **label bands**, *not* "every row" | bands **9.8–18.8 dp** at the six sizes measured; keys **29.0–46.3 dp**, and **clearing 48 at 412×915** | geometry: `calculator_keypad.dart` (`_row`'s two `Expanded`, `_bandCell`, `_keyButton`). `hiper_keypad_function_rows.dart` is the row/label **table**, not the geometry |
+| Structured tool detail — **three** classes | **12 × `34×34`** steppers (增大/减小), **14 × `28×28`** copy buttons (复制此项), **1 × `119×32`** input field | `tool_detail_screen.dart:512`, `tool_widgets.dart` |
+| Calculator display (status row) — **fixed 2026-10-10** | ☰ was **`40 × 40`**, `More...` **`111.7 × 34.0`** → both 48; display floor 176 → 182 dp | `display_status_row.dart` |
 
-Both are deliberately **not** fixed:
+⚠️ **Only one of these is deliberately left unfixed:**
 
-- the keypad's rows are **laid out to match HiPER** and raising them shoves the whole keypad around;
-- ⚠️ **the tool buttons — my first statement of this was wrong, and measuring the buttons themselves
-  corrected it.** The `IconButton`s on the text-tool detail screen measure **48×48**, `BoxConstraints(unconstrained)`:
+- **The keypad's label bands** — the keypad is **laid out to match HiPER** and raising either strip shoves the
+  whole keypad around. (Corrected 2026-10-10: this used to say "the keypad's *rows*", and the rows are not what
+  fails — the *bands* are, and the keys clear 48 at 412×915.)
+- ⚠️ **The `36 × 36` — my first statement of this was wrong, and measuring the buttons themselves corrected
+  it.** (Resolved: it was this project's own `IconToolButton`, 36 → 48, further down.) The `IconButton`s on the
+  text-tool detail screen measure **48×48**, `BoxConstraints(unconstrained)`:
 
   ```
   BTN size=Size(48.0, 48.0) constraints=BoxConstraints(unconstrained)   (×3)
@@ -103,10 +109,19 @@ and fixed**: the keypad's figure-faced `[matrix]` key (no text for `InkWell` to 
 back + search buttons (`IconButton` with no `tooltip`). A repo-wide scan for "`IconButton` with no
 `tooltip`" now comes back clean.
 
-⚠️ **Not yet measured**: the structured **tool detail screen** and the settings screen. Adding the former
-to `calculator_accessibility_test.dart` hit a **layout assertion** (the screen overflows at the test's
-360×800 surface), which is a harness problem, not a finding — **it is unwired here, not unmeasured**, and
-that distinction is the point of this file.
+⚠️ **"Not yet measured" — now measured, and the harness problem was solved without touching the screen.**
+This paragraph used to say the structured **tool detail screen** and the settings screen were unmeasured;
+adding the former to `calculator_accessibility_test.dart` hit a **layout assertion** (the screen overflows at
+that test's 360×800 surface), which is a harness problem, not a finding. **2026-10-10: measured by pumping the
+screen at 360 × 2200 dp instead** — which is a harness change, not a screen change, and is exactly what the
+distinction in the sentence above is for. What that walk found is in the table above and in §5c (the three
+sub-48 classes, named by tooltip). Also re-measured the same day:
+
+- **Text-tool detail: zero sub-48 tappables** (its tappables are `48×48` ×6, `76×48` ×4, `328×172` ×1) —
+  **independent corroboration of the `IconToolButton` fix** recorded further up.
+- **`labeledTapTargetGuideline` passes on the structured screen** — so the ✓ that the audit table gives it
+  under *labels* is correct, and the `119 × 32` field's three empty semantics strings (label, value, tooltip)
+  are **not** a labelling defect. **I nearly recorded them as one**; the guideline check is what stopped it.
 
 Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
 
@@ -187,13 +202,31 @@ same family as the two earlier wrong guesses on this item, and worth recording f
 
 > **When a probe says "not found", check that the probe printed everything before believing it.**
 
-**The owner has since been found by reading the source**: `DetailMetric` wraps its copy `IconButton` in
-`SizedBox(width: 28, height: 28)` (`tool_widgets.dart:443`) — a repeated small button, which is what the 60 and
-70 counts are.
+⚠️ **"The owner has been found" — and that sentence named ONE owner for TWO different populations. Corrected
+2026-10-10 by measuring, not by reading.** The semantics walk on `battery_life` (360 × 2200 dp) gives the whole
+sub-48 tappable population on that screen, **named by tooltip**:
 
-**And enlarging it to 48 dp was tried, and reverted** — it reddens **the same four layout guards** the
-aspect-ratio change did, i.e. **it re-introduces the overflow this file just had fixed** (the label row grows
-by 20 dp and the cell can no longer hold its content).
+| size | count | owner (measured — tooltip + ancestor chain from the render tree) |
+|---|---|---|
+| `28 × 28` | 14 | `DetailMetric`'s copy button — tooltip **`复制此项`** (`tool_widgets.dart`'s `SizedBox(28, 28)` ✓) |
+| `34 × 34` | 12 | **`_stepButton`** — tooltips **`增大` / `减小`** (`tool_detail_screen.dart:512`, `SizedBox(34, 34)`) |
+| `119 × 32` | 1 | the numeric **`TextField`** — label, value **and** tooltip all empty (see the ⚠️ below) |
+
+**So the `34 × 34` nodes were never the copy button.** They are the **stepper buttons on the input rows**
+(`[label][−][field][+]`), a **third** sub-48 class this section had not recorded at all; the copy button is the
+`28 × 28` one. The earlier census's 60/70 counts came from a **different viewport** — the *sizes* are what name
+the owners, and both were read off the render tree this time.
+
+⚠️ **And the `119 × 32` field is emphatically *not* a labelling defect** — which I checked because the obvious
+inference from "label empty, value empty, tooltip empty" is "a screen reader announces nothing". **Measured:
+`labeledTapTargetGuideline` PASSES on this screen.** So the ✓ this table gives that screen under *labels* is
+correct, and the three empties are recorded here **only** so the next reader does not re-derive the defect I
+nearly recorded. (An empty `value` is also just what an empty input looks like.)
+
+**And enlarging the copy button to 48 dp was tried, and reverted** — it reddens **the same four layout guards**
+the aspect-ratio change did, i.e. **it re-introduces the overflow this file just had fixed** (the label row grows
+by 20 dp and the cell can no longer hold its content). The width half of that coupling is measured further down:
+the label box is **exactly 110.00 dp** and the longest English label needs **109.1 dp**.
 
 ⚠️ **So the two gaps are coupled, and neither can be fixed alone**:
 
@@ -238,15 +271,18 @@ another (truncated labels), and the second would need many labels re-abbreviated
 structural** — put the copy button *below* or *over* the value instead of beside the label, or accept the
 28 dp button. **Both are design calls, and this file now carries the numbers for either.**
 
-**Where the audit stands** (a dimension with **zero** coverage before this work):
+**Where the audit stands** (a dimension with **zero** coverage before this work). ⚠️ **Two rows of this table
+were re-measured and rewritten on 2026-10-10** — the keypad row carried a number that reproduces at no
+screen size, and the structured row attributed its nodes to the wrong widget. Both corrections are in §5c.
 
 | Screen | labels | tap targets |
 |---|---|---|
-| Calculator keypad | ✓ | **✗ 48.3 × 24.2** — HiPER-parity trade-off, owner's call |
-| Tools home | ✓ (fixed) | not measured |
-| Tool category | ✓ (fixed) | not measured |
+| Calculator keypad | ✓ | **✗ label bands only**: bands are 9.8–18.8 dp at the six sizes measured and always fail; the **keys** are 29.0–46.3 dp and **clear 48 at 412×915**. HiPER-parity mechanism (§5c) |
+| Calculator display (status row) | ✓ | **fixed 2026-10-10**: ☰ was **40 × 40** and `More...` **111.7 × 34.0** → both 48 (display floor 176 → 182 dp) |
+| Tools home | ✓ (fixed) | **fixed 2026-10-10**: the one tappable section header (`收藏工具`) was **29 dp** (§5d) |
+| Tool category | ✓ (fixed) | same fix — shared `SectionHeader` |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✗ 60 × `34 × 34`** — the copy button in a `SizedBox(28, 28)`; coupled to the cell's proportions (§5c) |
+| Structured tool detail | ✓ | **✗ three measured classes** (§5c): 12 × **`34×34`** steppers, 14 × **`28×28`** copy buttons, 1 × **`119×32` unnamed** input |
 | Settings | ✓ | ✓ |
 
 ### 5d. The two list screens: a **section header** is 29 dp — ⚠️ **and my first reading of this was wrong**
@@ -279,9 +315,15 @@ now "the rows are 29 dp"). The common shape is the same each time: **an inferenc
 of, where the measurement was available and I did not take it.** The semantics-tree walk — the instrument the
 previous entry said to use — cost one probe and was right.
 
-**Recorded, not fixed**: one tappable section header is 29 dp. That is a small, local fix (`收藏工具`'s row needs
-a 48 dp target), **not** a proportions decision about the list — which is what I wrongly told the reader one
-revision ago.
+**Recorded, then fixed (2026-10-10)**: one tappable section header was 29 dp, and it was indeed the small, local
+fix the next sentence predicted — **not** a proportions decision about the list, which is what I wrongly told
+the reader one revision ago. The fix is a `ConstrainedBox(minHeight: 48)` around the `InkWell`'s child in
+`SectionHeader` (`app_chrome.dart`), and it was verified **single-variable**: toggling that one `minHeight`
+between **0 and 48** — same screen, same probe, nothing else touched — took the guideline from
+`expected tap target size of at least Size(48.0, 48.0), but found Size(328.0, 29.0)` to **pass**. So the node is
+provably that one. The text does not move a pixel; the extra height goes below it. ⚠️ **A synthetic
+reconstruction of the same shape is a false negative** — I built one and it *passed* the guideline, so this
+class of question has to be measured on the real screen.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
