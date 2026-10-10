@@ -1,7 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/domain/usecases/notes_clipboard_import.dart';
+import 'package:nekocalc/features/notes/presentation/notes_receipt_message.dart';
+import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
+/// 中文：领域层只给令牌，句子在呈现边缘取——所以这里的断言先把中文表取出来，再逐条比。
+///       **这些中文字符串是迁移前那几句的抄本**（逐字节相同由这里与
+///       `notes_receipt_message_test.dart` 两张表一起钉住）。
+/// English: The domain layer hands over tokens only and the sentences are fetched at the presentation
+///          edge — so these assertions take the Chinese table first and then compare one by one. **These
+///          Chinese strings are copies of the sentences from before the move** (byte-identity is pinned
+///          by this file and by the table in `notes_receipt_message_test.dart` together).
 void main() {
+  final zh = NotesStrings.forLanguage(AppLanguage.zh);
   test('parses batch export notes and histories into separate drafts', () {
     final plan = buildNotesClipboardImportPlan('''
 NekoCalc 批量导出
@@ -29,7 +40,7 @@ V = I * R
     expect(plan.fromBatchExport, isTrue);
     expect(plan.canImport, isTrue);
     expect(plan.skippedBlockCount, 0);
-    expect(plan.summary, '将导入 1 条历史、1 条笔记');
+    expect(notesImportPlanSummary(plan, zh), '将导入 1 条历史、1 条笔记');
     expect(plan.historyDrafts, hasLength(1));
     expect(plan.historyDrafts.single.expression, '电流=2A, 电阻=5Ω');
     expect(plan.historyDrafts.single.result, '电压: 10V');
@@ -71,7 +82,7 @@ V = I * R
 
     expect(plan.canImport, isFalse);
     expect(plan.sourceTextEmpty, isTrue);
-    expect(plan.summary, '剪贴板没有文本内容');
+    expect(notesImportPlanSummary(plan, zh), '剪贴板没有文本内容');
   });
 
   test('batch export reports unrecognized blocks without importing them', () {
@@ -95,8 +106,8 @@ foo bar
 
     expect(plan.canImport, isTrue);
     expect(plan.skippedBlockCount, 1);
-    expect(plan.summary, '将导入 1 条历史，跳过 1 段无法识别内容');
-    expect(plan.importedMessage, '已导入 1 条历史，跳过 1 段');
+    expect(notesImportPlanSummary(plan, zh), '将导入 1 条历史，跳过 1 段无法识别内容');
+    expect(notesImportPlanMessage(plan, zh), '已导入 1 条历史，跳过 1 段');
     expect(plan.historyDrafts.single.expression, '2+3');
     expect(plan.historyDrafts.single.result, '5');
     expect(plan.historyDrafts.single.previewTitle, '计算历史 · 2+3');
@@ -131,6 +142,6 @@ NekoCalc 批量导出
     expect(result.noteCount, 0);
     expect(result.totalCount, 1);
     expect(result.skippedWriteCount, 1);
-    expect(result.importedMessage, '已导入 1 条历史，跳过 1 段无法识别内容，未写入 1 条');
+    expect(notesImportMessage(result, zh), '已导入 1 条历史，跳过 1 段无法识别内容，未写入 1 条');
   });
 }

@@ -15,11 +15,16 @@ import '../../../l10n/app_language.dart';
 ///          / `contains('公式：')` / `contains('工具')`）。它们不是屏幕上印的字，而是**拿用户的
 ///          笔记内容去比**——用户自己写的「公式」两个字。跟着界面语言翻掉，中文界面下那些图标
 ///          立刻全变回默认，而且不会有任何报错。它们是数据分类，不是文案。
-///       2. **控制器产出的字**（`NotesController` 的 `error` / `result.message` / `plan.summary` /
-///          `summary.label` / `searchSuggestions()`）。它们的家在
-///          `lib/application/controllers/notes_controller.dart`，那是**用户未提交的改动**，
-///          本轮一个字都没动。所以搜索为空时那几颗建议胶囊、以及删除/清空/导入后的回执，
-///          今天仍是中文——**这是已知的残留**，不是漏翻。
+///       2. **应用层自己产出的字**：`NotesController` 的 `error`（异常的技术串）、`summary.label`、
+///          `searchSuggestions()` / `searchExamples()`（搜索示例是**拿去搜的词**，与内容探针同一类），
+///          以及导出 / 复制正文那一套标签（`'表达式:'`、`'结果:'`…——它们是**剪贴板往返的格式**，
+///          由 `notes_clipboard_import.dart` 的解析器读回）。这些今天仍是中文——**这是已知的残留**，
+///          不是漏翻。
+///
+///       **已经搬进来的**：导入与删除的回执。`NotesClipboardImportPlan` / `…Result` /
+///       `NotesDeleteResult` 从前自己拼那几句中文并直接上屏（`SnackBar` 与导入对话框），现在领域层
+///       只给令牌（`NotesImportPlanStatus` / `NotesImportReceiptStatus` / `NotesDeleteStatus`），
+///       字在这儿，由 `notes_receipt_message.dart` 在**呈现边缘**取。
 /// English: The notes page's string table, **split by feature** — one table holding every language
 ///          side by side. The mechanism itself (why hand-written tables rather than ARB / `gen-l10n`,
 ///          why the tables are `static final` rather than `const`) shares one set of reasons with the
@@ -38,12 +43,20 @@ import '../../../l10n/app_language.dart';
 ///             characters 「公式」 the user typed. Translating them with the interface would flip every
 ///             such icon back to the default in a Chinese interface, with no error anywhere. They are
 ///             data classification, not copy.
-///          2. **Text produced by the controller** (`NotesController`'s `error` / `result.message` /
-///             `plan.summary` / `summary.label` / `searchSuggestions()`). Those live in
-///             `lib/application/controllers/notes_controller.dart`, which is **the user's uncommitted
-///             work** and was not touched this round by one character. So the suggestion chips under an
-///             empty search, and the receipts after a delete / clear / import, are still Chinese today
-///             — a **known remainder**, not a missed translation.
+///          2. **Application-layer text the controller produces itself**: `NotesController`'s `error`
+///             (an exception's technical string), `summary.label`, `searchSuggestions()` /
+///             `searchExamples()` (a search example is a **word you search with**, the same category as
+///             a content probe), and the labels of the export / copy body (`'表达式:'`, `'结果:'` … —
+///             they are the **clipboard round-trip format** read back by `notes_clipboard_import.dart`'s
+///             parser). Those are still Chinese today — a **known remainder**, not a missed
+///             translation.
+///
+///          **What has moved in**: the import and delete receipts. `NotesClipboardImportPlan` /
+///          `…Result` / `NotesDeleteResult` used to compose those Chinese sentences themselves and
+///          print them straight (`SnackBar`, the import dialog); the domain layer now hands over only
+///          the tokens (`NotesImportPlanStatus` / `NotesImportReceiptStatus` / `NotesDeleteStatus`),
+///          the words live here, and `notes_receipt_message.dart` reads them **at the presentation
+///          edge**.
 @immutable
 class NotesStrings {
   const NotesStrings({
@@ -98,6 +111,21 @@ class NotesStrings {
     required this.clipboardImportTitle,
     required this.importButton,
     required this.hiddenCount,
+    // —— 导入 / 删除回执（领域层只给令牌，字在这里）——
+    required this.importClipboardEmpty,
+    required this.importNothingRecognised,
+    required this.importWillImport,
+    required this.imported,
+    required this.importNothingNew,
+    required this.importSkippedUnrecognised,
+    required this.importPlanSkipped,
+    required this.importSkippedWrites,
+    required this.recordCounts,
+    required this.clauseSeparator,
+    required this.deleteNothingRequested,
+    required this.deletedRecords,
+    required this.deleteNothingDeleted,
+    required this.deleteMissing,
     // —— 笔记编辑器 ——
     required this.newNote,
     required this.fieldTitle,
@@ -188,6 +216,29 @@ class NotesStrings {
   final String clipboardImportTitle;
   final String importButton;
   final String Function(int count) hiddenCount;
+
+  // —— 导入 / 删除回执 ——
+  // 中文：这十四格是**领域层那些回执令牌的落点**（`NotesImportPlanStatus` /
+  //       `NotesImportReceiptStatus` / `NotesDeleteStatus`，见 `notes_receipt_message.dart`）。
+  //       「计数」与「跳过 N 段」这类可选的尾巴是**载荷**，各自一格，由呈现边缘按存在与否拼上去。
+  // English: these fourteen cells are **where the domain layer's receipt tokens land**
+  //          (`NotesImportPlanStatus` / `NotesImportReceiptStatus` / `NotesDeleteStatus`, see
+  //          `notes_receipt_message.dart`). The optional tails ("counts", "skipped N blocks") are
+  //          **payload**, one cell each, spliced in at the presentation edge when they are present.
+  final String importClipboardEmpty;
+  final String importNothingRecognised;
+  final String Function(String counts) importWillImport;
+  final String Function(String counts) imported;
+  final String importNothingNew;
+  final String Function(int count) importSkippedUnrecognised;
+  final String Function(int count) importPlanSkipped;
+  final String Function(int count) importSkippedWrites;
+  final String Function(int historyCount, int noteCount) recordCounts;
+  final String clauseSeparator;
+  final String deleteNothingRequested;
+  final String Function(String counts) deletedRecords;
+  final String deleteNothingDeleted;
+  final String Function(int count) deleteMissing;
 
   // —— 笔记编辑器 ——
   final String newNote;
@@ -290,6 +341,23 @@ class NotesStrings {
     clipboardImportTitle: '从剪贴板导入',
     importButton: '导入',
     hiddenCount: (count) => '还有 $count 条未显示',
+    importClipboardEmpty: '剪贴板没有文本内容',
+    importNothingRecognised: '未识别到可导入的笔记或历史导出',
+    importWillImport: (counts) => '将导入 $counts',
+    imported: (counts) => '已导入 $counts',
+    importNothingNew: '没有导入新内容',
+    importSkippedUnrecognised: (count) => '跳过 $count 段无法识别内容',
+    importPlanSkipped: (count) => '跳过 $count 段',
+    importSkippedWrites: (count) => '未写入 $count 条',
+    recordCounts: (historyCount, noteCount) => [
+      if (historyCount > 0) '$historyCount 条历史',
+      if (noteCount > 0) '$noteCount 条笔记',
+    ].join('、'),
+    clauseSeparator: '，',
+    deleteNothingRequested: '没有选择要删除的记录',
+    deletedRecords: (counts) => '已删除 $counts',
+    deleteNothingDeleted: '没有删除记录',
+    deleteMissing: (count) => '$count 项未找到或已被删除',
     newNote: '新增笔记',
     fieldTitle: '标题',
     fieldDescription: '描述',
@@ -370,6 +438,23 @@ class NotesStrings {
     clipboardImportTitle: 'Import from clipboard',
     importButton: 'Import',
     hiddenCount: (count) => '$count more not shown',
+    importClipboardEmpty: 'The clipboard has no text',
+    importNothingRecognised: 'No notes or history exports were recognised',
+    importWillImport: (counts) => 'Will import $counts',
+    imported: (counts) => 'Imported $counts',
+    importNothingNew: 'Nothing new was imported',
+    importSkippedUnrecognised: (count) => 'skipping $count unrecognised blocks',
+    importPlanSkipped: (count) => 'skipping $count blocks',
+    importSkippedWrites: (count) => '$count not written',
+    recordCounts: (historyCount, noteCount) => [
+      if (historyCount > 0) '$historyCount history entries',
+      if (noteCount > 0) '$noteCount notes',
+    ].join(' and '),
+    clauseSeparator: ', ',
+    deleteNothingRequested: 'No records were selected',
+    deletedRecords: (counts) => 'Deleted $counts',
+    deleteNothingDeleted: 'Nothing was deleted',
+    deleteMissing: (count) => '$count not found or already deleted',
     newNote: 'New note',
     fieldTitle: 'Title',
     fieldDescription: 'Description',

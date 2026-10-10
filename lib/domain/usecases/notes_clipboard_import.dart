@@ -61,6 +61,64 @@ enum NotesImportSource {
   plainText,
 }
 
+/// 中文：**这一次剪贴板导入计划说的是哪件事——它既是判据，也是呈现层取那句话用的令牌。**
+///
+///       三格与 `NotesStrings` 里的三格一一对应（`importClipboardEmpty` / `importNothingRecognised` /
+///       `importWillImport`），由 `notesImportPlanSummary(plan, strings)` 那个穷尽 `switch` 接上；
+///       计数（[NotesClipboardImportPlan.historyCount] / `noteCount` / `skippedBlockCount`）是
+///       **载荷**，留在计划上由呈现层拼进句子。
+///
+///       **这三句话从前是在这里拼的**（`get summary`，直接印在导入对话框与 `SnackBar` 上）：
+///       领域对象活得比界面长，界面那张按语言切的文案表够不着它，所以英文界面下它照样是中文——
+///       `docs/verification.md` §5i 记着这条层次性缺陷。形状照的是已经转过的两条路径
+///       （`CalculatorSubmitStatus` + `calculatorSubmitMessage`、`CalculatorSaveNoteStatus` +
+///       `calculatorSaveNoteMessage`）。
+///
+///       **判据与文案是同一个字段**：这一格回答「计划属于哪一种」，句子由它决定，两者不可能对不上。
+/// English: **which thing this clipboard-import plan says — a verdict, and the token the presentation
+///          layer resolves the sentence with.**
+///
+///          The three values correspond one for one with three cells in `NotesStrings`
+///          (`importClipboardEmpty` / `importNothingRecognised` / `importWillImport`), wired up by the
+///          exhaustive `switch` in `notesImportPlanSummary(plan, strings)`; the counts
+///          ([NotesClipboardImportPlan.historyCount] / `noteCount` / `skippedBlockCount`) are
+///          **payload** and stay on the plan for the presentation layer to splice into the sentence.
+///
+///          **Those three sentences used to be composed right here** (`get summary`, printed straight
+///          into the import dialog and a `SnackBar`): a domain object outlives the UI and a
+///          language-keyed copy table cannot reach it, so an English interface still printed Chinese —
+///          the layering defect recorded in `docs/verification.md` §5i. The shape is the one the two
+///          converted paths already use (`CalculatorSubmitStatus` + `calculatorSubmitMessage`,
+///          `CalculatorSaveNoteStatus` + `calculatorSaveNoteMessage`).
+///
+///          **Verdict and wording are one field**: this value answers "which kind of plan is this", the
+///          sentence follows from it, so the two cannot disagree.
+enum NotesImportPlanStatus {
+  clipboardEmpty,
+  nothingRecognised,
+  willImport,
+}
+
+/// 中文：**这一次导入回执的头部说的是哪件事**（真的写进去了东西 / 一条都没写）。
+///
+///       两格与 `NotesStrings` 的 `imported` / `importNothingNew` 一一对应，由
+///       `notesImportMessage(result, strings)` 的穷尽 `switch` 接上；「跳过 N 段无法识别内容」与
+///       「未写入 N 条」两根尾巴是载荷，由那个函数按计数拼上去。与 [NotesImportPlanStatus] 同一条
+///       理由：从前这两句话也是在这里拼的（`get importedMessage`）。
+/// English: **which thing this import receipt's head says** (something really was written / not one
+///          record).
+///
+///          The two values correspond one for one with `NotesStrings`'s `imported` /
+///          `importNothingNew`, wired up by the exhaustive `switch` in
+///          `notesImportMessage(result, strings)`; the "skipped N unrecognised blocks" and
+///          "N not written" tails are payload, appended by that function from the counts. The same
+///          reasoning as [NotesImportPlanStatus]: those two sentences used to be composed here too
+///          (`get importedMessage`).
+enum NotesImportReceiptStatus {
+  imported,
+  nothingNew,
+}
+
 class NotesClipboardImportPlan {
   const NotesClipboardImportPlan({
     required this.noteDrafts,
@@ -101,26 +159,18 @@ class NotesClipboardImportPlan {
         ),
       ];
 
-  String get summary {
-    if (sourceTextEmpty) return '剪贴板没有文本内容';
-    if (!canImport) return '未识别到可导入的笔记或历史导出';
-    final parts = <String>['将导入 ${_countLabel()}'];
-    if (skippedBlockCount > 0) parts.add('跳过 $skippedBlockCount 段无法识别内容');
-    return parts.join('，');
-  }
-
-  String get importedMessage {
-    final parts = <String>['已导入 ${_countLabel()}'];
-    if (skippedBlockCount > 0) parts.add('跳过 $skippedBlockCount 段');
-    return parts.join('，');
-  }
-
-  String _countLabel() {
-    final parts = <String>[
-      if (historyCount > 0) '$historyCount 条历史',
-      if (noteCount > 0) '$noteCount 条笔记',
-    ];
-    return parts.join('、');
+  /// 中文：**这个计划属于三种结局里的哪一种**（见 [NotesImportPlanStatus]）。顺序是判据的一部分：
+  ///       「剪贴板是空的」压过「没认出可导入的东西」——从前的 `if (sourceTextEmpty)` 就写在前头，
+  ///       这一格把那个优先级写成一张表，将来多一种结局时呈现层那个 `switch` 编译不过。
+  /// English: **which of the three outcomes this plan is** (see [NotesImportPlanStatus]). The order is
+  ///          part of the verdict: "the clipboard is empty" outranks "nothing importable was
+  ///          recognised" — the old `if (sourceTextEmpty)` stood first — and this value writes that
+  ///          precedence down as a table, so adding an outcome breaks the presentation `switch` at
+  ///          compile time.
+  NotesImportPlanStatus get status {
+    if (sourceTextEmpty) return NotesImportPlanStatus.clipboardEmpty;
+    if (!canImport) return NotesImportPlanStatus.nothingRecognised;
+    return NotesImportPlanStatus.willImport;
   }
 }
 
@@ -157,26 +207,14 @@ class NotesClipboardImportResult {
 
   bool get hasImportedRecords => totalCount > 0;
 
-  String get importedMessage {
-    final parts = <String>[
-      hasImportedRecords ? '已导入 ${_countLabel()}' : '没有导入新内容',
-    ];
-    if (plan.skippedBlockCount > 0) {
-      parts.add('跳过 ${plan.skippedBlockCount} 段无法识别内容');
-    }
-    if (skippedWriteCount > 0) {
-      parts.add('未写入 $skippedWriteCount 条');
-    }
-    return parts.join('，');
-  }
-
-  String _countLabel() {
-    final parts = <String>[
-      if (historyCount > 0) '$historyCount 条历史',
-      if (noteCount > 0) '$noteCount 条笔记',
-    ];
-    return parts.join('、');
-  }
+  /// 中文：**这一次导入的头部结局**：`imported`（真的写进去了东西）与 `nothingNew`（一条都没写）。
+  ///       从前这里是 `get importedMessage`，那两句话就住在这个文件里、直接印在 `SnackBar` 上。
+  /// English: **the head outcome of this import**: `imported` (something really was written) and
+  ///          `nothingNew` (not one record). This used to be `get importedMessage`, whose sentences
+  ///          lived in this very file and were printed straight into a `SnackBar`.
+  NotesImportReceiptStatus get receiptStatus => hasImportedRecords
+      ? NotesImportReceiptStatus.imported
+      : NotesImportReceiptStatus.nothingNew;
 }
 
 NotesClipboardImportPlan buildNotesClipboardImportPlan(String text) {

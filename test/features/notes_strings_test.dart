@@ -90,6 +90,22 @@ void main() {
     expect(zh.clipboardImportTitle, '从剪贴板导入');
     expect(zh.importButton, '导入');
     expect(zh.hiddenCount(3), '还有 3 条未显示');
+    // —— 导入 / 删除回执（迁移前它们住在领域层，逐字节搬过来）——
+    expect(zh.importClipboardEmpty, '剪贴板没有文本内容');
+    expect(zh.importNothingRecognised, '未识别到可导入的笔记或历史导出');
+    expect(zh.importWillImport('1 条历史、1 条笔记'), '将导入 1 条历史、1 条笔记');
+    expect(zh.imported('1 条历史、1 条笔记'), '已导入 1 条历史、1 条笔记');
+    expect(zh.importNothingNew, '没有导入新内容');
+    expect(zh.importSkippedUnrecognised(2), '跳过 2 段无法识别内容');
+    expect(zh.importPlanSkipped(2), '跳过 2 段');
+    expect(zh.importSkippedWrites(3), '未写入 3 条');
+    expect(zh.recordCounts(1, 2), '1 条历史、2 条笔记');
+    expect(zh.recordCounts(0, 2), '2 条笔记');
+    expect(zh.clauseSeparator, '，');
+    expect(zh.deleteNothingRequested, '没有选择要删除的记录');
+    expect(zh.deletedRecords('1 条历史、1 条笔记'), '已删除 1 条历史、1 条笔记');
+    expect(zh.deleteNothingDeleted, '没有删除记录');
+    expect(zh.deleteMissing(2), '2 项未找到或已被删除');
     // —— 笔记编辑器 ——
     expect(zh.newNote, '新增笔记');
     expect(zh.fieldTitle, '标题');
@@ -172,6 +188,20 @@ void main() {
       [zh.clipboardImportTitle, en.clipboardImportTitle],
       [zh.importButton, en.importButton],
       [zh.hiddenCount(3), en.hiddenCount(3)],
+      [zh.importClipboardEmpty, en.importClipboardEmpty],
+      [zh.importNothingRecognised, en.importNothingRecognised],
+      [zh.importWillImport('1 条历史、1 条笔记'),
+        en.importWillImport('1 history entry and 1 note')],
+      [zh.imported('1 条历史、1 条笔记'), en.imported('1 history entry and 1 note')],
+      [zh.importNothingNew, en.importNothingNew],
+      [zh.importSkippedUnrecognised(2), en.importSkippedUnrecognised(2)],
+      [zh.importPlanSkipped(2), en.importPlanSkipped(2)],
+      [zh.importSkippedWrites(3), en.importSkippedWrites(3)],
+      [zh.recordCounts(1, 2), en.recordCounts(1, 2)],
+      [zh.deleteNothingRequested, en.deleteNothingRequested],
+      [zh.deletedRecords('1 条历史、1 条笔记'), en.deletedRecords('1 history entry')],
+      [zh.deleteNothingDeleted, en.deleteNothingDeleted],
+      [zh.deleteMissing(2), en.deleteMissing(2)],
       [zh.newNote, en.newNote],
       [zh.fieldTitle, en.fieldTitle],
       [zh.fieldDescription, en.fieldDescription],
@@ -253,6 +283,20 @@ void main() {
       'clipboardImportTitle': en.clipboardImportTitle,
       'importButton': en.importButton,
       'hiddenCount': en.hiddenCount(3),
+      'importClipboardEmpty': en.importClipboardEmpty,
+      'importNothingRecognised': en.importNothingRecognised,
+      'importWillImport': en.importWillImport('1 history entry'),
+      'imported': en.imported('1 history entry'),
+      'importNothingNew': en.importNothingNew,
+      'importSkippedUnrecognised': en.importSkippedUnrecognised(2),
+      'importPlanSkipped': en.importPlanSkipped(2),
+      'importSkippedWrites': en.importSkippedWrites(3),
+      'recordCounts': en.recordCounts(1, 2),
+      'clauseSeparator': en.clauseSeparator,
+      'deleteNothingRequested': en.deleteNothingRequested,
+      'deletedRecords': en.deletedRecords('1 history entry'),
+      'deleteNothingDeleted': en.deleteNothingDeleted,
+      'deleteMissing': en.deleteMissing(2),
       'newNote': en.newNote,
       'fieldTitle': en.fieldTitle,
       'fieldDescription': en.fieldDescription,

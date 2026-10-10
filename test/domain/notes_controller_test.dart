@@ -5,8 +5,15 @@ import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/models/note_item.dart';
 import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
+import 'package:nekocalc/features/notes/presentation/notes_receipt_message.dart';
+import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
+  // 中文：领域层只给令牌，回执的句子在呈现边缘取——所以这几条断言把中文表带进来渲染。
+  // English: The domain layer hands over tokens only and the receipt sentences are fetched at the
+  //          presentation edge — so these assertions render through the Chinese table.
+  final strings = NotesStrings.forLanguage(AppLanguage.zh);
   final history = HistoryItem(
     id: 7,
     expression: '2+3',
@@ -276,7 +283,7 @@ void main() {
     expect(result.deletedHistoryCount, 1);
     expect(result.deletedNoteCount, 1);
     expect(result.missingCount, 0);
-    expect(result.message, '已删除 1 条历史、1 条笔记');
+    expect(notesDeleteMessage(result, strings), '已删除 1 条历史、1 条笔记');
     expect(controller.visibleHistory, isEmpty);
     expect(controller.visibleNotes, isEmpty);
 
@@ -306,7 +313,7 @@ void main() {
     expect(result.deletedHistoryCount, 1);
     expect(result.deletedNoteCount, 0);
     expect(result.missingCount, 2);
-    expect(result.message, '已删除 1 条历史，2 项未找到或已被删除');
+    expect(notesDeleteMessage(result, strings), '已删除 1 条历史，2 项未找到或已被删除');
     expect(controller.visibleHistory, isEmpty);
     expect(controller.visibleNotes.map((item) => item.id), [3]);
 
@@ -361,7 +368,7 @@ V = I * R
     expect(db.noteLoads, 1);
     expect(result.historyIds, [50]);
     expect(result.noteIds, [100]);
-    expect(result.importedMessage, '已导入 1 条历史、1 条笔记');
+    expect(notesImportMessage(result, strings), '已导入 1 条历史、1 条笔记');
     expect(controller.visibleHistory.map((item) => item.expression), ['2+3']);
     expect(controller.visibleNotes.map((item) => item.title), ['实验记录']);
 
@@ -404,7 +411,7 @@ V = I * R
     expect(result.noteIds, [100]);
     expect(result.skippedHistoryWrites, 1);
     expect(result.skippedNoteWrites, 0);
-    expect(result.importedMessage, '已导入 1 条笔记，未写入 1 条');
+    expect(notesImportMessage(result, strings), '已导入 1 条笔记，未写入 1 条');
     expect(controller.visibleHistory, isEmpty);
     expect(controller.visibleNotes.map((item) => item.title), ['实验记录']);
 

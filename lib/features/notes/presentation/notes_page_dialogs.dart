@@ -19,7 +19,7 @@ class _ClipboardImportDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(plan.summary),
+            Text(notesImportPlanSummary(plan, strings)),
             const SizedBox(height: 12),
             ...previewDrafts.map(
               (draft) => ListTile(

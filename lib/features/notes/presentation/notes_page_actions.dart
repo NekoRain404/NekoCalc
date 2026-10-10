@@ -101,8 +101,8 @@ extension _NotesPageActions on _NotesPageState {
     final result = await _controller.deleteSelected(
         historyIds: historyIds, noteIds: noteIds);
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(result.message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(notesDeleteMessage(result, strings))));
   }
 
   Future<void> _copySelected() async {
@@ -120,12 +120,13 @@ extension _NotesPageActions on _NotesPageState {
 
   Future<void> _importFromClipboard() async {
     if (_importingClipboard) return;
+    final strings = NotesStrings.of(context);
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final plan = _controller.previewClipboardImport(data?.text ?? '');
     if (!plan.canImport) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(plan.summary)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(notesImportPlanSummary(plan, strings))));
       return;
     }
 
@@ -140,8 +141,8 @@ extension _NotesPageActions on _NotesPageState {
     try {
       final result = await _controller.importClipboardPlan(plan);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(result.importedMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(notesImportMessage(result, strings))));
     } finally {
       _importingClipboard = false;
     }
@@ -167,8 +168,8 @@ extension _NotesPageActions on _NotesPageState {
     if (confirm != true) return;
     final result = await _controller.clearHistory();
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(result.message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(notesDeleteMessage(result, strings))));
   }
 
   Future<void> _showHistoryActions(HistoryItem item) async {
@@ -224,8 +225,8 @@ extension _NotesPageActions on _NotesPageState {
     if (action == 'delete') {
       final result = await _controller.deleteHistory(item.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(result.message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(notesDeleteMessage(result, strings))));
     }
   }
 
@@ -316,8 +317,8 @@ extension _NotesPageActions on _NotesPageState {
       if (confirm == true) {
         final result = await _controller.deleteNote(item.id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(notesDeleteMessage(result, strings))));
       }
     }
   }
