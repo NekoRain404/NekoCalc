@@ -165,6 +165,14 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
           children: [
             Expanded(child: PageTitle(strings.toolsPageTitle)),
             IconButton(
+                // 中文：**这一颗此前没有 `tooltip`**，于是它在读屏里是一个**没有名字的按钮**
+                //       （实测：工具页上 `labeledTapTargetGuideline` 只因它不通过）。
+                //       同页其余几颗都有，**只有它漏了**——补上名字，行为一个字没动。
+                // English: **this one had no `tooltip`**, so it was **an unnamed button** to a screen
+                //          reader (measured: it alone made `labeledTapTargetGuideline` fail on this page).
+                //          Every other button here has one; **this one was missed** — a name is added and the
+                //          behaviour is untouched.
+                tooltip: strings.searchToolTooltip,
                 onPressed: _searchFocus.requestFocus,
                 icon: const Icon(Icons.search)),
           ],

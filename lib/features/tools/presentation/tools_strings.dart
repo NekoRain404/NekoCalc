@@ -69,6 +69,7 @@ class ToolsStrings {
     required this.resultCopied,
     // —— 工具首页：页头与搜索 ——
     required this.toolsPageTitle,
+    required this.searchToolTooltip,
     required this.toolsSearchHint,
     required this.searchResultsCount,
     required this.allCategories,
@@ -187,6 +188,16 @@ class ToolsStrings {
   final String recentEmpty;
   final String removeRecentTooltip;
   // —— 分类页 ——
+  /// 中文：**搜索按钮的名字。** `IconButton` 的语义标签来自 `tooltip`——
+  ///       没有它，那一颗在读屏里就是**一个没有名字的按钮**（实测：它让
+  ///       `labeledTapTargetGuideline` 在工具页上不通过）。
+  ///       同页其余几颗按钮都有 `tooltip`，**只有它漏了**。
+  /// English: **the search button's name.** An `IconButton`'s semantic label comes from its `tooltip` —
+  ///          without one that button is **an unnamed button** to a screen reader (measured: it is what
+  ///          makes `labeledTapTargetGuideline` fail on the tools page). Every other button on that page has
+  ///          a `tooltip`; **this one was missed.**
+  final String searchToolTooltip;
+
   final String Function(String category) searchCategoryHint;
   final String Function(String category, String query) categoryNoMatch;
   final String commonTools;
@@ -379,6 +390,7 @@ class ToolsStrings {
     insights: '校核',
     resultCopied: '已复制结果',
     toolsPageTitle: '工具',
+    searchToolTooltip: '搜索工具',
     toolsSearchHint: '搜索工具、公式、单位...',
     searchResultsCount: (count) => '搜索结果 · $count',
     allCategories: '全部分类',
@@ -471,6 +483,7 @@ class ToolsStrings {
     insights: 'Checks',
     resultCopied: 'Result copied',
     toolsPageTitle: 'Tools',
+    searchToolTooltip: 'Search tools',
     toolsSearchHint: 'Search tools, formulas, units…',
     searchResultsCount: (count) => 'Search results · $count',
     allCategories: 'All categories',

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 
 /// 中文：**主屏的语义标签：拿 Flutter 自带的判据量。**
 ///
@@ -64,7 +65,47 @@ class _FakeDatabase implements AppDatabase {
   dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
+/// 中文：**工具页那一颗搜索按钮。** 它此前**没有 `tooltip`**，于是读屏里是个没有名字的按钮——
+/// 实测：`labeledTapTargetGuideline` 在工具页上**只因它**不通过。同页其余几颗都有 `tooltip`。
+/// English: **the tools page's search button.** It had **no `tooltip`**, so it was an unnamed button to a
+///          screen reader — measured: it **alone** made `labeledTapTargetGuideline` fail on that page. Every
+///          other button there has one.
+class _FakeToolsDatabase implements AppDatabase {
+  @override
+  Future<Map<String, String>> settings() async => const {};
+
+  @override
+  Future<Set<String>> favoriteToolIds() async => const <String>{};
+
+  @override
+  Future<List<String>> recentToolIds({int limit = 8}) async => const <String>[];
+
+  @override
+  Future<void> setSettings(Map<String, String> values) async {}
+
+  @override
+  Future<void> setSetting(String key, String value) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
+}
+
 void main() {
+  testWidgets('工具页：搜索按钮有名字', (tester) async {
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ToolsHomePage(
+            db: _FakeToolsDatabase(), settings: AppSettings.fallback),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+  });
+
   testWidgets('主屏：每个可点的东西都有名字（读屏读得出来）', (tester) async {
     // 中文：**按真机尺寸量**（360×800 dp）。默认的 800×600 测试面会把键盘压扁——
     //       我第一版就是这么量的，于是得出"每行只有 26 dp、不达标"这个**假的**结论。
