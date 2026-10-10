@@ -124,7 +124,12 @@ real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the fo
 |---|---|
 | Is the surface too short? | **No** — that guard uses `Size(360*3, 2200*3)`, so cards cannot be pushed off |
 | Do the guards set a device surface? | **Yes** — `physicalSize` is set in all three |
-| Candidate not yet tested | the screen may be **throwing before layout** (an exception leaves no `Text` widgets at all, which is exactly what "0 boxes" looks like). ⚠️ My own probe hit a `_TypeError` right after the ratio change — **suggestive, not proof**: that stub's `noSuchMethod` also returns `Future<void>` for non-void methods, so the throw may be mine. **Untested.** |
+| Does the screen throw before layout (which would leave no `Text` widgets at all)? | **No** — tested: with `1.35` applied the guard reports a **`TestFailure`** (its own assertion), not an exception during layout. That candidate is ruled out. |
+
+**Three candidates ruled out, cause still open.** What is known: the guard runs, the screen builds, and its
+filter (`Text` with `maxLines == 1` **and** `fontSize == 12`) matches **nothing** once the cells are taller.
+**The next attempt should look at what `DetailMetric` actually renders at that height** — the filter is the
+only thing between "the tree exists" and "zero matches".
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
