@@ -57,14 +57,41 @@ adb shell pm install -r -d --user 0 … → same
 `-d` is documented as "debuggable packages only" and the APK **is** debuggable (verified: `CN=NekoCalc`,
 `bbb28c50…`), so this is the ROM refusing the downgrade rather than the flag being omitted.
 
-⚠️ **Consequence, plainly: `flutter run` / `flutter install` on this device is now blocked.** It builds the
-**debug** variant at `2009`, which is a downgrade from the installed `4009`. The paths out are (a) uninstall +
-reinstall — which **costs the app's data**, and the database *cannot* be pulled first because `run-as` needs a
-debuggable build — or (b) install something with `versionCode ≥ 4009` (raise pubspec's build number, or make the
-release variant debuggable). **The release install was deliberately left in place**: a downgrade is refused, and
-there is no reachable backup of the app's private data from here, so undoing it would have risked data for
-tidiness. What the device holds is exactly what `flutter build apk --release --split-per-abi` produces from
-HEAD — a clean, reproducible state, and the one whose baselines this table now records.
+⚠️ **Consequence: `flutter run` / `flutter install` on this device is blocked while `4009` is installed.** It
+builds the **debug** variant at `2009`, a downgrade from `4009`. **The channel itself was recovered, though —
+without uninstalling and without touching data**, and the recipe is now a script: `tool/install_debug_over_release.sh`
+(written *and run* on 2026-10-10). The move is to build the debug variant at the **installed** versionCode and
+re-sign it with the release key, so it is an ordinary replace rather than a downgrade:
+
+```
+flutter build apk --debug --build-number=4009      # = the installed release's versionCode
+zipalign -f -p 4 … && apksigner sign --ks android/nekocalc-release.jks --out … …
+adb install -r …                                   # 4009 over 4009 — a normal replace
+```
+
+`--build-number` is what makes this work: it overrides the build number **without editing `pubspec.yaml`**.
+Verified afterwards: `pkgFlags=[ DEBUGGABLE … ]`, `versionCode=4009`, and `run-as … ls databases` listing the
+database again. **So §十九's "uninstall is the only way back" is true of the *flags* — `-r` / `-d` /
+`pm install -r -d` really are all refused — but not of the *problem*.**
+
+⚠️ **And the device's data was verified intact — by row content, not by eye.** Compared against the 2026-09-30
+backup **with its `-wal` attached**:
+
+| table | 2026-09-30 | 2026-10-10 |
+|---|---|---|
+| `calculation_history` | 16 rows, `d9b39a721cd9` | **same fingerprint** |
+| `recent_tools` | 12 rows, `3d0427d30c87` | **same fingerprint** |
+| `notes` / `favorite_tools` | 0 / 0 | same |
+| `app_settings` | 24 rows | 24 rows, **every value identical** |
+
+The only `app_settings` "difference" is a last-touched timestamp on rows whose values are unchanged
+(`1790710793363 → 1791639353009` — a delta of exactly the 10.75 days that elapsed, written when the app was
+launched for the cold-start runs). **The release install cost the user no data.**
+
+⚠️ **Two comparisons were invalid before that one, and both are the trap this repo already documents.** (1)
+Comparing the pulled copy **without its `-wal`** is the "少一个就不是同一份" rule. (2) Letting `sqlite3` **open**
+the copy **checkpoints the WAL and deletes the `-wal`/`-shm`**, so the main file's bytes legitimately change (the
+header's change counter moves) — which is why the comparison has to be **logical** (row content), not bytewise.
 
 ⚠️ **The `versionCode` split itself**: measured, the debug variant is `2009` and release is `4009`, while this
 project's `build.gradle.kts` contains only `versionCode = flutter.versionCode` (grepped). So the `+2000` on
@@ -434,9 +461,9 @@ the guideline still passes (1807 green after).
 box — every other cell in the row re-centres. **"The extra height goes below it" is not true in a
 centre-aligned row**, and that is exactly the sentence I wrote first.
 
-## 6. Three mechanical checks that exist because of repeated mistakes
+## 6. Four mechanical checks that exist because of repeated mistakes
 
-All three guard the **same shape**: an action that did nothing looks exactly like one that ran
+All four guard the **same shape**: an action that did nothing looks exactly like one that ran
 and had no effect.
 
 | Check | Guards against |
@@ -444,6 +471,7 @@ and had no effect.
 | `test/features/math_reachability_test.dart` | a file under `lib/core/math/` that **nothing references** |
 | `test/features/new_text_tools_screen_test.dart` | a tool **registered but unreachable on screen** |
 | `tool/pull_device_db.sh` | pulling the SQLite database **without its `-wal`** (reads a stale value) |
+| `tool/install_debug_over_release.sh` | losing the device's debuggable build — it **sidesteps** the versionCode (build the debug variant at the installed one) instead of fighting the downgrade guard (§2) |
 
 ⚠️ **Measuring trap, learned the hard way**: `meetsGuideline` reports failures **asynchronously** —
 `expect(...)` does not throw. try/catch cannot be used to see whether it passes.
