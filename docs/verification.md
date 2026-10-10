@@ -227,8 +227,14 @@ Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
 - HiPER's own figures (size, version, memory) — seven sources tried, all blocked.
 - Appearance / interaction versus HiPER — nothing measured.
 - Device-side **pure** evaluation latency — the end-to-end path is measured, the evaluation alone is not.
-  The decision-relevant part *is*: the controller's `engineTimeout` is 5 s and a mid-weight symbolic sum
-  exceeds it.
+  ⚠️ **And the "decision-relevant part" this bullet used to assert — "the controller's `engineTimeout` is
+  5 s and a mid-weight symbolic sum exceeds it" — has no witness.** A host-side probe on 2026-10-10 could
+  not reproduce it: **every** `sum(...)` shape tried (`sum(x^n/n, n, 1, 10)`, `…, 30)`,
+  `sum(x^n/n!, n, 0, 30)`, `…, 60)`, `sum(1/n^s, n, 1, 50)`, `…, 200)`) came back **unevaluated in both
+  approximation modes** (0.0–0.7 ms — the engine echoes the call, it does not compute it), and the one
+  symbolic integral that *did* evaluate took **4.7 ms**. So the claim is not refuted either — it simply
+  **never named its witness**, and nothing in the shape its wording suggests reproduces it. §5e is that
+  probe; §2 is the engine-latency baseline that *is* measured.
 - Camera / natural-language input — not implemented (engineering scale, not a defect).
 
 ## 5b. The tool detail screen's overflow — **found, explained, and fixed**
@@ -499,6 +505,38 @@ the guideline still passes (1807 green after).
 ⚠️ **The generalisable part**: raising one cell of a **centre-aligned** row does not only change that cell's
 box — every other cell in the row re-centres. **"The extra height goes below it" is not true in a
 centre-aligned row**, and that is exactly the sentence I wrote first.
+
+### 5e. The engine's indefinite integral of a numeric power returns **±infinity** — measured
+
+Probing host-side (`tool/qalculate_semantics_probe/`, libqalculate **5.12.0** — the same version this AAR
+bundles) through the same `Calculator::calculate` the bridge enters, with the bridge's own options
+(`QalculateOptions.kt`: `allow_complex`, `mixed_units_conversion = NONE`, `angle_unit = RADIANS`,
+`comma_as_separator = false`), and **in both approximation modes**, because the app takes two paths
+(`APPROXIMATION_EXACT` for the exact form, `APPROXIMATE` for the decimal one):
+
+| input | `APPROXIMATE` | `EXACT` |
+|---|---|---|
+| `integrate(x^3, x)` | **`-infinity`** | **`-infinity`** |
+| `integrate(x^2, x)` | **`+infinity`** | **`+infinity`** |
+| `integrate(x^3, 0, 1, x)` | `0.25` ✓ | `0.25` ✓ |
+| `integrate(x^2, 0, 1, x)` | `0.3333333333333333` ✓ | same ✓ |
+| `integrate(x^n, x)` | `(x * x^n - x * x^n) / (n + 1)` | same |
+| **control** `sin(1)` | `0.8414709848078965` | **`sin(1 rad)`** |
+
+**The definite integral is right; the indefinite one is not.** `∫x³dx = x⁴/4`, and the engine answers
+`-infinity`. And `integrate(x^n, x)` prints a numerator whose two terms are **textually identical**
+(`x·x^n − x·x^n`), which **reads as 0**.
+
+⚠️ **The control row is what makes this trustworthy**: `sin(1)` differs between the two modes exactly as the
+app's two-path design requires, so "both modes agree on ±infinity" is a real agreement — not two modes that
+were silently the same object.
+
+⚠️ **What this does *not* measure: whether the app surfaces it.** Reachability is plausible — the app routes
+expressions through this same engine with these same options, and the keypad carries an `∫dx` key — but
+**plausible is not measured**, and that distinction is this file's whole point. Settling it needs either the
+Dart/Kotlin result path read for an `infinity` guard, or the device's zero-touch channel (which rewrites
+`app_settings`, so back it up and restore it byte for byte). **Recorded as measured *engine* behaviour, not
+as an app defect.**
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
