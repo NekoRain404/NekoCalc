@@ -161,11 +161,18 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
             Row(
               children: [
                 IconButton(
+                    // 中文：**补名字**（见 `tools_home_page.dart` 里那一颗的注释：
+                    //       没有 `tooltip` 的 `IconButton` 在读屏里是个没有名字的按钮）。
+                    // English: **a name added** (see the note on the same button in
+                    //          `tools_home_page.dart`: an `IconButton` without a `tooltip` is an unnamed
+                    //          button to a screen reader).
+                    tooltip: strings.back,
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back_ios_new)),
                 Expanded(
                     child: Center(child: PageTitle(categoryTitle))),
                 IconButton(
+                    tooltip: strings.searchToolTooltip,
                     onPressed: _searchFocus.requestFocus,
                     icon: const Icon(Icons.search)),
               ],

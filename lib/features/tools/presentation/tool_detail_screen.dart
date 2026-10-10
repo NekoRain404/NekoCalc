@@ -244,6 +244,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             Row(
               children: [
                 IconButton(
+                    tooltip: strings.back,
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back_ios_new)),
                 Expanded(child: Center(child: PageTitle(toolTitle))),

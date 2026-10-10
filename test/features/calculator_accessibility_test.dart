@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/domain/entities/tool_category.dart';
+import 'package:nekocalc/features/tools/presentation/tool_category_screen.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 
 /// 中文：**主屏的语义标签：拿 Flutter 自带的判据量。**
@@ -91,6 +93,28 @@ class _FakeToolsDatabase implements AppDatabase {
 }
 
 void main() {
+  testWidgets('工具分类页：返回与搜索两颗按钮都有名字', (tester) async {
+    // 中文：**这两颗此前都没有 tooltip**（与工具首页那颗搜索按钮同一类，而这一页有两颗）。
+    //       它们是全仓扫描出来的——扫的是「IconButton 的参数里没有 tooltip」，
+    //       而不是"我记得哪一页有问题"。
+    // English: **neither had a tooltip** (the same class as the tools home's search button, and this page
+    //          has two of them). They came out of a repo-wide scan for "IconButton with no tooltip in its
+    //          arguments" — not from remembering which page was broken.
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      home: ToolCategoryScreen(
+          db: _FakeToolsDatabase(),
+          category: ToolCategory.math,
+          favoriteIds: const <String>{},
+          settings: AppSettings.fallback),
+    ));
+    await tester.pumpAndSettle();
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+  });
+
   testWidgets('工具页：搜索按钮有名字', (tester) async {
     tester.view.physicalSize = const Size(360 * 3, 800 * 3);
     tester.view.devicePixelRatio = 3;
