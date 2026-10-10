@@ -55,13 +55,21 @@ Both are deliberately **not** fixed:
   is therefore something else on that screen, and "the paste / clear / copy buttons are 36 dp" —
   which this file said one revision ago — **is withdrawn**.
 
-  **The prime remaining candidate**: `IconButton.filledTonal(iconSize: 18, …)` — the
-  "copy primary result" button (`text_tool_detail_screen.dart:477`), which is a *different* button from the
-  three measured. **Untested.** (The three measured are the first three in the tree; the `iconSize: 18` one
-  is later.)
+  **And the "prime candidate" is dead too**: every `IconButton` on that screen was measured, not just the
+  first three —
 
-⚠️ **They are not the same defect**: the keypad one is a HiPER-parity trade-off, the tool one is a
-theme-density consequence. Both are the owner's call; the numbers are here so the call has evidence.
+  ```
+  BTN total=4        (nothing printed for "size != 48")
+  ```
+
+  **All four are 48×48**, including the `IconButton.filledTonal(iconSize: 18)` one. So **the `36×36` semantics
+  node is not an `IconButton` at all**, and which widget owns it is **still unidentified**.
+
+  **Two guesses have now been withdrawn on this one item** ("the buttons are 36 dp", then "it is the
+  `iconSize: 18` one"). **The next attempt should not guess a widget class: it should make
+  `androidTapTargetGuideline` name the owner** (the guideline reports the node, not the widget — dumping
+  `find.byType(Semantics)` ancestors, or bisecting by deleting subtrees, are the two routes that would
+  actually answer it).
 
 `labeledTapTargetGuideline` passes on the screens measured so far — **four unnamed buttons were found
 and fixed**: the keypad's figure-faced `[matrix]` key (no text for `InkWell` to derive from; see
