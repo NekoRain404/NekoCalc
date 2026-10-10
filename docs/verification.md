@@ -139,6 +139,16 @@ real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the fo
 **the guard and my probe are not looking at the same screen state** (different fixture / different tool /
 different point in the pump), and that is the first thing to check next — not the ratio.
 
+**Narrowed once more**: the guard and the probe use the **same tool** (`toolById('battery_life')`), so the
+difference is not which screen. The two remaining deltas are:
+
+1. the guard uses **`const _EmptyDatabase()`**, the probe used a stub whose `noSuchMethod` returns
+   `Future<void>.value()`;
+2. the guard **pre-pumps `const MaterialApp(home: SizedBox.shrink())`** and `pump()`s before mounting the
+   screen — the probe went straight to the screen.
+
+**One of those two is where to look next.** Neither has been tested.
+
 ⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
 this defect is measured; only this last step is open.
 
