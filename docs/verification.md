@@ -14,14 +14,26 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 | Tools reachable **on screen** | widget tests that open the tool and assert its output | `test/features/new_text_tools_screen_test.dart` |
 | Accessibility labels | Flutter's `labeledTapTargetGuideline`, at device size | `test/features/calculator_accessibility_test.dart` |
 
-## 2. Baselines (measured 2026-09-30; numbers, not impressions)
+## 2. Baselines (measured 2026-09-30; **two of them re-checked 2026-10-10**)
 
-| Quantity | Value |
-|---|---|
-| Release APK, `--split-per-abi` arm64-v8a | 32.6 MB |
-| Cold start `am start -W` | debug 1.75 s / **release 0.33 s** |
-| Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms |
-| Memory, release, idle | TOTAL PSS 216 MB |
+| Quantity | Value | Re-checked 2026-10-10 |
+|---|---|---|
+| Release APK, `--split-per-abi` arm64-v8a | 32.6 MB | **32.64 MB — unchanged** |
+| Cold start `am start -W` | debug 1.75 s / **release 0.33 s** | **debug 1.75–1.76 s** (`1913 / 1761 / 1754` ms; the first is the run right after `force-stop`). **Release not re-measured** — see below |
+| Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms | not re-measured |
+| Memory, release, idle | TOTAL PSS 216 MB | **not re-measured.** (Debug idle measured at **391 MiB / 400,259 KB** — a *different build type*, **not comparable to 216 MB**) |
+
+⚠️ **Why the two release numbers were not re-measured.** Both need a **release APK installed**, and the device
+carries the **debug** build (`versionCode=2009`). Installing release (`4009`) upgrades past it and then **blocks
+the debug build** (`INSTALL_FAILED_VERSION_DOWNGRADE`), whose only recovery is **uninstall + reinstall + restore
+the database** — that is, the app's own data. **The measurement was declined deliberately, not missed**; the
+numbers above are still the 2026-09-30 ones and are marked as such. The debug rows were refreshed because
+launching an already-installed build mutates nothing.
+
+⚠️ **And a trap that nearly produced a false regression.** The *same* arm64-v8a artifact reads **32.64 MB** from
+`ls -l` (binary MiB — the unit this table uses) and **"34.2MB"** in Flutter's own build output (decimal MB,
+34.2 × 10⁶ bytes). Comparing the build log against this table reports a **1.6 MB regression that does not
+exist** — 34.2 × 10⁶ / 2²⁰ = 32.62. **Match the unit before matching the number.**
 
 ⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
 
