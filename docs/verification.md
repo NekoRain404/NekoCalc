@@ -126,10 +126,21 @@ real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the fo
 | Do the guards set a device surface? | **Yes** — `physicalSize` is set in all three |
 | Does the screen throw before layout (which would leave no `Text` widgets at all)? | **No** — tested: with `1.35` applied the guard reports a **`TestFailure`** (its own assertion), not an exception during layout. That candidate is ruled out. |
 
-**Three candidates ruled out, cause still open.** What is known: the guard runs, the screen builds, and its
-filter (`Text` with `maxLines == 1` **and** `fontSize == 12`) matches **nothing** once the cells are taller.
-**The next attempt should look at what `DetailMetric` actually renders at that height** — the filter is the
-only thing between "the tree exists" and "zero matches".
+**Four candidates examined, and the cause is still unexplained — the evidence now contradicts itself:**
+
+| Checked | Result |
+|---|---|
+| Is the assertion running at the default 800×600 surface? | **No** — the `boxes` assertion (`:105`) is inside the same `testWidgets` that sets `physicalSize = Size(360*3, 2200*3)` (`:63`) |
+| Does `DetailMetric`'s label have `maxLines: 1` / `fontSize: 12` only under some condition? | **No** — read the source: `tool_widgets.dart:436` renders that `Text` **unconditionally**, with `maxLines: 1` and `fontSize: 12` |
+| Does the screen render anything at all at `1.35`? | **Yes** — a probe at `1.35` found **73** non-empty `Text` widgets |
+
+**So the source says "that label always exists", the probe says "73 texts are there", and the guard says
+"zero match". Three facts that cannot all be true of one run.** The most likely remaining difference is that
+**the guard and my probe are not looking at the same screen state** (different fixture / different tool /
+different point in the pump), and that is the first thing to check next — not the ratio.
+
+⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
+this defect is measured; only this last step is open.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
