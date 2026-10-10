@@ -44,12 +44,21 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 Both are deliberately **not** fixed:
 
 - the keypad's rows are **laid out to match HiPER** and raising them shoves the whole keypad around;
-- the tool buttons are stock `IconButton`s; **what sets them to 36 dp has not been found.** Ruled out so
-  far: not a global `VisualDensity`/`materialTapTargetSize` (a repo-wide grep finds no such setting), and
-  not `MaterialTapTargetSize.shrinkWrap` (all five uses are in `calculator_page_dataset_sheet.dart`, not in
-  `text_tool_detail_screen.dart`). The row holding them (`:400`) is a plain `Row` of `Expanded` +
-  two `IconButton`s with no height constraint — **so the next attempt should measure the button itself, not
-  the theme.**
+- ⚠️ **the tool buttons — my first statement of this was wrong, and measuring the buttons themselves
+  corrected it.** The `IconButton`s on the text-tool detail screen measure **48×48**, `BoxConstraints(unconstrained)`:
+
+  ```
+  BTN size=Size(48.0, 48.0) constraints=BoxConstraints(unconstrained)   (×3)
+  ```
+
+  So **the buttons are not 36 dp.** What `androidTapTargetGuideline` flagged as a `36×36` *semantics node*
+  is therefore something else on that screen, and "the paste / clear / copy buttons are 36 dp" —
+  which this file said one revision ago — **is withdrawn**.
+
+  **The prime remaining candidate**: `IconButton.filledTonal(iconSize: 18, …)` — the
+  "copy primary result" button (`text_tool_detail_screen.dart:477`), which is a *different* button from the
+  three measured. **Untested.** (The three measured are the first three in the tree; the `iconSize: 18` one
+  is later.)
 
 ⚠️ **They are not the same defect**: the keypad one is a HiPER-parity trade-off, the tool one is a
 theme-density consequence. Both are the owner's call; the numbers are here so the call has evidence.
