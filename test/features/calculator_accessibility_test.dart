@@ -15,16 +15,25 @@ import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
 ///       （`variant.label`——键位表、横带提示、逐格快照用的都是它）接到语义树上。
 ///       **不是给它取名字，是把它已有的名字接上去。**
 ///
-/// ⚠️ **另一条判据（`androidTapTargetGuideline`，每个可点目标 ≥48dp）在这里也没有断言——
-/// 而理由变了。** 我第一版量出来"每行只有 26 dp、不达标"，那是**默认 800×600 测试面**
-/// 把键盘压扁造成的；**按真机尺寸（360×800）重量，它通过。**
-/// **所以它不断言不是因为"那是权衡"，是因为它本来就过**——而这一条更正留在
-/// `.superpowers/backup/comparison-with-hiper.md` 第十一节。
-/// English: **the other guideline is not asserted here either — but the reason changed.** My first version
-///          measured "every row is only 26 dp, below the guideline", which was the **default 800×600 test
-///          surface** squashing the keypad; **re-measured at device size (360×800) it passes.** So it is
-///          unasserted not because "it is a trade-off" but because **it already passes** — and that
-///          correction lives in section 十一 of `.superpowers/backup/comparison-with-hiper.md`.
+/// ⚠️ **另一条判据（`androidTapTargetGuideline`，每个可点目标 ≥48dp）在这里没有断言，
+/// 而它确实不通过**：键盘每行 **48.3 × 24.2 dp**，在**测过的每一个尺寸上**都不通过。
+/// 不断言的理由是**那是权衡**——加高会挤动整块键盘，而键盘是照着 HiPER 排的。
+/// **一条会把权衡说成缺陷的测试，与本仓那条"判据要挂在哪一个是错的"是同一类问题。**
+/// 数记在 `.superpowers/backup/comparison-with-hiper.md` 第十一节（那里也记着我一度把它误撤回）。
+///
+/// ⚠️ **还有一条方法上的坑**：`meetsGuideline` 的失败是**异步上报**的——
+/// `expect(...)` 不抛异常，测试在结尾才红。**所以不能用 try/catch 去"看它过不过"。**
+/// English: **the other guideline is not asserted here, and it genuinely fails**: each keypad row is
+///          **48.3 × 24.2 dp** and it fails **at every size tested**. It is unasserted because that is a
+///          **trade-off** — raising the rows shoves the whole keypad around, and the keypad is laid out to
+///          match HiPER. **A test that calls a trade-off a defect is the same kind of problem as this
+///          repository's rule that a judgement must hang on which one is wrong.** The numbers are in
+///          section 十一 of `.superpowers/backup/comparison-with-hiper.md` (which also records that I once
+///          retracted them by mistake).
+///
+///          ⚠️ **One more trap**: `meetsGuideline` reports failures **asynchronously** — `expect(...)` does
+///          not throw and the test goes red at the end. **So try/catch cannot be used to "see whether it
+///          passes".**
 /// English: **the main screen's semantic labels, measured against Flutter's own guideline.**
 ///
 ///          ⚠️ **It used to fail across the keypad**, for a specific reason (measured): a key face is either
