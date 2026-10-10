@@ -16,6 +16,7 @@ import '../../../data/repositories/notes_repository.dart';
 import '../../../data/repositories/settings_repository.dart';
 import '../../../shared/presentation/calc_theme.dart';
 import 'calculator_strings.dart';
+import 'calculator_submit_message.dart';
 import 'keypad/calculator_keypad.dart';
 import 'keypad/hiper_keypad.dart';
 import 'result_form.dart';

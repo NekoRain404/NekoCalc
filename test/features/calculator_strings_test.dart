@@ -59,6 +59,24 @@ void main() {
     expect(zh.detailsCopyFailed, '无法复制计算详情');
     expect(zh.clipboardReadFailed, '无法读取剪贴板');
     expect(zh.pasteDetailsTooltip, '粘贴计算详情');
+    // —— `=` 提交路径的回执 ——
+    // 中文：这八句原先在领域层（`calculator_submit_result.dart` 的 `message:`）当场拼好并直接
+    //       上屏，所以英文界面下也是中文。搬进本表时**一个字节都没动**，这里与
+    //       `test/domain/calculator_submit_result_test.dart` 那份旧文案对照表一起钉住这件事。
+    // English: these eight used to be composed in the domain layer (`message:` in
+    //          `calculator_submit_result.dart`) and printed straight, so an English interface showed
+    //          Chinese too. Moving them into this table **changed not one byte**, which is what this
+    //          block and the legacy-sentence table in `test/domain/calculator_submit_result_test.dart`
+    //          pin together.
+    expect(zh.submitEmptyExpression, '请输入表达式后再计算');
+    expect(zh.submitInvalidExpression('缺少右括号'), '表达式需要修正：缺少右括号');
+    expect(zh.submitCalculated, '已计算结果');
+    expect(zh.submitHistorySaved, '已计算并保存到历史');
+    expect(zh.submitHistorySkippedDuplicate, '已计算，重复历史已跳过');
+    expect(zh.submitHistoryNotWritten, '已计算，但历史没有写入，请重试');
+    expect(zh.submitHistoryFailed('Bad state: db locked'),
+        '已计算，但保存历史失败：Bad state: db locked');
+    expect(zh.submitSuperseded, '输入已更新，本次计算结果未采用');
     // —— `CONV` 单位面板 ——
     expect(zh.unitSearchHint, '搜索单位（米、km、mile…）');
     expect(zh.unitSheetHint, '点一个单位插进表达式；两个单位之间点「到」');
@@ -178,6 +196,17 @@ void main() {
       [zh.detailsCopyFailed, en.detailsCopyFailed],
       [zh.clipboardReadFailed, en.clipboardReadFailed],
       [zh.pasteDetailsTooltip, en.pasteDetailsTooltip],
+      // 中文：提交回执的八句也走这一组——两格里是函数的用一组固定载荷比。
+      // English: the eight submit receipts join this group too — the two function cells are compared
+      //          with one fixed payload each.
+      [zh.submitEmptyExpression, en.submitEmptyExpression],
+      [zh.submitInvalidExpression('x'), en.submitInvalidExpression('x')],
+      [zh.submitCalculated, en.submitCalculated],
+      [zh.submitHistorySaved, en.submitHistorySaved],
+      [zh.submitHistorySkippedDuplicate, en.submitHistorySkippedDuplicate],
+      [zh.submitHistoryNotWritten, en.submitHistoryNotWritten],
+      [zh.submitHistoryFailed('x'), en.submitHistoryFailed('x')],
+      [zh.submitSuperseded, en.submitSuperseded],
       [zh.unitSearchHint, en.unitSearchHint],
       [zh.unitSheetHint, en.unitSheetHint],
       [zh.noMatchingUnits, en.noMatchingUnits],
@@ -258,6 +287,14 @@ void main() {
       'detailsCopyFailed': en.detailsCopyFailed,
       'clipboardReadFailed': en.clipboardReadFailed,
       'pasteDetailsTooltip': en.pasteDetailsTooltip,
+      'submitEmptyExpression': en.submitEmptyExpression,
+      'submitInvalidExpression': en.submitInvalidExpression('missing )'),
+      'submitCalculated': en.submitCalculated,
+      'submitHistorySaved': en.submitHistorySaved,
+      'submitHistorySkippedDuplicate': en.submitHistorySkippedDuplicate,
+      'submitHistoryNotWritten': en.submitHistoryNotWritten,
+      'submitHistoryFailed': en.submitHistoryFailed('Bad state: db locked'),
+      'submitSuperseded': en.submitSuperseded,
       'unitSearchHint': en.unitSearchHint,
       'unitSheetHint': en.unitSheetHint,
       'noMatchingUnits': en.noMatchingUnits,

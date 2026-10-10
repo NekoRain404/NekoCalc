@@ -232,8 +232,15 @@ extension _CalculatorKeyDispatch on _CalculatorPageState {
       case 'equals':
         final submitResult = await _controller.submit();
         if (mounted && submitResult.needsAttention) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(submitResult.message)));
+          // 中文：**表在 await 之后取**（`submit()` 是异步的）。回执那八句话住在表里、领域层只给
+          //       令牌，所以这一处是它们唯一的上屏口；取的是当前语言的表，屏幕上就是当前语言的字。
+          // English: **the table is taken after the await** (`submit()` is asynchronous). The eight
+          //          receipts live in that table and the domain layer hands over the token only, which
+          //          makes this their one mouth to the screen; the table taken is the active language's,
+          //          so the words on screen are that language's.
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(calculatorSubmitMessage(
+                  submitResult, CalculatorStrings.of(context)))));
         }
       // 中文：DRG 是循环键（HiPER 一个键在 DEG 与 RAD 之间切换），不是两个键。
       // English: DRG cycles (HiPER has one key switching between DEG and RAD, not two).

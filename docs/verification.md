@@ -813,8 +813,16 @@ stale-language path was found**.
 sentences that reach the screen via `SnackBar(content: Text(result.message))`
 (`calculator_key_dispatch.dart:236`) and `Text(result.message)` (`calculator_page_sheets.dart:345`). A domain
 object that outlives the UI cannot be localised by a widget-level strings table; the fix is a **token or enum
-on the result, translated at the presentation edge** — the shape the tool-result path already uses. That is a
-multi-file refactor, so it is recorded here rather than started.
+on the result, translated at the presentation edge** — the shape the tool-result path already uses.
+
+**First path done (2026-10-10).** The calculator submit path now has that shape: the domain result carries only
+its `CalculatorSubmitStatus` token plus payloads — its unnamed constructor is **private**, so a variant whose
+payload is missing cannot be constructed and the edge never renders half a sentence — the eight sentences live
+in `calculator_strings.dart` (Chinese byte-identical, English added), and one new presentation function
+`calculatorSubmitMessage(result, strings)` renders them where the `SnackBar` is built. The guard mirrors the
+tool path's: a legacy-sentence table in both directions, an en-rendering check that forbids CJK, and a source
+scan that fails if a wide literal reappears in the domain file. **The remaining families listed above are still
+in the old shape** — this was the first slice, not the sweep.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 

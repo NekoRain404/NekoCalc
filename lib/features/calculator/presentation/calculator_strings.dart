@@ -78,6 +78,15 @@ class CalculatorStrings {
     required this.clipboardReadFailed,
     required this.pasteDetailsTooltip,
     required this.pasteSummary,
+    // —— `=` 提交路径的回执 ——
+    required this.submitEmptyExpression,
+    required this.submitInvalidExpression,
+    required this.submitCalculated,
+    required this.submitHistorySaved,
+    required this.submitHistorySkippedDuplicate,
+    required this.submitHistoryNotWritten,
+    required this.submitHistoryFailed,
+    required this.submitSuperseded,
     // —— `CONV` 单位面板 ——
     required this.unitSearchHint,
     required this.unitSheetHint,
@@ -199,6 +208,47 @@ class CalculatorStrings {
   ///          shape as `DataFitStrings.fit`. That is why this cell is the table itself rather than a
   ///          `String`: a paste receipt is seven sentences and one cell cannot hold them.
   final CalculatorPasteStrings pasteSummary;
+
+  // —— `=` 提交路径的回执 ——
+  /// 中文：**按下等号那条路的八句回执。** 它们原先住在领域层
+  ///       （`lib/domain/usecases/calculator_submit_result.dart` 上 `message` 字段当场拼出来的
+  ///       八句话），由 `calculator_key_dispatch.dart` 的 `SnackBar` 直接印。**领域对象活得比界面
+  ///       长**，这张表够不着它，所以那八句话在任何界面语言下都是中文——`docs/verification.md`
+  ///       §5i 记着这条层次性缺陷。
+  ///
+  ///       现在领域层只留令牌（`CalculatorSubmitStatus`，八格一一对应下面这八格），字在这里，
+  ///       由 `calculator_submit_message.dart` 的 `calculatorSubmitMessage(result, strings)` 在
+  ///       呈现边缘取。**中文逐字节与从前相同**（默认语言是中文），由
+  ///       `test/domain/calculator_submit_result_test.dart` 那份旧文案对照表与
+  ///       `calculator_strings_test.dart` 逐条钉住。
+  ///
+  ///       两格是函数（`$errorMessage` / `$error` 那个载荷由调用方递进来）：`invalidExpression`
+  ///       接的是控制器翻好的出错原因，`historyFailed` 接的是异常的技术串。
+  /// English: **the eight receipts of the "pressed =" path.** They used to live in the domain layer
+  ///          (`message`, composed on the spot in `lib/domain/usecases/calculator_submit_result.dart`)
+  ///          and were printed straight by `calculator_key_dispatch.dart`'s `SnackBar`. **A domain
+  ///          object outlives the UI**, so this table could not reach it and those eight sentences
+  ///          were Chinese under every interface language — the layering defect recorded in
+  ///          `docs/verification.md` §5i.
+  ///
+  ///          The domain now keeps only the token (`CalculatorSubmitStatus`, its eight values one for
+  ///          one with the cells below); the words are here, read at the presentation edge by
+  ///          `calculatorSubmitMessage(result, strings)` in `calculator_submit_message.dart`. **The
+  ///          Chinese is byte-identical to what it was** (Chinese is the default language), pinned by
+  ///          the legacy-sentence table in `test/domain/calculator_submit_result_test.dart` and cell by
+  ///          cell in `calculator_strings_test.dart`.
+  ///
+  ///          Two cells are functions (the `$errorMessage` / `$error` payload comes from the caller):
+  ///          `invalidExpression` receives the controller's translated reason, `historyFailed` an
+  ///          exception's technical string.
+  final String submitEmptyExpression;
+  final String Function(String errorMessage) submitInvalidExpression;
+  final String submitCalculated;
+  final String submitHistorySaved;
+  final String submitHistorySkippedDuplicate;
+  final String submitHistoryNotWritten;
+  final String Function(String error) submitHistoryFailed;
+  final String submitSuperseded;
 
   // —— `CONV` 单位面板 ——
   final String unitSearchHint;
@@ -342,6 +392,14 @@ class CalculatorStrings {
     clipboardReadFailed: '无法读取剪贴板',
     pasteDetailsTooltip: '粘贴计算详情',
     pasteSummary: CalculatorPasteStrings.zh,
+    submitEmptyExpression: '请输入表达式后再计算',
+    submitInvalidExpression: (errorMessage) => '表达式需要修正：$errorMessage',
+    submitCalculated: '已计算结果',
+    submitHistorySaved: '已计算并保存到历史',
+    submitHistorySkippedDuplicate: '已计算，重复历史已跳过',
+    submitHistoryNotWritten: '已计算，但历史没有写入，请重试',
+    submitHistoryFailed: (error) => '已计算，但保存历史失败：$error',
+    submitSuperseded: '输入已更新，本次计算结果未采用',
     unitSearchHint: '搜索单位（米、km、mile…）',
     unitSheetHint: '点一个单位插进表达式；两个单位之间点「到」',
     noMatchingUnits: '没有匹配的单位',
@@ -440,6 +498,23 @@ class CalculatorStrings {
     clipboardReadFailed: 'Could not read the clipboard',
     pasteDetailsTooltip: 'Paste calculation details',
     pasteSummary: CalculatorPasteStrings.en,
+    // 中文：与中文那一份逐条对应，语声与相邻几格一致（短回执、句末不带句号；
+    //       「表达式需要修正」那半句与 `CalculatorControllerStrings.statusNeedsFix` 同一个说法）。
+    // English: one for one with the Chinese side, in the voice of the neighbouring cells (short
+    //          receipts without a final period; the "expression needs fixing" half is worded the same
+    //          as `CalculatorControllerStrings.statusNeedsFix`).
+    submitEmptyExpression: 'Enter an expression before calculating',
+    submitInvalidExpression: (errorMessage) =>
+        'The expression needs fixing: $errorMessage',
+    submitCalculated: 'Calculated',
+    submitHistorySaved: 'Calculated and saved to history',
+    submitHistorySkippedDuplicate:
+        'Calculated; the duplicate history entry was skipped',
+    submitHistoryNotWritten:
+        'Calculated, but the history entry was not written; try again',
+    submitHistoryFailed: (error) =>
+        'Calculated, but saving to history failed: $error',
+    submitSuperseded: 'The input changed, so this result was not adopted',
     unitSearchHint: 'Search units (m, km, mile…)',
     unitSheetHint: 'Tap a unit to insert it; tap "to" between the two units',
     noMatchingUnits: 'No matching units',

@@ -9,6 +9,9 @@ import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/settings_repository.dart';
 import 'package:nekocalc/domain/usecases/calculator_save_result.dart';
 import 'package:nekocalc/domain/usecases/calculator_submit_result.dart';
+import 'package:nekocalc/features/calculator/presentation/calculator_strings.dart';
+import 'package:nekocalc/features/calculator/presentation/calculator_submit_message.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   test('reload settings after import restores calculator state', () async {
@@ -349,7 +352,13 @@ void main() {
     final submitResult = await controller.submit();
     expect(submitResult.submitted, isFalse);
     expect(submitResult.status, CalculatorSubmitStatus.invalidExpression);
-    expect(submitResult.message, '表达式需要修正：结果不是有限数值');
+    // 中文：回执那句话说在呈现边缘（`calculatorSubmitMessage` 按令牌取表），所以这里量的是
+    //       「中文表 + 这个令牌」印出来的那句话——与迁移前 `result.message` 逐字节相同。
+    // English: the receipt sentence is rendered at the presentation edge
+    //          (`calculatorSubmitMessage` looks the table up by token), so what is measured here is
+    //          what "the Chinese table + this token" prints — byte-identical to the old
+    //          `result.message`.
+    expect(_receipt(submitResult), '表达式需要修正：结果不是有限数值');
     expect(controller.result, '结果不是有限数值');
     expect(db.savedHistory, isEmpty);
 
@@ -401,8 +410,7 @@ void main() {
       expect(submitResult.submitted, isFalse, reason: source);
       expect(submitResult.status, CalculatorSubmitStatus.invalidExpression,
           reason: source);
-      expect(submitResult.message, '表达式需要修正：结果不是有限数值',
-          reason: source);
+      expect(_receipt(submitResult), '表达式需要修正：结果不是有限数值', reason: source);
       expect(controller.result, '结果不是有限数值', reason: source);
       expect(db.savedHistory, isEmpty, reason: source);
 
@@ -538,7 +546,7 @@ void main() {
     expect(result.status, CalculatorSubmitStatus.historyNotWritten);
     expect(result.submitted, isTrue);
     expect(result.needsAttention, isTrue);
-    expect(result.message, '已计算，但历史没有写入，请重试');
+    expect(_receipt(result), '已计算，但历史没有写入，请重试');
     expect(db.savedHistory, isEmpty);
 
     controller.dispose();
@@ -564,7 +572,7 @@ void main() {
     final failed = await controller.submit();
     expect(failed.status, CalculatorSubmitStatus.historyFailed);
     expect(failed.needsAttention, isTrue);
-    expect(failed.message, contains('保存历史失败'));
+    expect(_receipt(failed), contains('保存历史失败'));
     expect(db.savedHistory, isEmpty);
 
     final retried = await controller.submit();
@@ -574,6 +582,17 @@ void main() {
     controller.dispose();
   });
 }
+
+/// 中文：**提交回执在呈现边缘渲染**（领域层只给令牌，字在 `CalculatorStrings` 里）。
+///       这份测试量的是控制器与领域的行为，所以读回执时走与屏幕同一条路：中文表 +
+///       `calculatorSubmitMessage`——也正是从前 `result.message` 那句话的出处。
+/// English: **the submit receipt is rendered at the presentation edge** (the domain layer hands over
+///          the token, the words live in `CalculatorStrings`). This test measures the controller's and
+///          the domain's behaviour, so it reads the receipt the way the screen does: the Chinese table
+///          plus `calculatorSubmitMessage` — which is exactly where the old `result.message` came from.
+String _receipt(CalculatorSubmitResult result) => calculatorSubmitMessage(
+    result, CalculatorStrings.forLanguage(AppLanguage.zh));
+
 CalculatorController _controller(
   _FakeDatabase db, {
   AppSettings settings = const AppSettings(
