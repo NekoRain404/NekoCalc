@@ -65,11 +65,30 @@ Both are deliberately **not** fixed:
   **All four are 48×48**, including the `IconButton.filledTonal(iconSize: 18)` one. So **the `36×36` semantics
   node is not an `IconButton` at all**, and which widget owns it is **still unidentified**.
 
-  **Two guesses have now been withdrawn on this one item** ("the buttons are 36 dp", then "it is the
-  `iconSize: 18` one"). **The next attempt should not guess a widget class: it should make
-  `androidTapTargetGuideline` name the owner** (the guideline reports the node, not the widget — dumping
-  `find.byType(Semantics)` ancestors, or bisecting by deleting subtrees, are the two routes that would
-  actually answer it).
+  **Two guesses had to be withdrawn** ("the buttons are 36 dp", then "it is the `iconSize: 18` one") before
+  the tree itself named the owner — walking `find.byType(Semantics)` and printing the **ancestor chain** of
+  every node under 48 dp gave it in one run:
+
+  ```
+  NODE size=Size(36.0, 36.0)
+    chain = _OverlayPortal < OverlayPortal < RawTooltip < Tooltip < **IconToolButton** < Row < …
+  ```
+
+  **`IconToolButton` is this project's own widget**, not a Flutter one — which is exactly why grepping for
+  `IconButton` kept coming up empty. And its cause is one hard-coded number
+  (`lib/shared/presentation/app_chrome.dart:64`):
+
+  ```dart
+  width: 36,
+  ```
+
+  **So the root cause is found: a shared chrome widget pins its box to 36 dp.** The standard fix is a 48 dp
+  *tap target* around a 36 dp *visual*, which **changes its footprint app-wide** — so it needs the layout
+  guards re-checked, and that is why it is **recorded rather than changed here.**
+
+  **The transferable part**: two guesses were wrong and cost budget; the run that printed the ancestor chain
+  cost one probe and was right. **When a measurement can name the owner, take that instead of guessing the
+  class.**
 
 `labeledTapTargetGuideline` passes on the screens measured so far — **four unnamed buttons were found
 and fixed**: the keypad's figure-faced `[matrix]` key (no text for `InkWell` to derive from; see
