@@ -10,6 +10,7 @@ import 'package:nekocalc/features/tools/presentation/tool_catalog_strings.dart';
 import 'package:nekocalc/features/tools/presentation/tool_widgets.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 import 'package:nekocalc/shared/presentation/app_theme.dart';
+import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
 import '../shared/roboto_regular_advances.dart';
 
@@ -219,11 +220,13 @@ const double _fontSize = 14;
 const double _letterSpacing = 0.25;
 
 /// 中文：把真字体装进测试环境后的主题：**只有字体这一项与 `AppTheme` 不同**，所以量到的字号、字距、
-///       内边距与设备一致。
+///       内边距与设备一致。基准主题取 [CalcTheme.fallback]，即用户没改过主题时应用真正装的那一份。
 /// English: the theme with the real fonts loaded: **the fonts are the only thing that differs from
-///          `AppTheme`**, so the font size, letter spacing and padding measured are the device's.
+///          `AppTheme`**, so the font size, letter spacing and padding measured are the device's. The
+///          base theme is [CalcTheme.fallback], the one the app really installs until the user picks
+///          another.
 ThemeData _theme() {
-  final base = AppTheme.light();
+  final base = AppTheme.light(CalcTheme.fallback);
   return base.copyWith(
     textTheme: base.textTheme
         .apply(fontFamily: 'Roboto', fontFamilyFallback: const ['NotoCJK']),

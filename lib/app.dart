@@ -84,8 +84,13 @@ class _NekoCalcAppState extends State<NekoCalcApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: AppInfo.name,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      // 中文：主题由 `_calcTheme`——也驱动计算页的那一份——派生，不另立第二个真源。
+      //       切主题时两者一起走，不会出现"主页换了色、其余页面没换"。
+      // English: Both themes derive from `_calcTheme`, the very value that drives the calculator
+      //          page — no second source of truth. One switch moves both, so the home page and the
+      //          rest of the app can no longer disagree.
+      theme: AppTheme.light(_calcTheme),
+      darkTheme: AppTheme.dark(_calcTheme),
       themeMode: _themeMode,
       // 中文：两个作用域装在 **Navigator 之上**（`builder` 的 child 就是 Navigator），而不是装在
       //       `home:` 里。这是必须的：`Navigator.push` 压上来的路由——设置页正是其中之一——与
