@@ -44,8 +44,12 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 Both are deliberately **not** fixed:
 
 - the keypad's rows are **laid out to match HiPER** and raising them shoves the whole keypad around;
-- the tool buttons are stock `IconButton`s whose size comes from the **theme's density**, so changing
-  them is a theme-level decision, not a local edit.
+- the tool buttons are stock `IconButton`s; **what sets them to 36 dp has not been found.** Ruled out so
+  far: not a global `VisualDensity`/`materialTapTargetSize` (a repo-wide grep finds no such setting), and
+  not `MaterialTapTargetSize.shrinkWrap` (all five uses are in `calculator_page_dataset_sheet.dart`, not in
+  `text_tool_detail_screen.dart`). The row holding them (`:400`) is a plain `Row` of `Expanded` +
+  two `IconButton`s with no height constraint — **so the next attempt should measure the button itself, not
+  the theme.**
 
 ⚠️ **They are not the same defect**: the keypad one is a HiPER-parity trade-off, the tool one is a
 theme-density consequence. Both are the owner's call; the numbers are here so the call has evidence.
