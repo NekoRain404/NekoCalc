@@ -147,7 +147,21 @@ difference is not which screen. The two remaining deltas are:
 2. the guard **pre-pumps `const MaterialApp(home: SizedBox.shrink())`** and `pump()`s before mounting the
    screen — the probe went straight to the screen.
 
-**One of those two is where to look next.** Neither has been tested.
+**And that pair has now been tested — the answer is "neither".** A probe that mimics the guard's fixture
+exactly (`const _EmptyDb()`, the `SizedBox.shrink()` pre-pump, `toolById('battery_life')`, the 360×2200
+surface) reports, **at `1.35`**:
+
+```
+MIMIC maxLines1+size12 = 14
+```
+
+**Fourteen matching cells at the new ratio.** So the taller cells do **not** make the labels disappear, and
+**the ratio is not why that guard's `boxes` is empty** — which also means my earlier reading ("the change
+reddens four guards *because* the cells vanish") was **wrong about the mechanism**.
+
+**What is still true**: the four guards do redden when the ratio changes, and one of them reports `boxes`
+empty. **What is no longer believed**: that the ratio makes the cells vanish. **The next attempt should read
+that guard's own body line by line** — the difference is inside it, not in the fixture and not in the ratio.
 
 ⚠️ **This is written down because a contradiction is more useful than a tidy guess.** Everything else about
 this defect is measured; only this last step is open.
