@@ -66,14 +66,22 @@ const double _errorMessageFontSize = 12;
 ///          while `hasError` is true — see that field and `_errorLine`.
 ///
 /// 高度契约 / Height contract:
-/// 中文：调用方必须给本组件一个**有界**的高度，且错误行可见时**不低于 176dp**。面板里与字体无关的
-///       固定部分共 74dp：状态行 40 + 间距 16（状态行下 6、结果行上 6、错误行上 4）+ 上下内边距
+/// 中文：调用方必须给本组件一个**有界**的高度，且错误行可见时**不低于 182dp**。面板里与字体无关的
+///       固定部分共 82dp：状态行 48 + 间距 16（状态行下 6、结果行上 6、错误行上 4）+ 上下内边距
 ///       8/10。其余全归内容：表达式行、结果行，以及最多两行的错误提示——按真实 Android 字体度量
 ///       （拉丁 ≈1.17em、CJK ≈1.45em）算，整套内容一行错误提示时约需 147.5dp、两行时约需 165dp。
 ///       `lib/` 里没有任何地方限制系统字体缩放，所以 150dp 这类下限会在窗口高度低于约 395dp 时
-///       必然放不下（横屏、分屏、自由窗口都命中），上层的显示区高度因此 clamp 在 176–230dp。
-/// English: The caller must give this widget a **bounded** height, and **at least 176dp** while the
-///          error line is showing. Font-independent chrome is 74dp: the 40dp status row, 16dp of
+///       必然放不下（横屏、分屏、自由窗口都命中），上层的显示区高度因此 clamp 在 182–230dp。
+///
+///       ⚠️ **这条下限是 176 → 182 涨上来的，涨的 6dp 是可达性换来的。** 状态行原来 40dp，
+///       而它里面两颗按钮（☰ 与 `More...`）都是**可点的**，40 < 48——`androidTapTargetGuideline`
+///       在它们上不通过（那颗 ☰ 实测语义节点 40 × 40）。把状态行撑到 48 之后两颗都达标
+///       （`More...` 同时从 34 抬到 48），代价就是这一行多了 8dp；面板内边距吸收了 2dp，
+///       于是下限净涨 6dp。**实测**：把状态行在 48 与 40 之间来回切、别的什么都不动，
+///       结果行取到自然高度（51.98dp）所需的面板高度正好是 176 → 182
+///       （判据 = 天花板 ≥ 自然高度：`(h − 48 − 12 − 18)/2 ≥ 51.98` ⟹ `h ≥ 181.96`）。
+/// English: The caller must give this widget a **bounded** height, and **at least 182dp** while the
+///          error line is showing. Font-independent chrome is 82dp: the 48dp status row, 16dp of
 ///          gaps (6 under the status row, 6 above the result, 4 above the error) and 18dp of
 ///          padding. Everything else belongs to content — the expression line, the result line and
 ///          an error line of up to two lines: under real Android font metrics (≈1.17em for Latin,
@@ -81,29 +89,46 @@ const double _errorMessageFontSize = 12;
 ///          with a two-line one. Nothing in `lib/` clamps the OS font scale, so a 150dp floor like
 ///          that one cannot fit whenever the window is under roughly 395dp tall — landscape, split
 ///          screen and freeform all land there — and the screen's display band is therefore clamped
-///          to 176–230dp.
+///          to 182–230dp.
+///
+///          ⚠️ **That floor rose from 176 to 182, and the 6dp bought accessibility.** The status row
+///          used to be 40dp, and the two buttons inside it (☰ and `More...`) are **tappable**, so
+///          40 < 48 — `androidTapTargetGuideline` failed on them (the ☰ measures 40 × 40 as a
+///          semantics node). At 48 both clear it (`More...` also rises from 34 to 48) and the row
+///          costs 8dp; the panel's padding absorbs 2, so the floor nets +6. **Measured**: with the
+///          status row toggled between 48 and 40 and nothing else touched, the panel height at which
+///          the result row reaches its natural 51.98dp is exactly 176 → 182
+///          (the condition is ceiling ≥ natural: `(h − 48 − 12 − 18)/2 ≥ 51.98` ⟹ `h ≥ 181.96`).
 /// 中文：高度真被压到下限以下（矮窗口 + 大字体缩放）时，先挤表达式行，再由错误行收缩、多出来的
 ///       笔画被裁掉——错误行不再是 RenderFlex 溢出的来源。**结果行同样可以缩**：引擎的精确形式
 ///       （堆叠分数、根号套分数）让这一行的高度不再固定，它拿到的是「最多能有多高」的上限，
 ///       真放不下时由 `FittedBox` 等比缩小，而不是把内容裁掉。（状态行是唯一真正固定的行：
-///       它连同内边距与间隙约需 58dp。）
+///       它连同内边距与间隙约需 66dp。）
 ///
 ///       **实测数字**（`flutter_test`，320dp 宽；「结果行高度」= 结果行那一个 `Align` 的高度；
-///       面板 176dp 无错误行时它分到的上限是 53dp =（176 − 40 − 12 − 18）/ 2）：
+///       面板 182dp 无错误行时它分到的上限是 52dp =（182 − 48 − 12 − 18）/ 2）：
 ///
 ///       | 场景 | 结果行 | 整列 |
 ///       |---|---|---|
-///       | 176dp / 1×，精确形式 `\frac{1}{\sqrt{2}}` | 32.4dp（自然高度） | 无溢出 |
-///       | 230dp / 1×，同一形式 | 32.4dp（逐像素相同） | 无溢出 |
-///       | 176dp / 2×，同一形式 | 53.0dp（被上限截住） | 无溢出 |
-///       | 176dp / 2×，`\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 53.0dp** | 无溢出 |
+///       | 182dp / 1×，精确形式 `\frac{1}{\sqrt{2}}` | 51.98dp（自然高度） | 无溢出 |
+///       | 230dp / 1×，同一形式 | 51.98dp（逐像素相同） | 无溢出 |
+///       | 182dp / 2×，同一形式 | 52.0dp（被上限截住；自然高度 53.90dp） | 无溢出 |
+///       | 182dp / 2×，`\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 52.0dp** | 无溢出 |
 ///       | 100dp / 1×，`\frac{1}{\sqrt{2}}` | — | **修之前 `A RenderFlex overflowed by 22 pixels on the bottom.`**，修之后无溢出 |
 ///
-///       即：结果行在 2× 及更大的字号下**先缩**（缩的是这一行，不是内容被裁），176dp 这条下限
+///       ⚠️ **本表是重测过的，其中两条旧的数没有复现。** 旧表 1× 那两行记的是 32.4dp；
+///       在本表这组输入下（结果行带 `≈` 与十进制那一行）实测 51.98dp——把面板拉到 600dp
+///       直接量自然高度，同样是 51.98dp。旧文里「2× 自然高度 54.8dp」实测是 **53.90dp**。
+///       85.68dp 与 100dp 那两条**逐字复现**（600dp / 2× 下自然高度正是 85.68dp）。
+///       重测是必要的：这一表正是「下限抬到 182dp」这条改动的依据，里面每一个数都得是这一版量的。
+///
+///       即：结果行在 2× 及更大的字号下**先缩**（缩的是这一行，不是内容被裁），182dp 这条下限
 ///       本身没有变。brief 里记的「176dp + 2× 溢出 27px」在本机**复现不出来**：同样条件下
-///       `\frac{1}{\sqrt{2}}` 的结果行自然高度 54.8dp，而它分到的上限是 53.0dp（上表那一行），
-///       表达式行还剩 25.3dp，没有溢出。真正的缺陷是它**没有上限**：形态再高一点就拿走 85.68dp
-///       （上限 53dp），把表达式行挤到 0 附近，再往下压整列就报溢出（100dp 那条实测）。
+///       `\frac{1}{\sqrt{2}}` 的结果行自然高度 53.90dp，而被 182dp 那一版的上限截住是 52.0dp
+///       （在 176dp 上是 49.0dp，照样只是截住，`takeException()` 仍是 null）——**没有溢出**。
+///       真正的缺陷是它**没有上限**：形态再高一点就拿走 85.68dp
+///       （上限 52dp），把表达式行挤到 0 附近，再往下压整列就报溢出（100dp 那条实测）。
+///       （旧文这里还跟着一句「表达式行还剩 25.3dp」——那一句**没有重测**，本版不引用它。）
 /// English: Below that minimum (a short window plus a large font scale), the expression line is
 ///          squeezed first and the error line then shrinks with its spare pixels clipped — the
 ///          error line is no longer a source of RenderFlex overflow. **The result row may shrink
@@ -111,28 +136,38 @@ const double _errorMessageFontSize = 12;
 ///          this row's height no longer fixed, so what it receives is a ceiling and the `FittedBox`
 ///          inside scales the content down when it genuinely does not fit rather than clipping it.
 ///          (The status row is the only genuinely fixed row: with padding and gaps it needs about
-///          58dp.)
+///          66dp.)
 ///
 ///          **Measured numbers** (`flutter_test`, 320dp wide; "result row height" is the height of
-///          that row's `Align`; in a 176dp panel with no error line its ceiling is 53dp =
-///          (176 − 40 − 12 − 18) / 2):
+///          that row's `Align`; in a 182dp panel with no error line its ceiling is 52dp =
+///          (182 − 48 − 12 − 18) / 2):
 ///
 ///          | case | result row | column |
 ///          |---|---|---|
-///          | 176dp / 1×, exact form `\frac{1}{\sqrt{2}}` | 32.4dp (natural) | no overflow |
-///          | 230dp / 1×, same form | 32.4dp (pixel-for-pixel) | no overflow |
-///          | 176dp / 2×, same form | 53.0dp (held at the ceiling) | no overflow |
-///          | 176dp / 2×, `\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 53.0dp** | no overflow |
+///          | 182dp / 1×, exact form `\frac{1}{\sqrt{2}}` | 51.98dp (natural) | no overflow |
+///          | 230dp / 1×, same form | 51.98dp (pixel-for-pixel) | no overflow |
+///          | 182dp / 2×, same form | 52.0dp (held at the ceiling; natural height 53.90dp) | no overflow |
+///          | 182dp / 2×, `\frac{\frac{\frac{1}{2}}{\frac{3}{4}}}{\frac{5}{6}}` | **85.68dp → 52.0dp** | no overflow |
 ///          | 100dp / 1×, `\frac{1}{\sqrt{2}}` | — | **before the fix: `A RenderFlex overflowed by 22 pixels on the bottom.`** — after it, none |
 ///
+///          ⚠️ **This table was re-measured and two of its old numbers did not reproduce.** The old
+///          1× rows read 32.4dp; with this table's inputs (the result row carries `≈` and the decimal
+///          line) it measures 51.98dp — and pulling the panel out to 600dp to read the natural height
+///          directly gives 51.98dp too. The old "2× natural height 54.8dp" measures **53.90dp**. The
+///          85.68dp and 100dp rows **reproduce verbatim** (at 600dp / 2× the natural height is
+///          exactly 85.68dp). The re-measure was needed because this table is the evidence for
+///          raising the floor to 182dp: every number in it has to be one this revision measured.
+///
 ///          So the result row **shrinks first** at 2× and above (this row shrinks; the content is not
-///          clipped), and the 176dp floor itself is unchanged. The "27px overflow at 176dp + 2×"
+///          clipped), and the 182dp floor itself is unchanged. The "27px overflow at 176dp + 2×"
 ///          recorded in the brief does **not** reproduce here: under exactly those conditions
-///          `\frac{1}{\sqrt{2}}`'s result row is 54.8dp naturally while its ceiling is 53.0dp (the
-///          table row above), the expression line keeps 25.3dp, and nothing overflows. The real defect
-///          was that the row had **no ceiling at all**: a slightly taller form took 85.68dp (against a
-///          53dp share), squeezing the expression line towards zero, and pressing further makes the
-///          column overflow (the 100dp case, measured).
+///          `\frac{1}{\sqrt{2}}`'s result row is 53.90dp naturally while the 182dp ceiling holds it
+///          to 52.0dp (at 176dp it is 49.0dp — still only held, `takeException()` is still null), so
+///          nothing overflows. The real defect was that the row had **no ceiling at all**: a slightly
+///          taller form took 85.68dp (against a 52dp share), squeezing the expression line towards
+///          zero, and pressing further makes the column overflow (the 100dp case, measured).
+///          (The old text also carried "the expression line keeps 25.3dp" — that sentence was **not**
+///          re-measured, and this revision does not cite it.)
 ///
 /// 抽屉按钮（跨任务约定）/ The drawer button (cross-task contract):
 /// 中文：主屏的 ☰ 由本组件渲染，`tooltip: '打开导航'`——任务 4 的主屏与任务 5 的外壳测试都靠

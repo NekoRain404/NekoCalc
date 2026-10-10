@@ -232,9 +232,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
   static const double _inlineEditorFontSize = 19;
 
   /// 中文：显示区最多占可用高度的比例，以及它的高度上下限（下限见 `build` 里的注释）。
+  ///       ⚠️ 下限 **176 → 182** 是可达性换来的：状态行里那两颗可点按钮撑到 48dp 之后，
+  ///       `CalculatorDisplay` 的固定部分从 74dp 涨到 82dp，结果行要到 182dp 才取得到自然高度
+  ///       （实测；推导与判据写在该组件的类注释里）。**改这个常量之前先读那一段。**
   /// English: The display band's share of the available height and its bounds (see `build`).
+  ///          ⚠️ The floor went **176 → 182** for accessibility: once the status row's two tappable
+  ///          buttons reach 48dp, `CalculatorDisplay`'s chrome goes from 74dp to 82dp and the result
+  ///          row only reaches its natural height at 182dp (measured; the derivation and the
+  ///          condition are in that widget's class comment). **Read that before changing this.**
   static const double _displayHeightRatio = 0.38;
-  static const double _displayHeightMin = 176;
+  static const double _displayHeightMin = 182;
   static const double _displayHeightMax = 230;
 
   /// 中文：`More...` 面板最多占屏幕高度的比例——够放下全部动作，又不会盖住显示区。
@@ -329,16 +336,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final theme = CalcTheme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 中文：显示区固定取可用高度的 38%，clamp 在 176–230dp。176dp 是 `CalculatorDisplay`
-        //       的高度下限（它的类注释按真实 Android 字体度量推导出：与字体无关的固定行 74dp，
-        //       双行错误的内容约需 165dp），230dp 让高窗口下显示区不至于吃掉键盘。剩下的高度全给
-        //       键盘：`Expanded` 填满、不给固定高度，于是任何窗口高度都不会溢出（键变矮而已）。
-        // English: The display band takes 38% of the available height, clamped to 176–230dp. 176dp
-        //          is `CalculatorDisplay`'s floor (its class comment derives 74dp of font-independent
-        //          chrome plus ≈165dp of content for a two-line error under real Android metrics) and
-        //          230dp stops it eating the keypad on tall windows. Everything left goes to the
-        //          keypad, which fills it via `Expanded` with no fixed height, so no window height
-        //          can overflow — the keys just get shorter.
+        // 中文：显示区固定取可用高度的 38%，clamp 在 182–230dp。182dp 是 `CalculatorDisplay`
+        //       的高度下限（它的类注释按真实 Android 字体度量推导出：与字体无关的固定行 82dp，
+        //       双行错误的内容约需 165dp；这 82dp 里有 48dp 是状态行，而那是可达性要来的——
+        //       那两颗可点按钮不足 48dp 时 `androidTapTargetGuideline` 不通过），230dp 让高窗口下
+        //       显示区不至于吃掉键盘。剩下的高度全给键盘：`Expanded` 填满、不给固定高度，
+        //       于是任何窗口高度都不会溢出（键变矮而已）。
+        // English: The display band takes 38% of the available height, clamped to 182–230dp. 182dp
+        //          is `CalculatorDisplay`'s floor (its class comment derives 82dp of font-independent
+        //          chrome plus ≈165dp of content for a two-line error under real Android metrics; 48
+        //          of those 82dp are the status row, and accessibility is what asked for that — the
+        //          two tappable buttons in it fail `androidTapTargetGuideline` below 48dp) and 230dp
+        //          stops it eating the keypad on tall windows. Everything left goes to the keypad,
+        //          which fills it via `Expanded` with no fixed height, so no window height can
+        //          overflow — the keys just get shorter.
         final displayHeight = (constraints.maxHeight * _displayHeightRatio)
             .clamp(_displayHeightMin, _displayHeightMax);
         return Column(

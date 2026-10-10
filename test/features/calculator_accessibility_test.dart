@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/calculator/presentation/keypad/calculator_keypad.dart';
 import 'package:nekocalc/domain/entities/tool_category.dart';
 import 'package:nekocalc/features/tools/presentation/tool_category_screen.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
@@ -19,10 +20,30 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 ///       **不是给它取名字，是把它已有的名字接上去。**
 ///
 /// ⚠️ **另一条判据（`androidTapTargetGuideline`，每个可点目标 ≥48dp）在这里没有断言，
-/// 而它确实不通过**：键盘每行 **48.3 × 24.2 dp**，在**测过的每一个尺寸上**都不通过。
-/// 不断言的理由是**那是权衡**——加高会挤动整块键盘，而键盘是照着 HiPER 排的。
+/// 而它在键盘上确实不通过**——但**不通过的是什么，本文件此前记错了，这一版是重测的**。
+///
+/// 先记结论：**一个键盘格是「一个 `Column`，两片可点的条」**（`ColoredBox > Padding > Column
+/// > Expanded > Row > Expanded`，两片各走这一条链）——上面那片是键面、下面那片是变体横带。
+/// 360 × 800 下实测：键面 **66.6 × 42.1**、横带 **66.6 × 15.0**、整格 66.6 × 57.1。
+/// 两片**各自可点、各做各的事**（这是 HiPER 的机制，不是实现瑕疵），而**两片都矮于 48**。
+///
+/// 旧文这里写的是「键盘每行 **48.3 × 24.2 dp**，在**测过的每一个尺寸上**都不通过」，
+/// 三处都站不住（六种尺寸实测：320×640、360×640、360×800、393×851、411×731、412×915）：
+/// 1. **`48.3` 是 320 宽的屏幕上的数**（键面 48.3 × 29.0），不是 360 × 800 的——两个数被拼到了一起；
+/// 2. **`24.2` 在测过的任何一个尺寸上都不出现**（各尺寸键面高：29.0 / 29.0 / 42.1 / 46.3 / 36.4 / ≥48）；
+/// 3. **「每一个尺寸都不通过」是假的**：**412 × 915 下不通过的只有 25 个节点**（全是横带），
+///    键面在那里**是高过 48 的**。笼统一句「都不通过」把两种不同的成因混成了一条。
+///
+/// 不断言的理由仍然是**权衡**：横带是 HiPER 的机制，键面与横带一起撑满了整个格子，
+/// 把任一片单独抬到 48 就得动整块键盘的排布（键盘是照着 HiPER 排的）。
 /// **一条会把权衡说成缺陷的测试，与本仓那条"判据要挂在哪一个是错的"是同一类问题。**
 /// 数记在 `.superpowers/backup/comparison-with-hiper.md` 第十一节（那里也记着我一度把它误撤回）。
+///
+/// ⚠️ **顺带查清的另一件事：这条判据在原图上并不是"键盘一家的错"。** 显示区状态行里有两颗
+/// **本应用自己的**按钮在下面：那颗 ☰ 实测语义节点 **40 × 40**、`More...` **111.7 × 34.0**——
+/// 两者都不是 HiPER 的排布，是**纯缺陷**，已修（状态行 40 → 48dp，`display_status_row.dart`；
+/// 连带 `CalculatorDisplay` 的固定部分 74 → 82dp、下限 176 → 182dp，推导在该组件类注释里）。
+/// 下面那条「键盘之外不许有矮于 48dp 的可点目标」就是钉这件事的。
 ///
 /// ⚠️ **还有一条方法上的坑**：`meetsGuideline` 的失败是**异步上报**的——
 /// `expect(...)` 不抛异常，测试在结尾才红。**所以不能用 try/catch 去"看它过不过"。**
@@ -47,12 +68,42 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 ///          the keypad table, the band hint and the per-cell snapshot use) into the semantics tree. **Not
 ///          naming it; connecting a name it already had.**
 ///
-///          ⚠️ **The other guideline (`androidTapTargetGuideline`, ≥48dp per tappable) still fails**, and
-///          that is a **layout trade-off**: every keypad row is about 26 dp tall and raising it would shove
-///          the whole keypad around, which is laid out to match HiPER. **So it is not asserted here** — a
-///          test that calls a trade-off a defect is the same kind of problem as this repository's rule that
-///          a judgement must hang on which one is wrong. The numbers live in section 十一 of
+///          ⚠️ **The other guideline (`androidTapTargetGuideline`, ≥48dp per tappable) is not asserted
+///          here, and it genuinely fails on the keypad** — but **what fails is not what this file used
+///          to record, and this revision re-measured it.**
+///
+///          The conclusion first: **a keypad cell is one `Column` holding two tappable strips**
+///          (`ColoredBox > Padding > Column > Expanded > Row > Expanded`, both strips taking that same
+///          chain) — the upper strip is the key face, the lower one the variant band. Measured at
+///          360 × 800: the face is **66.6 × 42.1**, the band **66.6 × 15.0**, the cell 66.6 × 57.1.
+///          The two strips are **independently tappable and do different things** (that is HiPER's
+///          mechanism, not an implementation flaw) and **both are under 48**.
+///
+///          The old text here read "every keypad row is about **48.3 × 24.2 dp** and it fails at
+///          **every size tested**", and all three claims fail (six sizes measured: 320×640, 360×640,
+///          360×800, 393×851, 411×731, 412×915):
+///          1. **`48.3` is a 320-wide screen's number** (the face there is 48.3 × 29.0), not 360 ×
+///             800's — two numbers from two devices had been spliced together;
+///          2. **`24.2` appears at no size measured** (face heights per size: 29.0 / 29.0 / 42.1 /
+///             46.3 / 36.4 / ≥48);
+///          3. **"fails at every size" is false**: at **412 × 915 only 25 nodes fail** (all bands) —
+///             the faces clear 48 there. One sweeping "all of them fail" conflated two different
+///             causes.
+///
+///          The reason for not asserting it is still a **trade-off**: the band is HiPER's mechanism,
+///          face and band together fill the cell, and raising either one alone means re-laying out the
+///          whole keypad (which is laid out to match HiPER). **A test that calls a trade-off a defect
+///          is the same kind of problem as this repository's rule that a judgement must hang on which
+///          one is wrong.** The numbers live in section 十一 of
 ///          `.superpowers/backup/comparison-with-hiper.md`.
+///
+///          ⚠️ **The other thing this cleared up: the guideline was never "the keypad's fault alone".**
+///          Two buttons of **this app's own** sat below it in the display band's status row: the ☰
+///          measures a **40 × 40** semantics node and `More...` **111.7 × 34.0** — neither is HiPER's
+///          layout, both were plain defects, and both are fixed (the status row goes 40 → 48dp in
+///          `display_status_row.dart`, taking `CalculatorDisplay`'s chrome 74 → 82dp and its floor
+///          176 → 182dp; the derivation is in that widget's class comment). The test below —
+///          "nothing outside the keypad may be a sub-48dp tappable" — is what pins that.
 class _FakeDatabase implements AppDatabase {
   @override
   Future<Map<String, String>> settings() async => const {};
@@ -162,5 +213,92 @@ void main() {
     ));
     await tester.pumpAndSettle();
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+  });
+
+  testWidgets('键盘之外：没有矮于 48dp 的可点按钮', (tester) async {
+    // 中文：**这条不是引用判据，是量出来的那条结论的钉子。**
+    //
+    //       整屏的 `androidTapTargetGuideline` 断言不了（键盘那两片横带是有意为之，见文件头），
+    //       但**键盘不是全部**——状态行里那两颗属于本应用自己的按钮原来也不达标（☰ 40 × 40、
+    //       `More...` 111.7 × 34.0）。它们不是权衡，是缺陷。这条判据把「键盘之外」切出来单独钉住：
+    //       键盘以外的每一个可点按钮都必须 ≥48 × 48，键盘本身按 HiPER 的机制豁免。
+    //
+    //       ⚠️ **`checked` 那一条断言是不许省的**：这个循环如果哪天一个元素都找不到（类名改了、
+    //       或 `find.byType` 换了），`offenders` 会是空的、测试照样绿——那是**空转的判据**。
+    //       本仓吃过这个亏（`expect(knownOverflows, greaterThan(0))` 那一次）。
+    //
+    //       实测（360 × 800 dp）：☰ 与 `More...` 各一颗，都是 48 高。
+    // English: **This is not a reused guideline; it is the nail for a measured conclusion.**
+    //
+    //          The whole-screen `androidTapTargetGuideline` cannot be asserted (the keypad's two bands
+    //          are deliberate — see the file head), but **the keypad is not everything**: the status
+    //          row's two buttons belong to this app and used to be under the bar too (☰ 40 × 40,
+    //          `More...` 111.7 × 34.0). Those were not a trade-off, they were defects. This test cuts
+    //          "everything outside the keypad" out and pins it on its own: every tappable button there
+    //          must be ≥48 × 48, while the keypad itself is exempt under HiPER's mechanism.
+    //
+    //          ⚠️ **The `checked` assertion must not be dropped**: if the loop ever finds no elements at
+    //          all (a renamed class, a changed `find.byType`), `offenders` stays empty and the test
+    //          still goes green — a **test idling in neutral**. This repository has been bitten by that
+    //          before (the `expect(knownOverflows, greaterThan(0))` episode).
+    //
+    //          Measured (360 × 800 dp): one ☰ and one `More...`, both 48 tall.
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: CalculatorPage(
+          db: _FakeDatabase(),
+          onOpenSettings: () {},
+          settings: const AppSettings(
+            haptics: false,
+            hapticStrength: '标准',
+            restoreState: false,
+            autoSaveHistory: false,
+            angleMode: 'RAD',
+            precision: 6,
+            themeModeLabel: '跟随系统',
+            expressionDisplayMode: '数学符号',
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final Set<Element> keypad = find.byType(CalculatorKeypad).evaluate().toSet();
+    bool insideKeypad(Element element) {
+      var inside = false;
+      element.visitAncestorElements((ancestor) {
+        if (keypad.contains(ancestor)) {
+          inside = true;
+          return false;
+        }
+        return true;
+      });
+      return inside;
+    }
+
+    final offenders = <String>[];
+    var checked = 0;
+    for (final type in <Type>[IconButton, TextButton, InkWell]) {
+      for (final element in find.byType(type).evaluate()) {
+        if (insideKeypad(element)) continue;
+        final render = element.renderObject;
+        if (render is! RenderBox || !render.hasSize) continue;
+        checked++;
+        final size = render.size;
+        if (size.width < 48 || size.height < 48) {
+          offenders.add('$type ${size.width.toStringAsFixed(1)} × '
+              '${size.height.toStringAsFixed(1)}');
+        }
+      }
+    }
+
+    expect(checked, greaterThan(0),
+        reason: '键盘之外一个可点按钮都没找到——这条判据成了空转，先查 find.byType 还对不对');
+    expect(offenders, isEmpty,
+        reason: '键盘之外有矮于 48dp 的可点按钮：${offenders.join("，")}');
   });
 }

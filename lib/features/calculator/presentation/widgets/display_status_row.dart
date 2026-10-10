@@ -8,7 +8,7 @@ import 'status_chips.dart';
 /// English: Edge length of a status-row button — smaller than Material's default 48 because the
 ///          panel itself is short, yet still a square a finger can hit reliably. The status row is
 ///          exactly this tall.
-const double _statusButtonSize = 40;
+const double _statusButtonSize = 48;
 
 /// 中文：**状态行整条**——抽屉按钮、角度模式 chip、记忆徽标、结果形式指示、两格读数（进制 / 记法），
 ///       `Spacer` 之后是 `More...`。它们原来长在 `calculator_display.dart` 里（作为那个组件的私有
@@ -159,13 +159,29 @@ class DisplayStatusRow extends StatelessWidget {
   }
 
   /// 中文：主屏的 ☰。tooltip 是本组件对外的固定契约（见 `calculator_display.dart` 的类注释），
-  ///       图标色取次要状态色。`shrinkWrap` 关掉 Material 默认把命中区撑到 48 的行为：那个隐形的
-  ///       48 宽盒子会让状态行的左间距忽大忽小，而这里的尺寸是自己定死的正方形，图标因此正好居中。
+  ///       图标色取次要状态色。
+  ///
+  ///       ⚠️ **这个正方形是 48dp，而那是可达性的下限，不是配色。** 它原来是 40dp——实测那颗按钮在
+  ///       语义树里就是一个 `40 × 40` 的可点节点，`androidTapTargetGuideline` 判它不合格。`48` 同时
+  ///       是状态行的高度，所以整行从 40 涨到 48；`CalculatorDisplay` 的固定部分因此从 74dp 到 82dp、
+  ///       它的高度下限从 176dp 到 182dp（推导在那边的类注释里）。
+  ///
+  ///       `shrinkWrap` 仍然留着，但**理由变了**：它以前是「关掉 Material 把命中区撑到 48 的行为」，
+  ///       而现在这一格本来就是 48——留着是为了不让 Material 在这之上再加内边距，尺寸由这一条常量
+  ///       说了算，图标正好落在正中。
   /// English: The screen's ☰. Its tooltip is this widget's fixed outward contract (see the class
   ///          comment in `calculator_display.dart`) and its icon takes the secondary status colour.
-  ///          `shrinkWrap` turns off Material's default padding of the hit area out to 48: that
-  ///          invisible 48-wide box makes the status row's left spacing read as uneven, while this
-  ///          size is a square of our own choosing — so the icon sits exactly in its middle.
+  ///
+  ///          ⚠️ **This square is 48dp, and that is the accessibility floor, not a colour choice.**
+  ///          It used to be 40dp — measured, that button is a `40 × 40` tappable node in the
+  ///          semantics tree and `androidTapTargetGuideline` fails it. `48` is also the status row's
+  ///          height, so the row went 40 → 48; `CalculatorDisplay`'s chrome therefore goes 74 → 82dp
+  ///          and its floor 176 → 182dp (the derivation is in that widget's class comment).
+  ///
+  ///          `shrinkWrap` stays, but **its reason changed**: it used to mean "turn off Material's
+  ///          default padding of the hit area out to 48", and this square *is* 48 now — it stays so
+  ///          Material adds no padding on top of it, this constant keeps deciding the size, and the
+  ///          icon lands exactly in the middle.
   Widget _drawerButton() {
     return IconButton(
       onPressed: onOpenDrawer,
@@ -185,19 +201,28 @@ class DisplayStatusRow extends StatelessWidget {
   }
 
   /// 中文：`More...` 按钮——本阶段接入现有能力（复制结果、保存笔记等）的入口。
-  ///       它只把点击转给上层，自身不关心菜单内容；`shrinkWrap` 与抽屉按钮同理，命中区不外扩，
-  ///       于是它与右侧内边距的关系是可预算的。
+  ///       它只把点击转给上层，自身不关心菜单内容。
+  ///
+  ///       ⚠️ **高度是 48dp，同样为可达性而来。** 原来 `minimumSize` 写的是 `Size(0, 34)`——实测这颗
+  ///       按钮的语义节点是 `111.7 × 34.0`，比下限矮 14dp。`shrinkWrap` 留着是为了让横向命中区**不外扩**：
+  ///       它右边就是面板内边距，宽度由文字与 `horizontal: 10` 决定，因此右边缘落在哪里是可预算的。
+  ///       （纵向不再由 `shrinkWrap` 决定——那一头现在由 `minimumSize` 的 48 说了算。）
   /// English: The `More...` button — the entry point to what already exists (copying the result,
-  ///          saving a note, ...). It only forwards the tap and does not care what the menu holds;
-  ///          `shrinkWrap` as on the drawer button keeps the hit area from expanding, so where its
-  ///          right edge lands against the padding is predictable.
+  ///          saving a note, ...). It only forwards the tap and does not care what the menu holds.
+  ///
+  ///          ⚠️ **Its height is 48dp, again for accessibility.** `minimumSize` used to read
+  ///          `Size(0, 34)` — measured, this button's semantics node is `111.7 × 34.0`, 14dp under the
+  ///          floor. `shrinkWrap` stays to keep the **horizontal** hit area from expanding: the panel's
+  ///          padding is right beside it, its width comes from the text plus `horizontal: 10`, and so
+  ///          where its right edge lands is predictable. (The vertical extent is no longer
+  ///          `shrinkWrap`'s business — `minimumSize`'s 48 decides that end now.)
   Widget _moreButton() {
     return TextButton(
       onPressed: onMore,
       style: TextButton.styleFrom(
         foregroundColor: colors.indicatorFg,
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        minimumSize: const Size(0, 34),
+        minimumSize: const Size(0, 48),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       child: Text(
