@@ -158,6 +158,36 @@ forward without re-reading.
 **The lesson is cheap and general**: when a test file has several assertions, **read the one that failed** —
 not the first one in the file. Six probes' worth of budget went into a sentence I had mis-attributed.
 
+## 5c. A second tap-target gap, on the **structured** tool detail screen (open)
+
+With the `IconToolButton` fix in (§4), the **text**-tool detail screen passes `androidTapTargetGuideline`.
+The **structured** tool screen (`ToolDetailScreen`, e.g. `battery_life`) **does not** — it reports many nodes
+of **`34 × 34`**.
+
+Walking the `Semantics` nodes (the method that named `IconToolButton`) finds owners of **40 × 40** and
+**24 × 24**, but **not** the `34 × 34` ones:
+
+```
+N34 40.0x40.0: _OverlayPortal < OverlayPortal < RawTooltip < Tooltip < DefaultTextStyle
+N34 40.0x40.0: Listener < _ExclusiveMouseRegion < Semantics < _OverlayPortal < …
+N34 24.0x24.0: Align < Padding < Listener < RawGestureDetector < GestureDetector
+N34 24.0x24.0: Icon < Semantics < Align < Padding < Listener < …
+```
+
+**So the `34 × 34` owner is still unidentified**, and this is written down as an **open finding** rather than a
+guess — the previous two guesses on this screen's sibling were both wrong.
+
+**Where the audit stands** (a dimension with **zero** coverage before this work):
+
+| Screen | labels | tap targets |
+|---|---|---|
+| Calculator keypad | ✓ | **✗ 48.3 × 24.2** — HiPER-parity trade-off, owner's call |
+| Tools home | ✓ (fixed) | not measured |
+| Tool category | ✓ (fixed) | not measured |
+| Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
+| Structured tool detail | ✓ | **✗ 34 × 34 ×N — owner unidentified** |
+| Settings | ✓ | ✓ |
+
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
 All three guard the **same shape**: an action that did nothing looks exactly like one that ran
