@@ -218,9 +218,25 @@ one **exact** string — `'A RenderFlex overflowed by 12 pixels on the bottom'` 
 information. A **16 px** overflow matches neither, so it lands in `others`, and `expect(others, isEmpty)`
 goes red. **The tolerance is a literal, not a rule** — which is worth knowing before "fixing" it.
 
-**So the coupled change is: copy button 28 → 48 dp, and the cell given ~16 px more room** (i.e.
-`childAspectRatio` down from 1.35), **plus** whichever of the four guards' numbers that moves. All three
-parts are now measured; none is guessed.
+**So the coupled change was attempted in full** (button 48 dp **and** `childAspectRatio` 1.35 → 1.15) — and
+**it works for the overflow**: the failure becomes a single sentence from a guard,
+
+```
+标签那一格实测 90.0dp，与记下的 110.0 dp 不同——布局动过，下面按这个宽度算的判据就都不成立了
+```
+
+**110.0 − 90.0 = exactly 20.0** — the 20 dp the copy button grew. So the mechanism is confirmed to the dp:
+**the button takes its width out of the label's cell.**
+
+**And that is the third consequence, the one that makes this more than a parameter change.** Those label
+guards exist to guarantee that **English labels are not truncated**; a 90 dp cell is 20 dp narrower than the
+one that guarantee was measured against (the widest label, `Speed for tgt speed`, is **109.1 dp** — wider than
+90). So shrinking the cell to buy the button its tap target **buys it with truncated English labels**.
+
+⚠️ **Which means the naive coupled fix is not available**: it trades one accessibility gap (a 28 dp button) for
+another (truncated labels), and the second would need many labels re-abbreviated. **The real options are
+structural** — put the copy button *below* or *over* the value instead of beside the label, or accept the
+28 dp button. **Both are design calls, and this file now carries the numbers for either.**
 
 **Where the audit stands** (a dimension with **zero** coverage before this work):
 
