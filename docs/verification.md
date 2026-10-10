@@ -123,7 +123,7 @@ pointer to the wrong file, and the second row's owner is identified and fixed in
 | Where | Measured (2026-10-10) | Code |
 |---|---|---|
 | Calculator keypad — the **label bands**, *not* "every row" | bands **9.8–18.8 dp** at the six sizes measured; keys **29.0–46.3 dp**, and **clearing 48 at 412×915** | geometry: `calculator_keypad.dart` (`_row`'s two `Expanded`, `_bandCell`, `_keyButton`). `hiper_keypad_function_rows.dart` is the row/label **table**, not the geometry |
-| Structured tool detail — **three** classes | **12 × `34×34`** steppers (增大/减小), **14 × `28×28`** copy buttons (复制此项), **1 × `119×32`** input field | `tool_detail_screen.dart:512`, `tool_widgets.dart` |
+| Structured tool detail — **two** classes (a third was **resolved 2026-10-10**) | **12 × `34×34`** steppers (增大/减小), **1 × `119×32`** input field. The **14 × `28×28`** copy buttons now have the **whole card** as their target | `tool_detail_screen.dart:512`, `tool_widgets.dart` |
 | Calculator display (status row) — **fixed 2026-10-10** | ☰ was **`40 × 40`**, `More...` **`111.7 × 34.0`** → both 48; display floor 176 → 182 dp | `display_status_row.dart` |
 
 ⚠️ **Only one of these is deliberately left unfixed:**
@@ -353,6 +353,30 @@ another (truncated labels), and the second would need many labels re-abbreviated
 structural** — put the copy button *below* or *over* the value instead of beside the label, or accept the
 28 dp button. **Both are design calls, and this file now carries the numbers for either.**
 
+### ✅ 2026-10-10: the copy button is **fixed** — the structural option was taken
+
+The paragraph above lists the structural options and says taking one is a design call. **One was taken**: the
+`IconButton` was demoted to decoration (its own `onTap` dropped, the icon kept) and the **whole card** wrapped
+in `Tooltip` + `InkWell`. Measured on the structured screen (`battery_life`, 360 × 2200 dp):
+
+| quantity | before | after |
+|---|---|---|
+| the tappable node | **28 × 28** | **160 × 119** (the whole card) |
+| the label box | **110.00 dp** | **110.00 dp — unchanged** |
+| sub-48 tappable nodes on that screen | **27** | **13** (12 steppers + 1 input field) |
+| `labeledTapTargetGuideline` | passes | **passes** (the name now comes from the wrapping `Tooltip`) |
+
+**So this one did not trade — it resolved.** The target grew ~40× in area and the label gave up **nothing**,
+because the icon stayed (as the affordance) and only its *role* changed. That is exactly why "over/around the
+card" was listed: it is the only one of the options that costs no width.
+
+⚠️ **It is the `110.00` being identical before and after that makes this a resolution rather than a lucky
+escape** — that box is the denominator of the 715-string English criterion, so anything that moved it would
+have been a trade in disguise. It was measured, not assumed: the icon's 28dp still occupies that row.
+
+⚠️ **What the change costs**: interaction semantics — tapping anywhere on a card copies it. On this screen a
+card has exactly one action, so nothing is displaced. Full suite after: **1807 green**.
+
 ### ⚠️ The steppers are the **second** instance of the same coupling — and I predicted it wrong
 
 The other 12 sub-48 nodes on that screen are the **input-row steppers** (`增大` / `减小`, 6 rows × 2). They were
@@ -398,7 +422,7 @@ screen size, and the structured row attributed its nodes to the wrong widget. Bo
 | Tools home | ✓ (fixed) | **fixed 2026-10-10**: the one tappable section header (`收藏工具`) was **29 dp** (§5d) |
 | Tool category | ✓ (fixed) | same fix — shared `SectionHeader` |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✗ three measured classes** (§5c): 12 × **`34×34`** steppers, 14 × **`28×28`** copy buttons, 1 × **`119×32` unnamed** input |
+| Structured tool detail | ✓ | **✗ two measured classes** (§5c): 12 × **`34×34`** steppers, 1 × **`119×32` unnamed** input. The 14 × **`28×28`** copy buttons are **resolved 2026-10-10** — the whole card is the target now |
 | Settings | ✓ | ✓ |
 
 ### 5d. The two list screens: a **section header** is 29 dp — ⚠️ **and my first reading of this was wrong**

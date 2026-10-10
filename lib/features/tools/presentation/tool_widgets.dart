@@ -414,7 +414,7 @@ class DetailMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(10),
       decoration: softPanel(context: context),
       child: Column(
@@ -456,13 +456,14 @@ class DetailMetric extends StatelessWidget {
                 //       `tool_result_label_strings.dart` 里 715 条英文的硬判据（不许超 110dp）。
                 //       **所以「把按钮撑到 48」在这个布局里是拿英文可读性换达标，不是修缺陷。**
                 //
-                //       有一条**能化解而不是交换**的改法，本版**没做**：把这颗 `IconButton` 降成装饰
-                //       （去掉它自己的 `onTap`，只留图标），把整张结果卡包进 `InkWell` —— 命中区于是
-                //       是 160 × 118.5，远在 48 之上，而标签一个 dp 都不让。没做的理由：它改的是
-                //       **交互语义**（点卡片任意处即复制），受益只有可达性这一项，而同一个屏幕下方
-                //       已经有一颗全宽的 `ActionButton`（复制整条结果，`tool_detail_screen.dart`），
-                //       所以这条 28dp 的路径是**逐项**复制的便利，不是唯一的复制入口。
-                //       **要动它的人先读这两段：能化解就别交换；若只把它撑到 48，请先重跑
+                //       有一条**能化解而不是交换**的改法——**2026-10-10 已实施**，见本段末尾那条 ⚠️
+                //       与 `build` 结尾的包裹：把这颗 `IconButton` 降成装饰（去掉它自己的 `onTap`，
+                //       只留图标），把整张结果卡包进 `InkWell` —— 命中区于是是 160 × 118.5，远在 48
+                //       之上，而标签一个 dp 都不让。**当时没做的理由（现已不适用，留作记录）**：
+                //       它改的是**交互语义**（点卡片任意处即复制），受益只有可达性这一项，而同一个
+                //       屏幕下方已经有一颗全宽的 `ActionButton`（复制整条结果，`tool_detail_screen.dart`），
+                //       所以这条路径是**逐项**复制的便利，不是唯一的复制入口。
+                //       **要动它的人先读这三段；若改成"只把按钮撑到 48"，请先重跑
                 //       `tool_result_label_lengths_test.dart`。**
                 //
                 //       ⚠️ **别用 `TextPainter` 去量这些宽度。** `flutter test` 里的字体是 Ahem——
@@ -489,32 +490,40 @@ class DetailMetric extends StatelessWidget {
                 //          (nothing may exceed 110dp). **So "push the button to 48" would trade English
                 //          legibility for compliance here — it is not fixing a defect.**
                 //
-                //          One change **resolves rather than trades**, and this revision does **not** do
-                //          it: demote this `IconButton` to decoration (drop its own `onTap`, keep the
-                //          icon) and wrap the whole result card in an `InkWell` — the target then is
-                //          160 × 118.5, far above 48, and the label gives up nothing. Why not: it
-                //          changes **interaction semantics** (tap anywhere on a card copies) for an
-                //          accessibility-only gain, and a full-width `ActionButton` already sits lower
-                //          on the same screen (copying the whole result, `tool_detail_screen.dart`), so
-                //          this 28dp path is the **per-item** convenience, not the only way to copy.
-                //          **Read both paragraphs before touching it: resolve instead of trading; and if
-                //          you only grow it to 48, re-run `tool_result_label_lengths_test.dart` first.**
+                //          One change **resolves rather than trades** — **done on 2026-10-10** (see the
+                //          ⚠️ note just below and the wrapper at the end of `build`): demote this
+                //          `IconButton` to decoration (drop its own `onTap`, keep the icon) and wrap the
+                //          whole result card in an `InkWell` — the target then is 160 × 118.5, far above
+                //          48, and the label gives up nothing. **Why it was not done at the time (kept
+                //          for the record; it no longer applies)**: it changes **interaction semantics**
+                //          (tap anywhere on a card copies) and a full-width `ActionButton` already sits
+                //          lower on the same screen, so this path is the **per-item** convenience, not
+                //          the only way to copy. **Read all three paragraphs before touching it; and if
+                //          you change it to "just grow the button to 48", re-run
+                //          `tool_result_label_lengths_test.dart` first.**
                 //
                 //          ⚠️ **Do not measure these widths with `TextPainter`.** The font in
                 //          `flutter test` is Ahem — **every glyph is a square of the font size**:
                 //          `Speed for tgt speed` is 19 characters × 12 = **228.00dp**, double the real
                 //          109.1dp. Only this repository's `roboto_regular_advances.dart` ruler gives
                 //          real-device widths (I got this wrong here once myself).
+                // 中文：**2026-10-10：这颗图标已降成装饰，"命中区"改由整张卡片承担。**
+                //       上面那条"能化解而不是交换"的改法做了，所以它下面那张"代价"表随之下架：
+                //       命中区实测 **160 × 118.5dp**，而标签那一格**仍是 110.00dp**——一个 dp 没让，
+                //       因为图标还在，只是不再是按钮。无障碍名由包在整张卡外面的 `Tooltip` 提供，
+                //       所以 `labeledTapTargetGuideline` 照过。
+                // English: **2026-10-10: this icon is decoration now; the whole card carries the hit
+                //          area.** The "resolve rather than trade" move described above is done, which
+                //          retires the cost table beneath it: the target measures **160 × 118.5dp** and
+                //          the label box is **still 110.00dp** — it gave up nothing, because the icon is
+                //          still here, it just is not a button. The accessible name comes from the
+                //          `Tooltip` wrapped around the card, so `labeledTapTargetGuideline` still passes.
                 SizedBox(
                   width: 28,
                   height: 28,
-                  child: IconButton(
-                    tooltip: ToolsStrings.of(context).copyThisItem,
-                    onPressed: onCopy,
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    icon: Icon(Icons.copy_outlined,
-                        color: scheme.onSurfaceVariant),
+                  child: Center(
+                    child: Icon(Icons.copy_outlined,
+                        size: 16, color: scheme.onSurfaceVariant),
                   ),
                 ),
             ],
@@ -528,6 +537,20 @@ class DetailMetric extends StatelessWidget {
           Text(result.unit,
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
         ],
+      ),
+    );
+    // 中文：**整张卡片就是命中区。** 没有 `onCopy` 时一层都不多包，树与从前逐节点相同。
+    //       圆角取 8，与 `softPanel` 的 `borderRadius` 一致，水波纹才被裁在面板里。
+    // English: **the whole card is the hit area.** With no `onCopy`, not a single wrapper is added, so
+    //          the tree is node-for-node what it was. The radius is 8, matching `softPanel`'s
+    //          `borderRadius`, so the ink is clipped to the panel.
+    if (onCopy == null) return content;
+    return Tooltip(
+      message: ToolsStrings.of(context).copyThisItem,
+      child: InkWell(
+        onTap: onCopy,
+        borderRadius: BorderRadius.circular(8),
+        child: content,
       ),
     );
   }
