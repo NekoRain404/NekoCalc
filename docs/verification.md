@@ -174,8 +174,23 @@ N34 24.0x24.0: Align < Padding < Listener < RawGestureDetector < GestureDetector
 N34 24.0x24.0: Icon < Semantics < Align < Padding < Listener < …
 ```
 
-**So the `34 × 34` owner is still unidentified**, and this is written down as an **open finding** rather than a
-guess — the previous two guesses on this screen's sibling were both wrong.
+**⚠️ And that sentence was itself wrong — the `34 × 34` nodes do exist, 60 of them.** A census of **every**
+semantics node's size on that screen:
+
+```
+34x34:60   28x28:70   48x48:37   18x18:36   16x16:28   40x40:24   24x24:11   …
+```
+
+`34 × 34: 60` — **sixty nodes**. My ancestor-chain probe *had* been printing them; **my `head -6` cut the output
+off before it got there.** So "the owner is unidentified" was **my instrument's fault, not the tree's** — the
+same family as the two earlier wrong guesses on this item, and worth recording for that reason:
+
+> **When a probe says "not found", check that the probe printed everything before believing it.**
+
+**The owner is still not named** (sixty `34 × 34` nodes and seventy `28 × 28` ones suggest a repeated small
+button — `DetailMetric`'s copy button is an `IconButton` inside a `SizedBox(28, 28)`, which is a strong
+candidate — but **that is a candidate, not a measurement**, and this item has already absorbed two bad
+guesses).
 
 **Where the audit stands** (a dimension with **zero** coverage before this work):
 
