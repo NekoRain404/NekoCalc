@@ -265,6 +265,24 @@ list item taller — a proportions decision. **It is the third gap of this kind,
 every user starts from**, which is why it is worth the owner's attention even though the numbers alone do not
 decide it.
 
+⚠️ **And the tooling that named `IconToolButton` cannot reach this node.** A census over
+`find.byType(Semantics)` filtering for exactly that shape (`width >= 300 && height < 48`) on the same screen
+**found nothing**:
+
+```
+(no output)
+```
+
+So the guideline and the widget census **disagree** this time. `find.byType(Semantics)` finds `Semantics`
+**widgets**; the guideline walks the semantics **tree**, where a node can be produced by a widget that is not a
+`Semantics` (a `ListTile`'s internals, a `MergeSemantics`, an `InkResponse`). **Which of those it is has not
+been determined.**
+
+**The next step is a different instrument, not a third guess**: walk the semantics tree itself
+(`tester.binding.pipelineOwner.semanticsOwner`) or bisect the subtree. ⚠️ **Two of the three gaps so far have
+cost a guess that turned out wrong**, and on this one the probe came back empty while the guideline said
+otherwise — **so check the instrument before believing the census.**
+
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
 All three guard the **same shape**: an action that did nothing looks exactly like one that ran
