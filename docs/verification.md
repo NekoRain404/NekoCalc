@@ -104,11 +104,19 @@ they did their job: **the change is not a one-liner, it is a coordinated update 
 **So the entries are two separate things, and both are recorded**: the overflow is real, and the price of
 fixing it is four guard updates plus a proportions decision. **Anyone doing it knows both up front.**
 
-⚠️ **One level deeper, measured on the second attempt**: `tool_result_label_lengths_test.dart` does not
-merely disagree about a number — it reports **`boxes` is empty**, i.e. it found **zero** label cells, and its
-own message says the assertion would then be **vacuous**. Taller cells push cards past the test's default
-800×600 surface, so fewer labels are laid out. **So the guards do not need new numbers; they need to measure
-at a device-sized surface first** — exactly the mistake this file records elsewhere (§11).
+⚠️ **One level deeper**: `tool_result_label_lengths_test.dart` does not merely disagree about a number — it
+reports **`boxes` is empty**, i.e. it found **zero** label cells, and its own message says the assertion
+would then be **vacuous**.
+
+⚠️⚠️ **And my first explanation of that was wrong — corrected here rather than deleted.** I wrote "so the
+guards need to measure at a device-sized surface first". **They already do**: measured,
+`grep -c physicalSize` returns **1 / 1 / 2** across
+`tool_result_label_lengths_test.dart` / `tool_result_label_strings_test.dart` / `tool_field_strings_test.dart`.
+So the cause of the empty `boxes` is **not** the viewport, **and I do not know what it is.**
+
+**The observation stands; the explanation is withdrawn.** Anyone picking this up starts from: the overflow is
+real (measured at four sizes), `1.55 → 1.35` removes it (measured), and the four guards then redden with
+`boxes` empty for a reason that is **still open**.
 
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
