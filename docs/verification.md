@@ -72,6 +72,28 @@ Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
   exceeds it.
 - Camera / natural-language input — not implemented (engineering scale, not a defect).
 
+## 5b. A layout defect found by measuring (open)
+
+The structured **tool detail screen** overflows on **every phone size tested**
+(360×640 / 360×800 / 411×731 / 412×915): `A RenderFlex overflowed by 12 pixels on the bottom`, the
+offending tree being
+
+```
+Column ← Padding ← DecoratedBox ← Container ← DetailMetric
+```
+
+i.e. **a result-card cell** (`tool_widgets.dart:420`) whose content (label + value + unit) is taller than
+its grid cell. The cells are sized by **`childAspectRatio: 1.55`** (`tool_detail_screen.dart:313`), which
+is wider than tall.
+
+**Why this was invisible until now**: in a release build an overflow does not paint the yellow/black
+stripes — it **clips silently**, so the content is quietly cut rather than loudly wrong.
+
+**Not fixed here on purpose.** The obvious "fix" is a smaller number for the aspect ratio, but the width
+of the content varies per tool, so any single number is a guess that trades clipping for a different
+amount of wasted space — **that is a proportions decision, and it should be made by looking at the
+screens, not by picking a number at the end of a session.**
+
 ## 6. Three mechanical checks that exist because of repeated mistakes
 
 All three guard the **same shape**: an action that did nothing looks exactly like one that ran
