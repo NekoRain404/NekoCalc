@@ -778,6 +778,15 @@ differ** — so the day the derivation degrades back into a hard-coded palette i
 passes `CalcTheme.fallback` — the palette it was already measuring against. **No assertion was touched**; that
 test measures fonts and geometry, not colour.
 
+**Verified on the device (2026-10-10).** Switching the theme to `lavenderMist` re-themed the **Settings page** —
+a screen that never calls `CalcTheme` — its canvas, row icons and switches all went violet, and the picker's
+own row then read 「薰衣草雾」. **That is precisely the case the old code could not produce**: the Material
+scheme was pinned to roseCream literals, so only the calculator would have changed. Cycling the three themes
+also **measurably** moved the calculator's display background (`#FFFBF6` peachSugar → `#FFFAF7` roseCream →
+`#FBFAFF` lavenderMist), which is how the setting was restored to the original `roseCream` after the test —
+with a **stop condition on the measured colour**, not on a count of taps (the first attempt had no `break` at
+all and cycled straight past the target; the pixels are what caught it).
+
 ### 5i. Multi-language: structurally sound; three gaps and one layering defect (audited 2026-10-10)
 
 **Two languages** (`zh`, the fallback, and `en`), **24 named `…Strings` classes**, each an exhaustive `switch`
