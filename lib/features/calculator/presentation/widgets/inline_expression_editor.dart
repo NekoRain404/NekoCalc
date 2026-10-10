@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../application/controllers/expression_selection.dart';
+import '../calculator_strings.dart';
 
 /// A native text editing surface whose value is owned by the calculator state.
 class InlineExpressionEditor extends StatefulWidget {
@@ -143,6 +144,7 @@ class _InlineExpressionEditorState extends State<InlineExpressionEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = CalculatorStrings.of(context);
     return Row(
       children: [
         Expanded(
@@ -171,7 +173,11 @@ class _InlineExpressionEditorState extends State<InlineExpressionEditor> {
           onPointerCancel: (_) => _endPasteGesture(),
           onPointerUp: (_) => _resolvePasteGesture(),
           child: Tooltip(
-            message: '粘贴计算详情',
+            // 中文：提示语走 `CalculatorStrings`（`pasteDetailsTooltip`），不再在源码里写中文字面量——
+            //       否则英文界面上这个 Tooltip 仍然是中文。
+            // English: the tooltip goes through `CalculatorStrings` (`pasteDetailsTooltip`) rather than a
+            //          Chinese literal here, which used to keep this Tooltip Chinese in the English UI.
+            message: strings.pasteDetailsTooltip,
             child: IconButton(
               onPressed: () async {
                 _pasteActionStarted = true;

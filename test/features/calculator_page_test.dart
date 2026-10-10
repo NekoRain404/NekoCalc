@@ -41,7 +41,7 @@ void main() {
 
     await tester.tap(find.text('km  千米'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('to'));
+    await tester.tap(find.text('到'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('mi  英里'));
     await tester.pumpAndSettle();

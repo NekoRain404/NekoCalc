@@ -21,8 +21,9 @@ import '../../../l10n/app_language.dart';
 ///       3. **调试断言的那句话**（`calculator_key_dispatch.dart` 里 `assert` 的第二参数）。它是
 ///          写给开发者看的，用户永远看不到，形状与 `app_shell.dart:176` 里那句逐字相同。
 ///
-///       `inline_expression_editor.dart` 是**用户未提交的改动**，本轮一个字都没动，它里面的
-///       「粘贴计算详情」/「复制计算详情」仍在源码里——这是已知的残留，不是漏翻。
+///       `inline_expression_editor.dart` 那个粘贴按钮的提示语本轮已走表（`pasteDetailsTooltip`），
+///       本表因此是它唯一的出处，那个文件里不再有中文字面量——**扫描里的跳过名单也已经删掉**，
+///       所以那个文件现在和其它文件一样被扫描守着。
 /// English: The calculator page's string table, **split by feature** — one table holding every
 ///          language side by side. The mechanism itself (why hand-written tables rather than ARB /
 ///          `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of
@@ -46,9 +47,10 @@ import '../../../l10n/app_language.dart';
 ///             `calculator_key_dispatch.dart`). It is written for developers and never reaches a
 ///             user; its shape is item-for-item the one at `app_shell.dart:176`.
 ///
-///          `inline_expression_editor.dart` is **the user's uncommitted work**; not one character of
-///          it was touched this round, so its 「粘贴计算详情」/「复制计算详情」 remain in the source —
-///          a known remainder, not a missed translation.
+///          `inline_expression_editor.dart`'s paste-button tooltip now goes through this table
+///          (`pasteDetailsTooltip`), so this table is its single source and that file holds no Chinese
+///          literal any more — **the skip line in `calculator_strings_test.dart`'s scan has been removed**,
+///          so that file is now scanned like every other one.
 @immutable
 class CalculatorStrings {
   const CalculatorStrings({
@@ -74,11 +76,13 @@ class CalculatorStrings {
     required this.detailsCopied,
     required this.detailsCopyFailed,
     required this.clipboardReadFailed,
+    required this.pasteDetailsTooltip,
     required this.pasteSummary,
     // —— `CONV` 单位面板 ——
     required this.unitSearchHint,
     required this.unitSheetHint,
     required this.noMatchingUnits,
+    required this.unitWordOperatorLabel,
     // —— `X` 变量面板 ——
     required this.variableSheetTitle,
     required this.noStorableValue,
@@ -175,6 +179,13 @@ class CalculatorStrings {
   final String detailsCopyFailed;
   final String clipboardReadFailed;
 
+  /// 中文：**内联表达式编辑器右侧那个粘贴按钮的提示语。** 它此前是 `inline_expression_editor.dart`
+  ///       源码里的中文字面量，所以英文构建下那个 Tooltip 仍报中文；现在与其余提示语一样走这张表。
+  /// English: **the tooltip of the paste button beside the inline expression editor.** It used to be a
+  ///          Chinese literal in `inline_expression_editor.dart`, so that Tooltip stayed Chinese in the
+  ///          English build; it now goes through this table like every other tooltip.
+  final String pasteDetailsTooltip;
+
   /// 中文：**粘贴计算详情那条回执的字**（`'已粘贴表达式'`、`'剪贴板里没有识别到表达式'`…）。
   ///       句子是领域层拼的（`CalculatorPasteResult.summaryIn`），词住在那边的表里
   ///       （`lib/domain/usecases/calculator_paste_strings.dart`）——领域层拿不到 `BuildContext`，
@@ -193,6 +204,15 @@ class CalculatorStrings {
   final String unitSearchHint;
   final String unitSheetHint;
   final String noMatchingUnits;
+
+  /// 中文：`to` 按钮的**面字**——`5 km` 与 `mi` 之间那个词。插入的记号仍是裸的英文 `to`
+  ///       （`_wordOperatorToken`，两侧空格由 `unitInsertionText` 定），所以这一格只管屏幕上那一个字，
+  ///       **不要拿它去拼表达式**：表达式里那个词是引擎的词运算符，不跟着界面语言走。
+  /// English: the **face** of the `to` button — the word between `5 km` and `mi`. The inserted token is
+  ///          still the bare English `to` (`_wordOperatorToken`, spaced by `unitInsertionText`), so this
+  ///          cell is screen copy only, **never feed it into an expression**: the expression's word is
+  ///          the engine's operator and does not follow the interface language.
+  final String unitWordOperatorLabel;
 
   // —— `X` 变量面板 ——
   final String variableSheetTitle;
@@ -320,10 +340,12 @@ class CalculatorStrings {
     detailsCopied: '已复制计算详情',
     detailsCopyFailed: '无法复制计算详情',
     clipboardReadFailed: '无法读取剪贴板',
+    pasteDetailsTooltip: '粘贴计算详情',
     pasteSummary: CalculatorPasteStrings.zh,
     unitSearchHint: '搜索单位（米、km、mile…）',
-    unitSheetHint: '点一个单位插进表达式；两个单位之间点「to」',
+    unitSheetHint: '点一个单位插进表达式；两个单位之间点「到」',
     noMatchingUnits: '没有匹配的单位',
+    unitWordOperatorLabel: '到',
     variableSheetTitle: '变量',
     noStorableValue: '当前没有可存入的数值（结果没有十进制形态，或者不是有限数）',
     currentValueReading: (value) => '当前值 $value',
@@ -416,10 +438,12 @@ class CalculatorStrings {
     detailsCopied: 'Calculation details copied',
     detailsCopyFailed: 'Could not copy the calculation details',
     clipboardReadFailed: 'Could not read the clipboard',
+    pasteDetailsTooltip: 'Paste calculation details',
     pasteSummary: CalculatorPasteStrings.en,
     unitSearchHint: 'Search units (m, km, mile…)',
     unitSheetHint: 'Tap a unit to insert it; tap "to" between the two units',
     noMatchingUnits: 'No matching units',
+    unitWordOperatorLabel: 'to',
     variableSheetTitle: 'Variables',
     noStorableValue:
         'Nothing storable right now (the result has no decimal form, or is not finite)',

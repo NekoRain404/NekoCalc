@@ -162,7 +162,12 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                   // English: what goes out is the **bare token** `to`; the spaces around it are decided
                   //          by [unitInsertionText] — separators are decided in exactly one place.
                   onPressed: () => widget.onInsert(_wordOperatorToken),
-                  child: const Text('to'),
+                  // 中文：**面字走文案表，交出去的记号不变。** 中文界面上这个按钮此前写着英文 `to`
+                  //       （两处语言里都是英文），现在按语言取字；`onPressed` 交的还是裸记号 `to`。
+                  // English: **the face goes through the table; what it hands over does not change.** This
+                  //          button used to read the English `to` in both languages; the label now follows
+                  //          the language, while `onPressed` still hands over the bare token `to`.
+                  child: Text(strings.unitWordOperatorLabel),
                 ),
               ],
             ),

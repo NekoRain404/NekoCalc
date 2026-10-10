@@ -30,7 +30,7 @@ void main() {
   testWidgets('「to」交出去的也是裸记号', (tester) async {
     final inserted = await pumpSheet(tester);
 
-    await tester.tap(find.text('to'));
+    await tester.tap(find.text('到'));
     expect(inserted, <String>['to']);
   });
 

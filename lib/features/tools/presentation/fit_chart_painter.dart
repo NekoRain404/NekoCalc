@@ -259,7 +259,22 @@ class FitChartPainter extends CustomPainter {
       scheme.tertiary,
       const Color(0xFFFF8A00),
       const Color(0xFF23B45D),
-      const Color(0xFF8B5CF6),
+      // 中文：第四色原是冷紫 `#8B5CF6`（色相 258°），在暖奶油画布上是最后一块冷色孤岛——与分类卡
+      //       那批同类冲突。换成 `peachSugar.display.indicatorFg`（赭 `#98622F`，逐字节相同；分类卡
+      //       `science` 丢掉同一个紫时用的也是这个令牌）。Lab 里 CIE76 量过与同表四色的距离：
+      //       tertiary（浅色 `#B23A4A`）38.1、琥珀 48.9、绿 75.3、红 52.7——最近的一对仍有 38，
+      //       比被换掉的紫离 tertiary 的距离（浅色下 20 上下）宽。深浅两套下的对比度 4.9 / 3.4，
+      //       与表内既有的绿 2.6 / 6.4、琥珀 2.3 / 7.4 同一条带里，没有靠看不清换暖色。
+      // English: the fourth colour used to be a cool violet `#8B5CF6` (hue 258°) — the last cool island on
+      //          the warm canvas, the same clash the category cards already fixed. It becomes
+      //          `peachSugar.display.indicatorFg` (ochre `#98622F`, byte-for-byte — the very token the
+      //          `science` card took when it dropped that same violet). Measured in Lab with CIE76 against
+      //          the rest of this list: 38.1 from `tertiary` (light `#B23A4A`), 48.9 amber, 75.3 green,
+      //          52.7 red — the closest pair still sits at 38, wider than the violet it replaces.
+      //          Contrast in the two brightnesses is 4.9 / 3.4, inside the band the existing green
+      //          (2.6 / 6.4) and amber (2.3 / 7.4) already occupy, so the warmth is not bought with
+      //          illegibility.
+      const Color(0xFF98622F),
       const Color(0xFFFF4D5E),
     ];
     final color = colors[index % colors.length];

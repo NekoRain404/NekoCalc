@@ -17,9 +17,10 @@ import '../shared/source_scan.dart';
 ///       2) 英文表里不许出现汉字、也不许出现空串。
 ///       3) 计算页源码里（除了这张表本身）不许再留中文字符串字面量。
 ///
-///       **第 3 条有两处明写的例外**，都在下面 `_skipFiles` / `_nonUiLiterals` 上，理由各自写在
-///       它们旁边：`inline_expression_editor.dart` 是**用户未提交的改动**（本轮一个字都没动），
-///       以及那条调试断言的句子（用户永远看不到）。除了这两处，扫描是"一个中文字面量都不许有"。
+///       **第 3 条有一处明写的例外**：那条调试断言的句子（在 `_nonUiLiterals` 上，理由写在旁边，
+///       用户永远看不到）。`inline_expression_editor.dart` 的跳过名单本轮已撤——那个文件里的提示语
+///       改走 `pasteDetailsTooltip` 了，扫描实测它一个中文字面量都不剩。除了这一处，扫描是
+///       "一个中文字面量都不许有"。
 /// English: Three guard rails for the calculator page's copy table, the same shape as the settings
 ///          table's (`settings_strings_test.dart`). (1) Every Chinese entry must be **byte-identical**
 ///          to the sentence that was in the source before translation — the default language is
@@ -29,10 +30,11 @@ import '../shared/source_scan.dart';
 ///          (2) The English table must hold no CJK and no empty string. (3) No Chinese string literal
 ///          may remain in the calculator page's sources other than this table.
 ///
-///          **Clause 3 has two stated exceptions**, both on `_skipFiles` / `_nonUiLiterals` below with
-///          their reasons beside them: `inline_expression_editor.dart` is **the user's uncommitted
-///          work** (not one character of it was touched this round) and the debug assertion's sentence
-///          (never reaches a user). Everything else is scanned with "not one Chinese literal".
+///          **Clause 3 has one stated exception**: the debug assertion's sentence (on
+///          `_nonUiLiterals` with its reason beside it, never reaches a user).
+///          `inline_expression_editor.dart`'s skip was removed this round — that file's tooltip went
+///          through `pasteDetailsTooltip`, and the scan measures not one Chinese literal left in it.
+///          Everything else is scanned with "not one Chinese literal".
 void main() {
   final zh = CalculatorStrings.forLanguage(AppLanguage.zh);
   final en = CalculatorStrings.forLanguage(AppLanguage.en);
@@ -56,10 +58,12 @@ void main() {
     expect(zh.detailsCopied, '已复制计算详情');
     expect(zh.detailsCopyFailed, '无法复制计算详情');
     expect(zh.clipboardReadFailed, '无法读取剪贴板');
+    expect(zh.pasteDetailsTooltip, '粘贴计算详情');
     // —— `CONV` 单位面板 ——
     expect(zh.unitSearchHint, '搜索单位（米、km、mile…）');
-    expect(zh.unitSheetHint, '点一个单位插进表达式；两个单位之间点「to」');
+    expect(zh.unitSheetHint, '点一个单位插进表达式；两个单位之间点「到」');
     expect(zh.noMatchingUnits, '没有匹配的单位');
+    expect(zh.unitWordOperatorLabel, '到');
     // —— `X` 变量面板 ——
     expect(zh.variableSheetTitle, '变量');
     expect(zh.noStorableValue, '当前没有可存入的数值（结果没有十进制形态，或者不是有限数）');
@@ -173,9 +177,11 @@ void main() {
       [zh.detailsCopied, en.detailsCopied],
       [zh.detailsCopyFailed, en.detailsCopyFailed],
       [zh.clipboardReadFailed, en.clipboardReadFailed],
+      [zh.pasteDetailsTooltip, en.pasteDetailsTooltip],
       [zh.unitSearchHint, en.unitSearchHint],
       [zh.unitSheetHint, en.unitSheetHint],
       [zh.noMatchingUnits, en.noMatchingUnits],
+      [zh.unitWordOperatorLabel, en.unitWordOperatorLabel],
       [zh.variableSheetTitle, en.variableSheetTitle],
       [zh.noStorableValue, en.noStorableValue],
       [zh.currentValueReading('4'), en.currentValueReading('4')],
@@ -251,9 +257,11 @@ void main() {
       'detailsCopied': en.detailsCopied,
       'detailsCopyFailed': en.detailsCopyFailed,
       'clipboardReadFailed': en.clipboardReadFailed,
+      'pasteDetailsTooltip': en.pasteDetailsTooltip,
       'unitSearchHint': en.unitSearchHint,
       'unitSheetHint': en.unitSheetHint,
       'noMatchingUnits': en.noMatchingUnits,
+      'unitWordOperatorLabel': en.unitWordOperatorLabel,
       'variableSheetTitle': en.variableSheetTitle,
       'noStorableValue': en.noStorableValue,
       'currentValueReading': en.currentValueReading('4'),
@@ -331,14 +339,6 @@ void main() {
       //          scanned like everything else.
       if (name == 'calculator_strings.dart') continue;
       if (name == 'calculator_controller_strings.dart') continue;
-      // 中文：**用户未提交的那个文件**——本轮一个字都没动，所以它里面那两条（「粘贴计算详情」/
-      //       「复制计算详情」）仍在源码里。这是**已知的残留**，不是漏翻；等用户那笔改动落地后，
-      //       这一条应当撤掉，那时它会被下面这条扫描逼着走表。
-      // English: **the user's uncommitted file** — not one character of it was touched this round, so
-      //          its two strings (「粘贴计算详情」/「复制计算详情」) are still in the source. That is a
-      //          **known remainder**, not a missed translation; once the user's change lands, this line
-      //          should be removed and the scan below will then push them through the table.
-      if (name == 'inline_expression_editor.dart') continue;
       final source = stripComments(entity.readAsStringSync());
       for (final literal in stringLiterals(source)) {
         if (!containsWideOrFullwidth(literal)) continue;
@@ -356,7 +356,7 @@ void main() {
       home: Scaffold(body: UnitPickerSheet(onInsert: _noopString)),
     ));
     expect(find.text('搜索单位（米、km、mile…）'), findsOneWidget);
-    expect(find.text('点一个单位插进表达式；两个单位之间点「to」'), findsOneWidget);
+    expect(find.text('点一个单位插进表达式；两个单位之间点「到」'), findsOneWidget);
   });
 
   testWidgets('装上 AppLanguageScope(en) 之后同一个面板渲染英文', (tester) async {

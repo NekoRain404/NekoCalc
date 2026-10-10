@@ -180,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await _startEditing(tester, editLabel: 'Edit expression');
-      await tester.tap(find.byTooltip('粘贴计算详情'));
+      await tester.tap(find.byTooltip('Paste calculation details'));
       await tester.pumpAndSettle();
       FocusManager.instance.primaryFocus!.unfocus();
       await tester.pumpAndSettle();
