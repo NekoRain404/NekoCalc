@@ -228,13 +228,20 @@ Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
 - Appearance / interaction versus HiPER — nothing measured.
 - Device-side **pure** evaluation latency — the end-to-end path is measured, the evaluation alone is not.
   ⚠️ **And the "decision-relevant part" this bullet used to assert — "the controller's `engineTimeout` is
-  5 s and a mid-weight symbolic sum exceeds it" — has no witness.** A host-side probe on 2026-10-10 could
-  not reproduce it: **every** `sum(...)` shape tried (`sum(x^n/n, n, 1, 10)`, `…, 30)`,
-  `sum(x^n/n!, n, 0, 30)`, `…, 60)`, `sum(1/n^s, n, 1, 50)`, `…, 200)`) came back **unevaluated in both
-  approximation modes** (0.0–0.7 ms — the engine echoes the call, it does not compute it), and the one
-  symbolic integral that *did* evaluate took **4.7 ms**. So the claim is not refuted either — it simply
-  **never named its witness**, and nothing in the shape its wording suggests reproduces it. §5e is that
-  probe; §2 is the engine-latency baseline that *is* measured.
+  5 s and a mid-weight symbolic sum exceeds it" — still has no witness.** A host-side probe on 2026-10-10
+  could not reproduce it: with the engine's own argument order (**the variable goes last**), every symbolic
+  sum tried **evaluates**, in **0.2–7.9 ms** — the heaviest (`sum(1/n^s, 1, 200, n)`) is ~630× under the 5 s
+  budget. The control `sum(x,1,10,x)` returns **`55`** in both approximation modes, which is the value this
+  repository's own `calculator_key_dispatch.dart` records for the `Σ` key. So the claim is **not refuted** —
+  it simply **never named its witness**, and nothing in the shape its wording suggests comes near it.
+  §5e is that probe; §2 is the engine-latency baseline that *is* measured.
+
+  ⚠️ **This bullet carried a false generalisation for one revision, and the cause was my instrument.** The
+  first version ran `sum(expr, n, lower, upper)` — the variable in the **middle** — so every case came back
+  **unevaluated**, and it was written up as "the engine does not compute it", i.e. as a property of the
+  engine. **It was a property of my argument order.** Caught by the app's own comment
+  (`calculator_key_dispatch.dart`: 「`sum(x,1,10,x)`=55」) and re-run with the variable last — and that `55`
+  is the control that proves the corrected order is the right one.
 - Camera / natural-language input — not implemented (engineering scale, not a defect).
 
 ## 5b. The tool detail screen's overflow — **found, explained, and fixed**

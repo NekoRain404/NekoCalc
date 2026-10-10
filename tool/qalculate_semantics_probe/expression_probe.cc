@@ -8,8 +8,12 @@
 //
 //       用途两件，都指向 `docs/verification.md`：
 //         · §5 那句「the controller's `engineTimeout` is 5 s and **a mid-weight symbolic sum exceeds
-//           it**」——**没找到见证者**：`sum(...)` 的各种写法在两种模式下**都原样回显**（0.0–0.7 ms，
-//           引擎根本没算它），唯一求值了的符号积分花了 4.7 ms。
+//           it**」——**没找到见证者**：用引擎自己的实参顺序（**变量最后**）之后，每个符号求和都
+//           **求值了**，0.2–7.9 ms（最重的 `sum(1/n^s, 1, 200, n)` 比 5 秒预算低约 630 倍）。
+//           对照 `sum(x,1,10,x)` → **55**，与 `calculator_key_dispatch.dart` 记的那个值一致。
+//         · ⚠️ **这一条的第一版是假的**：那时我把变量写在**中间**（`sum(expr, n, lower, upper)`），
+//           于是全部原样回显——而它被写成了「引擎不求值 sum」这个**关于引擎的**概括。
+//           那是关于**我的实参顺序**的。是应用自己的注释（`Σ` 键那条 = 55）把我揪出来的。
 //         · **§5e 那条实测**：`integrate(x^3, x)` 在**两种模式下都给** `-infinity`，而定积分
 //           `integrate(x^3, 0, 1, x)` 给 `0.25` ✓ —— **不定积分是错的，定积分是对的**。
 //
@@ -29,9 +33,14 @@
 //
 //          Two uses, both pointing at `docs/verification.md`:
 //            · §5's "the controller's `engineTimeout` is 5 s and a mid-weight symbolic sum exceeds it" —
-//              **no witness found**: every `sum(...)` shape came back **unevaluated** in both modes
-//              (0.0–0.7 ms; the engine echoes the call instead of computing it), and the one symbolic
-//              integral that did evaluate took 4.7 ms.
+//              **no witness found**, and now with the engine's own argument order (**the variable goes
+//              last**): every symbolic sum **evaluates**, in **0.2–7.9 ms** — the heaviest
+//              (`sum(1/n^s, 1, 200, n)`) is ~630× under the 5 s budget. The control `sum(x,1,10,x)`
+//              returns **`55`**, the value `calculator_key_dispatch.dart` records for the `Σ` key.
+//            · ⚠️ **The first version of that bullet was false**: it ran `sum(expr, n, lower, upper)` —
+//              the variable in the **middle** — so everything came back unevaluated, and it was written
+//              up as a property of the *engine* ("it does not compute sums"). It was a property of **my
+//              argument order**, and the app's own comment is what caught it.
 //            · **§5e's measurement**: `integrate(x^3, x)` returns `-infinity` in **both** modes while the
 //              definite `integrate(x^3, 0, 1, x)` returns `0.25` ✓ — **the indefinite one is wrong, the
 //              definite one is right**.
@@ -57,14 +66,18 @@ int main() {
 	std::vector<std::string> cases = {
 		// 对照组：应当毫秒级
 		"2+2", "sin(1)",
-		// 逐步加重的符号求和（`sum` 的那几种写法都放进来：写错参数顺序会**原样回显**，
-		// 从输出就能看出它是"没算"而不是"算得快"）
-		"sum(x^n/n, n, 1, 10)",
-		"sum(x^n/n, n, 1, 30)",
-		"sum(x^n/n!, n, 0, 30)",
-		"sum(x^n/n!, n, 0, 60)",
-		"sum(1/n^s, n, 1, 50)",
-		"sum(1/n^s, n, 1, 200)",
+		// ⚠️ **实参顺序：变量最后**（引擎自己的约定）。`Σ` 键插的就是 `sum(x,1,10,x)`，
+		//    而 `calculator_key_dispatch.dart` 的注释记着它 = 55。
+		//    **第一版我把变量写在中间**（`sum(x^n/n, n, 1, 10)`），于是全部**原样回显**——
+		//    而我据此在 `docs/verification.md` 里写下了「引擎不求值 sum」这个**错的概括**。
+		//    这一版用正确顺序重跑，第一次那条更正就是为此。
+		"sum(x,1,10,x)",
+		"sum(x^n/n, 1, 10, n)",
+		"sum(x^n/n, 1, 30, n)",
+		"sum(x^n/n!, 0, 30, n)",
+		"sum(x^n/n!, 0, 60, n)",
+		"sum(1/n^s, 1, 50, n)",
+		"sum(1/n^s, 1, 200, n)",
 		// 符号积分：另一类"中等体量"的候选
 		"integrate(x^n, x)",
 		"integrate(sin(x)^n, x)",
