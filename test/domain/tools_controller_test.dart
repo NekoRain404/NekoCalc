@@ -5,6 +5,9 @@ import 'package:nekocalc/data/repositories/tool_usage_repository.dart';
 import 'package:nekocalc/domain/entities/tool_category.dart';
 import 'package:nekocalc/domain/usecases/recent_tool_action_result.dart';
 import 'package:nekocalc/domain/usecases/tool_catalog.dart';
+import 'package:nekocalc/features/tools/presentation/recent_tool_action_message.dart';
+import 'package:nekocalc/features/tools/presentation/tools_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   late ToolsController controller;
@@ -188,7 +191,18 @@ void main() {
     fakeDb.throwOnClear = true;
     final failedResult = await controller.clearRecent();
     expect(failedResult.status, RecentToolActionStatus.failed);
-    expect(failedResult.message, contains('清空最近使用失败'));
+    // 中文：句子不再住在结果上（领域对象活得比界面长），这里按呈现边缘那条路渲染——断言本身一个字
+    //       没改，量到的还是同一句话。
+    // English: the sentence no longer lives on the result (a domain object outlives the UI); it is
+    //          rendered here through the presentation edge — the assertion itself is unchanged and
+    //          measures the same sentence.
+    expect(
+      recentToolActionMessage(
+        failedResult,
+        ToolsStrings.forLanguage(AppLanguage.zh),
+      ),
+      contains('清空最近使用失败'),
+    );
   });
 
   test('search matches formulas inputs and units', () {

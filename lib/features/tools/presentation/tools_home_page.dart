@@ -11,6 +11,7 @@ import '../../../domain/entities/tool_definition.dart';
 import '../../../domain/usecases/recent_tool_action_result.dart';
 import '../../../domain/usecases/tool_catalog.dart';
 import '../../../shared/presentation/app_chrome.dart';
+import 'recent_tool_action_message.dart';
 import 'tool_catalog_strings.dart';
 import 'tool_category_screen.dart';
 import 'tool_navigation.dart';
@@ -451,8 +452,13 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
           );
         });
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        // 中文：那句话由呈现层按令牌取（`recent_tool_action_message.dart`），取表的语言就是屏幕的语言。
+        // English: the sentence is read at the presentation edge from the token
+        //          (`recent_tool_action_message.dart`); the table's language is the screen's.
+        final strings = ToolsStrings.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(recentToolActionMessage(result, strings))),
+        );
         await _reload();
       }
     }
@@ -470,8 +476,12 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
           );
         });
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(result.message)));
+        // 中文：同上，清空那条回执也走呈现边缘的翻译处。
+        // English: as above, the clear receipt goes through the presentation-edge translator too.
+        final strings = ToolsStrings.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(recentToolActionMessage(result, strings))),
+        );
         await _reload();
       }
     }

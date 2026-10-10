@@ -41,9 +41,15 @@ class _BackupImportPrompt extends StatelessWidget {
           const SizedBox(height: 10),
           _BackupPlanBlock(
             plan: replacePlan,
-            blockedMessage: replacePlan.source.totalRows == 0
-                ? emptyBackupReplaceErrorMessage
-                : null,
+            // 中文：这句与 `BackupImportImpact.emptySource` 那格**同一句话**（校验器里那个
+            //       `emptyBackupReplaceErrorMessage` 常量仍用于被拒绝的导入异常，尚未进表）——
+            //       所以这里也走表，英文界面下才不是中文。
+            // English: this is **the same sentence** as the `BackupImportImpact.emptySource` cell (the
+            //          validator's `emptyBackupReplaceErrorMessage` constant is still used for the
+            //          rejected-import exception and has not been tabled) — so this site reads the table
+            //          too, or an English interface would print Chinese here.
+            blockedMessage:
+                replacePlan.source.totalRows == 0 ? s.backupImpactEmptySource : null,
           ),
           const SizedBox(height: 12),
           Row(
@@ -147,7 +153,10 @@ class _BackupWarningsBlock extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 5),
               child: Text(
-                warning.message,
+                // 中文：那句话由呈现层按令牌取（`settings_backup_messages.dart`）。
+                // English: the sentence is read at the presentation edge from the token
+                //          (`settings_backup_messages.dart`).
+                backupPreviewWarningMessage(warning, s),
                 style: TextStyle(color: scheme.onSurfaceVariant, height: 1.3),
               ),
             ),
@@ -269,6 +278,7 @@ class _BackupImpactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final s = SettingsStrings.of(context);
     final color = switch (impact.severity) {
       BackupImportImpactSeverity.danger => scheme.error,
       BackupImportImpactSeverity.warning => scheme.tertiary,
@@ -281,7 +291,12 @@ class _BackupImpactRow extends StatelessWidget {
         const SizedBox(width: 6),
         Expanded(
           child: Text(
-            impact.message,
+            // 中文：那句话由呈现层按令牌取（`settings_backup_messages.dart`）——多张表的连接符也
+            //       跟着语言走。
+            // English: the sentence is read at the presentation edge from the token
+            //          (`settings_backup_messages.dart`) — the separator between several table names
+            //          follows the language as well.
+            backupImportImpactMessage(impact, s),
             style: TextStyle(
               color: color,
               fontSize: 12,

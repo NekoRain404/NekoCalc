@@ -832,10 +832,16 @@ English added), rendered at the edge by `calculatorSaveNoteMessage` / `toolSaveM
 are built (`calculator_page_sheets.dart` and the tool / text-tool / fit screens' save paths). One rule moved
 to the edge because it is wording rather than outcome: an `inputInvalid` summary that is empty after trimming
 drops the colon; `notWritten`/`superseded` deliberately share one cell. Each family carries the same guard
-(legacy-sentence table both directions, en-rendering forbids CJK, source scan of the domain file). **The
-remaining families listed above (`recent_tool_action_result.dart`, `notes_clipboard_import.dart`,
-`notes_controller.dart`, `backup_snapshot_validator.dart`, `data_backup_repository.dart`,
-`github_release_checker.dart`) are still in the old shape** — three paths converted, not the sweep.
+(legacy-sentence table both directions, en-rendering forbids CJK, source scan of the domain file). **Converted since this audit (third and
+fourth slices, 2026-10-11):** the notes family (`notes_clipboard_import.dart`, `notes_delete_result.dart`),
+`recent_tool_action_result.dart`, `github_release_checker.dart`, the backup-warning family in
+`backup_snapshot_validator.dart` and the import-impact family in `data_backup_repository.dart` — **eight
+families converted in all, not the sweep.** **What is still open:** `notes_controller.dart` (search-summary
+labels and the fallback note titles it saves are still Chinese composed in the application layer), plus the
+**residual prose inside the two partly converted files** — `backup_snapshot_validator.dart`'s
+`FormatException` sentences, `emptyBackupReplaceErrorMessage`, `backupTableLabels` and `BackupPreview.summary`
+/ `totalLabel`; and `data_backup_repository.dart`'s `BackupImportPlan.modeLabel` / `totalLabel` / `summary`,
+`BackupImportReport.modeLabel` / `resultLabel` / `summary` and `BackupExportResult.successMessage` / `detail`.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 

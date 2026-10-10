@@ -23,19 +23,17 @@ class GithubReleaseChecker {
   Future<UpdateCheckResult> check({required String currentVersion}) async {
     final installed = SemanticVersion.tryParse(currentVersion);
     if (installed == null) {
-      return const UpdateCheckResult.unavailable('当前版本号无法识别。');
+      return const UpdateCheckResult.versionUnreadable();
     }
 
     try {
       final response = await _client.get(releasesUri);
       if (response.statusCode != HttpStatus.ok) {
-        return UpdateCheckResult.unavailable(
-          'GitHub 返回了 HTTP ${response.statusCode}，请稍后再试。',
-        );
+        return UpdateCheckResult.httpError(response.statusCode);
       }
       final releases = _decodeReleases(response.body);
       if (releases.isEmpty) {
-        return const UpdateCheckResult.unavailable('未找到可用的公开发布版本。');
+        return const UpdateCheckResult.noReleasesFound();
       }
       final newest = releases.reduce(
         (current, item) =>
@@ -48,7 +46,7 @@ class GithubReleaseChecker {
       }
       return UpdateCheckResult.upToDate(newest);
     } catch (_) {
-      return const UpdateCheckResult.unavailable('无法连接 GitHub，请检查网络后重试。');
+      return const UpdateCheckResult.networkUnreachable();
     }
   }
 
@@ -101,33 +99,125 @@ class IoReleaseHttpClient implements ReleaseHttpClient {
 
 enum UpdateCheckStatus { updateAvailable, upToDate, unavailable }
 
+/// 中文：**一次更新检查是哪一种结局——它既是判据，也是呈现层取那句话用的令牌。**
+///
+///       六格与 `SettingsStrings` 里的六格一一对应（`updateAvailable` / `updateUpToDate` /
+///       `updateVersionUnreadable` / `updateHttpError` / `updateNoReleasesFound` /
+///       `updateNetworkUnreachable`），由 `settings/presentation/update_check_message.dart` 的
+///       `updateCheckMessage(result, strings)` 那个穷尽 `switch` 接上；版本号与 HTTP 状态码是
+///       **载荷**，留在结果上由呈现层拼进句子。
+///
+///       **这六格从前是在这里拼的句子**（`UpdateCheckResult.message`，由设置页的「检查更新」对话框
+///       直接印）：结果对象从检查器活到对话框，界面那张按语言切的文案表够不着它，所以英文界面下它
+///       照样是中文——`docs/verification.md` §5i 记着这条层次性缺陷。这一格比
+///       [UpdateCheckStatus] 细：那是**行为**判据（按钮印「查看发布」「查看发布说明」还是
+///       「打开发布页」），`unavailable` 一格在那边合着四种原因，这一边分开了。
+///
+///       **六格互斥**：`updateAvailable` 与 `upToDate` 由「线上最新版比本机新没有」分开；
+///       `versionUnreadable` 是入口处本机版本号解析失败，与网络那几步无关（不可能走到后面的分支）；
+///       `httpError`、`noReleasesFound` 与 `networkUnreachable` 三段同在 `try` 里，但一个对应
+///       非 200 的响应、一个对应 200 但一个可用版本都没有、一个只在抛异常时才写，三者的条件
+///       互不重叠。**`status` 是派生出来的**（下面那个穷尽 `switch`），不是第二个字段，所以
+///       「令牌说 A、按钮却是 B」没有落点。
+/// English: **which outcome one update check reached — a verdict, and the token the presentation layer
+///          resolves the sentence with.**
+///
+///          The six values correspond one for one with six cells in `SettingsStrings`
+///          (`updateAvailable` / `updateUpToDate` / `updateVersionUnreadable` / `updateHttpError` /
+///          `updateNoReleasesFound` / `updateNetworkUnreachable`), wired up by the exhaustive `switch`
+///          in `updateCheckMessage(result, strings)` under `settings/presentation/`. The version
+///          number and the HTTP status code are **payload** and stay on the result for the presentation
+///          layer to splice into the sentence.
+///
+///          **These six used to be sentences composed right here** (`UpdateCheckResult.message`, printed
+///          straight by the settings page's "Check for updates" dialog): the result travels from the
+///          checker to the dialog and outlives the UI, so a language-keyed interface table could not
+///          reach it and an English interface still printed Chinese — the layering defect recorded in
+///          `docs/verification.md` §5i. This value is finer than [UpdateCheckStatus]: that one is the
+///          **behaviour** verdict (whether the button reads "View release", "View release notes" or
+///          "Open releases page") and folds four of these reasons into its `unavailable`, while this one
+///          keeps them apart.
+///
+///          **The six are mutually exclusive**: `updateAvailable` against `upToDate` is "is the newest
+///          published version ahead of this build"; `versionUnreadable` is the local version string
+///          failing to parse at the door and has nothing to do with the network steps (it cannot reach
+///          the branches below); `httpError`, `noReleasesFound` and `networkUnreachable` live inside the
+///          same `try`, but one is a non-200 response, one is a 200 carrying no usable release, and one
+///          is only written from the catch — their conditions never overlap. **`status` is derived**
+///          (the exhaustive `switch` below), not a second field, so "the token says A while the button
+///          says B" has nowhere to land.
+enum UpdateCheckOutcome {
+  updateAvailable,
+  upToDate,
+  versionUnreadable,
+  httpError,
+  noReleasesFound,
+  networkUnreachable,
+}
+
 class UpdateCheckResult {
+  /// 中文：**无名构造是私有的**：`httpError` 要求一个状态码、两个「有发布版本」的结局要求一个
+  ///       `AvailableRelease`，而呈现层读载荷时用的是 `!`（见 `update_check_message.dart`）。
+  ///       公开的无名构造会留下「令牌说 httpError、状态码却是 null」这样的路，同
+  ///       `CalculatorSubmitResult` 那条理由。
+  /// English: **the unnamed constructor is private**: `httpError` requires a status code and the two
+  ///          "a release exists" outcomes require an `AvailableRelease`, while the presentation layer
+  ///          reads those payloads with `!` (see `update_check_message.dart`). A public unnamed
+  ///          constructor would leave roads like "the token says httpError while the status code is
+  ///          null" — the same reasoning as `CalculatorSubmitResult`.
   const UpdateCheckResult._({
-    required this.status,
-    required this.message,
+    required this.outcome,
     this.release,
+    this.httpStatusCode,
   });
 
   UpdateCheckResult.updateAvailable(AvailableRelease release)
       : this._(
-          status: UpdateCheckStatus.updateAvailable,
-          message: '发现新版本 ${release.version}。',
+          outcome: UpdateCheckOutcome.updateAvailable,
           release: release,
         );
 
   const UpdateCheckResult.upToDate(AvailableRelease release)
       : this._(
-          status: UpdateCheckStatus.upToDate,
-          message: '当前已是最新版本。',
+          outcome: UpdateCheckOutcome.upToDate,
           release: release,
         );
 
-  const UpdateCheckResult.unavailable(String message)
-      : this._(status: UpdateCheckStatus.unavailable, message: message);
+  const UpdateCheckResult.versionUnreadable()
+      : this._(outcome: UpdateCheckOutcome.versionUnreadable);
 
-  final UpdateCheckStatus status;
-  final String message;
+  const UpdateCheckResult.httpError(int statusCode)
+      : this._(
+          outcome: UpdateCheckOutcome.httpError,
+          httpStatusCode: statusCode,
+        );
+
+  const UpdateCheckResult.noReleasesFound()
+      : this._(outcome: UpdateCheckOutcome.noReleasesFound);
+
+  const UpdateCheckResult.networkUnreachable()
+      : this._(outcome: UpdateCheckOutcome.networkUnreachable);
+
+  final UpdateCheckOutcome outcome;
   final AvailableRelease? release;
+
+  /// 中文：`httpError` 的载荷：GitHub 回的那个状态码。
+  /// English: the payload of `httpError`: the status code GitHub answered with.
+  final int? httpStatusCode;
+
+  /// 中文：**行为判据**（对话框按钮与图标按它取），由 [outcome] 派生——见 [UpdateCheckOutcome] 上
+  ///       那段「令牌比状态细」的说明。
+  /// English: the **behaviour verdict** (the dialog picks its button and icon from it), derived from
+  ///          [outcome] — see the "the token is finer than the status" note on [UpdateCheckOutcome].
+  UpdateCheckStatus get status => switch (outcome) {
+        UpdateCheckOutcome.updateAvailable => UpdateCheckStatus.updateAvailable,
+        UpdateCheckOutcome.upToDate => UpdateCheckStatus.upToDate,
+        UpdateCheckOutcome.versionUnreadable ||
+        UpdateCheckOutcome.httpError ||
+        UpdateCheckOutcome.noReleasesFound ||
+        UpdateCheckOutcome.networkUnreachable =>
+          UpdateCheckStatus.unavailable,
+      };
 }
 
 class AvailableRelease {

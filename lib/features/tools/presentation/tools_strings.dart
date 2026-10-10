@@ -96,6 +96,13 @@ class ToolsStrings {
     required this.clearAll,
     required this.recentEmpty,
     required this.removeRecentTooltip,
+    // —— 工具首页：最近使用回执（见下面那一段说明）——
+    required this.recentToolRemoved,
+    required this.recentToolNotFound,
+    required this.recentToolsCleared,
+    required this.recentToolsAlreadyEmpty,
+    required this.recentToolRemoveFailed,
+    required this.recentToolClearFailed,
     // —— 分类页 ——
     required this.searchCategoryHint,
     required this.categoryNoMatch,
@@ -205,6 +212,46 @@ class ToolsStrings {
   final String clearAll;
   final String recentEmpty;
   final String removeRecentTooltip;
+
+  // —— 工具首页：最近使用回执 ——
+  /// 中文：**最近使用那两条动作（移除 / 清空）的五句话。** 它们原先住在领域层
+  ///       （`lib/domain/usecases/recent_tool_action_result.dart` 上 `message` 字段当场拼出来的句子），
+  ///       由工具首页那两个 `SnackBar` 直接印（`result.message`）。**领域对象活得比界面长**，这张表
+  ///       够不着它，所以那几句话在任何界面语言下都是中文——`docs/verification.md` §5i 记着的层次性
+  ///       缺陷（提交、保存、笔记三条路径先一步改成了这个形状）。
+  ///
+  ///       现在领域层只留令牌 `RecentToolActionStatus`（`failed` 那一格另外看 `RecentToolAction`
+  ///       决定印「移除」还是「清空」），字在这里，由 `recent_tool_action_message.dart` 的
+  ///       `recentToolActionMessage(result, strings)` 在**呈现边缘**取。工具名、条数与错误串是载荷，
+  ///       由调用方（领域结果）递进来。
+  ///
+  ///       **中文逐字节与从前相同**（默认语言是中文），由 `test/domain/recent_tool_action_result_test.dart`
+  ///       那份旧文案对照表逐条钉住。两格是函数（错误串是异常的技术串）。
+  /// English: **the five sentences of the two recently-used actions (remove / clear).** They used to
+  ///          live in the domain layer (composed on the spot into `message` in
+  ///          `lib/domain/usecases/recent_tool_action_result.dart`) and were printed straight by the two
+  ///          `SnackBar`s on the tools home page (`result.message`). **A domain object outlives the
+  ///          UI**, so this table could not reach it and those sentences were Chinese under every
+  ///          interface language — the layering defect recorded in `docs/verification.md` §5i, whose
+  ///          earlier slices were the submit, save and notes paths.
+  ///
+  ///          The domain now keeps only the token `RecentToolActionStatus` (the `failed` cell also
+  ///          reads `RecentToolAction` to pick the remove or clear wording); the words are here, read
+  ///          **at the presentation edge** by `recentToolActionMessage(result, strings)` in
+  ///          `recent_tool_action_message.dart`. The tool name, the count and the error string are
+  ///          payload handed in by the caller (the domain result).
+  ///
+  ///          **The Chinese is byte-identical to what it was** (Chinese is the default language),
+  ///          pinned entry by entry by the legacy-sentence table in
+  ///          `test/domain/recent_tool_action_result_test.dart`. Two cells are functions (the error
+  ///          string is an exception's technical string).
+  final String Function(String title) recentToolRemoved;
+  final String recentToolNotFound;
+  final String Function(int count) recentToolsCleared;
+  final String recentToolsAlreadyEmpty;
+  final String Function(String error) recentToolRemoveFailed;
+  final String Function(String error) recentToolClearFailed;
+
   // —— 分类页 ——
   /// 中文：**搜索按钮的名字。** `IconButton` 的语义标签来自 `tooltip`——
   ///       没有它，那一颗在读屏里就是**一个没有名字的按钮**（实测：它让
@@ -469,6 +516,15 @@ class ToolsStrings {
     clearAll: '清空',
     recentEmpty: '最近使用已清空。打开任意工具后会重新记录到这里。',
     removeRecentTooltip: '移除最近使用',
+    // 中文：与迁移前领域层那五句话逐字节相同（`failed` 那两格按 `RecentToolAction` 分走）。
+    // English: byte-identical to the five sentences in the domain layer before the move (the two
+    //          `failed` cells split by `RecentToolAction`).
+    recentToolRemoved: (title) => '已从最近使用移除「$title」',
+    recentToolNotFound: '这项最近使用已经不存在',
+    recentToolsCleared: (count) => '已清空 $count 个最近工具',
+    recentToolsAlreadyEmpty: '最近使用已经是空的',
+    recentToolRemoveFailed: (error) => '移除最近使用失败：$error',
+    recentToolClearFailed: (error) => '清空最近使用失败：$error',
     searchCategoryHint: (category) => '搜索$category工具',
     categoryNoMatch: (category, query) => '$category里没有“$query”。',
     commonTools: '常用工具',
@@ -576,6 +632,21 @@ class ToolsStrings {
     recentEmpty:
         'Recently used is empty. Open any tool and it will be listed here again.',
     removeRecentTooltip: 'Remove from recently used',
+    // 中文：与中文那一份逐条对应，语声与相邻几格一致（短回执、句末不带句号；「移除 / 清空最近使用」
+    //       与上面 `removeRecentTooltip`、`recentTools` 同一个说法；引号用 ASCII，宽/全角标点会让
+    //       最近使用那条护栏的英文渲染检查变红）。
+    // English: one for one with the Chinese side, in the voice of the neighbouring cells (short
+    //          receipts without a final period; "remove / clear recently used" as in
+    //          `removeRecentTooltip` and `recentTools` above; the quotes stay ASCII because a
+    //          wide/fullwidth punctuation mark would turn the recently-used guard's en-rendering check
+    //          red).
+    recentToolRemoved: (title) => 'Removed "$title" from recently used',
+    recentToolNotFound: 'That recently used entry is already gone',
+    recentToolsCleared: (count) => 'Cleared $count recently used tools',
+    recentToolsAlreadyEmpty: 'Recently used is already empty',
+    recentToolRemoveFailed: (error) =>
+        'Could not remove from recently used: $error',
+    recentToolClearFailed: (error) => 'Could not clear recently used: $error',
     searchCategoryHint: (category) => 'Search $category tools',
     categoryNoMatch: (category, query) => 'Nothing in $category matches “$query”.',
     commonTools: 'Common tools',

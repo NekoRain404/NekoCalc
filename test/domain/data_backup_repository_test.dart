@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/data_backup_repository.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_messages.dart';
+import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   test('export backup packages json preview file name and messages', () async {
@@ -325,7 +328,7 @@ void main() {
     );
 
     expect(
-      replace.impacts.map((impact) => impact.message),
+      replace.impacts.map(_impactText),
       containsAll([
         '笔记 将删除本机 3 条',
         '历史 将减少 4 条',
@@ -341,7 +344,7 @@ void main() {
     );
 
     expect(
-      merge.impacts.map((impact) => impact.message),
+      merge.impacts.map(_impactText),
       containsAll([
         '会保留本机数据，并尝试加入 历史 +1、收藏 +1、最近工具 +2、设置 +1',
         '设置项可能按备份内容更新',
@@ -375,9 +378,9 @@ void main() {
       replaceExisting: false,
     );
 
-    expect(replace.impacts.first.message, emptyBackupReplaceErrorMessage);
+    expect(_impactText(replace.impacts.first), emptyBackupReplaceErrorMessage);
     expect(replace.impacts.first.severity, BackupImportImpactSeverity.danger);
-    expect(merge.impacts.single.message, '备份为空，合并导入不会改变本机数据');
+    expect(_impactText(merge.impacts.single), '备份为空，合并导入不会改变本机数据');
   });
 
   test('import rejects malformed table rows before touching database',
@@ -413,6 +416,18 @@ void main() {
     expect(db.importCallCount, 0);
     expect(db.replaceExisting, isNull);
   });
+}
+
+// 中文：影响条目上的句子不再住在 `BackupImportImpact` 上（领域对象活得比界面长），这里按呈现边缘
+//       那条路渲染成中文——下面这些断言量到的还是原来那几句话。
+// English: the sentences no longer live on `BackupImportImpact` (a domain object outlives the UI);
+//          they are rendered here through the presentation edge in Chinese — the assertions above
+//          still measure the very same sentences.
+String _impactText(BackupImportImpact impact) {
+  return backupImportImpactMessage(
+    impact,
+    SettingsStrings.forLanguage(AppLanguage.zh),
+  );
 }
 
 String _snapshotJson(Map<String, int> counts) {

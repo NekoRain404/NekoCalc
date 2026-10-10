@@ -21,7 +21,9 @@ import '../../../shared/presentation/calc_theme.dart';
 // English: The string table is deliberately **not** a `part`: as a standalone library the tests can
 //          import it directly without dragging in the whole settings widget tree, and it can carry
 //          imports of its own. (Dart requires every import to precede the part directives.)
+import 'settings_backup_messages.dart';
 import 'settings_strings.dart';
+import 'update_check_message.dart';
 
 part 'settings_dialogs.dart';
 part 'settings_backup_widgets.dart';
@@ -543,7 +545,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   Icon(icon, size: 20),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(result.message)),
+                  // 中文：那句话由呈现层按令牌取（`update_check_message.dart`）——取表的语言就是
+                  //       对话框所在屏幕的语言。
+                  // English: the sentence is read at the presentation edge from the token
+                  //          (`update_check_message.dart`) — the table's language is the language of the
+                  //          screen the dialog sits on.
+                  Expanded(child: Text(updateCheckMessage(result, s))),
                 ],
               ),
               const SizedBox(height: 12),

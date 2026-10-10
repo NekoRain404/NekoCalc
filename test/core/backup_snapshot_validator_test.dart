@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_messages.dart';
+import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   // 中文：备份校验测试确保坏文件在进入数据库事务前被拦截。
@@ -215,36 +218,48 @@ void main() {
     );
 
     expect(
-      oldWarnings.map((warning) => warning.message).join('\n'),
+      oldWarnings.map(_warningText).join('\n'),
       contains('没有可恢复记录'),
     );
     expect(
-      oldWarnings.map((warning) => warning.message).join('\n'),
+      oldWarnings.map(_warningText).join('\n'),
       contains('距今约 1 年'),
     );
     expect(
-      oldWarnings.map((warning) => warning.message).join('\n'),
+      oldWarnings.map(_warningText).join('\n'),
       contains('备份来自 v1.0.0'),
     );
     expect(
       oldWarnings
-          .firstWhere((warning) => warning.message.contains('没有可恢复记录'))
+          .firstWhere((warning) => _warningText(warning).contains('没有可恢复记录'))
           .severity,
       BackupPreviewWarningSeverity.danger,
     );
     expect(
-      futureWarnings.map((warning) => warning.message).join('\n'),
+      futureWarnings.map(_warningText).join('\n'),
       contains('晚于本机时间'),
     );
     expect(
-      missingWarnings.map((warning) => warning.message).join('\n'),
+      missingWarnings.map(_warningText).join('\n'),
       contains('缺少导出时间'),
     );
     expect(
-      missingWarnings.map((warning) => warning.message).join('\n'),
+      missingWarnings.map(_warningText).join('\n'),
       contains('缺少应用版本信息'),
     );
   });
+}
+
+// 中文：警告上的句子不再住在 `BackupPreviewWarning` 上（领域对象活得比界面长），这里按呈现边缘
+//       那条路渲染成中文——下面这些断言量到的还是原来那几句话。
+// English: the sentences no longer live on `BackupPreviewWarning` (a domain object outlives the UI);
+//          they are rendered here through the presentation edge in Chinese — the assertions below
+//          still measure the very same sentences.
+String _warningText(BackupPreviewWarning warning) {
+  return backupPreviewWarningMessage(
+    warning,
+    SettingsStrings.forLanguage(AppLanguage.zh),
+  );
 }
 
 Map<String, Object?> _historyRow(int id) {
