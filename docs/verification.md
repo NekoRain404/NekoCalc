@@ -14,26 +14,42 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 | Tools reachable **on screen** | widget tests that open the tool and assert its output | `test/features/new_text_tools_screen_test.dart` |
 | Accessibility labels | Flutter's `labeledTapTargetGuideline`, at device size | `test/features/calculator_accessibility_test.dart` |
 
-## 2. Baselines (measured 2026-09-30; **two of them re-checked 2026-10-10**)
+## 2. Baselines (measured 2026-09-30; **all but one re-checked 2026-10-10**)
 
 | Quantity | Value | Re-checked 2026-10-10 |
 |---|---|---|
 | Release APK, `--split-per-abi` arm64-v8a | 32.6 MB | **32.64 MB — unchanged** |
-| Cold start `am start -W` | debug 1.75 s / **release 0.33 s** | **debug 1.75–1.76 s** (`1913 / 1761 / 1754` ms; the first is the run right after `force-stop`). **Release not re-measured** — see below |
-| Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms | not re-measured |
-| Memory, release, idle | TOTAL PSS 216 MB | **not re-measured.** (Debug idle measured at **391 MiB / 400,259 KB** — a *different build type*, **not comparable to 216 MB**) |
+| Cold start `am start -W` | debug 1.75 s / **release 0.33 s** | **debug 1.75–1.76 s** (`1913 / 1761 / 1754` ms; the first is the run right after `force-stop`) and **release 0.32–0.34 s** (`336 / 338 / 319` ms) — both unchanged |
+| Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms | not re-measured (a host-side sequence, not reachable from the device pass) |
+| Memory, release, idle | TOTAL PSS 216 MB | **217,634 KB ≈ 212.5 MiB — unchanged** |
 
-⚠️ **Why the two release numbers were not re-measured.** Both need a **release APK installed**, and the device
-carries the **debug** build (`versionCode=2009`). Installing release (`4009`) upgrades past it and then **blocks
-the debug build** (`INSTALL_FAILED_VERSION_DOWNGRADE`), whose only recovery is **uninstall + reinstall + restore
-the database** — that is, the app's own data. **The measurement was declined deliberately, not missed**; the
-numbers above are still the 2026-09-30 ones and are marked as such. The debug rows were refreshed because
-launching an already-installed build mutates nothing.
+⚠️ **One measurement is deliberately left out of that table**: the **debug** build's idle memory, measured at
+**391 MiB (`400259` KB)** during the same pass. It is a **different build type**, so it is **not comparable to
+the release `212.5 MiB`** and is recorded here only so nobody compares the two.
+
+⚠️ **I first wrote here that the two release rows "were declined deliberately", and then measured them.** The
+reasoning for declining was itself wrong, and the measurement is what refuted it: I assumed the device carried
+the **debug** build, so a release install would need an uninstall and would cost the app's data. **It carried a
+release-signed build all along** — a debug APK re-signed with the release keystore, which is what the device
+recipe in `HANDOVER.md` produces. Verified by pulling the installed APK and reading its certificate:
+
+```
+installed base.apk : CN=NekoCalc, OU=NekoRain, ... SHA-256 bbb28c50…2d1007
+my app-arm64-v8a-release.apk : CN=NekoCalc, OU=NekoRain, ... SHA-256 bbb28c50…2d1007   ← identical
+```
+
+**Same certificate ⇒ `adb install -r` replaces in place and keeps the data** (it also went `2009 → 4009`, an
+upgrade, so no downgrade guard fires). Both release rows above come from that install. **What remains true** is
+the *reverse* direction: release is `versionCode=4009` and debug is `2009` (`versionCode = flutter.versionCode`,
+nothing else in `build.gradle.kts`), so **going back to a debuggable build needs `-d`** — that, and not an
+uninstall, is the real asymmetry. Two errors in one paragraph, both caught by measuring instead of reasoning.
 
 ⚠️ **And a trap that nearly produced a false regression.** The *same* arm64-v8a artifact reads **32.64 MB** from
 `ls -l` (binary MiB — the unit this table uses) and **"34.2MB"** in Flutter's own build output (decimal MB,
 34.2 × 10⁶ bytes). Comparing the build log against this table reports a **1.6 MB regression that does not
 exist** — 34.2 × 10⁶ / 2²⁰ = 32.62. **Match the unit before matching the number.**
+
+⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
 
 ⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
 
