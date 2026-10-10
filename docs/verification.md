@@ -752,6 +752,61 @@ here is deleted yet):
 | `NotesController.setNoteArchiveFilter` / `setNoteSort` / `setNoteTag` | zero references in `lib/`, `test/`, `android/`; superseded by `applyNoteFilters`, which the filter sheet does call — so no filter choice becomes unreachable | nothing |
 | `MathResult.hasFractionTex` / `hasMixedTex` / `hasDmsText`, `ResultPresentation.hasFraction` | zero readers (the live siblings `hasTex`, `hasMixed` and `hasDms` are used) | a small dead API |
 
+### 5h. One source of truth for colour: the app theme is now *derived* from the selected palette (2026-10-10)
+
+**The mistake this fixes was made and corrected the same day.** Re-pointing the app's Material scheme at the
+home page's palette (the `feat(ui)` commit) was first done by **copying the palette's literals** into
+`app_theme.dart` — 94 lines duplicating values that already live in `calc_theme.dart`. That is the two-apps
+problem again in a new form: the user can pick `lavenderMist` or `peachSugar`, and only the calculator would
+have changed while every other screen stayed roseCream.
+
+`AppTheme.light(CalcTheme base)` / `AppTheme.dark(CalcTheme base)` now hold **no colour literals at all**.
+Every role reads a token (`primary` ← `display.indicatorFg`, `surface` ← `display.background`,
+`scaffoldBackgroundColor` ← `keypadBackground`, `onSurface` ← `keys.functionFg`, `outlineVariant` ←
+`keys.functionBg`, `secondaryContainer` ← `keys.variableBg`, …), roles outside the mapping come from
+`ColorScheme.fromSeed(display.indicatorFg)`, and `dark()` reads `base.dark`. `lib/app.dart` resolves the theme
+**once** — its existing `_calcTheme`, from `CalcTheme.resolve(settings.themeId)` — and feeds the *same* value
+to both the Material theme and `CalcThemeScope`, so there is no second source of truth;
+`calc_theme.dart` has no dependency back on `app_theme.dart`.
+
+**The guard is a test, not a convention**: `test/shared/app_theme_follows_calc_theme_test.dart` walks
+`CalcTheme.all`, asserts the Material scheme equals that theme's tokens, **and that the three primaries
+differ** — so the day the derivation degrades back into a hard-coded palette it goes red. Measured:
+`#AA5462` (roseCream) / `#6C5CB4` (lavenderMist) / `#98622F` (peachSugar).
+
+⚠️ One call site had to change to compile: `tool_description_lines_test.dart` passed `AppTheme.light()` and now
+passes `CalcTheme.fallback` — the palette it was already measuring against. **No assertion was touched**; that
+test measures fonts and geometry, not colour.
+
+### 5i. Multi-language: structurally sound; three gaps and one layering defect (audited 2026-10-10)
+
+**Two languages** (`zh`, the fallback, and `en`), **24 named `…Strings` classes**, each an exhaustive `switch`
+over `AppLanguage` with **no defaulted fields** — so a key missing for a language is a **compile error**, not a
+runtime gap. Nine further files are Zh→En maps (Chinese key → English value, `?? key` fallback) where the
+compiler cannot enforce completeness; tests do instead
+(`tool_result_label_lengths_test.dart` asserts `en.labels.length == 720`). Switching rebuilds the tree from
+`MaterialApp.builder` above the Navigator, and both `State` caches re-read in `didChangeDependencies` — **no
+stale-language path was found**.
+
+**Gaps, worst first** (measured, still open):
+
+| site | what | note |
+|---|---|---|
+| `inline_expression_editor.dart:174` | `message: '粘贴计算详情'` on a paste `Tooltip` | **Chinese text in an English UI** — the only chrome string with no strings-table entry |
+| `unit_picker_sheet.dart:165` | `const Text('to')` | an English connector inside the Chinese UI |
+| `result_format_sheet.dart:135-141` | six English-only result-format labels | documented as deliberate HiPER vendor strings |
+| unit-conversion names — ~290 CJK lines in `core/units/tool_unit_conversion_units_{core,engineering}.dart` | Chinese and English spellings sit in the **same map as the parser's input aliases** | there is no separate display-name table, so translating display names means separating those two concerns first |
+
+⚠️ **The layering defect worth naming: domain-layer result objects carry user-facing prose.** A dozen-plus sites
+(`calculator_submit_result.dart`, `tool_save_result.dart`, `calculator_save_result.dart`,
+`recent_tool_action_result.dart`, `notes_clipboard_import.dart`, `notes_controller.dart`,
+`backup_snapshot_validator.dart`, `data_backup_repository.dart`, `github_release_checker.dart`) build Chinese
+sentences that reach the screen via `SnackBar(content: Text(result.message))`
+(`calculator_key_dispatch.dart:236`) and `Text(result.message)` (`calculator_page_sheets.dart:345`). A domain
+object that outlives the UI cannot be localised by a widget-level strings table; the fix is a **token or enum
+on the result, translated at the presentation edge** — the shape the tool-result path already uses. That is a
+multi-file refactor, so it is recorded here rather than started.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
