@@ -103,9 +103,24 @@ version numbers by hand.
 34.2 × 10⁶ bytes). Comparing the build log against this table reports a **1.6 MB regression that does not
 exist** — 34.2 × 10⁶ / 2²⁰ = 32.62. **Match the unit before matching the number.**
 
-⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
+⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable. (This line sat here **twice** —
+a duplication left by a revision — and the tally below replaces both.) The tally, with the **failure mode** of
+each, written down so nobody re-walks them:
 
-⚠️ **Baselines, not comparisons**: HiPER's own figures were not obtainable (seven sources tried).
+| route | outcome |
+|---|---|
+| the Play Store page, direct | a **JS shell**; the figures are not in the served HTML |
+| `WebSearch` | **session budget exhausted (200/200)** — re-confirmed by a live attempt on 2026-10-10, not a stale note |
+| apkpure / apkcombo / apkmirror | 403 / 410 / 403 |
+| the developer's site (`hipercalc.com`) | socket closed |
+| a saved copy of the Play page | the same JS shell |
+| **`web.archive.org`** (Wayback — the route that *would* have sidestepped the JS problem) | **"Claude Code is unable to fetch from web.archive.org"** — blocked by the fetch tool itself, so this is **not** a dead end that more effort fixes |
+
+**What that leaves, and why it is enough.** The comparison that exists is by **capability**, not by vanity
+metrics: `comparison-with-hiper.md` §1's item-by-item table against HiPER's **own v12 manual**, where
+「HiPER 有、我们没有」 no longer appears. **Install count, rating and APK size are not reachable from this
+environment** — and none of the three would change what gets built. If they are wanted, they have to come from
+a source the user supplies.
 
 ## 3. Where this project is *more correct than the engine*
 
