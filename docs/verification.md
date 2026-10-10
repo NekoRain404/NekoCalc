@@ -138,7 +138,7 @@ pointer to the wrong file, and the second row's owner is identified and fixed in
 | Where | Measured (2026-10-10) | Code |
 |---|---|---|
 | Calculator keypad — the **label bands**, *not* "every row" | bands **9.8–18.8 dp** at the six sizes measured; keys **29.0–46.3 dp**, and **clearing 48 at 412×915** | geometry: `calculator_keypad.dart` (`_row`'s two `Expanded`, `_bandCell`, `_keyButton`). `hiper_keypad_function_rows.dart` is the row/label **table**, not the geometry |
-| Structured tool detail — **none left** (three fixes on 2026-10-10) | The **12 × `34×34`** steppers are **48 × 48** (the card's whitespace paid for it), the **14 × `28×28`** copy buttons use the **whole card** as their target, and the input field's **`119×32`** editable area is fixed by **`isDense: false`** (its box was already 48 ⇒ no layout cost) | `tool_detail_screen.dart`, `tool_widgets.dart` |
+| Structured tool detail — **two fixes, one measured refusal** (2026-10-10) | The **14 × `28×28`** copy buttons use the **whole card** as their target, and the input field's **`119×32`** editable area is fixed by **`isDense: false`** (its box was already 48 ⇒ no layout cost). The **12 × `34×34`** steppers **stay 34** — growing them to 48 was implemented, measured, and reverted: 24 of the 28dp came out of the app's single card-spacing standard, and the only standard-preserving route costs the field half its digit room (§5c) | `tool_detail_screen.dart`, `tool_widgets.dart` |
 | Calculator display (status row) — **fixed 2026-10-10** | ☰ was **`40 × 40`**, `More...` **`111.7 × 34.0`** → both 48; display floor 176 → 182 dp | `display_status_row.dart` |
 
 ⚠️ **Only one of these is deliberately left unfixed:**
@@ -446,31 +446,33 @@ area" saves the *visual*, not the *layout width* — the box is still 48 and the
 change that actually keeps the width is giving the steppers **their own row**, which is a design change rather
 than a parameter. The numbers are in `_stepButton`'s comment in `tool_detail_screen.dart`.
 
-### ✅ 2026-10-10: the steppers are **fixed** — the whitespace absorbed the growth exactly
+### ❌ 2026-10-10: the steppers were grown to 48, then **reverted the same day** — consistency outranks them
 
-Every route above spends *text* width. **A route that spends none exists, and it is now in the code.** A row's
-**34dp per side is measured** as page **16** + the `Card`'s margin **4** + the card's `padding` **14**, so
-reclaiming the last two plus one gap (`margin: EdgeInsets.zero`, `padding: all(6)`, and the `SizedBox` between
-the label and the first stepper **8 → 4**) returns exactly **28dp** — matching the steppers' growth (34 → 48) to
-the digit. The flexible space is therefore still **208**, and the text does not move:
+Every route above spends *text* width. **A route that spends none was found and did work.** A row's **34dp per
+side is measured** as page **16** + the `Card`'s margin **4** + the card's `padding` **14**, so reclaiming the
+last two plus one gap (`margin: EdgeInsets.zero`, `padding: all(6)`, and the `SizedBox` between the label and
+the first stepper **8 → 4**) returned exactly **28dp** — matching the steppers' growth (34 → 48) to the digit.
+The flexible space stayed **208** and the text did not move (the steppers really did measure **48.0 × 48.0**, and
+the label cell stayed **89.142857 dp**).
 
-| quantity | before | after |
+**It was reverted because of where those 28dp came from: 24 of them were the app's single card standard.**
+`margin 4 → 0` and `padding 14 → 6` is the *only* card in the app that is not `padding: all(14)` + the default
+margin (ten `Card` sites measured identical), and the other 4dp came out of a row gap — so the input card became
+**the app's one exception to its own spacing rule**, on a screen whose whole job is to look like the rest of the
+app. The user's priority is UI consistency, so the exception is not worth 14dp of hit area.
+
+**The one other route that keeps the standard was measured too**: change the row's flex from **3 : 4** to
+**1 : 1** — no card is touched, but the field's room for digits drops from about **41dp to 22dp**. That is a real
+input defect for a numeric field, so it is out as well.
+
+**Adopted instead: nothing on the steppers; the field's `isDense: false` stays.** That fix costs no layout at all
+(its box was already 48 — only the *editable area* was 32), so it is not an exception to anything.
+
+| quantity | value | note |
 |---|---|---|
-| the steppers | 34 × 34 | **48.0 × 48.0** ✓ |
-| sub-48 tappable nodes on that screen | **13** | **1** (the input field alone) |
-| the label cell | **89.142857 dp** | **89.142857 dp — byte-identical** |
-| the input field | 118.86 | **118.86 — byte-identical** |
-
-⚠️ **The proof that no English label was touched is the criterion itself**: `tool_field_strings_test.dart`
-asserts that the label cell **is** 89.142857, and it now passes **all 9 unchanged** — passing *is* the evidence.
-**Cost: purely visual** (the card's outer margin gone, its padding 14 → 6, one gap 8 → 4). Full suite after:
-**1807 green**.
-
-⚠️ **And the *visual* half needed a second pass, because the first one measured only the hit area.** Growing the
-circle 34 → 48 while `iconSize` stayed **18** drops the **glyph : circle** ratio from `18/34 = 0.53` to
-`18/48 = 0.375` — a big empty circle; that is what the first version shipped. `iconSize: 24` restores
-`24/48 = 0.50`, which is **Material's own proportion for a 48dp button** (measured: `BUTTON 48.0  GLYPH 24.0
-ratio = 0.500`). **The hit area and the visual are two different things, and both have to be measured.**
+| the steppers | **34 × 34** | unchanged from the start; sub-48 by choice, with the three routes above measured |
+| the input field's editable area | **48.0** ✓ | `isDense: false` — **kept**, zero layout cost |
+| sub-48 tappable nodes on that screen | **12** | all twelve are the steppers; the field is no longer among them |
 
 ⚠️ **A variant that was reverted: reclaim only 20dp — and it costs exactly three English labels.** A row's **34dp per side is measured** as
 page **16** + the `Card`'s margin **4** + the card's `padding` **14** (`CARD w=328 left=16`,
@@ -502,7 +504,7 @@ screen size, and the structured row attributed its nodes to the wrong widget. Bo
 | Tools home | ✓ (fixed) | **fixed 2026-10-10**: the one tappable section header (`收藏工具`) was **29 dp** (§5d) |
 | Tool category | ✓ (fixed) | same fix — shared `SectionHeader` |
 | Text tool detail | ✓ | ✓ (after the `IconToolButton` fix) |
-| Structured tool detail | ✓ | **✓ all clear** — three separate fixes on 2026-10-10: the 14 × **`28×28`** copy buttons (target = the whole card), the 12 × **`34×34`** steppers (**48 × 48**, paid for by the card's whitespace), and the input field's **`119×32`** editable area (**`isDense: false`** — its box was already 48 tall, so this cost no layout). **`SUB48 = 0` on that screen now** |
+| Structured tool detail | ✓ | **two fixes + one refusal** (2026-10-10): the 14 × **`28×28`** copy buttons (target = the whole card), and the input field's **`119×32`** editable area (**`isDense: false`** — its box was already 48 tall, so this cost no layout). The 12 × **`34×34`** steppers **were grown to 48 and reverted** — that route required 24dp from the app's single card-spacing rule (§5c). **`SUB48 = 12` on that screen now, all twelve being steppers** |
 | Settings | ✓ | ✓ |
 
 ⚠️ **The same "reclaim the whitespace" question the steppers were fixed with (§5c), asked of the keypad, comes

@@ -397,9 +397,8 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   Widget _inputCard() {
     final strings = ToolsStrings.of(context);
     return Card(
-      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -459,7 +458,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
             flex: 3,
             child: Text(
                 input.optional ? strings.optionalInput(label) : label)),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
         _stepButton(
           icon: Icons.remove,
           tooltip: strings.decrease,
@@ -535,21 +534,22 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///       28dp 由两个 `Expanded`（`flex: 3` 标签 / `flex: 4` 输入框）按比例吸掉：3/7 × 28 = 12.0、
   ///       4/7 × 28 = 16.0，与上表**分毫不差**。
   ///
-  ///       ✅ **2026-10-10 采用：那 28dp 全部由留白承担，文字一个 dp 不动。** 行两侧各 34dp 的构成是
-  ///       **实测的**（页面 **16** + `Card` 的 margin **4** + 卡片 `padding` **14**）；收掉后两项与一处间距
-  ///       （`margin: EdgeInsets.zero`、`padding: all(6)`、标签与第一颗步进键之间的 `SizedBox`
-  ///       **8 → 4**），合计正好 **28dp**——与步进键的涨幅**分毫不差**，于是弹性空间仍是 **208**：
-  ///       `label = 3/7 × 208 = 89.142857`、`field = 4/7 × 208 = 118.857`，**两者逐字节不变**。实测：
-  ///       步进键 **48.0 × 48.0** ✓、该屏矮于 48dp 的可点节点 **13 → 1**（只剩输入框）✓、
-  ///       `tool_field_strings_test.dart` **9 条原样通过**——其中那条断言的正是「标签格**就是**
-  ///       89.142857」，**它原样通过本身就证明没有一条英文标签被碰到** ✓、全量 **1807 全过** ✓。
-  ///       **代价是纯视觉的**：卡片外边距归零、内边距 14 → 6、一处间距 8 → 4。
+  ///       ❌ **2026-10-10：这条路走通了，又被撤回——因为"一致性"优先。** 它当时确实把步进键做到
+  ///       **48 × 48**（该屏矮节点 13 → 1、全量 1807 全过），做法是**向留白要那 28dp**：
+  ///       页面 **16** + `Card` margin **4** + 卡片 `padding` **14**（三个数都是实测的）。
   ///
-  ///       ⚠️ **图标也跟着长大了（18 → 24）。** 圆的直径从 34 涨到 48 而图标不动的话，**图标 : 圆**
-  ///       会从 `18/34 = 0.53` 掉到 `18/48 = 0.375`——一个空荡的大圆。`24/48 = 0.50`，正是 Material
-  ///       自己在 48dp 按钮里用的比例。**命中区与视觉是两件事，两个都得量**——我第一版只量了前者。
+  ///       **但全应用的卡片只有一条标准：`padding: all(14)` + 默认 margin**（十处 `Card` 实测一致），
+  ///       而那 28dp 里有 **24dp 正是从这条标准里拿的**（margin 4→0、padding 14→6，另 4dp 来自行内间距）
+  ///       ⇒ 输入卡成了**全应用唯一的例外**：为一块屏的两颗按钮，破一条全局规则。
   ///
-  ///       ⚠️ **下面两段是试过并撤回的路，留着是因为各自的实测代价仍然有用**（要换别的折中时看它们）。
+  ///       另一条能保住标准的走法也量过：行的 flex 由 3:4 改成 **1:1**（标签 90 / 输入框 90）——
+  ///       标签判据会**放宽**（90 > 89.142857）而保住，但**输入框留给数字的空间从约 41dp 掉到约 22dp**，
+  ///       数字得滚动着看。**所以步进键停在 34dp**：这是一条**被布局标准挡住的**取舍；要动它就得连
+  ///       行与页的内边距一起重新设计——那是设计决定，不是参数。
+  ///
+  ///       ⚠️ **这一路学到的东西留着**：命中区与视觉是两件事（圆 34 → 48 而图标不动，会把
+  ///       **图标 : 圆** 从 `18/34 = 0.53` 压到 `18/48 = 0.375`——一个大而空荡的圆；48 的圆要配 24 的图标，
+  ///       那是 Material 自己的比例）。**下面两段是另外两条试过并撤回的路，各自的实测代价仍然有用。**
   ///
   ///       ⚠️ **撤回之一（只还回 20dp）：那 28dp 里有 20dp 可以从留白拿，剩下 8dp 由文字分。**
   ///       行两侧各 34dp 的**构成是实测的**：页面 **16** + `Card` 的 margin **4** + 卡片 `padding` **14**
@@ -608,24 +608,28 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
   ///          costs nothing. The 28dp is absorbed by the two `Expanded`s (`flex: 3` label / `flex: 4` field)
   ///          in proportion: 3/7 × 28 = 12.0 and 4/7 × 28 = 16.0, matching the table to the digit.
   ///
-  ///          ✅ **Adopted 2026-10-10: all 28dp comes out of the whitespace, and the text does not move a
-  ///          pixel.** The 34dp on each side of a row is **measured** (page **16** + the `Card`'s margin
-  ///          **4** + the card's `padding` **14**); reclaiming the last two plus one gap
-  ///          (`margin: EdgeInsets.zero`, `padding: all(6)`, and the `SizedBox` between the label and the
-  ///          first stepper **8 → 4**) comes to exactly **28dp** — matching the steppers' growth to the
-  ///          digit — so the flexible space is still **208**: `label = 3/7 × 208 = 89.142857` and
-  ///          `field = 4/7 × 208 = 118.857`, **both byte-identical**. Measured: the steppers are
-  ///          **48.0 × 48.0** ✓, sub-48 tap targets on that screen go **13 → 1** (the input field alone) ✓,
-  ///          `tool_field_strings_test.dart` passes **all 9 unchanged** — and what it asserts is precisely
-  ///          "the label cell **is** 89.142857", so **passing is itself the proof that no English label was
-  ///          touched** ✓ — and the full suite is **1807 green** ✓. **The cost is purely visual**: the
-  ///          card's outer margin gone, its padding 14 → 6, one gap 8 → 4.
+  ///          ❌ **2026-10-10: this route worked, and was then reverted — consistency has priority.** It did
+  ///          take the steppers to **48 × 48** (sub-48 nodes on that screen 13 → 1; suite 1807 green) by
+  ///          **taking those 28dp out of the whitespace**: page **16** + the `Card`'s margin **4** + the
+  ///          card's `padding` **14** (all three measured).
   ///
-  ///          ⚠️ **The glyph grew with it (18 → 24).** Had the circle gone 34 → 48 while the glyph stayed, the
-  ///          **glyph : circle** ratio would have fallen from `18/34 = 0.53` to `18/48 = 0.375` — a big empty
-  ///          circle. `24/48 = 0.50`, which is Material's own proportion for a 48dp button. **The hit area and
-  ///          the visual are two different things, and both have to be measured** — my first version measured
-  ///          only the former.
+  ///          **But the app has exactly one card standard — `padding: all(14)` plus the default margin**
+  ///          (measured across ten `Card` sites) — and **24 of those 28dp came out of that very standard**
+  ///          (margin 4→0, padding 14→6, plus 4dp from the row's gap) ⇒ the input card became the app's
+  ///          **only exception**: two buttons on one screen breaking a global rule.
+  ///
+  ///          A second route that keeps the standard was measured too: re-split the row's flex from 3:4 to
+  ///          **1:1** (label 90 / field 90) — the label criterion **loosens** (90 > 89.142857) and holds, but
+  ///          **the field's room for its number falls from ~41dp to ~22dp**, so digits would have to be
+  ///          scrolled. **So the steppers stay at 34dp**: a trade-off **blocked by the layout standard**;
+  ///          changing it means redesigning the row and page insets together — a design decision, not a
+  ///          parameter.
+  ///
+  ///          ⚠️ **What the route taught stays**: the hit area and the visual are two different things (a
+  ///          circle going 34 → 48 while the glyph stays drops **glyph : circle** from `18/34 = 0.53` to
+  ///          `18/48 = 0.375` — a big, empty circle; a 48 circle wants a 24 glyph, Material's own ratio).
+  ///          **The paragraph below is the other route that was tried and reverted; its measured cost is
+  ///          still useful.**
   ///
   ///          ⚠️ **The paragraph below is a route that was tried and reverted**, kept because its measured
   ///          cost is still useful (look at it if you want a different compromise).
@@ -685,13 +689,13 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     required VoidCallback onTap,
   }) {
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: 34,
+      height: 34,
       child: IconButton.filledTonal(
         tooltip: tooltip,
         onPressed: onTap,
         padding: EdgeInsets.zero,
-        iconSize: 24,
+        iconSize: 18,
         icon: Icon(icon),
       ),
     );
