@@ -9,6 +9,7 @@ NekoCalc 使用 Feature-first + Clean Architecture 简化版。
 - `domain/`: Domain 层。实体、数学模型、工程计算逻辑、工具目录。
 - `data/`: Data 层。SQLite、本地文件、Repository、导入导出、设置持久化。
 - `core/`: Core 层。表达式解析器、单位换算、格式化、通用扩展。
+- `l10n/`: 语言枚举与语言作用域。文案表按它取当前语言；这一层只放"当前是哪种语言"，不放任何一句文案。
 - `shared/`: 跨 feature 的展示组件，只放无业务含义的 UI 组件。
 
 ## 依赖方向

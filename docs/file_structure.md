@@ -8,6 +8,7 @@
 - `android/`：Flutter Android 宿主工程，打包 APK 时使用。
 - `docs/`：需求、参考图、结构说明和 demo 记录。
 - `test/`：核心解析器、计算逻辑和记录分类的自动化测试。
+- `tool/`：开发期脚本与宿主探针（装机、拉设备数据库、引擎语义探针）。不是应用源码，不参与打包。
 - `.flutter/`：本机 Flutter Gradle 插件兼容层缓存。用于避开部分系统 Flutter 安装缺少 Gradle 插件目录的问题，不作为源码提交。
 - `CHANGELOG.md`：Beta 版本更新记录。
 - `pubspec.yaml` / `pubspec.lock`：Flutter 依赖与版本锁定。
@@ -21,6 +22,7 @@
 - `lib/data/`：SQLite、本地模型、Repository、备份恢复和持久化。
 - `lib/domain/`：实体、工具目录、计算 UseCase、校核逻辑。
 - `lib/features/`：按功能拆分的页面与交互。
+- `lib/l10n/`：语言枚举（`AppLanguage`）与语言作用域；所有文案表按它取当前语言。
 - `lib/shared/`：跨页面复用的主题、应用壳、启动页和通用组件。
 
 ## 不提交的生成物
