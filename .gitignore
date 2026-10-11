@@ -30,6 +30,16 @@ build/
 coverage/
 dist/
 docs/
+# 中文：⚠️ `docs/` 是**整体**被忽略的，但里面的**手写文档是被跟踪的**（`architecture.md`、
+#       `file_structure.md`、`verification.md`、`release_notes_v*.md`……）。所以**新加一篇文档必须**
+#       `git add -f docs/xxx.md`，否则它会被**静默忽略**、`git status` 里连提示都没有。
+#       —— 2026-10-12 就是这么发现 `release_notes_v1.1.0.md` 的：它躺在磁盘上、**从未进过仓库**，
+#       而 v1.0.0 与 v1.2.0-beta.1 的发行说明都在。
+# English: ⚠️ `docs/` is ignored **wholesale**, but the **hand-written documents inside it are tracked**
+#          (`architecture.md`, `file_structure.md`, `verification.md`, `release_notes_v*.md`, …). A new
+#          file there therefore needs **`git add -f docs/xxx.md`** or it is **silently ignored** — it will
+#          not even show up as untracked. That is how `release_notes_v1.1.0.md` was found on 2026-10-12:
+#          sitting on disk and **never in the repository**, while v1.0.0's and v1.2.0-beta.1's were.
 
 # Android / Gradle output
 .gradle/
