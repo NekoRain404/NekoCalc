@@ -787,6 +787,18 @@ also **measurably** moved the calculator's display background (`#FFFBF6` peachSu
 with a **stop condition on the measured colour**, not on a count of taps (the first attempt had no `break` at
 all and cycled straight past the target; the pixels are what caught it).
 
+⚠️ **Not verified: how the DARK palette actually renders on the device.** Dark mode is supported, wired
+(`lib/app.dart`'s `darkTheme: AppTheme.dark(…)`) and guarded at the token level — the test asserts
+`AppTheme.dark(t).colorScheme.primary == t.dark.display.indicatorFg` for all three themes — but it has **never
+been looked at on a screen**. Two routes were attempted on 2026-10-11 and **both were blocked by the device
+rather than by the code**: (a) the system switch — this ROM does not honour `cmd uimode night yes` from adb (it
+reports `Night mode: no` before and after, exactly as it ignores the adb rotation commands recorded in §5f);
+and (b) the app's own 主题模式 row — the taps stopped landing and the captures stopped being produced at all,
+with `mCurrentFocus=null` and the screen asleep, i.e. **adb input no longer reaches the UI**. The device was
+left in its natural state and verified so (`Night mode: no`). **Route (b) is still the right one next time**,
+because it is an app setting rather than a system one and it directly exercises `AppTheme.dark()`; it will need
+the device awake and unlocked.
+
 ### 5i. Multi-language: structurally sound; three gaps and one layering defect (audited 2026-10-10)
 
 **Two languages** (`zh`, the fallback, and `en`), **24 named `…Strings` classes**, each an exhaustive `switch`
