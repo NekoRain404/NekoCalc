@@ -960,6 +960,26 @@ names) — each one to the **measured** new value with its derivation recorded i
 figure that was already wrong at HEAD was **corrected and labelled as such** rather than quietly overwritten.
 **No gate was moved to make a red disappear.**
 
+### 5l. The one open decision: note titles and descriptions are **stored prose** (recorded 2026-10-11)
+
+`notes_controller.dart` composes `'未命名笔记'` (the fallback when a title is blank), `'历史结果'`, and
+`'由计算历史保存，时间 …'` / `'计算工具: …'` when it saves a note — and those strings are **written into the
+database**, not painted onto a screen. The fifth slice found this and correctly refused to translate them, and
+so does this record: **a screen-level strings table cannot localise a value that outlives the screen.**
+
+Why it is a decision rather than a task: a note's title is **user data**. It can be edited (hence the blank-
+title fallback), it is exported in backups, and it is searchable — so it cannot simply be replaced by a token.
+The three shapes available, with what each costs:
+
+| shape | how it behaves | cost |
+|---|---|---|
+| **A. keep as-is** (today) | the title is frozen in the language it was created in | an English user sees Chinese titles for notes created in Chinese — but nothing is ever lost, and edits stay edit |
+| **B. generated titles only** — store a `kind` + payload (`history`/`tool` + timestamp/source id) instead of the sentence, and render it at display time; keep a stored string **only** when the user has actually edited it | an English UI would show English auto-titles, and an edited title stays exactly what the user typed | a schema change plus a migration for existing rows; the two fields must be kept in sync on every save and on every later edit |
+| **C. store a language tag** alongside the generated title | the stored text can be recognised as "generated, in language X" and re-rendered when the UI language differs | smaller than B, but the note's *name* still changes under the user when they switch language — which for a searchable, exportable, editable field is arguably worse than A |
+
+**Nothing here is done or attempted**; this entry exists so the question is not re-derived, and so that the
+answer is made deliberately rather than by whoever next touches `notes_controller.dart`.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
