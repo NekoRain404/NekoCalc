@@ -5,7 +5,8 @@ import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/repositories/data_backup_repository.dart';
 import 'package:nekocalc/features/settings/presentation/settings_backup_messages.dart';
-import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_strings.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_text.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
@@ -26,10 +27,10 @@ void main() {
 
     expect(result.fileName, 'nekocalc-backup-20260608-1009.json');
     expect(result.preview.totalRows, 15);
-    expect(result.preview.summary, contains('历史 3'));
-    expect(result.successMessage, '备份已保存：15 条记录');
-    expect(result.detail, contains(result.fileName));
-    expect(result.detail, contains('总计：15 条记录'));
+    expect(backupPreviewTableSummary(result.preview, _zh), contains('历史 3'));
+    expect(backupExportSuccessMessage(result, _zh), '备份已保存：15 条记录');
+    expect(backupExportDetail(result, _zh), contains(result.fileName));
+    expect(backupExportDetail(result, _zh), contains('总计：15 条记录'));
     expect(decoded['tables'], isA<Map>());
   });
 
@@ -46,8 +47,8 @@ void main() {
     final preview = await repository.currentPreview();
 
     expect(preview.totalRows, 15);
-    expect(preview.summary, contains('历史 3'));
-    expect(preview.summary, contains('设置 5'));
+    expect(backupPreviewTableSummary(preview, _zh), contains('历史 3'));
+    expect(backupPreviewTableSummary(preview, _zh), contains('设置 5'));
     expect(preview.tableCounts.map((item) => item.label),
         ['历史', '笔记', '收藏', '最近工具', '设置']);
   });
@@ -73,7 +74,7 @@ void main() {
       replaceExisting: true,
     );
 
-    expect(report.modeLabel, '覆盖恢复');
+    expect(backupReportModeLabel(report, _zh), '覆盖恢复');
     expect(report.source.totalRows, 12);
     expect(report.before.totalRows, 7);
     expect(report.after.totalRows, 12);
@@ -85,9 +86,9 @@ void main() {
     expect(report.tableReports.first.before, 2);
     expect(report.tableReports.first.after, 4);
     expect(report.tableReports.first.skipped, 0);
-    expect(report.resultLabel, '已恢复 12 条记录');
-    expect(report.summary, contains('历史 4 (+2)'));
-    expect(report.summary, contains('设置 2 (-1)'));
+    expect(backupReportResultLabel(report, _zh), '已恢复 12 条记录');
+    expect(backupReportSummary(report, _zh), contains('历史 4 (+2)'));
+    expect(backupReportSummary(report, _zh), contains('设置 2 (-1)'));
     expect(db.replaceExisting, isTrue);
   });
 
@@ -113,13 +114,13 @@ void main() {
       replaceExisting: false,
     );
 
-    expect(report.modeLabel, '合并导入');
+    expect(backupReportModeLabel(report, _zh), '合并导入');
     expect(report.before.totalRows, 7);
     expect(report.after.totalRows, 14);
     expect(report.deltaFor('notes'), 2);
     expect(report.deltaFor('app_settings'), 1);
     expect(report.skippedFor('notes'), 0);
-    expect(report.resultLabel, '已合并 7 条记录');
+    expect(backupReportResultLabel(report, _zh), '已合并 7 条记录');
     expect(db.replaceExisting, isFalse);
   });
 
@@ -149,9 +150,9 @@ void main() {
     expect(report.skippedFor('calculation_history'), 30);
     expect(report.deltaFor('recent_tools'), 4);
     expect(report.skippedFor('recent_tools'), 6);
-    expect(report.resultLabel, '已合并 16 条记录，跳过或裁剪 36 条');
-    expect(report.summary, contains('历史 500 (+10, 跳过 30)'));
-    expect(report.summary, contains('最近工具 24 (+4, 跳过 6)'));
+    expect(backupReportResultLabel(report, _zh), '已合并 16 条记录，跳过或裁剪 36 条');
+    expect(backupReportSummary(report, _zh), contains('历史 500 (+10, 跳过 30)'));
+    expect(backupReportSummary(report, _zh), contains('最近工具 24 (+4, 跳过 6)'));
   });
 
   test('replace import rejects empty backups before touching database',
@@ -201,7 +202,7 @@ void main() {
       replaceExisting: false,
     );
 
-    expect(report.modeLabel, '合并导入');
+    expect(backupReportModeLabel(report, _zh), '合并导入');
     expect(report.before.totalRows, 7);
     expect(report.after.totalRows, 7);
     expect(db.importCallCount, 1);
@@ -234,23 +235,23 @@ void main() {
       replaceExisting: false,
     );
 
-    expect(replace.modeLabel, '覆盖恢复');
-    expect(replace.totalLabel, '11 条记录');
+    expect(backupPlanModeLabel(replace, _zh), '覆盖恢复');
+    expect(backupPlanTotalLabel(replace, _zh), '11 条记录');
     expect(replace.expectedTotal, 11);
     expect(replace.beforeFor('favorite_tools'), 1);
     expect(replace.sourceFor('favorite_tools'), 0);
     expect(replace.expectedFor('favorite_tools'), 0);
     expect(replace.deltaFor('favorite_tools'), -1);
-    expect(replace.summary, contains('收藏 0 (-1)'));
+    expect(backupPlanSummary(replace, _zh), contains('收藏 0 (-1)'));
 
-    expect(merge.modeLabel, '合并导入');
-    expect(merge.totalLabel, '最多 22 条记录');
+    expect(backupPlanModeLabel(merge, _zh), '合并导入');
+    expect(backupPlanTotalLabel(merge, _zh), '最多 22 条记录');
     expect(merge.expectedTotal, 22);
     expect(merge.beforeFor('calculation_history'), 2);
     expect(merge.sourceFor('calculation_history'), 4);
     expect(merge.expectedFor('calculation_history'), 6);
     expect(merge.deltaFor('calculation_history'), 4);
-    expect(merge.summary, contains('历史 6 (+4)'));
+    expect(backupPlanSummary(merge, _zh), contains('历史 6 (+4)'));
   });
 
   test('import plans respect capped history and recent tool retention counts',
@@ -291,14 +292,14 @@ void main() {
     expect(merge.deltaFor('calculation_history'), 10);
     expect(merge.expectedFor('recent_tools'), AppDatabase.maxRecentToolRows);
     expect(merge.deltaFor('recent_tools'), 4);
-    expect(merge.totalLabel, '最多 527 条记录');
-    expect(merge.summary, contains('历史 500 (+10)'));
-    expect(merge.summary, contains('最近工具 24 (+4)'));
+    expect(backupPlanTotalLabel(merge, _zh), '最多 527 条记录');
+    expect(backupPlanSummary(merge, _zh), contains('历史 500 (+10)'));
+    expect(backupPlanSummary(merge, _zh), contains('最近工具 24 (+4)'));
 
     expect(
         replace.expectedFor('calculation_history'), AppDatabase.maxHistoryRows);
     expect(replace.expectedFor('recent_tools'), AppDatabase.maxRecentToolRows);
-    expect(replace.totalLabel, '524 条记录');
+    expect(backupPlanTotalLabel(replace, _zh), '524 条记录');
   });
 
   test('import plans expose actionable merge and replace impacts', () async {
@@ -423,11 +424,10 @@ void main() {
 // English: the sentences no longer live on `BackupImportImpact` (a domain object outlives the UI);
 //          they are rendered here through the presentation edge in Chinese — the assertions above
 //          still measure the very same sentences.
+final _zh = SettingsBackupStrings.forLanguage(AppLanguage.zh);
+
 String _impactText(BackupImportImpact impact) {
-  return backupImportImpactMessage(
-    impact,
-    SettingsStrings.forLanguage(AppLanguage.zh),
-  );
+  return backupImportImpactMessage(impact, _zh);
 }
 
 String _snapshotJson(Map<String, int> counts) {

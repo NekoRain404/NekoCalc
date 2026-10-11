@@ -552,23 +552,18 @@ class NotesVisibleSummary {
 
   bool get isEmpty => totalCount == 0;
 
-  String get label {
-    final prefix = hasQuery ? '搜索“$query”' : _tabLabel(tab);
-    if (totalCount == 0) return '$prefix · 无匹配';
-    final parts = <String>[
-      if (historyCount > 0) '历史 $historyCount',
-      if (noteCount > 0) '笔记 $noteCount',
-    ];
-    return '$prefix · ${parts.join(' · ')}';
-  }
-
-  static String _tabLabel(NotesTab tab) {
-    return switch (tab) {
-      NotesTab.all => '全部记录',
-      NotesTab.notes => '笔记',
-      NotesTab.history => '历史',
-      NotesTab.formulas => '公式',
-      NotesTab.tools => '工具',
-    };
-  }
+  // 中文：**这条摘要从前在这里拼成一句中文**（`label`，直接印在筛选摘要条上）。应用层对象活得
+  //       比界面长，界面那张按语言切的表够不着它，于是英文界面下它照样是中文——`docs/verification.md`
+  //       §5i 记着这条层次性缺陷。现在留下的只有**令牌与读数**：`tab` 与两根计数，字住在
+  //       `NotesStrings` 里，由 `notes_summary_message.dart` 在呈现边缘按语言拼
+  //       （`notesSummaryLabel(summary, strings)`）。旧读数（`totalCount` / `hasQuery` / `isEmpty`）
+  //       一个都没动，所以哪一种摘要什么时候出现与迁移前完全一致。
+  // English: **this summary used to compose a Chinese sentence right here** (`label`, printed straight
+  //          onto the filter summary bar). An application-layer object outlives the UI and a
+  //          language-keyed interface table cannot reach it, so an English interface still printed
+  //          Chinese — the layering defect recorded in `docs/verification.md` §5i. What is left is
+  //          **the token and the readings only**: `tab` and the two counts; the words live in
+  //          `NotesStrings` and are put together at the presentation edge by `notes_summary_message.dart`
+  //          (`notesSummaryLabel(summary, strings)`). Not one old reading (`totalCount` / `hasQuery` /
+  //          `isEmpty`) moved, so which summary appears when is exactly what it was.
 }

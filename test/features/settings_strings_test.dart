@@ -298,9 +298,16 @@ void main() {
     final offenders = <String>[];
     for (final entity in directory.listSync()) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      // 中文：文案表自己就是汉字住的地方，跳过它。
-      // English: The table is where the Chinese is *supposed* to live; skip it.
-      if (entity.uri.pathSegments.last == 'settings_strings.dart') continue;
+      // 中文：文案表自己就是汉字住的地方，跳过它（设置页现在有两张表：原来那张与备份那一族
+      //       单独的 `settings_backup_strings.dart`——两张都按同一套理由跳出）。
+      // English: The tables are where the Chinese is *supposed* to live; skip them (the settings page
+      //          now has two: the original and the backup family's own
+      //          `settings_backup_strings.dart` — both step out for the same reason).
+      final fileName = entity.uri.pathSegments.last;
+      if (fileName == 'settings_strings.dart' ||
+          fileName == 'settings_backup_strings.dart') {
+        continue;
+      }
       final source = stripComments(entity.readAsStringSync());
       for (final literal in stringLiterals(source)) {
         if (containsWideOrFullwidth(literal)) {

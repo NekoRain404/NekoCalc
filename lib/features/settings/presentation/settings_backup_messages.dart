@@ -1,6 +1,6 @@
 import '../../../core/utils/backup_snapshot_validator.dart';
 import '../../../data/repositories/data_backup_repository.dart';
-import 'settings_strings.dart';
+import 'settings_backup_strings.dart';
 
 /// 中文：**备份提示与导入影响的翻译处——领域 / 数据层给令牌，这里给字。**
 ///
@@ -8,7 +8,7 @@ import 'settings_strings.dart';
 ///       那些中文并直接上屏：设置页的「备份提示」块印 `warning.message`，导入对话框的清单印
 ///       `impact.message`（`settings_backup_widgets.dart`）。于是英文界面下印的仍是中文：
 ///       **领域对象活得比界面长**，界面那张按语言切的表够不着它（`docs/verification.md` §5i）。
-///       现在那些句子住在 [SettingsStrings] 里，由这两个函数在**呈现边缘**按令牌取——取表的语言
+///       现在那些句子住在 [SettingsBackupStrings] 里，由这两个函数在**呈现边缘**按令牌取——取表的语言
 ///       就是屏幕的语言。
 ///
 ///       **形状照的是已经转过的五条路径**：`calculatorSubmitMessage`、`calculatorSaveNoteMessage`、
@@ -30,7 +30,7 @@ import 'settings_strings.dart';
 ///          list printed `impact.message` (`settings_backup_widgets.dart`). An English interface still
 ///          printed Chinese: **a domain object outlives the UI** and a language-keyed interface table
 ///          cannot reach it (`docs/verification.md` §5i). Those sentences now live in
-///          [SettingsStrings], fetched **at the presentation edge** by these two functions, keyed by
+///          [SettingsBackupStrings], fetched **at the presentation edge** by these two functions, keyed by
 ///          the token — the language of the table is the language on screen.
 ///
 ///          **The shape is copied from the five converted paths**: `calculatorSubmitMessage`,
@@ -49,7 +49,7 @@ import 'settings_strings.dart';
 ///          enums.
 String backupPreviewWarningMessage(
   BackupPreviewWarning warning,
-  SettingsStrings strings,
+  SettingsBackupStrings strings,
 ) {
   return switch (warning.kind) {
     BackupPreviewWarningKind.noRecoverableRecords =>
@@ -76,15 +76,15 @@ String backupPreviewWarningMessage(
 }
 
 /// 中文：**导入影响清单那一句**。多张表那两格拿到的是备好的项（覆盖恢复的表名、合并时
-///       「历史 +3」那样的备料项），由这里按 [SettingsStrings.backupTableListSeparator] 连接——
+///       「历史 +3」那样的备料项），由这里按 [SettingsBackupStrings.backupTableListSeparator] 连接——
 ///       连接符跟着语言走，表名本身是内容（今天仍是中文，见 §5i）。
 /// English: **one line of the import impact list.** The two multi-table cells receive ready-made items
 ///          (the table names a replace would overwrite, or merge ingredients such as "历史 +3") and
-///          this joins them with [SettingsStrings.backupTableListSeparator] — the separator follows the
+///          this joins them with [SettingsBackupStrings.backupTableListSeparator] — the separator follows the
 ///          language while the table names themselves are content (Chinese today, see §5i).
 String backupImportImpactMessage(
   BackupImportImpact impact,
-  SettingsStrings strings,
+  SettingsBackupStrings strings,
 ) {
   return switch (impact.kind) {
     BackupImportImpactKind.deleteTable =>
@@ -119,7 +119,7 @@ String backupImportImpactMessage(
 ///          months, the rest days, character for character the `_formatAge` that used to sit in the
 ///          validator. It lives at the presentation edge rather than in the validator: the "1 years"
 ///          that comes out is copy for a user, and the domain layer only hands over a `Duration`.
-String _backupAgeLabel(Duration age, SettingsStrings strings) {
+String _backupAgeLabel(Duration age, SettingsBackupStrings strings) {
   final days = age.inDays;
   if (days >= 365) return strings.backupAgeYears(days ~/ 365);
   if (days >= 30) return strings.backupAgeMonths(days ~/ 30);

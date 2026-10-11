@@ -19,6 +19,7 @@ class _BackupImportPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final warnings = buildBackupPreviewWarnings(
       source,
       now: DateTime.now(),
@@ -42,14 +43,14 @@ class _BackupImportPrompt extends StatelessWidget {
           _BackupPlanBlock(
             plan: replacePlan,
             // 中文：这句与 `BackupImportImpact.emptySource` 那格**同一句话**（校验器里那个
-            //       `emptyBackupReplaceErrorMessage` 常量仍用于被拒绝的导入异常，尚未进表）——
-            //       所以这里也走表，英文界面下才不是中文。
+            //       `emptyBackupReplaceErrorMessage` 常量仍用于被拒绝的导入异常）——所以这里也走
+            //       表，英文界面下才不是中文。
             // English: this is **the same sentence** as the `BackupImportImpact.emptySource` cell (the
             //          validator's `emptyBackupReplaceErrorMessage` constant is still used for the
-            //          rejected-import exception and has not been tabled) — so this site reads the table
-            //          too, or an English interface would print Chinese here.
+            //          rejected-import exception) — so this site reads the table too, or an English
+            //          interface would print Chinese here.
             blockedMessage:
-                replacePlan.source.totalRows == 0 ? s.backupImpactEmptySource : null,
+                replacePlan.source.totalRows == 0 ? bs.backupImpactEmptySource : null,
           ),
           const SizedBox(height: 12),
           Row(
@@ -86,17 +87,23 @@ class _BackupPreviewBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         Text(
+          // 中文：版本、导出时间、总计与表清单四段载荷都是记号/内容，句子的骨架由这条缝隙拼
+          //       （`backupPreviewTableSummary` 与 `BackupPreview` 上留下的读数）。
+          // English: the four payloads — version, export time, total and the table list — are
+          //          notation/content; the sentence's skeleton is spliced here (via
+          //          `backupPreviewTableSummary` and the readings left on `BackupPreview`).
           s.backupPreviewSummary(
-            preview.appVersion ?? s.unknownValue,
-            preview.exportedAt ?? s.localCurrentTitle,
-            preview.totalLabel,
-            preview.summary,
+            preview.appVersion ?? bs.backupUnknownVersion,
+            preview.exportedAt ?? bs.backupLocalCurrent,
+            bs.backupTotalRecords(preview.totalRows),
+            backupPreviewTableSummary(preview, bs),
           ),
           style: TextStyle(color: scheme.onSurfaceVariant, height: 1.35),
         ),
@@ -114,6 +121,7 @@ class _BackupWarningsBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final highestSeverity = warnings.fold<BackupPreviewWarningSeverity>(
       BackupPreviewWarningSeverity.info,
       (current, warning) =>
@@ -156,7 +164,7 @@ class _BackupWarningsBlock extends StatelessWidget {
                 // 中文：那句话由呈现层按令牌取（`settings_backup_messages.dart`）。
                 // English: the sentence is read at the presentation edge from the token
                 //          (`settings_backup_messages.dart`).
-                backupPreviewWarningMessage(warning, s),
+                backupPreviewWarningMessage(warning, bs),
                 style: TextStyle(color: scheme.onSurfaceVariant, height: 1.3),
               ),
             ),
@@ -179,6 +187,7 @@ class _BackupPlanBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final color = plan.replaceExisting ? scheme.error : scheme.primary;
     return Container(
       width: double.infinity,
@@ -203,7 +212,13 @@ class _BackupPlanBlock extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  s.backupPlanHeadline(plan.modeLabel, plan.totalLabel),
+                  // 中文：模式词与总数那两句按令牌/读数在呈现边缘取（`settings_backup_text.dart`）。
+                  // English: the mode word and the total are read at the presentation edge from the
+                  //          token/readings (`settings_backup_text.dart`).
+                  s.backupPlanHeadline(
+                    backupPlanModeLabel(plan, bs),
+                    backupPlanTotalLabel(plan, bs),
+                  ),
                   style: TextStyle(color: color, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -278,7 +293,7 @@ class _BackupImpactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final color = switch (impact.severity) {
       BackupImportImpactSeverity.danger => scheme.error,
       BackupImportImpactSeverity.warning => scheme.tertiary,
@@ -296,7 +311,7 @@ class _BackupImpactRow extends StatelessWidget {
             // English: the sentence is read at the presentation edge from the token
             //          (`settings_backup_messages.dart`) — the separator between several table names
             //          follows the language as well.
-            backupImportImpactMessage(impact, s),
+            backupImportImpactMessage(impact, bs),
             style: TextStyle(
               color: color,
               fontSize: 12,
@@ -389,6 +404,7 @@ class _DataSummaryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final current = preview;
     return ListTile(
       leading: Icon(Icons.storage_outlined, color: scheme.primary),
@@ -397,14 +413,17 @@ class _DataSummaryTile extends StatelessWidget {
       subtitle: current == null
           ? Text(s.counting, style: TextStyle(color: scheme.onSurfaceVariant))
           : Text(
-              current.summary,
+              // 中文：表清单那句由呈现边缘拼（`settings_backup_text.dart`），数字与表名是载荷。
+              // English: the table-list sentence is spliced at the presentation edge
+              //          (`settings_backup_text.dart`); the numbers and table names are payload.
+              backupPreviewTableSummary(current, bs),
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (current != null)
-            Text(current.totalLabel,
+            Text(bs.backupTotalRecords(current.totalRows),
                 style: TextStyle(color: scheme.onSurfaceVariant)),
           const SizedBox(width: 6),
           IconButton(

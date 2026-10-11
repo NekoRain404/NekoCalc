@@ -7,6 +7,7 @@ import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/features/notes/presentation/notes_receipt_message.dart';
 import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
+import 'package:nekocalc/features/notes/presentation/notes_summary_message.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
@@ -107,17 +108,23 @@ void main() {
       notes: [note],
     );
 
-    expect(controller.visibleSummary.label, '全部记录 · 历史 2 · 笔记 1');
+    // 中文：那句摘要的句子住在文案表里、由呈现边缘拼（`notes_summary_message.dart`），所以这里把
+    //       中文表带进来渲染——量到的还是迁移前那句话。
+    // English: the summary sentence lives in the copy table and is composed at the presentation edge
+    //          (`notes_summary_message.dart`), so it is rendered here through the Chinese table — the
+    //          assertions still measure the pre-move sentence.
+    expect(notesSummaryLabel(controller.visibleSummary, strings),
+        '全部记录 · 历史 2 · 笔记 1');
 
     controller.setQuery('Ω');
     expect(controller.visibleSummary.query, 'Ω');
     expect(controller.visibleSummary.historyCount, 1);
     expect(controller.visibleSummary.noteCount, 0);
-    expect(controller.visibleSummary.label, '搜索“Ω” · 历史 1');
+    expect(notesSummaryLabel(controller.visibleSummary, strings), '搜索“Ω” · 历史 1');
 
     controller.setTab(NotesTab.notes);
     expect(controller.showsHistory, isFalse);
-    expect(controller.visibleSummary.label, '搜索“Ω” · 无匹配');
+    expect(notesSummaryLabel(controller.visibleSummary, strings), '搜索“Ω” · 无匹配');
 
     controller.dispose();
   });

@@ -14,6 +14,7 @@ import '../../../domain/usecases/notes_clipboard_import.dart';
 import '../../../shared/presentation/app_chrome.dart';
 import 'notes_receipt_message.dart';
 import 'notes_strings.dart';
+import 'notes_summary_message.dart';
 
 part 'notes_page_sections.dart';
 part 'notes_page_actions.dart';

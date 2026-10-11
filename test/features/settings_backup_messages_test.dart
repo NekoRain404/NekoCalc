@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
 import 'package:nekocalc/data/repositories/data_backup_repository.dart';
 import 'package:nekocalc/features/settings/presentation/settings_backup_messages.dart';
-import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
 import '../shared/source_scan.dart';
@@ -14,7 +14,7 @@ import '../shared/source_scan.dart';
 ///       `BackupPreviewWarning`（校验器）与 `BackupImportImpact`（数据层）原先自己拼那些中文并直接
 ///       上屏（设置页「备份提示」块印 `warning.message`，导入对话框的影响清单印 `impact.message`），
 ///       于是英文界面下印的仍是中文——领域对象活得比界面长，界面那张按语言切的表够不着它
-///       （`docs/verification.md` §5i）。这一轮把那些句子移进 `SettingsStrings`，产出层只留令牌
+///       （`docs/verification.md` §5i）。这一轮把那些句子移进备份文案表，产出层只留令牌
 ///       （[BackupPreviewWarningKind] 八格、[BackupImportImpactKind] 十格），由
 ///       `settings_backup_messages.dart` 在呈现边缘取。这份测试是那次改动的锁，五段各管一件事：
 ///
@@ -44,7 +44,8 @@ import '../shared/source_scan.dart';
 ///          "Backup warnings" block printed `warning.message` and the import dialog's impact list
 ///          printed `impact.message`), so an English interface still printed Chinese — a domain object
 ///          outlives the UI and a language-keyed interface table cannot reach it
-///          (`docs/verification.md` §5i). This round moved those sentences into `SettingsStrings`,
+///          (`docs/verification.md` §5i). This round moved those sentences into the backup table
+///          (`SettingsBackupStrings`),
 ///          leaving the producing layers with only the tokens ([BackupPreviewWarningKind], eight values;
 ///          [BackupImportImpactKind], ten), resolved at the presentation edge by
 ///          `settings_backup_messages.dart`. This test is that change's lock, in five parts:
@@ -76,16 +77,16 @@ import '../shared/source_scan.dart';
 ///          `message:` lines in the two files before the change, deliberately written out in the test.
 ///          **Do not bring them up to date with new copy.**
 void main() {
-  final zh = SettingsStrings.forLanguage(AppLanguage.zh);
-  final en = SettingsStrings.forLanguage(AppLanguage.en);
+  final zh = SettingsBackupStrings.forLanguage(AppLanguage.zh);
+  final en = SettingsBackupStrings.forLanguage(AppLanguage.en);
 
   /// 中文：**迁移前那八句提示本身**（结局 → 它从前印什么）。这张表**故意写在测试里**、不从
-  ///       `SettingsStrings` 生成：它的全部价值就在于它是**旧知识的一份抄本**。载荷取一组固定
+  ///       `SettingsBackupStrings` 生成：它的全部价值就在于它是**旧知识的一份抄本**。载荷取一组固定
   ///       值（`'not-a-date'`、400 天、100 天、`v1.0.0` / `v1.1.0`），句子里的其余部分因此逐字节
   ///       可比。**不要拿它去追新文案。**
   /// English: **the eight notices from before the change** (outcome → what it used to print). This
   ///          table is **deliberately written in the test** rather than generated from
-  ///          `SettingsStrings`: its whole value is being **a copy of the old knowledge**. The payloads
+  ///          `SettingsBackupStrings`: its whole value is being **a copy of the old knowledge**. The payloads
   ///          take one fixed set (`'not-a-date'`, 400 days, 100 days, `v1.0.0` / `v1.1.0`), so the rest
   ///          of the sentence is byte-comparable. **Do not bring it up to date with new copy.**
   const legacyWarningSentences = <BackupPreviewWarningKind, String>{
@@ -397,9 +398,7 @@ void main() {
     //
     //       **两个文件各自只量一段**，不是整个文件：它们都还有**有意留下**的界外文案——
     //       校验器里那批 `FormatException` 句子与 `backupTableLabels`（表名标签是内容，今天仍是
-    //       中文）、`BackupPreview.summary` / `totalLabel`，数据层里 `BackupImportPlan.modeLabel` /
-    //       `summary` / `totalLabel` 与 `BackupImportReport` 那一族（`docs/verification.md` §5i 记着
-    //       这批还没转）。所以校验器那一段从 `enum BackupPreviewWarningSeverity {` 量到
+    //       中文）。所以校验器那一段从 `enum BackupPreviewWarningSeverity {` 量到
     //       `Map<String, Object?> parseBackupSnapshot(` 之前，数据层那一段从
     //       `List<BackupImportImpact> get impacts {` 量到 `class BackupImportReport {` 之前——
     //       **四个端点都必须找得到、且各自成对有序**，否则扫的就可能是一段空字符串（那种"全过"
@@ -418,12 +417,9 @@ void main() {
     //
     //          **Each file is measured stretch by stretch**, not whole: both still carry copy that was
     //          **deliberately left** out of scope — in the validator the `FormatException` sentences and
-    //          `backupTableLabels` (a table label is content and is Chinese today), plus
-    //          `BackupPreview.summary` / `totalLabel`; in the data layer
-    //          `BackupImportPlan.modeLabel` / `summary` / `totalLabel` and the `BackupImportReport`
-    //          family (`docs/verification.md` §5i records that these have not been converted). So the
-    //          validator's stretch runs from `enum BackupPreviewWarningSeverity {` up to (but not
-    //          including) `Map<String, Object?> parseBackupSnapshot(`, and the data layer's from
+    //          `backupTableLabels` (a table label is content and is Chinese today). So the validator's
+    //          stretch runs from `enum BackupPreviewWarningSeverity {` up to (but not including)
+    //          `Map<String, Object?> parseBackupSnapshot(`, and the data layer's from
     //          `List<BackupImportImpact> get impacts {` up to (but not including)
     //          `class BackupImportReport {` — **all four endpoints must be found, each pair in order**,
     //          or the scan could be measuring an empty string (the kind of "all pass" that is the most
@@ -470,7 +466,7 @@ void main() {
           .map((literal) => 'data_backup_repository.dart: $literal'),
     ];
     expect(offenders, isEmpty,
-        reason: '这些字面量应当走 SettingsStrings（句子只住在那里）：\n'
+        reason: '这些字面量应当走 SettingsBackupStrings（句子只住在那里）：\n'
             '${offenders.join('\n')}');
 
     // 中文：**旧句子一个字都不许留**（整份文件，含注释被剥掉后的正文）。载荷那几格连半句一起查。

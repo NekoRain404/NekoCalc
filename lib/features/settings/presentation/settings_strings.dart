@@ -100,28 +100,6 @@ class SettingsStrings {
     required this.backupPreviewSummary,
     required this.backupPlanHeadline,
     required this.backupPlanRow,
-    required this.backupWarningNoRecoverableRecords,
-    required this.backupWarningMissingExportedAt,
-    required this.backupWarningUnrecognisedExportedAt,
-    required this.backupWarningExportedAtInFuture,
-    required this.backupWarningOlderThanYear,
-    required this.backupWarningOlder,
-    required this.backupWarningMissingAppVersion,
-    required this.backupWarningAppVersionMismatch,
-    required this.backupAgeYears,
-    required this.backupAgeMonths,
-    required this.backupAgeDays,
-    required this.backupImpactDeleteTable,
-    required this.backupImpactReduceTable,
-    required this.backupImpactEmptySource,
-    required this.backupImpactOverwriteTables,
-    required this.backupImpactReplaceKeepsIdentical,
-    required this.backupImpactMergeEmptySource,
-    required this.backupImpactMergeAddsTables,
-    required this.backupImpactMergeUpdatesSettings,
-    required this.backupImpactMergeKeepsRecentLimit,
-    required this.backupImpactMergeKeepsHistoryLimit,
-    required this.backupTableListSeparator,
     // —— 关于与其他 ——
     required this.aboutTileTitle,
     required this.checkUpdateTitle,
@@ -248,42 +226,15 @@ class SettingsStrings {
   final String Function(String modeLabel, String totalLabel) backupPlanHeadline;
   final String Function(int before, int source, int expected) backupPlanRow;
 
-  /// 中文：**导入前的八条备份提示、三个年龄单位，以及导入影响的十句话与连接符。** 原先分别由校验器的
-  ///       `BackupPreviewWarning.message` 与数据层的 `BackupImportImpact.message` 当场拼出——领域对象
-  ///       活得比界面长，英文界面下印的仍是中文（`docs/verification.md` §5i）；现在那两处只留令牌
-  ///       `BackupPreviewWarningKind` / `BackupImportImpactKind` 与载荷（年龄、导出时间、版本号、表名、
-  ///       条数、上限），字在这里，由 `settings_backup_messages.dart` 在呈现边缘取。年龄切分与旧
-  ///       `_formatAge` 逐字相同，「、」连接符也搬来这里；**中文逐字节与从前相同**（旧文案对照表钉住）。
-  /// English: **the eight pre-import notices, three age units, and the ten import-impact sentences plus
-  ///          their separator**, once composed by `BackupPreviewWarning.message` and
-  ///          `BackupImportImpact.message`; **a domain object outlives the UI**, so English printed
-  ///          Chinese (§5i). The producers keep only the tokens `BackupPreviewWarningKind` /
-  ///          `BackupImportImpactKind` and payloads now, read at the edge by
-  ///          `settings_backup_messages.dart`; the age split matches the old `_formatAge`; "、" moved
-  ///          too. **The Chinese is byte-identical to what it was.**
-  final String backupWarningNoRecoverableRecords;
-  final String backupWarningMissingExportedAt;
-  final String Function(String exportedAt) backupWarningUnrecognisedExportedAt;
-  final String backupWarningExportedAtInFuture;
-  final String Function(String ageLabel) backupWarningOlderThanYear;
-  final String Function(String ageLabel) backupWarningOlder;
-  final String backupWarningMissingAppVersion;
-  final String Function(String version, String currentVersion)
-      backupWarningAppVersionMismatch;
-  final String Function(int years) backupAgeYears;
-  final String Function(int months) backupAgeMonths;
-  final String Function(int days) backupAgeDays;
-  final String Function(String label, int count) backupImpactDeleteTable;
-  final String Function(String label, int count) backupImpactReduceTable;
-  final String backupImpactEmptySource;
-  final String Function(String tables) backupImpactOverwriteTables;
-  final String backupImpactReplaceKeepsIdentical;
-  final String backupImpactMergeEmptySource;
-  final String Function(String tables) backupImpactMergeAddsTables;
-  final String backupImpactMergeUpdatesSettings;
-  final String Function(int count) backupImpactMergeKeepsRecentLimit;
-  final String Function(int count) backupImpactMergeKeepsHistoryLimit;
-  final String backupTableListSeparator;
+  // 中文：备份警告与导入影响那一族（八条提示、三个年龄单位、十句话与连接符）**连同本轮新搬来的
+  //       残留**都住在 `settings_backup_strings.dart` 的 `SettingsBackupStrings` 里——两张表同属
+  //       设置页，分表是为了绕开本文件贴着的那条 800 行硬线，见那张表的文件头。
+  // English: the backup-warnings and import-impacts family (eight notices, three age units, ten
+  //          sentences and their separator), **together with this round's residuals**, live in
+  //          `settings_backup_strings.dart`'s `SettingsBackupStrings` — both tables belong to the
+  //          settings page, and the split is what clears this file's 800-line cap; see that table's
+  //          file head.
+
   // —— 关于与其他 ——
   final String aboutTileTitle;
   final String checkUpdateTitle;
@@ -432,29 +383,6 @@ class SettingsStrings {
     backupPlanHeadline: (modeLabel, totalLabel) => '$modeLabel后预计 $totalLabel',
     backupPlanRow: (before, source, expected) =>
         '本机 $before · 文件 $source · 导入后 $expected',
-    backupWarningNoRecoverableRecords: '备份文件没有可恢复记录，覆盖恢复会清空本机数据。',
-    backupWarningMissingExportedAt: '备份缺少导出时间，无法判断文件新旧。',
-    backupWarningUnrecognisedExportedAt: (exportedAt) => '备份导出时间无法识别：$exportedAt。',
-    backupWarningExportedAtInFuture: '备份导出时间晚于本机时间，请确认设备时间是否正确。',
-    backupWarningOlderThanYear: (ageLabel) => '备份距今约 $ageLabel，恢复前建议确认内容是否仍然需要。',
-    backupWarningOlder: (ageLabel) => '备份距今约 $ageLabel。',
-    backupWarningMissingAppVersion: '备份缺少应用版本信息。',
-    backupWarningAppVersionMismatch: (version, currentVersion) =>
-        '备份来自 $version，当前应用为 $currentVersion。',
-    backupAgeYears: (years) => '$years 年',
-    backupAgeMonths: (months) => '$months 个月',
-    backupAgeDays: (days) => '$days 天',
-    backupImpactDeleteTable: (label, count) => '$label 将删除本机 $count 条',
-    backupImpactReduceTable: (label, count) => '$label 将减少 $count 条',
-    backupImpactEmptySource: '空备份不能用于覆盖恢复，请改用合并导入或选择包含记录的备份。',
-    backupImpactOverwriteTables: (tables) => '会覆盖本机$tables数据',
-    backupImpactReplaceKeepsIdentical: '覆盖后本机数据将与备份文件一致',
-    backupImpactMergeEmptySource: '备份为空，合并导入不会改变本机数据',
-    backupImpactMergeAddsTables: (tables) => '会保留本机数据，并尝试加入 $tables',
-    backupImpactMergeUpdatesSettings: '设置项可能按备份内容更新',
-    backupImpactMergeKeepsRecentLimit: (count) => '最近工具只保留最新 $count 条',
-    backupImpactMergeKeepsHistoryLimit: (count) => '历史记录合并后仍会保留最近 $count 条',
-    backupTableListSeparator: '、',
     aboutTileTitle: '关于 NekoCalc',
     checkUpdateTitle: '检查更新',
     checking: '正在检查',
@@ -581,40 +509,6 @@ class SettingsStrings {
         '$modeLabel would leave $totalLabel',
     backupPlanRow: (before, source, expected) =>
         'device $before · file $source · after $expected',
-    backupWarningNoRecoverableRecords:
-        'This backup holds no records to restore; a replace import would wipe this device.',
-    backupWarningMissingExportedAt: 'The backup has no export time, so its age cannot be judged.',
-    backupWarningUnrecognisedExportedAt: (exportedAt) =>
-        'The backup export time is not recognised: $exportedAt.',
-    backupWarningExportedAtInFuture:
-        'The backup was exported after this device clock; check that the device time is right.',
-    backupWarningOlderThanYear: (ageLabel) =>
-        'The backup is about $ageLabel old; check that its contents are still wanted before restoring.',
-    backupWarningOlder: (ageLabel) => 'The backup is about $ageLabel old.',
-    backupWarningMissingAppVersion: 'The backup carries no app version.',
-    backupWarningAppVersionMismatch: (version, currentVersion) =>
-        'The backup came from $version; this app is $currentVersion.',
-    backupAgeYears: (years) => years == 1 ? '1 year' : '$years years',
-    backupAgeMonths: (months) => months == 1 ? '1 month' : '$months months',
-    backupAgeDays: (days) => days == 1 ? '1 day' : '$days days',
-    backupImpactDeleteTable: (label, count) =>
-        '$label: $count records will be deleted here',
-    backupImpactReduceTable: (label, count) => '$label: $count records fewer',
-    backupImpactEmptySource:
-        'An empty backup cannot be used for replace; merge it or pick a backup with records.',
-    backupImpactOverwriteTables: (tables) => 'Overwrites the local $tables data',
-    backupImpactReplaceKeepsIdentical:
-        'After replacing, this device will match the backup file',
-    backupImpactMergeEmptySource:
-        'The backup is empty; merging changes nothing on this device',
-    backupImpactMergeAddsTables: (tables) =>
-        'Keeps local data and tries to add $tables',
-    backupImpactMergeUpdatesSettings: 'Settings may be updated from the backup',
-    backupImpactMergeKeepsRecentLimit: (count) =>
-        'Recently used keeps only the newest $count',
-    backupImpactMergeKeepsHistoryLimit: (count) =>
-        'History keeps only the newest $count after merging',
-    backupTableListSeparator: ', ',
     aboutTileTitle: 'About NekoCalc',
     checkUpdateTitle: 'Check for updates',
     checking: 'Checking',

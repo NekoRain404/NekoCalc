@@ -158,6 +158,17 @@ class NotesStrings {
     required this.notesEmptyFiltered,
     required this.loadingMoreNotes,
     required this.loadMoreNotes,
+    // —— 筛选摘要条（迁移前住在 `NotesController.visibleSummary` 的 `label` 里）——
+    required this.summaryTabAll,
+    required this.summaryTabNotes,
+    required this.summaryTabHistory,
+    required this.summaryTabFormulas,
+    required this.summaryTabTools,
+    required this.summarySearching,
+    required this.summaryNoMatch,
+    required this.summaryHistoryCount,
+    required this.summaryNoteCount,
+    required this.summaryPartsSeparator,
   });
 
   // —— 页头、搜索与胶囊 ——
@@ -275,6 +286,26 @@ class NotesStrings {
   final String loadingMoreNotes;
   final String loadMoreNotes;
 
+  // —— 筛选摘要条 ——
+  // 中文：这十格是**筛选摘要那条 `label` 的落点**：它的头（五个标签、搜索那一句）与两根计数
+  //       尾巴由呈现层（`notes_summary_message.dart`）按 `NotesVisibleSummary` 的令牌拼起来，
+  //       「·」那根连接符也跟着语言走。中文侧逐字节等于迁移前 `NotesVisibleSummary.label` 里那句。
+  // English: these ten cells are **where the filter summary's `label` lands**: its head (the five tab
+  //          labels, the search phrase) and the two count tails are put together at the presentation
+  //          edge (`notes_summary_message.dart`) from `NotesVisibleSummary`'s token, and the "·"
+  //          separator follows the language too. The Chinese side is byte-identical to the sentence
+  //          `NotesVisibleSummary.label` used to build.
+  final String summaryTabAll;
+  final String summaryTabNotes;
+  final String summaryTabHistory;
+  final String summaryTabFormulas;
+  final String summaryTabTools;
+  final String Function(String query) summarySearching;
+  final String summaryNoMatch;
+  final String Function(int count) summaryHistoryCount;
+  final String Function(int count) summaryNoteCount;
+  final String summaryPartsSeparator;
+
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
   /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
@@ -387,6 +418,16 @@ class NotesStrings {
     notesEmptyFiltered: '当前筛选下没有个人笔记。',
     loadingMoreNotes: '正在加载',
     loadMoreNotes: '加载更多笔记',
+    summaryTabAll: '全部记录',
+    summaryTabNotes: '笔记',
+    summaryTabHistory: '历史',
+    summaryTabFormulas: '公式',
+    summaryTabTools: '工具',
+    summarySearching: (query) => '搜索“$query”',
+    summaryNoMatch: '无匹配',
+    summaryHistoryCount: (count) => '历史 $count',
+    summaryNoteCount: (count) => '笔记 $count',
+    summaryPartsSeparator: ' · ',
   );
 
   static final NotesStrings notesEn = NotesStrings(
@@ -484,5 +525,25 @@ class NotesStrings {
     notesEmptyFiltered: 'No notes match the current filter.',
     loadingMoreNotes: 'Loading',
     loadMoreNotes: 'Load more notes',
+    summaryTabAll: 'All records',
+    summaryTabNotes: 'Notes',
+    summaryTabHistory: 'History',
+    summaryTabFormulas: 'Formulas',
+    summaryTabTools: 'Tools',
+    summarySearching: (query) => 'Searching "$query"',
+    summaryNoMatch: 'no matches',
+    summaryHistoryCount: (count) => '$count history',
+    summaryNoteCount: (count) => '$count notes',
+    // 中文：⚠️ **这一格原本照抄了中文的 `' · '`**，而 `notes_summary_message_test.dart` 明确断言
+    //       "英文摘要里还留着中文分隔符"⇒ 套件红。**测试对、代码错。** 英文按本仓既有惯例取 `', '`
+    //       （`calculator_controller_strings.dart:490` 的 `listSeparator`、`settings_backup_strings.dart:300`
+    //       的 `backupTableListSeparator` 都是 `', '`，中文对应 `'、'`）。
+    // English: ⚠️ **this cell originally copied the Chinese `' · '`**, and
+    //          `notes_summary_message_test.dart` asserts flatly that an English summary keeps no Chinese
+    //          separator ⇒ the suite went red. **The test was right and the code was wrong.** English now
+    //          follows the repo's own convention, `', '` (both `listSeparator` at
+    //          `calculator_controller_strings.dart:490` and `backupTableListSeparator` at
+    //          `settings_backup_strings.dart:300` are `', '` against a Chinese `'、'`).
+    summaryPartsSeparator: ', ',
   );
 }

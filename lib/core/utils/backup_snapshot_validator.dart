@@ -59,11 +59,18 @@ class BackupPreview {
     ];
   }
 
-  String get summary {
-    return tableCounts.map((item) => '${item.label} ${item.count}').join(' · ');
-  }
-
-  String get totalLabel => '$totalRows 条记录';
+  // 中文：**`summary` / `totalLabel` 从前在这里拼那两句中文**（直接印在设置页的本机数据行与导入
+  //       对话框上）。领域对象活得比界面长，界面那张按语言切的表够不着它，于是英文界面下它照样是
+  //       中文——`docs/verification.md` §5i 记着这条。现在留下的只有**载荷**：表名标签与计数，
+  //       字住在 `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
+  //       （`backupPreviewSummary(preview, strings)` / `backupPlanTotalLabel`）。
+  // English: **`summary` / `totalLabel` used to compose those two Chinese sentences right here**
+  //          (printed straight onto the settings page's on-device row and the import dialog). A domain
+  //          object outlives the UI and a language-keyed interface table cannot reach it, so an English
+  //          interface still printed Chinese — recorded in `docs/verification.md` §5i. What is left is
+  //          **the payload only**: table labels and counts; the words live in `SettingsBackupStrings`
+  //          and are composed at the presentation edge by `settings_backup_text.dart`
+  //          (`backupPreviewSummary(preview, strings)` / `backupPlanTotalLabel`).
 }
 
 enum BackupPreviewWarningSeverity { info, warning, danger }

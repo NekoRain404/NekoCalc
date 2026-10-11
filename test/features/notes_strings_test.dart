@@ -138,6 +138,17 @@ void main() {
     expect(zh.notesEmptyFiltered, '当前筛选下没有个人笔记。');
     expect(zh.loadingMoreNotes, '正在加载');
     expect(zh.loadMoreNotes, '加载更多笔记');
+    // —— 筛选摘要条（迁移前住在 `NotesVisibleSummary.label` 里，逐字节搬过来）——
+    expect(zh.summaryTabAll, '全部记录');
+    expect(zh.summaryTabNotes, '笔记');
+    expect(zh.summaryTabHistory, '历史');
+    expect(zh.summaryTabFormulas, '公式');
+    expect(zh.summaryTabTools, '工具');
+    expect(zh.summarySearching('Ω'), '搜索“Ω”');
+    expect(zh.summaryNoMatch, '无匹配');
+    expect(zh.summaryHistoryCount(2), '历史 2');
+    expect(zh.summaryNoteCount(1), '笔记 1');
+    expect(zh.summaryPartsSeparator, ' · ');
 
     // 中文：而英文侧真的换了——否则上面那些"逐字节相同"只是把中文抄了两遍。
     // English: and the English side really differs, otherwise the byte-identical checks above would
@@ -231,6 +242,15 @@ void main() {
       [zh.notesEmptyFiltered, en.notesEmptyFiltered],
       [zh.loadingMoreNotes, en.loadingMoreNotes],
       [zh.loadMoreNotes, en.loadMoreNotes],
+      [zh.summaryTabAll, en.summaryTabAll],
+      [zh.summaryTabNotes, en.summaryTabNotes],
+      [zh.summaryTabHistory, en.summaryTabHistory],
+      [zh.summaryTabFormulas, en.summaryTabFormulas],
+      [zh.summaryTabTools, en.summaryTabTools],
+      [zh.summarySearching('Ω'), en.summarySearching('Ω')],
+      [zh.summaryNoMatch, en.summaryNoMatch],
+      [zh.summaryHistoryCount(2), en.summaryHistoryCount(2)],
+      [zh.summaryNoteCount(1), en.summaryNoteCount(1)],
     ]) {
       expect(pair[0], isNot(pair[1]), reason: '「${pair[0]}」在英文表里没换');
     }
@@ -326,6 +346,15 @@ void main() {
       'notesEmptyFiltered': en.notesEmptyFiltered,
       'loadingMoreNotes': en.loadingMoreNotes,
       'loadMoreNotes': en.loadMoreNotes,
+      'summaryTabAll': en.summaryTabAll,
+      'summaryTabNotes': en.summaryTabNotes,
+      'summaryTabHistory': en.summaryTabHistory,
+      'summaryTabFormulas': en.summaryTabFormulas,
+      'summaryTabTools': en.summaryTabTools,
+      'summarySearching': en.summarySearching('Ω'),
+      'summaryNoMatch': en.summaryNoMatch,
+      'summaryHistoryCount': en.summaryHistoryCount(2),
+      'summaryNoteCount': en.summaryNoteCount(1),
     };
     for (final entry in copy.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 是空的');

@@ -22,6 +22,8 @@ import '../../../shared/presentation/calc_theme.dart';
 //          import it directly without dragging in the whole settings widget tree, and it can carry
 //          imports of its own. (Dart requires every import to precede the part directives.)
 import 'settings_backup_messages.dart';
+import 'settings_backup_strings.dart';
+import 'settings_backup_text.dart';
 import 'settings_strings.dart';
 import 'update_check_message.dart';
 
@@ -203,6 +205,7 @@ class _SettingsPageState extends State<SettingsPage> {
     //          is the template the later migrations follow: adding a language touches only
     //          `settings_strings.dart` and `AppLanguage`, and not one line of this file.
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     return Scaffold(
       body: SafeArea(
         // 中文：**整页一次性建出来，不用 `ListView` 的按需构建。** 这一页是固定的二十来行，
@@ -327,7 +330,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       title: s.exportBackupTitle,
                       value: _backupBusy
                           ? s.processing
-                          : _localBackupPreview?.totalLabel ?? s.saveFile,
+                          : (_localBackupPreview == null
+                              ? s.saveFile
+                              : bs.backupTotalRecords(
+                                  _localBackupPreview!.totalRows)),
                       onTap: _backupBusy ? null : _exportBackup),
                   SettingsTile(
                       icon: Icons.restore_page_outlined,
@@ -600,12 +606,17 @@ class _SettingsPageState extends State<SettingsPage> {
         await _loadLocalBackupPreview();
         if (!mounted) return;
         final s = SettingsStrings.of(context);
+        final bs = SettingsBackupStrings.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(export.successMessage),
+            // 中文：回执与详情那两句由呈现边缘按结果取（`settings_backup_text.dart`）。
+            // English: the receipt and its detail are read at the presentation edge from the result
+            //          (`settings_backup_text.dart`).
+            content: Text(backupExportSuccessMessage(export, bs)),
             action: SnackBarAction(
               label: s.details,
-              onPressed: () => _showInfo(s.exportBackupTitle, export.detail),
+              onPressed: () =>
+                  _showInfo(s.exportBackupTitle, backupExportDetail(export, bs)),
             ),
           ),
         );
@@ -691,8 +702,15 @@ class _SettingsPageState extends State<SettingsPage> {
       if (onDataImported != null) await onDataImported();
       if (!mounted) return;
       final s = SettingsStrings.of(context);
+      final bs = SettingsBackupStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(s.importDone(report.modeLabel, report.resultLabel)),
+        // 中文：模式词与结果那句按令牌/读数在呈现边缘取（`settings_backup_text.dart`）。
+        // English: the mode word and the result sentence are read at the presentation edge from the
+        //          token/readings (`settings_backup_text.dart`).
+        content: Text(s.importDone(
+          backupReportModeLabel(report, bs),
+          backupReportResultLabel(report, bs),
+        )),
         action: SnackBarAction(
           label: s.details,
           onPressed: () =>
@@ -720,6 +738,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String _formatBackupImportReport(BackupImportReport report) {
     final s = SettingsStrings.of(context);
+    final bs = SettingsBackupStrings.of(context);
     final deltas = [
       for (final item in report.tableReports)
         s.reportTableRow(
@@ -732,11 +751,14 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
     ].join('\n');
     return [
-      s.reportMode(report.modeLabel),
-      s.reportResult(report.resultLabel),
-      s.reportSource(report.source.totalLabel),
-      s.reportBefore(report.before.totalLabel),
-      s.reportAfter(report.after.totalLabel),
+      // 中文：四句都在呈现边缘取（`settings_backup_text.dart`）——模式词、结果句、三处总计。
+      // English: all four come from the presentation edge (`settings_backup_text.dart`) — the mode
+      //          word, the result sentence and the three totals.
+      s.reportMode(backupReportModeLabel(report, bs)),
+      s.reportResult(backupReportResultLabel(report, bs)),
+      s.reportSource(bs.backupTotalRecords(report.source.totalRows)),
+      s.reportBefore(bs.backupTotalRecords(report.before.totalRows)),
+      s.reportAfter(bs.backupTotalRecords(report.after.totalRows)),
       '',
       deltas,
     ].join('\n');

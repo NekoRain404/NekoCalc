@@ -39,19 +39,20 @@ class BackupImportPlan {
 
   int get expectedTotal => expected.values.fold(0, (sum, count) => sum + count);
 
-  String get expectedTotalLabel => '$expectedTotal 条记录';
-
-  String get modeLabel => replaceExisting ? '覆盖恢复' : '合并导入';
-
-  String get totalLabel =>
-      replaceExisting ? expectedTotalLabel : '最多 $expectedTotalLabel';
-
-  String get summary {
-    return tableCounts
-        .map((item) =>
-            '${item.label} ${item.count} (${_formatDelta(deltaFor(item.name))})')
-        .join(' · ');
-  }
+  // 中文：**`expectedTotalLabel` / `modeLabel` / `totalLabel` / `summary` 从前在这里拼那几句中文**
+  //       （直接印在设置页的导入对话框上）。数据对象活得比界面长，界面那张按语言切的表够不着它，
+  //       于是英文界面下它照样是中文——`docs/verification.md` §5i 记着这条。现在留下的只有
+  //       **载荷**：`replaceExisting`、`expectedTotal` 与每张表的标签 / 条数，字住在
+  //       `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
+  //       （`backupPlanModeLabel` / `backupPlanTotalLabel` / `backupPlanSummary`）。
+  // English: **`expectedTotalLabel` / `modeLabel` / `totalLabel` / `summary` used to compose those
+  //          Chinese sentences right here** (printed straight onto the settings page's import dialog).
+  //          A data object outlives the UI and a language-keyed interface table cannot reach it, so an
+  //          English interface still printed Chinese — recorded in `docs/verification.md` §5i. What is
+  //          left is **the payload only**: `replaceExisting`, `expectedTotal` and each table's label /
+  //          count; the words live in `SettingsBackupStrings` and are composed at the presentation edge
+  //          by `settings_backup_text.dart` (`backupPlanModeLabel` / `backupPlanTotalLabel` /
+  //          `backupPlanSummary`).
 
   List<BackupImportImpact> get impacts {
     if (replaceExisting) return _replaceImpacts();
@@ -379,38 +380,18 @@ class BackupImportReport {
     ];
   }
 
-  String get modeLabel => replaceExisting ? '覆盖恢复' : '合并导入';
-
-  String get resultLabel {
-    final sourceRows = source.totalRows;
-    final positiveDelta = tableReports.fold<int>(
-      0,
-      (sum, report) => sum + math.max(0, report.delta),
-    );
-    final skipped = tableReports.fold<int>(
-      0,
-      (sum, report) => sum + report.skipped,
-    );
-    if (replaceExisting) {
-      if (skipped == 0) return '已恢复 $sourceRows 条记录';
-      return '已恢复 ${sourceRows - skipped} 条记录，跳过 $skipped 条';
-    }
-    if (skipped == 0) return '已合并 $positiveDelta 条记录';
-    return '已合并 $positiveDelta 条记录，跳过或裁剪 $skipped 条';
-  }
-
-  String get summary {
-    final deltas = [
-      for (final item in tableReports)
-        '${item.label} ${item.after} (${_formatDelta(item.delta)}${item.skipped > 0 ? ', 跳过 ${item.skipped}' : ''})',
-    ];
-    return deltas.join(' · ');
-  }
-
-  static String _formatDelta(int value) {
-    if (value > 0) return '+$value';
-    return value.toString();
-  }
+  // 中文：**`modeLabel` / `resultLabel` / `summary` 从前在这里拼那几句中文**（直接印在导入结果的
+  //       `SnackBar` 与详情里）。理由同 `BackupImportPlan`：数据对象活得比界面长。现在留下的只有
+  //       **载荷**——`replaceExisting`、`source` / `before` / `after` 三份预览与 `tableReports`
+  //       的读数，字住在 `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
+  //       （`backupReportModeLabel` / `backupReportResultLabel` / `backupReportSummary`）。
+  // English: **`modeLabel` / `resultLabel` / `summary` used to compose those Chinese sentences right
+  //          here** (printed straight into the import result's `SnackBar` and detail). The reason is
+  //          the same as `BackupImportPlan`'s: a data object outlives the UI. What is left is **the
+  //          payload only** — `replaceExisting`, the three previews `source` / `before` / `after` and
+  //          the readings of `tableReports`; the words live in `SettingsBackupStrings` and are composed
+  //          at the presentation edge by `settings_backup_text.dart` (`backupReportModeLabel` /
+  //          `backupReportResultLabel` / `backupReportSummary`).
 }
 
 class BackupImportTableReport {
@@ -445,19 +426,6 @@ class BackupExportResult {
   final String fileName;
   final String content;
   final BackupPreview preview;
-
-  String get successMessage => '备份已保存：${preview.totalLabel}';
-
-  String get detail {
-    return [
-      fileName,
-      '',
-      '版本：${preview.appVersion ?? '未知'}',
-      '导出时间：${preview.exportedAt ?? '本机当前'}',
-      '总计：${preview.totalLabel}',
-      preview.summary,
-    ].join('\n');
-  }
 }
 
 class DataBackupRepository {
@@ -577,9 +545,4 @@ class DataBackupRepository {
   }
 
   String _twoDigits(int value) => value.toString().padLeft(2, '0');
-}
-
-String _formatDelta(int value) {
-  if (value > 0) return '+$value';
-  return value.toString();
 }

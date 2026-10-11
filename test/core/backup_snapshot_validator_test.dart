@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
 import 'package:nekocalc/features/settings/presentation/settings_backup_messages.dart';
-import 'package:nekocalc/features/settings/presentation/settings_strings.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_strings.dart';
+import 'package:nekocalc/features/settings/presentation/settings_backup_text.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
@@ -138,8 +139,8 @@ void main() {
     final preview = previewBackupSnapshot(source);
     expect(preview.appVersion, 'v1.1.0');
     expect(preview.totalRows, 7);
-    expect(preview.summary, contains('历史 2'));
-    expect(preview.summary, contains('笔记 1'));
+    expect(backupPreviewTableSummary(preview, _zh), contains('历史 2'));
+    expect(backupPreviewTableSummary(preview, _zh), contains('笔记 1'));
   });
 
   test('rejects empty snapshots for replacement imports', () {
@@ -255,11 +256,10 @@ void main() {
 // English: the sentences no longer live on `BackupPreviewWarning` (a domain object outlives the UI);
 //          they are rendered here through the presentation edge in Chinese — the assertions below
 //          still measure the very same sentences.
+final _zh = SettingsBackupStrings.forLanguage(AppLanguage.zh);
+
 String _warningText(BackupPreviewWarning warning) {
-  return backupPreviewWarningMessage(
-    warning,
-    SettingsStrings.forLanguage(AppLanguage.zh),
-  );
+  return backupPreviewWarningMessage(warning, _zh);
 }
 
 Map<String, Object?> _historyRow(int id) {

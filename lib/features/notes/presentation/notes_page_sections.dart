@@ -263,7 +263,12 @@ extension _NotesPageSections on _NotesPageState {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              summary.label,
+              // 中文：那句话由呈现层按令牌拼（`notes_summary_message.dart`）——应用层只给
+              //       `tab` 与两根计数。
+              // English: the sentence is put together at the presentation edge from the token
+              //          (`notes_summary_message.dart`) — the application layer hands over only
+              //          `tab` and the two counts.
+              notesSummaryLabel(summary, strings),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
