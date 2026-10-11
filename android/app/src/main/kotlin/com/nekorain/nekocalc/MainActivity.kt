@@ -53,7 +53,28 @@ class MainActivity : FlutterActivity() {
                         type = "application/json"
                         putExtra(Intent.EXTRA_TITLE, fileName)
                     }
-                    startActivityForResult(intent, exportRequestCode)
+                    // 中文：⚠️ **必须包住，同文件的 `exportBytes` 早就这么包了。** 没有处理
+                    //       `ACTION_CREATE_DOCUMENT` 的 Activity 时（精简系统、某些受管设备配置）它会抛
+                    //       `ActivityNotFoundException`，而这一路**没有外层 catch**：异常会跨平台线程崩掉，
+                    //       而且 `pendingResult` 会**永远留在非空**——此后每一次备份调用都会立刻返回
+                    //       `busy`（见 `:43` 与 `:60` 的守卫），**导出与导入在这一进程的生命周期里彻底死掉**。
+                    //       捕获后把状态复位并如实回一个错误，后续调用才能继续可用。
+                    // English: ⚠️ **this must be guarded; the sibling `exportBytes` above has always done so.**
+                    //          On a device with no activity handling `ACTION_CREATE_DOCUMENT` (stripped
+                    //          images, some managed-device profiles) it throws `ActivityNotFoundException`,
+                    //          and this path has **no outer catch**: the exception crosses the platform
+                    //          thread and crashes, and `pendingResult` is left **non-null forever** — every
+                    //          later backup call then returns `busy` immediately (see the guards at `:43`
+                    //          and `:60`), so **export and import are dead for the life of the process**.
+                    //          Catching it clears the state and answers with a real error, so later calls
+                    //          keep working.
+                    try {
+                        startActivityForResult(intent, exportRequestCode)
+                    } catch (error: Exception) {
+                        pendingExportContent = null
+                        pendingResult = null
+                        result.error("export_unavailable", error.message, null)
+                    }
                 }
 
                 "importJson" -> {
@@ -66,7 +87,15 @@ class MainActivity : FlutterActivity() {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "application/json"
                     }
-                    startActivityForResult(intent, importRequestCode)
+                    // 中文：同 `exportJson`——这一路同样没有外层 catch，不包住就会**崩 + 把通道永久卡在 busy**。
+                    // English: as in `exportJson` — no outer catch here either; unguarded, it both throws
+                    //          across the platform thread and wedges the channel on `busy` permanently.
+                    try {
+                        startActivityForResult(intent, importRequestCode)
+                    } catch (error: Exception) {
+                        pendingResult = null
+                        result.error("import_unavailable", error.message, null)
+                    }
                 }
 
                 else -> result.notImplemented()
