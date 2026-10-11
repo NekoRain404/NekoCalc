@@ -1031,6 +1031,27 @@ not a tree), carry exemption lists with reasons and a **dead-entry check that ev
 themselves **non-vacuous three ways** — including a permanent positive-control test and a perturb-and-revert
 run. **A guard that has never been shown to fail is not yet known to be a guard.**
 
+**All four were fixed the same day** (commits `1b9bb78` and `3bd2af3`). First the About box and the data-layer
+twin — which turned out to have a **third** occurrence, and whose fix is a language-neutral `'…'` mark rather
+than a translated default, because that layer is below the interface and *cannot* know the language; the
+language-dependent composer stays the single one in `NotesController` (§5l). Then the two large ones: **225**
+keys for the result values, and **367 whole sentences plus 90 payload templates** for the insight card. The
+matcher had to be widened — the producers *compose* sentences from fragments, they do not look them up — so the
+cuts became a backtracking candidate sequence, a payload that still holds a sentence descends one more layer,
+and a glued value+unit is split by asking the tables; **the producers themselves were not touched**.
+
+**Measured after**: 99 tools × every input profile → **3380 insight lines and 12610 value/unit cells through the
+real lookups, 0 Han left, and 3343 of them genuinely changed language** (that last number is what makes the
+sweep non-idling), with all 1117 distinct rendered pairs read by eye. Two **complementary** guards now cover
+what the presentation-subtree guards could not reach: a **source** guard over **48 files** of `lib/domain/**`
+(1668 literals covered, 5 notation-only, 12 exemptions — every one of which is checked to actually fire), and a
+**behavioural sweep** that catches *composed* values no literal scan can see. Non-vacuity was proven by renaming
+one map key and watching **both** guards go red, then reverting.
+
+⚠️ **One honest debt remains, named rather than glossed**: the catalogue family and the notes/records family are
+still **whole-file exempt** (out of scope for this pair of slices), and `'导入笔记'` / `'剪贴板笔记 · …'` are
+recorded there as a **named debt with an owner** — not a clean bill of health.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
