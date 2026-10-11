@@ -843,6 +843,35 @@ labels and the fallback note titles it saves are still Chinese composed in the a
 / `totalLabel`; and `data_backup_repository.dart`'s `BackupImportPlan.modeLabel` / `totalLabel` / `summary`,
 `BackupImportReport.modeLabel` / `resultLabel` / `summary` and `BackupExportResult.successMessage` / `detail`.
 
+### 5j. The same defect twice over: English cells copied from the Chinese ones, punctuation and all (2026-10-11)
+
+While recovering the fifth layering slice, its own new guard caught **two** defects of one kind — an English
+table cell transcribed from the Chinese one with the words changed but the **punctuation** left behind. Both
+were found by measurement, not by reading, and **in both cases the test was right and the code was wrong**:
+
+1. `summaryPartsSeparator` (en) was `' · '` — the Chinese separator verbatim. The guard asserts flatly that an
+   English summary keeps no `·`, so it went red. Fixed to `', '`, which is the repo's own English convention
+   (`calculator_controller_strings.dart:490`'s `listSeparator` and `settings_backup_strings.dart:300`'s
+   `backupTableListSeparator` are both `', '` against a Chinese `'、'`).
+2. `summarySearching` (en) was `'Searching “$query”'` — Chinese curly quotes. The ruler
+   `containsWideOrFullwidth` (`test/shared/source_scan.dart:101`) flags `0x201C`/`0x201D` explicitly, so it
+   went red too. Fixed to ASCII `"`.
+
+**The same class is present elsewhere, and the counts are known.** Measured by running the ruler's own
+character set over every `*_strings.dart` English value:
+
+| rune | where the ruler stands | English cells |
+|---|---|---|
+| `“ ”` curly quotes | explicitly banned (`_typographicPunctuation`) | **3** — `notes_strings.dart:474` (`Delete “$title”? …`), `tools_strings.dart:622`, `:651` |
+| `…` ellipsis | **also in that banned set** (`0x2026`) | **8** — `calculator_strings.dart:589/615/628/630`, `notes_strings.dart:435/518/522`, `tools_strings.dart:618` |
+
+⚠️ **Those 11 are left as they are, deliberately.** Adding a guard that bans the whole set would force a
+**style sweep across several tables**, and every one of those cells is pinned byte-for-byte by its own strings
+test — a change of copy, not a bug fix. The curly quotes are the same defect as (2) and are the better
+candidates if a sweep is ever wanted; the ellipsis is a **pervasive pre-existing convention** in this repo's
+English copy and reversing it is a decision for the owner. Recorded rather than done, so that the finding is
+not lost and nobody re-derives it.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
