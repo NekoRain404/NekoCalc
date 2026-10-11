@@ -869,12 +869,22 @@ drops the colon; `notWritten`/`superseded` deliberately share one cell. Each fam
 fourth slices, 2026-10-11):** the notes family (`notes_clipboard_import.dart`, `notes_delete_result.dart`),
 `recent_tool_action_result.dart`, `github_release_checker.dart`, the backup-warning family in
 `backup_snapshot_validator.dart` and the import-impact family in `data_backup_repository.dart` — **eight
-families converted in all, not the sweep.** **What is still open:** `notes_controller.dart` (search-summary
-labels and the fallback note titles it saves are still Chinese composed in the application layer), plus the
-**residual prose inside the two partly converted files** — `backup_snapshot_validator.dart`'s
-`FormatException` sentences, `emptyBackupReplaceErrorMessage`, `backupTableLabels` and `BackupPreview.summary`
-/ `totalLabel`; and `data_backup_repository.dart`'s `BackupImportPlan.modeLabel` / `totalLabel` / `summary`,
-`BackupImportReport.modeLabel` / `resultLabel` / `summary` and `BackupExportResult.successMessage` / `detail`.
+families converted in all, not the sweep.**
+
+**Re-measured 2026-10-11 (fifth slice included) — the earlier remainder list was wrong in two places, so
+here is the measured state.** Checking every symbol this section used to name, plus a scan of each file for
+non-comment CJK:
+
+| file | measured now | verdict |
+|---|---|---|
+| `notes_controller.dart` | the **search-summary labels are done** (they moved to `notes_summary_message.dart` in the fifth slice). What is left is `'未命名笔记'` / `'历史结果'` / `'由计算历史保存，时间 …'` at `:317`, `:435`, `:438` | ⚠️ **not an unconverted screen string** — these are **generated note titles and descriptions written into the database**. Slice five found them, and translating them is a **data-language decision**, not an edge-translation job |
+| `data_backup_repository.dart` | **no non-comment CJK at all** (all 42 CJK lines are comments) — its prose *was* converted | ✅ done |
+| `backup_snapshot_validator.dart` | two real remainders: `emptyBackupReplaceErrorMessage` at `:4` (a Chinese `const`) and the `backupTableLabels` map at `:17-19` (`'calculation_history': '历史'`, `'notes': '笔记'`, `'favorite_tools': '收藏'`) — both are **copy the user sees** | ❌ **still open** |
+
+So **the only genuine remainder in this family is `backup_snapshot_validator.dart`'s two items**; the note
+titles are a decision about **stored data**, and everything else named here has been converted. (This is the
+same distinction slice five drew on its own: a string written *into the database* cannot be localised by a
+screen-level table, because it outlives the screen.)
 
 ### 5j. The same defect twice over: English cells copied from the Chinese ones, punctuation and all (2026-10-11)
 
