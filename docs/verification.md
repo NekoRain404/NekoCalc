@@ -60,16 +60,30 @@ sibling was the signal that something outside the app was being measured. The re
 session's changes do not explain it") was therefore correct, and it is now **confirmed by measurement** rather
 than left as reasoning. (The device now carries the **debug** variant again, so the `run-as` channel is back.)
 
-**The idle-memory row WAS obtained — but it is not comparable to the recorded baseline either.** After a single
-`am start`, three readings bracketed the app's steady state — **96,580 KB at +8 s, then 99,854 KB at +45 s and
-99,812 KB at +60 s** (the last two agree to 0.04 %, so the app really is idle; `TOTAL SWAP PSS` fell from 1442
-to 135 between the first and second). So the release build idles at **≈ 99.8 MB PSS**, against the baseline's
-**217,634 KB ≈ 212.5 MiB**. ⚠️ **That is a 2.2× gap in the "better" direction, and it must not be reported as an
-improvement**: this session deleted ~1800 lines and added a few static tables, which cannot plausibly halve a
-process's memory, and the baseline row says only "idle" — **it does not record how that idle state was reached**
-(how long after launch, what had been done first). The most likely explanation is that the two readings are of
-*states*, not of a change; what this measurement establishes is that the app's steady-state PSS today is
-**~100 MB and stable**, which is a fact in its own right.
+**The idle-memory row WAS obtained — and the same decisive experiment that settled the cold-start row REFUTES my
+first guess about this one.** After a single `am start`, three readings bracketed the release build's steady
+state: **96,580 KB at +8 s, then 99,854 KB at +45 s and 99,812 KB at +60 s** (the last two agree to 0.04 %, so it
+really is idle). Release therefore idles at **≈ 99.8 MB PSS**, against its baseline's **217,634 KB ≈ 212.5 MiB**.
+
+⚠️ **I first guessed this was "two different states, not a change" — the same explanation the cold-start row
+turned out to have. The measurement says otherwise.** The debug variant was still installed from that experiment,
+so it was measured identically:
+
+| build | documented baseline | measured 2026-10-11 |
+|---|---|---|
+| release | `217,634 KB` ≈ 212.5 MiB | **≈ 99.8 MB** (96,580 → 99,854 → 99,812 KB) |
+| debug | `400,259 KB` ≈ 391 MiB | **≈ 255 MiB** (256,696 → 261,600 KB) |
+
+**The two builds measure differently, and in the documented direction** — today's debug is ≈2.6× today's release,
+against a baseline ratio of ≈1.8×. In the cold-start case two builds five times apart measured *identically*
+(⇒ an added constant); here the measurement **discriminates between builds**, so it is reading a real property
+rather than an artefact. **My "different state" guess was wrong and is recorded as wrong.**
+
+Both readings are nevertheless **below their own baselines** (by ≈2.1× and ≈1.5×), and **the cause is not
+determined** — candidates are the ~1800 lines this session deleted and the device's own condition; settling it
+would need the baselines re-taken on the same device in a controlled state. What is established: **neither build
+regressed — both use less memory than the record shows** — and today's release steady state is a stable
+**≈100 MB PSS** in its own right.
 
 **And the question can be narrowed without the device — by checking what this session actually touched on the
 startup path.** `lib/main.dart` was **not modified at all** in the whole stretch of work (0 commits touching it);
