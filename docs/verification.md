@@ -977,8 +977,25 @@ The three shapes available, with what each costs:
 | **B. generated titles only** — store a `kind` + payload (`history`/`tool` + timestamp/source id) instead of the sentence, and render it at display time; keep a stored string **only** when the user has actually edited it | an English UI would show English auto-titles, and an edited title stays exactly what the user typed | a schema change plus a migration for existing rows; the two fields must be kept in sync on every save and on every later edit |
 | **C. store a language tag** alongside the generated title | the stored text can be recognised as "generated, in language X" and re-rendered when the UI language differs | smaller than B, but the note's *name* still changes under the user when they switch language — which for a searchable, exportable, editable field is arguably worse than A |
 
-**Nothing here is done or attempted**; this entry exists so the question is not re-derived, and so that the
-answer is made deliberately rather than by whoever next touches `notes_controller.dart`.
+**Decided and implemented 2026-10-11 — option A+, not B or C.** The three strings are now **generated in the
+language the interface is in at save time** and still **stored as plain text**: `NotesStrings` gained
+`untitledNote` / `historyNoteTitle` / `historyNoteDescription(timestamp)` (zh byte-identical, en added), the
+controller carries a reassignable `NotesStrings strings` seeded by `NotesStrings.forCode(settings.languageCode)`
+— the same shape the sibling `ToolDetailController.strings` / `ToolDetailStrings.forCode` already used, so no
+new mechanism — and `NotesPage` now takes the `AppSettings` the shell already holds.
+
+**Why A+ rather than B/C.** The title is **user data**: editable (hence the blank-title fallback), exported in
+backups, and searchable. Turning it into a display-time token (B) would make a note's *name* change under the
+user when they switch language — for a searchable, exportable, editable field that is worse than freezing it.
+The defect was never "it is frozen"; it was "**it is frozen in Chinese regardless of the user's language**",
+which is what A+ fixes. C was rejected for the same reason as B.
+
+**Guarded by tests that would have caught the original bug**: a domain test asserts the **stored** title and
+description are English when saving with the English table (and pinned zh sentences stay byte-identical); a
+**widget** test saves a blank-titled note under `AppLanguageScope(en)` and asserts the fake database received
+`'Untitled note'` — that one catches "the controller was fixed but the page was never wired"; and a source scan
+proves `notes_controller.dart` no longer holds any of the three literals, with its non-vacuity checked against
+the round-trip labels that are *deliberately* still Chinese.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 

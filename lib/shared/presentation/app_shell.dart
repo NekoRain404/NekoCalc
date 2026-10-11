@@ -212,6 +212,16 @@ class _AppShellState extends State<AppShell> {
       3 => NotesPage(
           db: widget.db,
           reloadToken: _notesReloadToken,
+          // 中文：**设置里的语言代码。** 笔记页在 `initState` 里造控制器，那一刻不许查
+          //       `BuildContext`，所以先按这一项取文案表（`NotesStrings.forCode`），随后由页面
+          //       自己的 `didChangeDependencies` 换成作用域里当场生效的那张。与计算页 / 工具页
+          //       把 `settings` 递下去是同一条路。
+          // English: **the language code from settings.** The notes page builds its controller in
+          //          `initState`, where a `BuildContext` may not be queried, so it takes the copy table
+          //          for this value (`NotesStrings.forCode`) and its own `didChangeDependencies` then
+          //          swaps in the scope's immediately effective one. The same route by which the
+          //          calculator and tools pages are handed `settings`.
+          settings: widget.settings,
           // 中文：工具标签的英文表住在本子树里，笔记页读不到它（features 之间不互相 import）。
           //       外壳是唯一同时认得两边的地方，所以由它把这条查表能力递下去。中文界面下
           //       `ToolResultLabelStrings.of` 是空表、查不到就原样返回，这一格一个字节不动。

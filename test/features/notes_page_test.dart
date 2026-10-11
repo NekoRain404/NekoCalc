@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/models/note_item.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
+import 'package:nekocalc/l10n/app_language.dart';
 
 void main() {
   tearDown(() {
@@ -28,7 +30,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     expect(find.text('2+3'), findsOneWidget);
@@ -39,7 +41,7 @@ void main() {
     expect(find.text('已选择 1 项'), findsOneWidget);
 
     db.historyItems = const [];
-    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     expect(find.text('已选择 1 项'), findsNothing);
@@ -67,7 +69,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -106,7 +108,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'sqqrt');
@@ -139,7 +141,7 @@ void main() {
     );
     final db = _FakeNotesDatabase(noteItems: notes);
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('公式').first);
     await tester.pumpAndSettle();
@@ -176,7 +178,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -222,7 +224,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.text('2+3'));
@@ -263,7 +265,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
     expect(db.historyLoads, 1);
     expect(db.noteLoads, 1);
@@ -309,13 +311,13 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'sqrt');
     await tester.pump(const Duration(milliseconds: 20));
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, reloadToken: 1, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pump(const Duration(milliseconds: 140));
     await tester.pumpAndSettle();
 
@@ -357,7 +359,7 @@ V = I * R
     });
     final db = _FakeNotesDatabase();
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('从剪贴板导入'));
@@ -412,7 +414,7 @@ V = I * R
     });
     final db = _FakeNotesDatabase(zeroNextHistoryWrite: true);
 
-    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel)));
+    await tester.pumpWidget(_testApp(NotesPage(db: db, toolResultLabel: _identityLabel, settings: AppSettings.fallback)));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('从剪贴板导入'));
@@ -610,11 +612,21 @@ class _CreatedNote {
 ///       （`history_result_display_test.dart`）量的是"给定查表，这一行怎么画"；这一条量的是
 ///       "笔记页确实用了递进来的那条查表"——把 `NotesPage.toolResultLabel` 换成一张假表，屏幕
 ///       上的字就得跟着变。少了它，"注入了但没接上"这种改法不会被任何测试挡住。
+///
+///       第二条是同一个形状，量的是**语言那条线**：控制器侧的英文保存路径由
+///       `notes_controller_test.dart` 单独钉住，这里量"页面把作用域里**当场生效**的语言递给了
+///       控制器"——设置里写着中文、作用域里是英文时，存进库的必须是英文兜底。
 /// English: **the lookup the shell hands in really reaches the history row.** The unit tests
 ///          (`history_result_display_test.dart`) measure "given a lookup, how is this row drawn";
 ///          this measures "the notes page actually uses the lookup it was handed" — swap
 ///          `NotesPage.toolResultLabel` for a fake table and the on-screen text must follow. Without
 ///          it, "injected but not wired" would slip past every test.
+///
+///          The second test has the same shape and measures **the language wire**: the controller's
+///          English save path is pinned on its own in `notes_controller_test.dart`, while this one
+///          measures "the page handed the scope's **immediately effective** language to the
+///          controller" — with Chinese in the settings and English in the scope, the stored value must
+///          be the English fallback.
 void _wiringTests() {
   testWidgets('工具行的标签由 NotesPage.toolResultLabel 决定（注入被接上了）', (tester) async {
     final db = _FakeNotesDatabase(
@@ -638,6 +650,7 @@ void _wiringTests() {
         body: NotesPage(
           db: db,
           toolResultLabel: (label) => label == '电压 V' ? 'FAKE_VOLT' : label,
+          settings: AppSettings.fallback,
         ),
       ),
     ));
@@ -647,5 +660,56 @@ void _wiringTests() {
     // 中文：存的那一份没动——页面上不该出现原始标签拼出来的那一串。
     // English: the stored copy did not move — the original label's spelling must not appear.
     expect(find.text('电压 V: 20V'), findsNothing);
+  });
+
+  testWidgets('英文界面下保存一条空标题笔记：存进库的是英文兜底（语言从作用域接到了控制器）',
+      (tester) async {
+    // 中文：**这条量的是控制器与界面之间那根线。** 控制器侧的英文保存路径由
+    //       `notes_controller_test.dart` 单独钉住；这里量的是"页面真的把当前语言递了进去"——
+    //       设置里仍写着中文（`AppSettings.fallback`），而作用域里是英文，存下去的必须是英文。
+    //       少了它，控制器改了、页面没接上（或只读了 `widget.settings`、漏掉作用域里当场生效的
+    //       那一张），缺陷会原样留在真实应用里，而所有测试全绿。
+    // English: **this measures the wire between the controller and the interface.** The controller's
+    //          English save path is pinned on its own in `notes_controller_test.dart`; here what is
+    //          measured is "the page really hands the active language in" — the settings still say
+    //          Chinese (`AppSettings.fallback`) while the scope says English, and what is stored must
+    //          be English. Without it, the controller could be fixed while the page is not wired (or
+    //          reads only `widget.settings` and misses the scope's immediately effective table), and
+    //          the defect would survive in the real app with every test green.
+    final db = _FakeNotesDatabase(historyItems: const [], noteItems: const []);
+
+    await tester.pumpWidget(MaterialApp(
+      // 中文：作用域装在 Navigator 之上（`builder` 的 child 就是 Navigator），与 `app.dart` 的真实
+      //       挂点一致——否则 `showDialog` 压上来的对话框是 `home` 的兄弟而不是子孙，看不见它，
+      //       对话框里那几个按钮会回落成中文（`app.dart` 上写着这条理由）。
+      // English: the scope goes above the Navigator (`builder`'s child *is* the Navigator), the same
+      //          hook `app.dart` uses — otherwise the `showDialog` route is a sibling of `home` rather
+      //          than a descendant, cannot see it, and the dialog's buttons fall back to Chinese (the
+      //          reason is written on `app.dart`).
+      builder: (context, child) => AppLanguageScope(
+        language: AppLanguage.en,
+        child: child!,
+      ),
+      home: Scaffold(
+        body: NotesPage(
+          db: db,
+          toolResultLabel: _identityLabel,
+          settings: AppSettings.fallback,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('New note'));
+    await tester.pumpAndSettle();
+    // 中文：标题、正文都留空，直接保存——空标题正是兜底那条路径（写进库的是兜底值本身）。
+    // English: leave title and body blank and save straight away — the blank title is exactly the
+    //          fallback path (the fallback value itself is what lands in the database).
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(db.createdNotes, hasLength(1));
+    expect(db.createdNotes.single.title, 'Untitled note');
+    expect(db.createdNotes.single.title, isNot('未命名笔记'));
   });
 }

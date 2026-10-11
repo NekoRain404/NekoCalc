@@ -15,16 +15,23 @@ import '../../../l10n/app_language.dart';
 ///          / `contains('公式：')` / `contains('工具')`）。它们不是屏幕上印的字，而是**拿用户的
 ///          笔记内容去比**——用户自己写的「公式」两个字。跟着界面语言翻掉，中文界面下那些图标
 ///          立刻全变回默认，而且不会有任何报错。它们是数据分类，不是文案。
-///       2. **应用层自己产出的字**：`NotesController` 的 `error`（异常的技术串）、`summary.label`、
+///       2. **应用层自己产出的字**：`NotesController` 的 `error`（异常的技术串）、
 ///          `searchSuggestions()` / `searchExamples()`（搜索示例是**拿去搜的词**，与内容探针同一类），
 ///          以及导出 / 复制正文那一套标签（`'表达式:'`、`'结果:'`…——它们是**剪贴板往返的格式**，
 ///          由 `notes_clipboard_import.dart` 的解析器读回）。这些今天仍是中文——**这是已知的残留**，
-///          不是漏翻。
+///          不是漏翻。（`summary.label` 从前也在这个名单里，第五刀之后它搬到了
+///          `notes_summary_message.dart`，名单已按实测改正。）
 ///
 ///       **已经搬进来的**：导入与删除的回执。`NotesClipboardImportPlan` / `…Result` /
 ///       `NotesDeleteResult` 从前自己拼那几句中文并直接上屏（`SnackBar` 与导入对话框），现在领域层
 ///       只给令牌（`NotesImportPlanStatus` / `NotesImportReceiptStatus` / `NotesDeleteStatus`），
 ///       字在这儿，由 `notes_receipt_message.dart` 在**呈现边缘**取。
+///
+///       **保存时生成、写进库的那三句也搬进来了**（`untitledNote` / `historyNoteTitle` /
+///       `historyNoteDescription`，见各自字段上的注释）：它们从前硬编码在 `NotesController` 里，
+///       于是英文界面存进去的仍是中文标题。与上面两条不同，这三句是**用户数据**——冻结在保存那一刻
+///       的语言里，之后不跟着界面变；这是 `docs/verification.md` §5l 记下的那个决策（三个选项里
+///       选的是"在正确的创建语言里冻结"，不是把标题换成显示时令牌）。
 /// English: The notes page's string table, **split by feature** — one table holding every language
 ///          side by side. The mechanism itself (why hand-written tables rather than ARB / `gen-l10n`,
 ///          why the tables are `static final` rather than `const`) shares one set of reasons with the
@@ -44,12 +51,13 @@ import '../../../l10n/app_language.dart';
 ///             such icon back to the default in a Chinese interface, with no error anywhere. They are
 ///             data classification, not copy.
 ///          2. **Application-layer text the controller produces itself**: `NotesController`'s `error`
-///             (an exception's technical string), `summary.label`, `searchSuggestions()` /
-///             `searchExamples()` (a search example is a **word you search with**, the same category as
-///             a content probe), and the labels of the export / copy body (`'表达式:'`, `'结果:'` … —
-///             they are the **clipboard round-trip format** read back by `notes_clipboard_import.dart`'s
-///             parser). Those are still Chinese today — a **known remainder**, not a missed
-///             translation.
+///             (an exception's technical string), `searchSuggestions()` / `searchExamples()` (a search
+///             example is a **word you search with**, the same category as a content probe), and the
+///             labels of the export / copy body (`'表达式:'`, `'结果:'` … — they are the **clipboard
+///             round-trip format** read back by `notes_clipboard_import.dart`'s parser). Those are
+///             still Chinese today — a **known remainder**, not a missed translation.
+///             (`summary.label` used to stand in this list too; the fifth slice moved it to
+///             `notes_summary_message.dart`, and the list has been corrected against measurement.)
 ///
 ///          **What has moved in**: the import and delete receipts. `NotesClipboardImportPlan` /
 ///          `…Result` / `NotesDeleteResult` used to compose those Chinese sentences themselves and
@@ -57,6 +65,15 @@ import '../../../l10n/app_language.dart';
 ///          the tokens (`NotesImportPlanStatus` / `NotesImportReceiptStatus` / `NotesDeleteStatus`),
 ///          the words live here, and `notes_receipt_message.dart` reads them **at the presentation
 ///          edge**.
+///
+///          **The three sentences generated at save time and written into the database moved in as
+///          well** (`untitledNote` / `historyNoteTitle` / `historyNoteDescription`, each documented on
+///          its field): they used to be hard-coded in `NotesController`, so an English interface
+///          stored Chinese titles. Unlike the two kinds above, these three are **user data** — frozen
+///          in the language of the moment they were saved, never following the interface afterwards.
+///          That is the decision recorded in `docs/verification.md` §5l (of the three shapes, the one
+///          chosen is "freeze in the right creation language", not "turn the title into a
+///          display-time token").
 @immutable
 class NotesStrings {
   const NotesStrings({
@@ -169,6 +186,10 @@ class NotesStrings {
     required this.summaryHistoryCount,
     required this.summaryNoteCount,
     required this.summaryPartsSeparator,
+    // —— 保存时生成、写进库的笔记标题与描述 ——
+    required this.untitledNote,
+    required this.historyNoteTitle,
+    required this.historyNoteDescription,
   });
 
   // —— 页头、搜索与胶囊 ——
@@ -306,6 +327,37 @@ class NotesStrings {
   final String Function(int count) summaryNoteCount;
   final String summaryPartsSeparator;
 
+  // —— 保存时生成、写进库的笔记标题与描述 ——
+  // 中文：这三格与上面所有格都不同：**它们不是画在屏幕上的字，而是写进 `notes` 表的字**。标题留空
+  //       时存的是 [untitledNote]；从一条计算历史保存笔记时，标题是 [historyNoteTitle]、描述是
+  //       [historyNoteDescription]（时间戳是**载荷**，由调用方格式化后递进来，所以那一格的模板
+  //       只含一句不变的话）。**生成的那一刻按当时的界面语言冻结**，之后不再跟着界面变——标题是
+  //       用户数据（可编辑、会被导出进备份、可被搜索），跟着语言变的"名字"比冻结在创建时的语言更
+  //       糟。三种形状的取舍与理由写在 `docs/verification.md` §5l；迁移前这三句硬编码在
+  //       `NotesController` 里，所以英文界面下存进去的仍是中文。
+  //
+  //       调用方是 `NotesController`：它必填地持有一张 [NotesStrings]（与
+  //       `ToolDetailController.strings` 同一形状），页面在 `initState` 里按设置的语言代码取
+  //       （[forCode]），再在 `didChangeDependencies` 里换成作用域中**当场生效**的那张。
+  // English: These three cells differ from every cell above: **they are not painted on screen, they are
+  //          written into the `notes` table.** A blank title stores [untitledNote]; saving a note from
+  //          a calculation-history row stores [historyNoteTitle] as the title and
+  //          [historyNoteDescription] as the description (the timestamp is **payload**, formatted by the
+  //          caller, so the cell's template holds one unchanging sentence). **They freeze at the moment
+  //          of creation in the then-active interface language** and never follow the interface again —
+  //          a title is user data (editable, exported in backups, searchable), and a name that changes
+  //          under the user with the language is worse than one frozen in the language of creation. The
+  //          three shapes and their costs are in `docs/verification.md` §5l; before the move these three
+  //          sentences were hard-coded in `NotesController`, so an English interface stored Chinese.
+  //
+  //          The caller is `NotesController`: it holds a [NotesStrings] as a required field (the same
+  //          shape as `ToolDetailController.strings`), which the page seeds from the settings' language
+  //          code ([forCode]) in `initState` and then swaps in `didChangeDependencies` for the scope's
+  //          **immediately effective** one.
+  final String untitledNote;
+  final String historyNoteTitle;
+  final String Function(String timestamp) historyNoteDescription;
+
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
   /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
@@ -323,6 +375,28 @@ class NotesStrings {
       AppLanguage.zh => notesZh,
       AppLanguage.en => notesEn,
     };
+  }
+
+  /// 中文：按**持久化语言代码**取表（`AppSettings.languageCode` 那个值），与
+  ///       `ToolDetailStrings.forCode` / `CalculatorControllerStrings.forCode` 同一条路：
+  ///       认不出的代码由 `AppLanguage.fromCode` 回落到中文，那是语言解析的既有约定。
+  ///       存在的理由与详情页那条一模一样：笔记页在 `initState` 里造控制器，而那一刻**还不许查
+  ///       `BuildContext`**，所以先按设置里的代码取一张，随后由 `didChangeDependencies` 用作用域里
+  ///       **当场生效**的那张覆盖掉（`app.dart` 的 `onLanguageChanged` 只换内存里的 `_language`，
+  ///       不重载设置记录，只看设置会漏掉"设置页还开着、底下的笔记页已经该换语言了"这一种）。
+  /// English: Looks the table up by **persisted language code** (the value in
+  ///          `AppSettings.languageCode`), the same route as `ToolDetailStrings.forCode` /
+  ///          `CalculatorControllerStrings.forCode`: an unrecognised code falls back to Chinese inside
+  ///          `AppLanguage.fromCode`, which is the existing language-resolution convention. It exists
+  ///          for exactly the reason the detail screen's does: the notes page builds its controller in
+  ///          `initState`, where a `BuildContext` **may not be queried**, so construction takes the
+  ///          code from settings and `didChangeDependencies` then overwrites it with the scope's
+  ///          **immediately effective** table (`app.dart`'s `onLanguageChanged` swaps only the
+  ///          in-memory `_language` without reloading the settings record, so watching settings alone
+  ///          would miss "the settings page is still open but the notes page underneath should already
+  ///          have changed language").
+  static NotesStrings forCode(String? code) {
+    return forLanguage(AppLanguage.fromCode(code));
   }
 
   static final NotesStrings notesZh = NotesStrings(
@@ -428,6 +502,9 @@ class NotesStrings {
     summaryHistoryCount: (count) => '历史 $count',
     summaryNoteCount: (count) => '笔记 $count',
     summaryPartsSeparator: ' · ',
+    untitledNote: '未命名笔记',
+    historyNoteTitle: '历史结果',
+    historyNoteDescription: (timestamp) => '由计算历史保存，时间 $timestamp',
   );
 
   static final NotesStrings notesEn = NotesStrings(
@@ -545,5 +622,9 @@ class NotesStrings {
     //          `calculator_controller_strings.dart:490` and `backupTableListSeparator` at
     //          `settings_backup_strings.dart:300` are `', '` against a Chinese `'、'`).
     summaryPartsSeparator: ', ',
+    untitledNote: 'Untitled note',
+    historyNoteTitle: 'History result',
+    historyNoteDescription: (timestamp) =>
+        'Saved from calculation history at $timestamp',
   );
 }

@@ -10,6 +10,8 @@ import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
 import 'package:nekocalc/features/notes/presentation/notes_summary_message.dart';
 import 'package:nekocalc/l10n/app_language.dart';
 
+import '../shared/source_scan.dart';
+
 void main() {
   // 中文：领域层只给令牌，回执的句子在呈现边缘取——所以这几条断言把中文表带进来渲染。
   // English: The domain layer hands over tokens only and the receipt sentences are fetched at the
@@ -165,6 +167,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
 
     await controller.load();
@@ -193,6 +196,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
 
     await controller.load();
@@ -226,6 +230,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
 
     controller.applyNoteFilters(
@@ -257,6 +262,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
 
     controller.setQuery('2026/06/08');
@@ -276,6 +282,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
       initialHistory: [history],
       initialNotes: [note],
     );
@@ -306,6 +313,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
       initialHistory: [history],
       initialNotes: [note],
     );
@@ -337,6 +345,7 @@ void main() {
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
     final plan = controller.previewClipboardImport('''
 NekoCalc 批量导出
@@ -392,6 +401,7 @@ V = I * R
     final controller = NotesController(
       historyRepository: HistoryRepository(db),
       notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
     );
     final plan = controller.previewClipboardImport('''
 NekoCalc 批量导出
@@ -424,15 +434,92 @@ V = I * R
 
     controller.dispose();
   });
+
+  test('中文表下保存笔记：空标题兜底与历史标题/描述逐字节等于迁移前那三句',
+      () async {
+    // 中文：**中文侧一个字节都不许动。** 这三句从前硬编码在控制器里（`'未命名笔记'`、
+    //       `'历史结果'`、`'由计算历史保存，时间 …'`），现在从 `strings` 取；默认语言是中文，
+    //       所以存进库的那一份必须与迁移前逐字节相同。量的是**真的写进库的那份**（假库把
+    //       `addNote` 收到的参数原样记下来），不是屏幕上的一句话。
+    // English: **not one byte of the Chinese side may move.** These three used to be hard-coded in
+    //          the controller (`'未命名笔记'`, `'历史结果'`, `'由计算历史保存，时间 …'`) and now come
+    //          from `strings`; the default language is Chinese, so what lands in the database must be
+    //          byte-identical to what it was. What is measured is **what was really written** (the
+    //          fake records the arguments `addNote` received), not a sentence on screen.
+    final db = _FakeNotesControllerDatabase(
+      historyItems: [history],
+      noteItems: const [],
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
+    );
+
+    await controller.saveNote(title: '   ', description: '', body: '正文');
+    await controller.saveHistoryAsNote(history);
+
+    expect(db.createdNotes.map((item) => item.title), ['未命名笔记', '历史结果']);
+    expect(db.createdNotes.first.body, '正文');
+    expect(db.createdNotes.last.description, '由计算历史保存，时间 2026/06/08 09:30');
+    controller.dispose();
+  });
+
+  test('英文表下保存笔记：存下去的是英文标题与描述（这条量的是修复本身）', () async {
+    // 中文：**这就是那个缺陷。** 换语言后控制器仍按中文拼标题，英文用户得到中文名字的笔记；
+    //       修复的判据是：同一个保存路径、换成英文表，**写进库的**标题与描述是英文，且整条
+    //       记录里没有一个宽/全角字符（尺子与其他护栏同一把）。
+    // English: **this is the defect itself.** With the language switched, the controller still
+    //          composed Chinese titles, so an English user got notes named in Chinese; the fix's
+    //          criterion is: the same save path with the English table, and the title and description
+    //          **written into the database** are English — with not one wide/fullwidth character in
+    //          the whole record (the same ruler as the other guards).
+    final db = _FakeNotesControllerDatabase(
+      historyItems: [history],
+      noteItems: const [],
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.en),
+    );
+
+    await controller.saveNote(title: '  ', description: '', body: 'body');
+    await controller.saveHistoryAsNote(history);
+
+    expect(
+        db.createdNotes.map((item) => item.title).toList(), ['Untitled note', 'History result']);
+    expect(db.createdNotes.last.description,
+        'Saved from calculation history at 2026/06/08 09:30');
+    // 中文：**量的是这两格，不含正文。** 历史笔记的正文是 `historyCopyText` 拼的**剪贴板往返格式**
+    //       （`'计算历史'`、`'表达式: '`…），它故意保持中文——跟着界面语言翻掉，粘贴就不再认得自己
+    //       写出来的导出文本（理由在 `notes_strings.dart` 的文件头）。所以下面的断言只走标题与描述。
+    // English: **what is measured is these two cells, not the body.** A history note's body is the
+    //          **clipboard round-trip format** composed by `historyCopyText` (`'计算历史'`,
+    //          `'表达式: '` …), deliberately kept Chinese — translate it with the interface and a paste
+    //          would no longer recognise the export this app itself wrote (see `notes_strings.dart`'s
+    //          head). So the assertions below walk the title and the description only.
+    for (final note in db.createdNotes) {
+      final composed = '${note.title}${note.description}';
+      expect(containsWideOrFullwidth(composed), isFalse,
+          reason: '英文表下存进库的标题或描述里还有宽/全角字符：$composed');
+    }
+    controller.dispose();
+  });
 }
 
 NotesController _controller({
   List<HistoryItem> history = const [],
   List<NoteItem> notes = const [],
+  NotesStrings? strings,
 }) {
   return NotesController(
     historyRepository: HistoryRepository(AppDatabase.instance),
     notesRepository: NotesRepository(AppDatabase.instance),
+    // 中文：默认递中文表（这些既有断言量的是迁移前那句中文）；要量英文侧就显式递英文表。
+    // English: the Chinese table by default (those existing assertions measure the pre-move Chinese);
+    //          pass the English table explicitly to measure the English side.
+    strings: strings ?? NotesStrings.forLanguage(AppLanguage.zh),
     initialHistory: history,
     initialNotes: notes,
   );

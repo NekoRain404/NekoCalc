@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../../application/app_settings.dart';
 import '../../../application/controllers/notes_controller.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/models/history_item.dart';
@@ -26,12 +27,28 @@ class NotesPage extends StatefulWidget {
   const NotesPage({
     required this.db,
     required this.toolResultLabel,
+    required this.settings,
     this.reloadToken = 0,
     super.key,
   });
 
   final AppDatabase db;
   final int reloadToken;
+
+  /// 中文：**当前的设置。** 笔记页只需要里面的 `languageCode` 一项：控制器在 `initState` 里造，
+  ///       而那一刻**不许查 `BuildContext`**，所以先按设置里的语言代码取一张文案表
+  ///       （`NotesStrings.forCode`），随后由 `didChangeDependencies` 用作用域里**当场生效**的那张
+  ///       覆盖掉——形状与理由逐条同 `ToolDetailScreen`（那里也是为了保存时写进库的那几句话）。
+  ///       由外壳递进来（`AppShell` 本来就拿着 `settings`，计算页 / 工具页同样由它递）。
+  /// English: **the current settings.** The notes page only needs `languageCode` from it: the
+  ///          controller is built in `initState`, where a `BuildContext` **may not be queried**, so
+  ///          construction takes the copy table for the settings' language code
+  ///          (`NotesStrings.forCode`) and `didChangeDependencies` then overwrites it with the scope's
+  ///          **immediately effective** one — the same shape and the same reasons, one for one, as
+  ///          `ToolDetailScreen` (which does it for the sentences it stores when saving). It is handed
+  ///          in by the shell (which already holds `settings`, as it does for the calculator and tools
+  ///          pages).
+  final AppSettings settings;
 
   /// 中文：**把一条工具结果的标签换成当前语言。** 历史行里工具那条载荷是 `标签: 值`，标签是
   ///       `ToolResultLabelStrings` 的键（键就是中文标签，712 条现成）。**由外壳递进来**，因为
@@ -113,8 +130,32 @@ class _NotesPageState extends State<NotesPage> {
     _controller = NotesController(
       historyRepository: HistoryRepository(widget.db),
       notesRepository: NotesRepository(widget.db),
+      // 中文：这里**不许查 `BuildContext`**（`initState` 里 `dependOnInheritedWidgetOfExactType`
+      //       会抛），所以先按设置里的语言代码取一张；紧接着的 `didChangeDependencies` 会换成
+      //       作用域中当场生效的那张。与 `ToolDetailScreen` 同一形状。
+      // English: a `BuildContext` **may not be queried here** (inside `initState`
+      //          `dependOnInheritedWidgetOfExactType` throws), so construction takes the table for the
+      //          settings' language code; the `didChangeDependencies` right after swaps in the scope's
+      //          immediately effective one. Same shape as `ToolDetailScreen`.
+      strings: NotesStrings.forCode(widget.settings.languageCode),
     )..addListener(_onControllerChanged);
     _controller.load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 中文：**这一句是"换语言后存下去的标题也跟着换"的关键。** 控制器活得比一帧长，`initState`
+    //       里那张是按当时的设置取的；用户换语言时 `app.dart` 只换内存里的 `_language`（不重载
+    //       设置记录），所以只读 `widget.settings` 会停在旧语言上。这里按作用域里**当场生效**的
+    //       那张覆盖，与 `ToolDetailScreen.didChangeDependencies` 同一个做法。
+    // English: **this line is what makes the stored titles follow a language change.** The controller
+    //          outlives one frame and the table from `initState` came from the settings of that
+    //          moment; a language change makes `app.dart` swap only the in-memory `_language` (the
+    //          settings record is not reloaded), so reading `widget.settings` alone would stay on the
+    //          old language. This overwrites it with the scope's **immediately effective** table, the
+    //          same practice as `ToolDetailScreen.didChangeDependencies`.
+    _controller.strings = NotesStrings.of(context);
   }
 
   @override

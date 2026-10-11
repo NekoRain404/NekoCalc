@@ -11,6 +11,7 @@ import '../../domain/usecases/notes_clipboard_import.dart';
 import '../../domain/usecases/notes_delete_result.dart';
 import '../../domain/usecases/record_filter.dart';
 import '../../domain/usecases/record_search_suggestions.dart';
+import '../../features/notes/presentation/notes_strings.dart';
 
 typedef NotesTab = RecordTab;
 
@@ -18,6 +19,7 @@ class NotesController extends ChangeNotifier {
   NotesController({
     required this.historyRepository,
     required this.notesRepository,
+    required this.strings,
     List<NoteItem> initialNotes = const [],
     List<HistoryItem> initialHistory = const [],
   })  : _notes = initialNotes,
@@ -25,6 +27,39 @@ class NotesController extends ChangeNotifier {
 
   final HistoryRepository historyRepository;
   final NotesRepository notesRepository;
+
+  /// 中文：**写进库的那几句话从这张表来**（标题留空时的兜底、从计算历史保存时的标题与描述）。
+  ///       必填、没有中文兜底：忘了递表的调用点编译不过，而不是在英文界面上悄悄存下中文标题——
+  ///       这正是这三位原先的毛病（硬编码中文，见 `docs/verification.md` §5l）。
+  ///
+  ///       **它可以被换掉，而且必须被换掉。** 页面在 `initState` 里按设置的语言代码取一张
+  ///       （`NotesStrings.forCode`，与 `ToolDetailController` 同一形状），随后在
+  ///       `didChangeDependencies` 里换成作用域中**当场生效**的那一张：用户换语言时 `app.dart`
+  ///       只换内存里的 `_language`（不重载设置记录），只按构造时的设置取值会让"设置页还开着、
+  ///       底下的笔记页已经该换语言了"这一种停在旧语言上。
+  ///
+  ///       **只在保存那一刻读，存下去的仍是纯文本。** 标题是用户数据（可编辑、进备份、可搜索），
+  ///       所以这里冻结的是"创建时的正确语言"，不是"显示时按当前语言重算"——理由与三个选项的取舍
+  ///       在 `docs/verification.md` §5l。
+  /// English: **the sentences written into the database come from this table** (the blank-title
+  ///          fallback, and the title and description used when saving from a calculation-history
+  ///          row). Required, with no Chinese fallback: a call site that forgets it fails to compile
+  ///          rather than quietly storing a Chinese title into an English interface — which is
+  ///          exactly what these three used to do (hard-coded Chinese, `docs/verification.md` §5l).
+  ///
+  ///          **It is reassignable, and it has to be.** The page seeds it in `initState` from the
+  ///          settings' language code (`NotesStrings.forCode`, the same shape as
+  ///          `ToolDetailController`) and then swaps it in `didChangeDependencies` for the scope's
+  ///          **immediately effective** table: a language change makes `app.dart` swap only the
+  ///          in-memory `_language` (the settings record is not reloaded), so reading the
+  ///          construction-time setting alone would leave "the settings page is still open but the
+  ///          notes page underneath should already have changed language" stuck in the old one.
+  ///
+  ///          **It is read at save time only, and what is stored stays plain text.** A title is user
+  ///          data (editable, exported in backups, searchable), so what freezes here is "the right
+  ///          language at creation", not "recomputed at display time from the current language" — the
+  ///          reasoning and the three shapes' costs are in `docs/verification.md` §5l.
+  NotesStrings strings;
 
   List<NoteItem> _notes;
   List<HistoryItem> _history;
@@ -314,7 +349,8 @@ class NotesController extends ChangeNotifier {
       required String description,
       required String body,
       List<String> tags = const []}) async {
-    final normalizedTitle = title.trim().isEmpty ? '未命名笔记' : title.trim();
+    final normalizedTitle =
+        title.trim().isEmpty ? strings.untitledNote : title.trim();
     final normalizedDescription = description.trim();
     final normalizedBody = body.trim();
     if (item == null) {
@@ -432,10 +468,10 @@ class NotesController extends ChangeNotifier {
 
   Future<void> saveHistoryAsNote(HistoryItem item) async {
     await notesRepository.create(
-      title: '历史结果',
+      title: strings.historyNoteTitle,
       body: historyCopyText(item),
-      description:
-          '由计算历史保存，时间 ${DateFormat('yyyy/MM/dd HH:mm').format(item.createdAt)}',
+      description: strings.historyNoteDescription(
+          DateFormat('yyyy/MM/dd HH:mm').format(item.createdAt)),
     );
     await _refresh(showLoading: false);
   }
