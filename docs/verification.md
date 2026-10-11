@@ -1173,6 +1173,32 @@ the receipt cells' names (**all four guesses did not exist** — the real ones a
 `saveNoteSaved` / `saveNothingToStore` / `saveNoteNotWritten`). **Reading the tests answered it in one pass.**
 For questions about *test coverage*, a grep is a guess about the answer, not a measurement of it.
 
+**The sweep finished the same day** (`56db335`, `fda0409`, `2ee7b0a`). Reading each remaining family's tests —
+rather than grepping, which had failed three times — produced this measured coverage table:
+
+| family | before | now |
+|---|---|---|
+| `=` submit | **no widget test at all** | ✓ both scopes |
+| tool save | Chinese only | ✓ both scopes |
+| recent-tool receipt | only the *empty-panel* copy was asserted, and that does not go through the composer; **no receipt assertion in either language** | ✓ both scopes |
+| update check | default Chinese only | ✓ both scopes |
+| backup | default Chinese only (composer, table and source guards all existed) | ✓ both scopes — and the impact sentence is asserted **twice**, because it legitimately appears in two places (the impact row and the blocking notice) |
+| notes — import drafts | **already covered in both languages** | unchanged |
+| notes — receipts | Chinese only | ✓ both scopes |
+| notes — summary | **neither language** | ✓ both scopes |
+| calculator save-note | only that the button is *tappable* — it was never tapped | ✓ both scopes (a fake clock carries the 5 s `engineTimeout`, so no wall-clock wait) |
+
+⚠️ **One sub-gap is recorded as unreachable rather than papered over**: `backupImportFailureMessage`'s token
+branch cannot be reached from the settings UI at all — the Replace button's enablement tests
+`preview.totalRows > 0` while the validator throws that very token exactly when the total is **0**, i.e. the same
+sum of the same snapshot. The precise reason is recorded here; **no test pretends otherwise**, because a test
+that looks like it covers a path it cannot reach is worse than a documented gap.
+
+**All ten new assertions were proved non-vacuous individually** — six perturbation rounds, each quoting its own
+failure text: hard-code the Chinese at the call site, watch the **English test go red while the Chinese stays
+green**, restore, then verify `lib/` byte-identical. **That is this section's whole point: for a wiring claim, the
+only guard worth counting is the one that has been shown to fail.**
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
