@@ -64,167 +64,213 @@
 ///            (`_replaceDegree` in `expression_parser.dart`), so `5 °C` does not mean "five degrees
 ///            Celsius" on this side at all. Listing it would make one spelling mean two things on the
 ///            two sides — exactly the class of mistake this file exists to prevent, so it stays out.
+///
+///       **显示名与拼法是两件事，本表维护的是两者的对应。** 表里原先只有中文名，于是英文界面上列的是
+///       汉字。现在每个单位多一个英文名（[AppUnit.labelEn]），每一族也多一个（[kAppUnitFamilyLabelsEn]）
+///       ——**两者只用于显示与搜索**：插进表达式的仍旧只有 [AppUnit.symbol] 一个字段，翻译层的判据
+///       读的仍旧只有 [kAppUnitSymbols]，英文名一个字节也到不了引擎。哪一侧上屏由**面板**按当前
+///       `AppLanguage` 决定（`unit_picker_sheet.dart` 的 `unitDisplayLabel` / `unitDisplayFamily`），
+///       本文件不认识界面语言，也不该认识——它是纯 Dart 的数据，不 import Flutter。
+///
+///       **本表今天 120 条，不是上面那句 117。** 117 是步骤 6 那次量测当时的条数（那句话说的是那次
+///       量测，不改写）；此后表又添了 3 个符号，这 3 条的出入**不是本轮产生的**，本轮也没有重跑那份
+///       整表量测——本轮只给既有条目补显示名，`symbol` 一个都没动。
+///
+///          **The shown name and the spelling are two different things, and this table keeps the
+///          pairing of both.** It used to hold a Chinese name only, so an English interface listed Han
+///          characters. Every unit now carries an English name too ([AppUnit.labelEn]) and so does
+///          every family ([kAppUnitFamilyLabelsEn]) — **both for display and search only**: what goes
+///          into the expression is still the one field [AppUnit.symbol], the translation's judgement
+///          still reads [kAppUnitSymbols] alone, and not one byte of the English can reach the engine.
+///          Which side is shown is decided by **the sheet** from the active `AppLanguage`
+///          (`unitDisplayLabel` / `unitDisplayFamily` in `unit_picker_sheet.dart`); this file does not
+///          know the interface language and should not — it is plain Dart data with no Flutter import.
+///
+///          **This table holds 120 entries today, not the 117 written above.** 117 is what the count
+///          was at the step 6 measurement (that sentence is about that measurement and is not
+///          rewritten); three more symbols arrived afterwards. Those three are **not this round's**,
+///          and this round did not re-run the whole-table measurement — it only added display names to
+///          the existing entries, moving not one `symbol`.
 library;
 
-/// 中文：一个可插入的单位：引擎的拼法、给用户看的中文名、以及它属于哪一族。
-/// English: one insertable unit: the engine's spelling, the Chinese name shown to the user, and the
-///          family it belongs to.
+/// 中文：一个可插入的单位：引擎的拼法、给用户看的中文名与英文名、以及它属于哪一族。
+/// English: one insertable unit: the engine's spelling, the Chinese and English names shown to the
+///          user, and the family it belongs to.
 class AppUnit {
-  const AppUnit(this.symbol, this.label, this.family);
+  const AppUnit(this.symbol, this.label, this.labelEn, this.family);
 
   /// 中文：**插进表达式的那串文本**，也是给引擎的拼法。逐字来自宿主量测。
   /// English: **the text inserted into the expression**, and the spelling handed to the engine.
   ///          Verbatim from the host measurement.
   final String symbol;
 
-  /// 中文：面板上显示的名字。
-  /// English: the name shown in the sheet.
+  /// 中文：中文界面上显示的名字。**逐字节就是接入多语言之前屏幕上的那些字**，一个都没动。
+  /// English: the name shown on the Chinese interface. **Byte for byte the characters that were on
+  ///          screen before i18n existed**; not one of them moved.
   final String label;
 
-  /// 中文：所属族，用于分组显示。
-  /// English: the family, used for grouping.
+  /// 中文：英文界面上显示的名字。**只用于显示与搜索**——它到不了引擎（见文件头），换掉它不会改变
+  ///       任何一句表达式的含义。标准英文单位名，拼写照应用其余英文的写法（`meter`/`liter`，
+  ///       不是 `metre`/`litre`：`tool_unit_conversion*.dart` 的规范表与别名表用的就是前者）。
+  /// English: the name shown on the English interface. **Display and search only** — it cannot reach
+  ///          the engine (see the file head), so changing it cannot change what any expression means.
+  ///          A standard English unit name, spelled the way the rest of this app's English spells it
+  ///          (`meter`/`liter`, not `metre`/`litre` — that is what the canonical and alias tables in
+  ///          `tool_unit_conversion*.dart` use).
+  final String labelEn;
+
+  /// 中文：所属族，用于分组显示。**这是分组的键**（取值是 [kAppUnitFamilies] 里那一个），显示用的
+  ///       英文名在 [kAppUnitFamilyLabelsEn] 里另取——分组只看这个字段，不翻译、不比较显示名。
+  /// English: the family, used for grouping. **This is the grouping key** (its value is one of
+  ///          [kAppUnitFamilies]); the English name shown for it comes from [kAppUnitFamilyLabelsEn].
+  ///          Grouping reads this field alone — it never compares or translates a display name.
   final String family;
 }
 
-/// 中文：全部可插入单位。顺序就是面板上的顺序（族内按常用程度排）。
+/// 中文：全部可插入单位。顺序就是面板上的顺序（族内按常用程度排）。每条的四个字段依次是
+///       拼法、中文名、英文名、族——**两种语言逐条并排**，与 `tool_catalog_strings.dart` 里那两张
+///       名字表是同一种做法（差别只在这里并排写在一个条目里，因为这两半说的是同一个单位）。
 /// English: every insertable unit, in the order the sheet shows them (most common first within a
-///          family).
+///          family). Each entry's four fields are the spelling, the Chinese name, the English name and
+///          the family — **the two languages written out side by side**, the same treatment the two
+///          name tables in `tool_catalog_strings.dart` get (the one difference being that here the two
+///          halves sit in one entry, because they name the same unit).
 const List<AppUnit> kAppUnits = <AppUnit>[
   // 长度
-  AppUnit('m', '米', '长度'),
-  AppUnit('km', '千米', '长度'),
-  AppUnit('cm', '厘米', '长度'),
-  AppUnit('mm', '毫米', '长度'),
-  AppUnit('um', '微米', '长度'),
-  AppUnit('nm', '纳米', '长度'),
-  AppUnit('in', '英寸', '长度'),
-  AppUnit('ft', '英尺', '长度'),
-  AppUnit('yd', '码', '长度'),
-  AppUnit('mi', '英里', '长度'),
-  AppUnit('nmi', '海里', '长度'),
-  AppUnit('AU', '天文单位', '长度'),
-  AppUnit('ly', '光年', '长度'),
-  AppUnit('pc', '秒差距', '长度'),
+  AppUnit('m', '米', 'meter', '长度'),
+  AppUnit('km', '千米', 'kilometer', '长度'),
+  AppUnit('cm', '厘米', 'centimeter', '长度'),
+  AppUnit('mm', '毫米', 'millimeter', '长度'),
+  AppUnit('um', '微米', 'micrometer', '长度'),
+  AppUnit('nm', '纳米', 'nanometer', '长度'),
+  AppUnit('in', '英寸', 'inch', '长度'),
+  AppUnit('ft', '英尺', 'foot', '长度'),
+  AppUnit('yd', '码', 'yard', '长度'),
+  AppUnit('mi', '英里', 'mile', '长度'),
+  AppUnit('nmi', '海里', 'nautical mile', '长度'),
+  AppUnit('AU', '天文单位', 'astronomical unit', '长度'),
+  AppUnit('ly', '光年', 'light-year', '长度'),
+  AppUnit('pc', '秒差距', 'parsec', '长度'),
   // 面积
-  AppUnit('ha', '公顷', '面积'),
-  AppUnit('acre', '英亩', '面积'),
-  AppUnit('are', '公亩', '面积'),
+  AppUnit('ha', '公顷', 'hectare', '面积'),
+  AppUnit('acre', '英亩', 'acre', '面积'),
+  AppUnit('are', '公亩', 'are', '面积'),
   // 体积
-  AppUnit('L', '升', '体积'),
-  AppUnit('mL', '毫升', '体积'),
-  AppUnit('cL', '厘升', '体积'),
-  AppUnit('gal', '加仑', '体积'),
-  AppUnit('qt', '夸脱', '体积'),
-  AppUnit('pt', '品脱', '体积'),
-  AppUnit('floz', '液量盎司', '体积'),
-  AppUnit('cup', '杯', '体积'),
-  AppUnit('tbsp', '汤匙', '体积'),
-  AppUnit('tsp', '茶匙', '体积'),
+  AppUnit('L', '升', 'liter', '体积'),
+  AppUnit('mL', '毫升', 'milliliter', '体积'),
+  AppUnit('cL', '厘升', 'centiliter', '体积'),
+  AppUnit('gal', '加仑', 'gallon', '体积'),
+  AppUnit('qt', '夸脱', 'quart', '体积'),
+  AppUnit('pt', '品脱', 'pint', '体积'),
+  AppUnit('floz', '液量盎司', 'fluid ounce', '体积'),
+  AppUnit('cup', '杯', 'cup', '体积'),
+  AppUnit('tbsp', '汤匙', 'tablespoon', '体积'),
+  AppUnit('tsp', '茶匙', 'teaspoon', '体积'),
   // 质量
-  AppUnit('kg', '千克', '质量'),
-  AppUnit('g', '克', '质量'),
-  AppUnit('mg', '毫克', '质量'),
-  AppUnit('ug', '微克', '质量'),
-  AppUnit('t', '吨', '质量'),
-  AppUnit('lb', '磅', '质量'),
-  AppUnit('oz', '盎司', '质量'),
-  AppUnit('ton', '美吨', '质量'),
-  AppUnit('carat', '克拉', '质量'),
+  AppUnit('kg', '千克', 'kilogram', '质量'),
+  AppUnit('g', '克', 'gram', '质量'),
+  AppUnit('mg', '毫克', 'milligram', '质量'),
+  AppUnit('ug', '微克', 'microgram', '质量'),
+  AppUnit('t', '吨', 'tonne', '质量'),
+  AppUnit('lb', '磅', 'pound', '质量'),
+  AppUnit('oz', '盎司', 'ounce', '质量'),
+  AppUnit('ton', '美吨', 'short ton', '质量'),
+  AppUnit('carat', '克拉', 'carat', '质量'),
   // 时间
-  AppUnit('s', '秒', '时间'),
-  AppUnit('ms', '毫秒', '时间'),
-  AppUnit('us', '微秒', '时间'),
-  AppUnit('ns', '纳秒', '时间'),
-  AppUnit('h', '小时', '时间'),
-  AppUnit('day', '天', '时间'),
-  AppUnit('week', '周', '时间'),
-  AppUnit('year', '年', '时间'),
+  AppUnit('s', '秒', 'second', '时间'),
+  AppUnit('ms', '毫秒', 'millisecond', '时间'),
+  AppUnit('us', '微秒', 'microsecond', '时间'),
+  AppUnit('ns', '纳秒', 'nanosecond', '时间'),
+  AppUnit('h', '小时', 'hour', '时间'),
+  AppUnit('day', '天', 'day', '时间'),
+  AppUnit('week', '周', 'week', '时间'),
+  AppUnit('year', '年', 'year', '时间'),
   // 速度
-  AppUnit('mph', '英里每小时', '速度'),
-  AppUnit('kph', '千米每小时', '速度'),
+  AppUnit('mph', '英里每小时', 'mile per hour', '速度'),
+  AppUnit('kph', '千米每小时', 'kilometer per hour', '速度'),
   // 压强
-  AppUnit('Pa', '帕斯卡', '压强'),
-  AppUnit('kPa', '千帕', '压强'),
-  AppUnit('MPa', '兆帕', '压强'),
-  AppUnit('hPa', '百帕', '压强'),
-  AppUnit('bar', '巴', '压强'),
-  AppUnit('mbar', '毫巴', '压强'),
-  AppUnit('atm', '标准大气压', '压强'),
-  AppUnit('psi', '磅力每平方英寸', '压强'),
-  AppUnit('mmHg', '毫米汞柱', '压强'),
-  AppUnit('torr', '托', '压强'),
+  AppUnit('Pa', '帕斯卡', 'pascal', '压强'),
+  AppUnit('kPa', '千帕', 'kilopascal', '压强'),
+  AppUnit('MPa', '兆帕', 'megapascal', '压强'),
+  AppUnit('hPa', '百帕', 'hectopascal', '压强'),
+  AppUnit('bar', '巴', 'bar', '压强'),
+  AppUnit('mbar', '毫巴', 'millibar', '压强'),
+  AppUnit('atm', '标准大气压', 'standard atmosphere', '压强'),
+  AppUnit('psi', '磅力每平方英寸', 'pound per square inch', '压强'),
+  AppUnit('mmHg', '毫米汞柱', 'millimeter of mercury', '压强'),
+  AppUnit('torr', '托', 'torr', '压强'),
   // 能量
-  AppUnit('J', '焦耳', '能量'),
-  AppUnit('kJ', '千焦', '能量'),
-  AppUnit('MJ', '兆焦', '能量'),
-  AppUnit('cal', '卡', '能量'),
-  AppUnit('kcal', '千卡', '能量'),
-  AppUnit('Wh', '瓦时', '能量'),
-  AppUnit('kWh', '千瓦时', '能量'),
-  AppUnit('eV', '电子伏', '能量'),
-  AppUnit('BTU', '英热单位', '能量'),
-  AppUnit('erg', '尔格', '能量'),
+  AppUnit('J', '焦耳', 'joule', '能量'),
+  AppUnit('kJ', '千焦', 'kilojoule', '能量'),
+  AppUnit('MJ', '兆焦', 'megajoule', '能量'),
+  AppUnit('cal', '卡', 'calorie', '能量'),
+  AppUnit('kcal', '千卡', 'kilocalorie', '能量'),
+  AppUnit('Wh', '瓦时', 'watt-hour', '能量'),
+  AppUnit('kWh', '千瓦时', 'kilowatt-hour', '能量'),
+  AppUnit('eV', '电子伏', 'electronvolt', '能量'),
+  AppUnit('BTU', '英热单位', 'British thermal unit', '能量'),
+  AppUnit('erg', '尔格', 'erg', '能量'),
   // 功率
-  AppUnit('W', '瓦特', '功率'),
-  AppUnit('kW', '千瓦', '功率'),
-  AppUnit('MW', '兆瓦', '功率'),
-  AppUnit('hp', '马力', '功率'),
+  AppUnit('W', '瓦特', 'watt', '功率'),
+  AppUnit('kW', '千瓦', 'kilowatt', '功率'),
+  AppUnit('MW', '兆瓦', 'megawatt', '功率'),
+  AppUnit('hp', '马力', 'horsepower', '功率'),
   // 力
-  AppUnit('N', '牛顿', '力'),
-  AppUnit('kN', '千牛', '力'),
-  AppUnit('dyn', '达因', '力'),
-  AppUnit('lbf', '磅力', '力'),
-  AppUnit('kgf', '千克力', '力'),
+  AppUnit('N', '牛顿', 'newton', '力'),
+  AppUnit('kN', '千牛', 'kilonewton', '力'),
+  AppUnit('dyn', '达因', 'dyne', '力'),
+  AppUnit('lbf', '磅力', 'pound-force', '力'),
+  AppUnit('kgf', '千克力', 'kilogram-force', '力'),
   // 频率
-  AppUnit('Hz', '赫兹', '频率'),
-  AppUnit('kHz', '千赫', '频率'),
-  AppUnit('MHz', '兆赫', '频率'),
-  AppUnit('GHz', '吉赫', '频率'),
+  AppUnit('Hz', '赫兹', 'hertz', '频率'),
+  AppUnit('kHz', '千赫', 'kilohertz', '频率'),
+  AppUnit('MHz', '兆赫', 'megahertz', '频率'),
+  AppUnit('GHz', '吉赫', 'gigahertz', '频率'),
   // 数据
-  AppUnit('bit', '比特', '数据'),
-  AppUnit('B', '字节', '数据'),
-  AppUnit('byte', '字节（全拼）', '数据'),
-  AppUnit('kB', '千字节', '数据'),
-  AppUnit('MB', '兆字节', '数据'),
-  AppUnit('GB', '吉字节', '数据'),
-  AppUnit('KiB', 'KiB（1024）', '数据'),
-  AppUnit('MiB', 'MiB（1024²）', '数据'),
-  AppUnit('GiB', 'GiB（1024³）', '数据'),
+  AppUnit('bit', '比特', 'bit', '数据'),
+  AppUnit('B', '字节', 'byte', '数据'),
+  AppUnit('byte', '字节（全拼）', 'byte (spelled out)', '数据'),
+  AppUnit('kB', '千字节', 'kilobyte', '数据'),
+  AppUnit('MB', '兆字节', 'megabyte', '数据'),
+  AppUnit('GB', '吉字节', 'gigabyte', '数据'),
+  AppUnit('KiB', 'KiB（1024）', 'KiB (1024)', '数据'),
+  AppUnit('MiB', 'MiB（1024²）', 'MiB (1024^2)', '数据'),
+  AppUnit('GiB', 'GiB（1024³）', 'GiB (1024^3)', '数据'),
   // 角度
-  AppUnit('rad', '弧度', '角度'),
-  AppUnit('arcmin', '角分', '角度'),
-  AppUnit('arcsec', '角秒', '角度'),
-  AppUnit('gon', '百分度', '角度'),
-  AppUnit('turn', '圈', '角度'),
+  AppUnit('rad', '弧度', 'radian', '角度'),
+  AppUnit('arcmin', '角分', 'arcminute', '角度'),
+  AppUnit('arcsec', '角秒', 'arcsecond', '角度'),
+  AppUnit('gon', '百分度', 'gradian', '角度'),
+  AppUnit('turn', '圈', 'turn', '角度'),
   // 电学
-  AppUnit('A', '安培', '电学'),
-  AppUnit('mA', '毫安', '电学'),
-  AppUnit('uA', '微安', '电学'),
-  AppUnit('V', '伏特', '电学'),
-  AppUnit('mV', '毫伏', '电学'),
-  AppUnit('kV', '千伏', '电学'),
-  AppUnit('ohm', '欧姆', '电学'),
-  AppUnit('kohm', '千欧', '电学'),
-  AppUnit('Mohm', '兆欧', '电学'),
-  AppUnit('F', '法拉', '电学'),
-  AppUnit('mF', '毫法', '电学'),
-  AppUnit('uF', '微法', '电学'),
-  AppUnit('nF', '纳法', '电学'),
-  AppUnit('pF', '皮法', '电学'),
-  AppUnit('H', '亨利', '电学'),
-  AppUnit('mH', '毫亨', '电学'),
-  AppUnit('uH', '微亨', '电学'),
-  AppUnit('C', '库仑', '电学'),
-  AppUnit('mC', '毫库仑', '电学'),
-  AppUnit('Ah', '安时', '电学'),
-  AppUnit('mAh', '毫安时', '电学'),
+  AppUnit('A', '安培', 'ampere', '电学'),
+  AppUnit('mA', '毫安', 'milliampere', '电学'),
+  AppUnit('uA', '微安', 'microampere', '电学'),
+  AppUnit('V', '伏特', 'volt', '电学'),
+  AppUnit('mV', '毫伏', 'millivolt', '电学'),
+  AppUnit('kV', '千伏', 'kilovolt', '电学'),
+  AppUnit('ohm', '欧姆', 'ohm', '电学'),
+  AppUnit('kohm', '千欧', 'kiloohm', '电学'),
+  AppUnit('Mohm', '兆欧', 'megaohm', '电学'),
+  AppUnit('F', '法拉', 'farad', '电学'),
+  AppUnit('mF', '毫法', 'millifarad', '电学'),
+  AppUnit('uF', '微法', 'microfarad', '电学'),
+  AppUnit('nF', '纳法', 'nanofarad', '电学'),
+  AppUnit('pF', '皮法', 'picofarad', '电学'),
+  AppUnit('H', '亨利', 'henry', '电学'),
+  AppUnit('mH', '毫亨', 'millihenry', '电学'),
+  AppUnit('uH', '微亨', 'microhenry', '电学'),
+  AppUnit('C', '库仑', 'coulomb', '电学'),
+  AppUnit('mC', '毫库仑', 'millicoulomb', '电学'),
+  AppUnit('Ah', '安时', 'ampere-hour', '电学'),
+  AppUnit('mAh', '毫安时', 'milliampere-hour', '电学'),
   // 其他
-  AppUnit('rpm', '转每分', '其他'),
-  AppUnit('mol', '摩尔', '其他'),
-  AppUnit('cd', '坎德拉', '其他'),
-  AppUnit('lx', '勒克斯', '其他'),
-  AppUnit('lm', '流明', '其他'),
-  AppUnit('sr', '球面度', '其他'),
+  AppUnit('rpm', '转每分', 'revolution per minute', '其他'),
+  AppUnit('mol', '摩尔', 'mole', '其他'),
+  AppUnit('cd', '坎德拉', 'candela', '其他'),
+  AppUnit('lx', '勒克斯', 'lux', '其他'),
+  AppUnit('lm', '流明', 'lumen', '其他'),
+  AppUnit('sr', '球面度', 'steradian', '其他'),
 ];
 
 /// 中文：表里的拼法集合——**翻译层的判据读它**（[AppEngineVocabulary.variableUnknownToEngine]）。
@@ -260,6 +306,43 @@ const List<String> kAppUnitFamilies = <String>[
   '电学',
   '其他',
 ];
+
+/// 中文：**族名 → 英文显示名。键是分组用的那个中文族名**（[AppUnit.family] 与 [kAppUnitFamilies]
+///       里的字面量），值与它一一对应。形状与 `tool_input_strings.dart` 的 `toolInputUnitsEn`
+///       （中文键 → 英文，认不出的原样返回）是同一种做法：**分组永远拿中文键比，翻译只发生在往
+///       屏幕上写的那一刻**——面板的 `unit.family == family` 一个字节都不改，英文界面上只是那行
+///       标题换了字。
+///
+///       **十五个族一个都不能少**：`unit_conversion_expression_test.dart` 逐个数（多一个少一个都红），
+///       缺失的那一族在英文界面上会露出中文标题。
+/// English: **family name → English display name. The keys are the Chinese family keys used for
+///          grouping** (the literals in [AppUnit.family] and [kAppUnitFamilies]) and the values match
+///          them one for one. The shape is the one `toolInputUnitsEn` in `tool_input_strings.dart`
+///          uses (a Chinese key to an English value, with an unknown key coming back unchanged):
+///          **grouping always compares the Chinese key, and the translation happens only at the
+///          moment something is written on screen** — the sheet's `unit.family == family` does not
+///          move a byte; on an English interface only the heading's characters change.
+///
+///          **Not one of the fifteen may be missing**: `unit_conversion_expression_test.dart` counts
+///          them (one more or one fewer goes red), and a missing family would show its Chinese heading
+///          on the English interface.
+const Map<String, String> kAppUnitFamilyLabelsEn = <String, String>{
+  '长度': 'Length',
+  '面积': 'Area',
+  '体积': 'Volume',
+  '质量': 'Mass',
+  '时间': 'Time',
+  '速度': 'Speed',
+  '压强': 'Pressure',
+  '能量': 'Energy',
+  '功率': 'Power',
+  '力': 'Force',
+  '频率': 'Frequency',
+  '数据': 'Data',
+  '角度': 'Angle',
+  '电学': 'Electrical',
+  '其他': 'Other',
+};
 
 /// 中文：**`►DRG` 那一次换算允许写在 `to` 两侧的拼法——第二张闭集，比 [kAppUnits] 窄。**
 ///

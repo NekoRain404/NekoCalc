@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/math/app_unit_catalog.dart';
+import '../../../../l10n/app_language.dart';
 import '../calculator_strings.dart';
 
 /// 中文：**面板交出去的文本 → 真正插进表达式的那一段。** 分隔符在这一处决定，因为它是
@@ -60,13 +61,54 @@ String unitInsertionText(String token, String expression) {
 ///          [unitInsertionText]).
 const String _wordOperatorToken = 'to';
 
+/// 中文：**一个单位在面板上显示的名字，按当前界面语言取。** 选择只在这一处发生：[AppUnit] 两种语言
+///       的名字都带着（中文那个字段逐字节没动），而这里的 `switch` **必须穷尽 `AppLanguage`**——
+///       加第三种语言时这里编译不过，而不是静默把中文显示给那种语言。这条保证与
+///       `ToolCatalogStrings.forLanguage` 的 `switch` 是同一条，差别只在这张表的两半住在同一个条目里。
+///
+///       **交出去的东西与它无关**：按钮按下时交的仍然是 `unit.symbol`，显示名一个字节都到不了表达式
+///       （见 `app_unit_catalog.dart` 的文件头）。
+/// English: **the name one unit shows on the sheet, taken by the active interface language.** The
+///          choice happens here and nowhere else: an [AppUnit] carries both names (the Chinese field
+///          has not moved a byte), and the **`switch` here must exhaust `AppLanguage`** so a third
+///          language breaks the build rather than silently showing it Chinese. This is the same
+///          guarantee `ToolCatalogStrings.forLanguage`'s `switch` gives; the only difference is that
+///          this table's two halves live inside one entry.
+///
+///          **What goes out is not affected**: the button still hands over `unit.symbol`, and not one
+///          byte of a display name can reach an expression (see `app_unit_catalog.dart`'s file head).
+String unitDisplayLabel(AppUnit unit, AppLanguage language) {
+  return switch (language) {
+    AppLanguage.zh => unit.label,
+    AppLanguage.en => unit.labelEn,
+  };
+}
+
+/// 中文：族标题的同一次选择。认不出的族**原样返回中文**——分组读的键就是那个中文字符串，所以那种
+///       情况下屏幕上写的仍是它今天的样子，而不是一个空白标题。
+/// English: the same choice for a family heading. An unknown family **comes back as its Chinese
+///          self** — the grouping key is that Chinese string, so what shows is what is on screen today
+///          rather than a blank heading.
+String unitDisplayFamily(String family, AppLanguage language) {
+  return switch (language) {
+    AppLanguage.zh => family,
+    AppLanguage.en => kAppUnitFamilyLabelsEn[family] ?? family,
+  };
+}
+
 /// 中文：`CONV` 打开的单位面板。它只做一件事：**把单位名插进表达式**（以及把 ` to ` 插进去），
 ///       自己不换算——换算由引擎做，见 `QalculateEngine`。
 ///
 ///       **为什么是搜索 + 分族，而不是一个 982 项的下拉**：libqalculate 的 units.xml 里有 982 个
 ///       `<unit>`（737 个非别名），一次列出来是没法用的。这里用的是应用自己那张**封闭的**
-///       可插入单位表（[kAppUnits]，117 个，逐个量过引擎读得懂），按族分组，顶上带一个过滤框。
-///       选择面因此是「用户认识的那几十个」×「按族找」，而不是「在 982 项里翻」。
+///       可插入单位表（[kAppUnits]，今天 120 个，逐个量过引擎读得懂），按族分组，顶上带一个过滤框。
+///       选择面因此是「用户认识的那几十个」×「按族来找」，而不是「在 982 项里翻」。
+///
+///       **显示名按界面语言取，交出去的记号不变。** 每个单位带着中文名与英文名（[AppUnit]），每条
+///       族名带着一张英文对照表（[kAppUnitFamilyLabelsEn]）；面板用当前 `AppLanguage` 选出写哪一侧
+///       （[unitDisplayLabel] / [unitDisplayFamily]，两处 `switch` 都必须穷尽），而按钮交出去的永远
+///       是 `unit.symbol`。**这是英文界面此前列出汉字的那条缺陷的修法**——面板是那张表唯一的显示处，
+///       所以选择就放在这里，数据表自己不 import Flutter，也不认识界面语言。
 ///
 ///       **面板不自动关闭**，这是刻意的：一次换算要插两样东西（源单位、目标单位，中间一个 `to`），
 ///       每插一次就关掉的话用户要开两次面板。用户插完点面板外或按返回键即可关闭。
@@ -80,10 +122,19 @@ const String _wordOperatorToken = 'to';
 ///
 ///          **Why search plus families rather than a 982-item dropdown**: units.xml in libqalculate
 ///          holds 982 `<unit>` elements (737 non-alias) and listing them all is unusable. What this
-///          uses is the app's own **closed** table of insertable units ([kAppUnits], 117, each measured
-///          to be readable by the engine), grouped by family with a filter box on top. The choice is
-///          therefore "the few dozen names a user knows" × "find them by family" rather than "scroll
-///          982 entries".
+///          uses is the app's own **closed** table of insertable units ([kAppUnits], 120 today, each
+///          measured to be readable by the engine), grouped by family with a filter box on top. The
+///          choice is therefore "the few dozen names a user knows" × "find them by family" rather than
+///          "scroll 982 entries".
+///
+///          **The display name follows the interface language; the token handed over does not.** Every
+///          unit carries a Chinese and an English name ([AppUnit]) and every family has an English
+///          counterpart ([kAppUnitFamilyLabelsEn]); the sheet picks which side to write with the active
+///          `AppLanguage` ([unitDisplayLabel] / [unitDisplayFamily], both `switch`es exhaustive), while
+///          what the button hands over is always `unit.symbol`. **This fixes the defect where an
+///          English interface listed Han characters** — the sheet is that table's one display site, so
+///          the choice lives here; the data table itself imports no Flutter and does not know the
+///          interface language.
 ///
 ///          **The sheet does not close itself**, deliberately: one conversion inserts two things (the
 ///          source unit, the target unit and a `to` between them), and closing after each insert would
@@ -114,6 +165,16 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
     super.dispose();
   }
 
+  /// 中文：搜索同时匹配**两种语言的名字**（外加拼法与族名），不按当前界面语言分叉。两条理由：
+  ///       中文的提示语今天就在承诺 `mile` 搜得到（`CalculatorStrings.unitSearchHint`：「搜索单位
+  ///       （米、km、mile…）」），而英文用户拿中文名来搜也该找得到。**两边都匹配只会让结果变多**：
+  ///       `where` 多一个条件，集合只会变大，所以没有哪条中文查询会少掉它今天找得到的单位。
+  /// English: the search matches **both languages' names** (plus the spelling and the family name) and
+  ///          does not branch on the active language. Two reasons: the Chinese hint already promises
+  ///          that `mile` finds the mile (`CalculatorStrings.unitSearchHint`: "搜索单位（米、km、
+  ///          mile…）"), and an English user searching by a Chinese name should find the entry too.
+  ///          **Matching both only ever adds results**: one more clause in the `where` can only grow
+  ///          the set, so no Chinese query loses a unit it finds today.
   List<AppUnit> get _matches {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return kAppUnits;
@@ -121,7 +182,11 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
         .where((unit) =>
             unit.symbol.toLowerCase().contains(query) ||
             unit.label.toLowerCase().contains(query) ||
-            unit.family.contains(query))
+            unit.labelEn.toLowerCase().contains(query) ||
+            unit.family.contains(query) ||
+            (kAppUnitFamilyLabelsEn[unit.family] ?? '')
+                .toLowerCase()
+                .contains(query))
         .toList();
   }
 
@@ -129,6 +194,10 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = CalculatorStrings.of(context);
+    // 中文：**语言在这一行取一次**，下面所有显示名都从它来——面板是这张表唯一的显示处。
+    // English: **the language is taken once, here**, and every display name below comes from it — the
+    //          sheet is this table's one display site.
+    final language = AppLanguage.of(context);
     final matches = _matches;
     return SafeArea(
       child: Padding(
@@ -185,10 +254,15 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                       shrinkWrap: true,
                       children: [
                         for (final family in kAppUnitFamilies)
+                          // 中文：分组比的是 `unit.family`（中文键），屏幕上写的是它按语言取的
+                          //       显示名——**比较与显示是两件事**，见 [unitDisplayFamily]。
+                          // English: grouping compares `unit.family` (the Chinese key) while the screen
+                          //          writes its language-selected name — **comparing and showing are
+                          //          two different things**, see [unitDisplayFamily].
                           if (matches.any((unit) => unit.family == family)) ...[
                             Padding(
                               padding: const EdgeInsets.only(top: 8, bottom: 4),
-                              child: Text(family,
+                              child: Text(unitDisplayFamily(family, language),
                                   style: theme.textTheme.labelLarge),
                             ),
                             Wrap(
@@ -207,8 +281,13 @@ class _UnitPickerSheetState extends State<UnitPickerSheet> {
                                         tapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
+                                      // 中文：**面字是显示名（随语言），交出去的是 `unit.symbol`
+                                      //       （永远不变）**——与旁边那个「to」按钮同一条规矩。
+                                      // English: **the face is a display name (language-dependent);
+                                      //          what goes out is `unit.symbol` (never changes)** — the
+                                      //          same rule the `to` button next to it follows.
                                       child: Text(
-                                        '${unit.symbol}  ${unit.label}',
+                                        '${unit.symbol}  ${unitDisplayLabel(unit, language)}',
                                         style: const TextStyle(
                                             fontWeight: FontWeight.w600),
                                       ),

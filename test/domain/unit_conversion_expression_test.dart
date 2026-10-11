@@ -13,6 +13,8 @@ import 'package:nekocalc/data/repositories/history_repository.dart';
 import 'package:nekocalc/data/repositories/notes_repository.dart';
 import 'package:nekocalc/data/repositories/settings_repository.dart';
 
+import '../shared/source_scan.dart';
+
 /// 中文：**「把单位送进表达式」这条路的钉子**：语法（`to` 是一个词运算符）、翻译（译成引擎的写法，
 ///       而且**两侧必须带空格**）、词汇（哪些单位名放行）、以及端到端一次真正的换算。
 ///
@@ -265,6 +267,54 @@ void main() {
       for (final absent in <String>['m^2', 'm/s', '°C', 'deg']) {
         expect(isAppUnit(absent), isFalse, reason: '「$absent」不该在可插入单位表里');
         expect(AppEngineVocabulary.variableUnknownToEngine(absent), isNotNull);
+      }
+    });
+
+    test('每个单位都有英文名：非空、与中文名不同、不含宽/全角字符', () {
+      // 中文：**这条量的是「英文界面上列的是汉字」那条缺陷的修法。** 面板按当前语言取显示名
+      //       （`unit_picker_sheet.dart` 的 `unitDisplayLabel`），所以英文那一侧必须是**真正写过的
+      //       英文**：
+      //         · 一个都不能空着——空着在英文界面上就是一个没有名字的按钮；
+      //         · 一个都不能与中文名逐字节相同——相同就是把汉字原样端给英文界面，正是要消灭的那件事；
+      //         · 一个都不许含宽/全角字符——尺子与其余护栏**同一把**（`containsWideOrFullwidth`，
+      //           那张表在 `test/shared/source_scan.dart`）。
+      //       族名那张表逐个数：**与 [kAppUnitFamilies] 必须恰好是同一组键**（多一个少一个都红），
+      //       值同样非空、同样不含宽/全角字符——少一族，英文界面上就会有一行中文标题。
+      //
+      //       **本表今天 120 条**（文件头那句 117 是步骤 6 那次量测时的条数，不是本轮的数）：这条
+      //       断言遍历表本身，所以数目跟着表走，不写死。
+      // English: **this is the measurement for the fix of the "an English interface lists Han
+      //          characters" defect.** The sheet takes its display name by the active language
+      //          (`unitDisplayLabel` in `unit_picker_sheet.dart`), so the English side has to be
+      //          **English that was actually written**:
+      //            · none may be empty — an empty one is a nameless button on the English interface;
+      //            · none may be byte-identical to its Chinese name — that hands Han characters to the
+      //              English interface, the very thing being deleted;
+      //            · none may hold a wide/fullwidth character — the ruler is the **same one** every
+      //              other guard uses (`containsWideOrFullwidth`, in `test/shared/source_scan.dart`).
+      //          The family table is counted: its keys must be **exactly** `kAppUnitFamilies`' (one
+      //          more or one fewer goes red), and its values are non-empty and equally free of
+      //          wide/fullwidth characters — miss one family and a Chinese heading shows on the English
+      //          interface.
+      //
+      //          **The table holds 120 entries today** (the 117 in the file head is the count at the
+      //          step 6 measurement, not this round's): this assertion walks the table itself, so the
+      //          number follows it rather than being written down.
+      for (final unit in kAppUnits) {
+        expect(unit.labelEn.trim(), isNotEmpty,
+            reason: '${unit.symbol} 没有英文名，英文界面上会是一个没有名字的按钮');
+        expect(unit.labelEn, isNot(unit.label),
+            reason: '${unit.symbol} 的英文名与中文名逐字节相同，英文界面上写的还是汉字');
+        expect(containsWideOrFullwidth(unit.labelEn), isFalse,
+            reason: '${unit.symbol} 的英文名里有宽/全角字符：${unit.labelEn}');
+      }
+      expect(kAppUnitFamilyLabelsEn.keys.toSet(), kAppUnitFamilies.toSet(),
+          reason: '英文族名表与 kAppUnitFamilies 必须是同一组键：多一个少一个都会有一族对不上号');
+      for (final family in kAppUnitFamilies) {
+        final labelEn = kAppUnitFamilyLabelsEn[family]!;
+        expect(labelEn.trim(), isNotEmpty, reason: '「$family」没有英文名');
+        expect(containsWideOrFullwidth(labelEn), isFalse,
+            reason: '「$family」的英文名里有宽/全角字符：$labelEn');
       }
     });
   });
