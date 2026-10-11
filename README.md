@@ -31,7 +31,7 @@ NekoCalc 适合日常计算、学习推导、工程估算、数据检查和移�
 - Engineering and utility tools for math, electronics, mechanics, finance, physics, unit conversion, programming data, and text workflows.
 - Notes and history backed by SQLite, with searchable title, description, body, calculation history, and tool history.
 - JSON backup and restore with schema validation before database import.
-- Light/dark theme support, stable release icons, optional haptics, and local state restoration.
+- Three selectable colour themes (rose cream, lavender mist, peach sugar), each with a light and a dark variant, plus optional haptics, stable release icons, and local state restoration.
 
 ## Architecture
 
@@ -46,6 +46,7 @@ lib/
 ├── data/                            # SQLite database, repositories, backup persistence
 ├── domain/                          # Entities, tool catalog, use cases, calculation logic
 ├── features/                        # Feature-first screens, widgets, animations, interactions
+├── l10n/                            # Language enum and the language scope every string table reads
 └── shared/                          # App chrome, theme, reusable presentation components
 ```
 
