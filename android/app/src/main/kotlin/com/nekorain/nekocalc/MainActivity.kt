@@ -24,12 +24,22 @@ class MainActivity : FlutterActivity() {
     private val importRequestCode = 8102
     private val documentExportRequestCode = 8103
 
-    // 中文：引擎必须提成字段。每次调用新建一个的话，每次调用都会重新加载一遍全局定义。
-    //       内部的 Calculator 是 by lazy，所以这里构造很便宜。
-    // English: The engine must be hoisted to a field. Building one per call would reload the global
-    //          definitions on every call. Its internal Calculator is `by lazy`, so constructing
-    //          this is cheap.
-    private val qalculateEngine = QalculateEngine()
+    // 中文：引擎必须是**进程级**的，不是 Activity 级。`QalculateEngine` 的类文档承诺"每进程恰好一个
+    //       `Calculator`"，而按 Activity 持有会在**系统重建 Activity 时**（"不保留活动"、低内存重建）
+    //       造出**第二个引擎与第二条 native 线程**——那正是那份文档说刻意避开的共享状态竞争。
+    //       嵌套 `object` 是**每进程一个**的单例，所以下面这个 getter 只是把持有位置挪到进程级，
+    //       调用点一处都不用改。
+    // English: The engine must be **process-scoped**, not Activity-scoped. `QalculateEngine`'s own class
+    //          doc promises "the process therefore keeps exactly one `Calculator`", and holding it as an
+    //          Activity field creates a **second engine and a second native thread** whenever the system
+    //          recreates the Activity ("Don't keep activities", low-memory rebuild) — exactly the shared
+    //          state race that doc says was deliberately avoided. A nested `object` is one singleton per
+    //          **process**, so the getter below only moves where it is held; no call site changes.
+    private val qalculateEngine get() = QalculateEngineHolder.engine
+
+    private object QalculateEngineHolder {
+        val engine = QalculateEngine()
+    }
 
     private var pendingExportContent: String? = null
     private var pendingDocumentBytes: ByteArray? = null
