@@ -1199,6 +1199,60 @@ failure text: hard-code the Chinese at the call site, watch the **English test g
 green**, restore, then verify `lib/` byte-identical. **That is this section's whole point: for a wiring claim, the
 only guard worth counting is the one that has been shown to fail.**
 
+### 5o. The Kotlin/JNI bridge: audited for the first time (2026-10-12), and the first Kotlin tests
+
+**Why it was audited.** Every computation crosses one bridge — Dart → `MethodChannel` → **Kotlin → libqalculate
+(JNI, `android/app/libs/libqalculate-5.12.0.aar`)** — and that layer is **~1,700 lines with zero direct test
+coverage**: `flutter test` fakes the platform side, so none of it executes in the suite. §1 of this file records
+that engine *behaviour* needs a device; **the bridge's own correctness** is a separate question and had never
+been asked.
+
+**Headline: no PROVEN memory-safety or wrong-answer defect in the engine path.** The audit found the bridge
+unusually disciplined and **said so with evidence**: one engine thread, only `Map<String, String>` across the
+channel, `catch (Throwable)` (which is what covers `System.loadLibrary`'s `UnsatisfiedLinkError` — an `Error`,
+not an `Exception`), every option/print object rebuilt per call, and the result `Map`'s keys matched
+field-by-field against the Dart reader. On JNI references specifically: **no local-ref overflow** (each lookup is
+a separate call whose native frame is popped on return), **no `NewGlobalRef`/`NewStringUTF` anywhere** in the
+Kotlin (everything crosses through SWIG's own glue), and the `MathStructure`/`PrintOptions` objects that are
+never `delete()`d carry ART finalizers — a deferral, not a leak.
+
+**Two findings were fixed.**
+
+| finding | what | fixed by |
+|---|---|---|
+| **PROVEN** | `MainActivity`'s `exportJson`/`importJson` called `startActivityForResult` **unguarded**, while the sibling `exportBytes` has always wrapped it. On a device with no activity handling `ACTION_CREATE_DOCUMENT`, that throws `ActivityNotFoundException`: the exception crosses the platform thread **and** `pendingResult` is left non-null forever, so **every later backup call returns `busy` — export and import are dead for the life of the process**. | `cf6d4c1` — same `try`/`catch` shape as the sibling, clearing the pending state and answering with a real error |
+| **SUSPECTED** | the engine was held as an **Activity field** while `QalculateEngine`'s own class doc promises "the process therefore keeps exactly one `Calculator`". A system-initiated recreation ("Don't keep activities", low-memory) would build a **second engine and a second native thread** — the shared-state race that doc says was deliberately avoided. | `fc1585a` — moved into a nested `object` (one singleton per process); the field became a one-line getter, so **no call site changed** |
+
+**Two remain open, each with its precondition and the smallest fix named** — recorded rather than half-fixed:
+
+- **A hung native call blocks every later evaluation.** One single-thread executor with an **unbounded** queue;
+  `calculate` takes **no timeout** (only `print` gets `PRINT_TIMEOUT_MS = 2000`), and the bridge **never calls
+  the engine's own `abort()`** (confirmed to exist via `javap`). The consequence is quiet: Dart's 5 s
+  `engineTimeout` falls back to the legacy parser, so the **UI looks fine while the native queue and CPU grow**.
+  Smallest fix: a per-call `abort()` timer on the engine thread, or refuse-and-error when the executor's queue is
+  already non-empty. **This is a design choice, so it is recorded, not guessed at.**
+- **`loadGlobalDefinitions() == false` is logged and dropped.** The file's own comment says the return value
+  "must be recorded … 400-odd units and every constant vanish silently", but it never leaves logcat, so Dart
+  cannot tell "no units loaded" from a real answer. Fixing it needs **both** sides (a key in the result map plus
+  a Dart reader) — hence left whole rather than half done.
+
+**And the layer gained its first tests.** `android/app/src/test/` now holds **11 JVM tests** over the *pure*
+mapping logic (`QalculateOptions`'s option/print mapping, `QalculateResultKind`'s classification), plus a
+**test-only JNI double** whose fully-qualified name matches the AAR's SWIG glue so that it shadows it on the unit
+test classpath — **if it ever stopped shadowing, the failure is a loud `UnsatisfiedLinkError`, not a silent
+pass**. Three things were **deliberately not tested**, and the reasons are the point: `QalculateResultPrints`'s
+functions *are* native calls (faking them would mean asserting on my own canned strings — vacuous);
+`conversionLanded`/`isPlainQuantity` need a live structure/dimension semantics; and `ENGINE_PRECISION` lives in
+the lazy block that needs a real `Calculator`. ⚠️ **The tests' own epistemic boundary, stated in their report:
+they prove *which values cross the JNI boundary*, not how libqalculate interprets them — that remains host-`qalc`
+and device territory.**
+
+⚠️ **Verification level of the two Android fixes, stated plainly: compile + tests, not behaviour.** Both were
+verified by `flutter build apk --debug` succeeding and the Kotlin tests re-running green (`--rerun-tasks`, 50/50
+tasks executed — a Gradle task reported `up-to-date` had fooled me once earlier, and §6's shape is exactly "an
+action that did nothing looks like one that ran"). **Neither fix has a behavioural test**: instantiating
+`MainActivity` (a `FlutterActivity`) on the JVM needs Robolectric, which this project does not carry.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
