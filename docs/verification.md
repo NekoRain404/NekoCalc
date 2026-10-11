@@ -49,6 +49,17 @@ paragraph. Each `svc power stayon true` used during the attempts was **reverted 
 
 The **idle-memory** row was not reached at all.
 
+**And the question can be narrowed without the device — by checking what this session actually touched on the
+startup path.** `lib/main.dart` was **not modified at all** in the whole stretch of work (0 commits touching it);
+its one startup-time extra — `unawaited(runQalculateSmokeTest())` — is **deliberately not awaited**, and the
+comment says why ("startup must not be held up by the engine"), so it cannot add launch latency. The only
+startup-path file that changed is `lib/app.dart`, where `AppTheme.light/dark(base)` now derives from the selected
+`CalcTheme` — and it does so **through the same `ColorScheme.fromSeed` the code already used before**
+(the old literal was the `seedColor` argument), so no new work was introduced there either. **This session's
+changes therefore do not explain a 3-second cold start**, which leaves the reading as either a measurement
+artefact or a pre-existing condition — still to be settled on a responsive device, but no longer open against
+this body of work. (The reasoning is recorded as reasoning: the measurement is what would settle it.)
+
 ⚠️ **One measurement is deliberately left out of that table**: the **debug** build's idle memory, measured at
 **391 MiB (`400259` KB)** during the same pass. It is a **different build type**, so it is **not comparable to
 the release `212.5 MiB`** and is recorded here only so nobody compares the two.
