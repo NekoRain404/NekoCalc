@@ -1048,9 +1048,26 @@ what the presentation-subtree guards could not reach: a **source** guard over **
 **behavioural sweep** that catches *composed* values no literal scan can see. Non-vacuity was proven by renaming
 one map key and watching **both** guards go red, then reverting.
 
-⚠️ **One honest debt remains, named rather than glossed**: the catalogue family and the notes/records family are
-still **whole-file exempt** (out of scope for this pair of slices), and `'导入笔记'` / `'剪贴板笔记 · …'` are
-recorded there as a **named debt with an owner** — not a clean bill of health.
+**The named debt was paid the same day** (commit `d12b9a4`), and the sweep to find it was systematic rather
+than opportunistic: a `\p{Han}` scan of `lib/domain`, `lib/data` and `lib/application` for Chinese assigned to a
+field that is displayed or stored returned exactly **two** groups — the clipboard-import drafts (the debt) and
+the **tool catalogue** tables. The catalogue is **not a defect but the architecture**: `tool_widgets.dart`
+records that a card shows `ToolCatalogStrings'` name rather than `tool.title`, "the latter being content data
+… the two coincide in Chinese and differ in English" — the Chinese there is the content-side source of truth,
+and every displayed string goes through a map that has an English side. **So the §5l class existed in exactly
+two places, and both are now closed** — which is a better answer than the defect fix itself: it closes the
+question "is there another one?" instead of leaving it to be stumbled on.
+
+**The clipboard fix found one more instance than the audit had**: three draft builders, not two — the third
+(`_parseHistoryBlock`'s preview, `'计算历史 · …'` / `'工具历史 · …'`) had not been spotted. It follows §5l's A+
+shape (token + payload in the domain, sentence composed at the edge and still stored as plain text), with the
+truncation and fallback rules preserved byte-identically (24/30, `\s+` folded, `'剪贴板内容'` / `'导入笔记'`),
+the guard's exemption **reason rewritten** to say the debt is paid while the entry stays (the file still holds
+the paste round-trip grammar), and **three independent proofs** that an English save yields an English title
+(composer, controller save edge, and a widget test).
+
+⚠️ **What genuinely remains**: the catalogue family's whole-file exemption (architecture, as above — not a
+defect) and the nine clipboard round-trip labels, which are **input grammar read back by a parser**, not copy.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
