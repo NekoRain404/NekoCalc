@@ -36,16 +36,29 @@ inference, and it does not hold here**: this ROM's `am start -W` prints **only**
 `336 / 338 / 319 ms` were almost certainly that same field — **which makes them comparable**, and the three runs
 obtained today (`WaitTime` ≈ **3.03 s**: 3032 / 3022 / 3025) would mean a **~9× cold-start regression**.
 
-⚠️ **But there is an internal contradiction that argues for a measurement artefact instead**: the same table
-records **debug at 1.75 s and release at 0.33 s**, and a real change that made release *1.7× slower than debug*
-is not plausible. The three runs were also uniform to within 10 ms, which is the shape of a fixed wait (the
-device was being woken to keep adb alive) rather than of work done. **So the honest state is: an open question
-with evidence pointing both ways — not "unchanged", and not "regressed".** Three attempts to settle it properly
-(wake the device, hold it awake, run five launches to separate first-run compilation from steady state) each
-failed because `adb` hangs part-way through command sequences on this device — the same failure recorded in
-§5f and §5h. **It needs a device whose adb input path is responsive**, and the procedure is the one in that
-paragraph. Each `svc power stayon true` used during the attempts was **reverted and verified**
-(`stay_on_while_plugged_in = 0`).
+⚠️ **Resolved 2026-10-11 by the decisive experiment: the reading is a measurement artefact, not a regression.**
+The doubt was that `WaitTime` might not be the field the baseline recorded. The way to settle it is to measure a
+build whose baseline is known and **very different**: the **debug** build's documented cold start is
+`1913 / 1761 / 1754 ms` against release's `336 / 338 / 319 ms` — a 5× difference. So the debug variant was
+rebuilt and installed (the scripted ordinary replace; `pkgFlags` with `DEBUGGABLE`, database intact) and measured
+**the same way**:
+
+| build | documented baseline | measured today |
+|---|---|---|
+| debug | `1913 / 1761 / 1754 ms` | `3030 / 3025 / 3024 ms` |
+| release | `336 / 338 / 319 ms` | `3032 / 3025 / 3025 ms` |
+
+**Two builds whose baselines differ fivefold both measure ≈3.03 s, to within 7 ms.** A number that is identical
+across two builds that are five times apart in the documented record is **not a property of either build** — it is
+a fixed ~3 s that the device is currently adding to every launch (the same "fixed wait" shape the uniformity
+suggested from the start). ⇒ **No cold-start regression is established, and none of this session's changes is
+implicated**; equally, the baseline comparison remains impossible on this device under these conditions. Both
+builds' readings were reproducible across three runs each.
+
+⚠️ **And the internal contradiction is explained by the same fact**: a release build slower than its debug
+sibling was the signal that something outside the app was being measured. The reasoning recorded above ("this
+session's changes do not explain it") was therefore correct, and it is now **confirmed by measurement** rather
+than left as reasoning. (The device now carries the **debug** variant again, so the `run-as` channel is back.)
 
 **The idle-memory row WAS obtained — but it is not comparable to the recorded baseline either.** After a single
 `am start`, three readings bracketed the app's steady state — **96,580 KB at +8 s, then 99,854 KB at +45 s and
