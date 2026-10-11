@@ -56,7 +56,7 @@ extension _SettingsDialogs on _SettingsPageState {
                           fontWeight: FontWeight.w900,
                           color: scheme.onSurface)),
                   const SizedBox(height: 4),
-                  Text('${AppInfo.version}  ${AppInfo.channel}',
+                  Text('${AppInfo.version}  ${s.channelName}',
                       style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600)),
@@ -180,7 +180,7 @@ extension _SettingsDialogs on _SettingsPageState {
       s.diagnosticHeading,
       s.diagnosticApp(AppInfo.name),
       s.diagnosticVersion(AppInfo.version),
-      s.diagnosticChannel(AppInfo.channel),
+      s.diagnosticChannel(s.channelName),
       s.diagnosticPlatform(defaultTargetPlatform.name),
       s.diagnosticGeneratedAt(DateTime.now().toIso8601String()),
       '',

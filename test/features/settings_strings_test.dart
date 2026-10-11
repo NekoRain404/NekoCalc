@@ -247,6 +247,7 @@ void main() {
       'aboutChipGraph': en.aboutChipGraph,
       'aboutChipSqlite': en.aboutChipSqlite,
       'aboutPrivacyNote': en.aboutPrivacyNote,
+      'channelName': en.channelName,
       'openSourceTitle': en.openSourceTitle,
       'openSourceBody': en.openSourceBody,
       'openSourceAction': en.openSourceAction,

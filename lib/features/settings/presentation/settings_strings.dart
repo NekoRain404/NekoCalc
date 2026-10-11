@@ -122,6 +122,7 @@ class SettingsStrings {
     required this.aboutChipGraph,
     required this.aboutChipSqlite,
     required this.aboutPrivacyNote,
+    required this.channelName,
     required this.openSourceTitle,
     required this.openSourceBody,
     required this.openSourceAction,
@@ -257,6 +258,18 @@ class SettingsStrings {
   final String aboutChipGraph;
   final String aboutChipSqlite;
   final String aboutPrivacyNote;
+
+  /// 中文：关于框版本行右半截的**发布通道名**。原先它与版本号一起住在 `AppInfo.channel` 里，于是
+  ///       英文界面把 `预览版` 印了出来——常量在界面之下，没有语言可跟。中文侧逐字节与从前相同
+  ///       （`预览版 / Prerelease`，中文界面一直两语并列），英文侧只留 `Prerelease`。诊断报告的
+  ///       那条 `diagnosticChannel` 也取这一格，同一个值不会有第二个出处。
+  /// English: the **release channel name** on the right half of the About box's version line. It used to
+  ///          live beside the version in `AppInfo.channel`, so an English interface printed `预览版` — a
+  ///          constant sits below the interface and has no language to follow. The Chinese side is
+  ///          byte-identical to what it was (`预览版 / Prerelease`, which the Chinese interface has
+  ///          always shown both halves of); the English side keeps only `Prerelease`. The diagnostic
+  ///          report's `diagnosticChannel` reads this same cell, so the value has one source.
+  final String channelName;
   final String openSourceTitle;
   final String openSourceBody;
   final String openSourceAction;
@@ -404,6 +417,7 @@ class SettingsStrings {
     aboutChipGraph: '函数图形',
     aboutChipSqlite: 'SQLite 本地记录',
     aboutPrivacyNote: '数据当前仅保存在本机 SQLite，不上传网络服务。',
+    channelName: '预览版 / Prerelease',
     openSourceTitle: '开源结构',
     openSourceBody:
         '项目采用 Feature-first + Clean Architecture 简化版：UI、Application、Domain、Data、Core 分层维护。',
@@ -535,6 +549,7 @@ class SettingsStrings {
     aboutChipSqlite: 'Local SQLite',
     aboutPrivacyNote:
         'Data is stored only in the local SQLite database and is never uploaded.',
+    channelName: 'Prerelease',
     openSourceTitle: 'Open source layout',
     openSourceBody:
         'Feature-first with a simplified Clean Architecture: UI, Application, Domain, Data and Core '

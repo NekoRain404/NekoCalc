@@ -10,6 +10,33 @@ import '../models/note_item.dart';
 part 'app_database_rows.dart';
 part 'app_database_schema.dart';
 
+/// 中文：**没有标题的笔记在库里存什么。** 数据层在界面之下，**不知道当前语言**，所以它不能拼
+///       `'未命名笔记'`——英文界面会存下一条中文标题，`docs/verification.md` §5l 记的就是这个形状。
+///       那句**按语言生成的文案只有一个出处**：保存的那一刻由
+///       `NotesController.strings.untitledNote`（`lib/application/controllers/notes_controller.dart`）
+///       按界面语言拼好再传下来。这里的值是**一个记号，不是文案**：它只表示"这条记录没有名字"，
+///       两种语言下都读得通，也不与任何一句界面文案重复。
+///
+///       **它是防御性的，生产代码到不了。** 五个调用方（笔记页、计算页、工具详情、拟合、文本工具）
+///       全部传非空标题；留着它只是因为标题为空时另外两条路更坏——**丢掉一条笔记**，或者
+///       **存进一个空标题**。所以这里不抛错、不静默丢数据，只放一个中性的记号。
+///       `_normalizeNoteRow`（导入/恢复）也用它，那边的标题同样由调用方之外的代码读进来。
+/// English: **what a note with no title is stored as.** The data layer sits below the interface and
+///          **cannot know the language**, so it may not compose `'未命名笔记'` — an English interface
+///          would store a Chinese title, the exact shape recorded in `docs/verification.md` §5l. That
+///          language-dependent sentence has **one composer**: `NotesController.strings.untitledNote`
+///          (`lib/application/controllers/notes_controller.dart`) puts it together at save time and
+///          passes it down. The value here is **a mark, not copy**: it only says "this record has no
+///          name", it reads the same in either language, and it repeats no line of interface copy.
+///
+///          **It is defensive; production code cannot reach it.** All five callers (the notes page, the
+///          calculator, tool details, data fit, the text tools) pass a non-blank title; it stays only
+///          because the other two roads for a blank title are worse — **dropping the note**, or
+///          **storing an empty title**. So it neither throws nor silently loses data; it leaves a
+///          neutral mark. `_normalizeNoteRow` (import/restore) uses it too, where the title likewise
+///          arrives from outside the caller.
+const _untitledNoteMark = '…';
+
 /// 中文：应用唯一 SQLite 入口，集中管理 schema、迁移、查询、备份和恢复。
 /// English: Single SQLite entry point for schema, migrations, queries, backup, and restore.
 class AppDatabase {
@@ -199,7 +226,7 @@ class AppDatabase {
   Future<int> addNote(String title, String body,
       {String description = '', List<String> tags = const []}) async {
     final db = await database;
-    final normalizedTitle = _normalizeRequired(title) ?? '未命名笔记';
+    final normalizedTitle = _normalizeRequired(title) ?? _untitledNoteMark;
     final normalizedBody = body.trim();
     final normalizedDescription = description.trim();
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -326,7 +353,7 @@ class AppDatabase {
     List<String> tags = const [],
   }) async {
     final db = await database;
-    final normalizedTitle = _normalizeRequired(title) ?? '未命名笔记';
+    final normalizedTitle = _normalizeRequired(title) ?? _untitledNoteMark;
     await db.update(
       'notes',
       {

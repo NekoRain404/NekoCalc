@@ -96,7 +96,18 @@ String _noteOrderBy(NoteSort sort) {
 
 String _escapeLike(String value) {
   return value
-      .replaceAll(r'\', r'\\')
+      // 中文：**这里故意不写 `r'\'`**（以反斜杠结尾的 raw 字符串）——源码扫描那把尺子
+      //       （`test/shared/source_scan.dart`）把 `\` 当成"转义下一个字符"，读到它会把结束引号
+      //       一起吃掉，从这里开始整段代码被当成一个字符串——**这个文件里的一句中文兜底正是
+      //       这样从护栏下面溜过去的**。转义写法与 raw 写法取值逐字节相同（已实测），
+      //       `%` 与 `_` 那两行的 raw 写法不含这个形状，照旧。
+      // English: **`r'\'` (a raw string ending in a backslash) is deliberately not written here** — the
+      //          source-scan ruler (`test/shared/source_scan.dart`) reads `\` as escaping the next
+      //          character, so it swallows the closing quote too and treats a whole block of code as one
+      //          string from here on: **that is exactly how a Chinese fallback in this file slipped
+      //          under the guard**. The escaped form holds the same bytes as the raw one (measured);
+      //          the `%` and `_` lines below do not have that shape and stay as they are.
+      .replaceAll('\\', '\\\\')
       .replaceAll('%', r'\%')
       .replaceAll('_', r'\_');
 }
@@ -222,7 +233,7 @@ Map<String, Object?>? _normalizeHistoryRow(Map<String, Object?> row) {
 }
 
 Map<String, Object?>? _normalizeNoteRow(Map<String, Object?> row) {
-  final title = _normalizeRequired(row['title']?.toString() ?? '') ?? '未命名笔记';
+  final title = _normalizeRequired(row['title']?.toString() ?? '') ?? _untitledNoteMark;
   final createdAt =
       _readInt(row['created_at']) ?? DateTime.now().millisecondsSinceEpoch;
   return {
