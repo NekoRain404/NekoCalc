@@ -997,6 +997,40 @@ description are English when saving with the English table (and pinned zh senten
 proves `notes_controller.dart` no longer holds any of the three literals, with its non-vacuity checked against
 the round-trip labels that are *deliberately* still Chinese.
 
+### 5m. Why six conversion slices missed the biggest block: the guards' **scope**, and a **raw-string blind spot** (2026-10-11)
+
+A repo-wide audit (prompted by the question "is any Chinese left that can reach an English screen?") returned
+**four real leaks**, two of them large: the tools screen renders **result values** raw (`tool_widgets.dart:542`,
+`tool_detail_output_section.dart:232` — the *label* in the same row already went through a table), the numeric
+tools' **insight card** is Chinese wholesale (~600 literals across `tool_insights_*.dart`, rendered raw at
+`tool_detail_output_section.dart:268`), the About box printed `预览版`, and a **third copy** of the note-title
+fallback sat in the data layer (`app_database_rows.dart:225`, the import/restore path — the audit had found
+only two).
+
+**Two structural reasons, and both are worth more than the fixes.**
+
+1. **The guards' scope stopped at the presentation subtrees.** Every existing Chinese-literal scan covers a
+   `lib/features/*/presentation` tree (see the table in §5i's area). **`lib/core/**`, `lib/data/**`,
+   `lib/domain/entities/**` and nearly all of `lib/domain/usecases/**` had no guard at all** — and that is
+   precisely where the largest Chinese block lives. A guard that cannot see a subtree cannot fail on it, so six
+   conversion slices could each be green while the domain layer stayed Chinese. *The lesson is about the
+   scan's reach, not about the slices' diligence.*
+
+2. ⚠️ **A raw string made a whole file partly invisible to the ruler.** When the new data-layer guard ran, it
+   reported **bogus offenders**; the cause was `app_database_rows.dart:99`, which held
+   `.replaceAll(r'\', r'\\')` — **a raw string ending in a backslash**. `stringLiterals` reads that backslash as
+   escaping the closing quote and then drifts, treating a large block of following code as one string. So that
+   file was **unreadable to any source scan**, which is how the third fallback survived every earlier sweep.
+   It was rewritten as `.replaceAll('\\', '\\\\')` and the change was **proved semantics-preserving** with a
+   throwaway Dart probe (identical rune lengths and identical `replaceAll` output). **Anyone adding a literal
+   scan should check for this shape first** — a scanner that silently loses a file looks exactly like a clean
+   file.
+
+The new guards are deliberately narrow (`test/data/data_layer_source_guard_test.dart` scans three named files,
+not a tree), carry exemption lists with reasons and a **dead-entry check that every exemption fires**, and prove
+themselves **non-vacuous three ways** — including a permanent positive-control test and a perturb-and-revert
+run. **A guard that has never been shown to fail is not yet known to be a guard.**
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
