@@ -474,8 +474,18 @@ void main() {
     expect(rateByLabel['输入来源'], '税前金额+含税金额');
   });
 
-  test('inflation optional defaults can be cleared for reverse solving', () {
-    final tool = toolCatalog.firstWhere((item) => item.id == 'inflation');
+  // 中文：**这条原来量的是 `inflation` 工具**（`amount` / `future` 那套键）。它并进 `compound` 之后，
+  //       同两条反推路径改在合并后的工具上量（键名 `principal` / `target`），并且**多断言了随它搬过来的
+  //       两行购买力输出**——所以它不是上面那条 `compound` 用例的重复：那两行只有这里量得到。
+  //       反推的判据（可选项清空、另一条分支接手、输入来源那一句）一条没改。
+  // English: **this used to measure the `inflation` tool** (`amount` / `future` keys). After the merge the
+  //          same two back-solve paths are measured on the merged tool (keys `principal` / `target`) and
+  //          **it asserts the two purchasing-power rows that came with it** — so it is not a duplicate of
+  //          the `compound` case above: those two rows are measured only here. The back-solve criteria
+  //          (clear the optional input, the other branch takes over, the `输入来源` sentence) are unchanged.
+  test('compound optional defaults clear for reverse solving with buying power',
+      () {
+    final tool = toolCatalog.firstWhere((item) => item.id == 'compound');
     final controller = ToolDetailController(
       historyRepository: HistoryRepository(AppDatabase.instance),
       notesRepository: NotesRepository(AppDatabase.instance),
@@ -485,33 +495,35 @@ void main() {
     );
 
     controller.updateValues({
-      'amount': '',
+      'principal': '',
       'rate': '3%',
       'years': '10年',
-      'future': '13439.163793元',
+      'target': '13439.163793元',
     });
 
     final amountByLabel = {
       for (final result in controller.results) result.label: result.value,
     };
-    expect(controller.values.keys, isNot(contains('amount')));
+    expect(controller.values.keys, isNot(contains('principal')));
     expect(controller.values['rate'], 3);
-    expect(amountByLabel['当前金额'], startsWith('10000'));
-    expect(amountByLabel['输入来源'], '未来等值+年通胀率+年数');
+    expect(amountByLabel['本金'], startsWith('10000'));
+    expect(amountByLabel['购买力折现'], startsWith('7440.939'));
+    expect(amountByLabel['购买力损失'], startsWith('2559.060'));
+    expect(amountByLabel['输入来源'], '目标终值+年化收益+年限');
 
     controller.updateValues({
-      'amount': '10000元',
+      'principal': '10000元',
       'rate': '',
       'years': '10年',
-      'future': '13439.163793元',
+      'target': '13439.163793元',
     });
 
     final rateByLabel = {
       for (final result in controller.results) result.label: result.value,
     };
     expect(controller.values.keys, isNot(contains('rate')));
-    expect(rateByLabel['年通胀率'], startsWith('3'));
-    expect(rateByLabel['输入来源'], '当前金额+未来等值+年数');
+    expect(rateByLabel['年化收益率'], startsWith('3'));
+    expect(rateByLabel['输入来源'], '本金+目标终值+年限');
   });
 
   test('profit margin optional defaults can be cleared for reverse solving',

@@ -7,7 +7,6 @@ bool isElectronicsInsightTool(ToolKind kind) {
     case ToolKind.ohmsLaw:
     case ToolKind.voltageDivider:
     case ToolKind.rcFilter:
-    case ToolKind.dbm:
     case ToolKind.resistorNetwork:
     case ToolKind.capacitorNetwork:
     case ToolKind.inductorNetwork:
@@ -104,19 +103,6 @@ List<String> buildElectronicsToolInsights(
         lines.add('目标反推按理想一阶 RC 计算，实际还要按 E 系列标称值和源/负载阻抗修正');
       }
       lines.add('低通和高通共用同一个 fc，取样节点不同');
-    case ToolKind.dbm:
-      final mw = toolResultNumber(results, '功率');
-      final dbm = v['dbm'] ?? 0;
-      if (toolResultUnavailable(results, '功率')) {
-        lines.add('dBm 输入必须是有限数值');
-      }
-      if (mw != null && mw > 1000) {
-        lines.add('功率超过 1W，需确认衰减器、负载额定功率和射频安全余量');
-      }
-      if (dbm < -100) {
-        lines.add('低于 -100dBm 时，噪声底、带宽和接收机噪声系数通常决定可测性');
-      }
-      lines.add('50Ω 电压按正弦波和匹配负载估算；开路电压、峰值和调制信号要另行校核');
     case ToolKind.resistorNetwork:
       if (toolResultUnavailable(results, '串联等效')) {
         lines.add('R1、R2 和目标等效值都必须大于 0，才能计算串并联或反推元件值');
@@ -233,6 +219,7 @@ List<String> buildElectronicsToolInsights(
       final vpeakDelta = toolResultNumber(results, 'Vpeak差值');
       final vppDelta = toolResultNumber(results, 'Vpp差值');
       final dbmDelta = toolResultNumber(results, '50Ω dBm差值');
+      final dbmInput = v['dbm50'];
       if (toolResultUnavailable(results, 'Vpeak')) {
         lines.add('Vrms、Vpeak、Vpp 不能为负，50Ω dBm 必须是有限数值');
       }
@@ -242,6 +229,13 @@ List<String> buildElectronicsToolInsights(
       }
       if (power50 != null && power50 > 1000) {
         lines.add('50Ω 功率超过 1W，需确认负载额定功率、端接和信号源驱动能力');
+      }
+      // 中文：**这一句从已删的 `dBm换算` 工具搬来**（原话逐字节相同），它读的是输入里的
+      //       `dbm50`，所以只有当用户按 50Ω dBm 反推时才会出现。
+      // English: **this line came over from the deleted dBm converter** (byte-identical wording); it
+      //          reads the `dbm50` input, so it only appears when the user back-solves from 50Ω dBm.
+      if (dbmInput != null && dbmInput < -100) {
+        lines.add('低于 -100dBm 时，噪声底、带宽和接收机噪声系数通常决定可测性');
       }
       if (source.isNotEmpty && !toolResultUnavailable(results, '输入来源')) {
         lines.add('当前按 $source 反推其它正弦波幅值');

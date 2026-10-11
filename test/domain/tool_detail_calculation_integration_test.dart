@@ -102,22 +102,32 @@ void main() {
     expect(rc.primary?.label, '截止频率 fc');
     expect(rc.inputErrors, isEmpty);
 
-    final dbmTool = toolCatalog.firstWhere((item) => item.id == 'dbm');
-    final dbm = ToolDetailController(
+    // 中文：**`dbm` 工具已并入 `rms_peak`**，这一段跟着换到那个工具上，断言形状逐条保留：
+    //       `1W` 按 50Ω dBm 单位解析成 30dBm、主结果是峰值电压、结果里有 50Ω 那一族、没有输入错误。
+    // English: **the `dbm` tool is merged into `rms_peak`**, so this block moves to that tool with the
+    //          same assertions: `1W` parses to 30 dBm in the 50Ω dBm unit, the primary result is the
+    //          peak voltage, the 50Ω family is among the rows, and there are no input errors.
+    final rmsTool = toolCatalog.firstWhere((item) => item.id == 'rms_peak');
+    final rms = ToolDetailController(
       historyRepository: HistoryRepository(AppDatabase.instance),
       notesRepository: NotesRepository(AppDatabase.instance),
       toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
-      tool: dbmTool,
+      tool: rmsTool,
     strings: ToolDetailStrings.toolDetailZh,
     );
 
-    dbm.updateValue('dbm', '1W');
+    // 中文：**`rms_peak` 的 Vrms 有默认值 1，会压过 dBm**，所以先把那一格清空再填 dBm——
+    //       这正是用户在这个工具上走 dBm 那一路时要做的动作。
+    // English: **`rms_peak`'s Vrms has a default of 1 and would outrank the dBm**, so that cell is
+    //          cleared first — exactly what a user does on this tool to take the dBm path.
+    rms.updateValues({'vrms': '', 'dbm50': '1W'});
 
-    expect(dbm.values['dbm'], closeTo(30, 1e-12));
-    expect(dbm.primary?.label, '功率');
-    expect(dbm.primary?.value, '1000');
-    expect(dbm.results.map((result) => result.label), contains('50Ω Vpp'));
-    expect(dbm.inputErrors, isEmpty);
+    expect(rms.values['dbm50'], closeTo(30, 1e-12));
+    expect(rms.primary?.label, 'Vpeak');
+    expect(rms.primary?.value, '10');
+    expect(rms.results.map((result) => result.label), contains('50Ω dBm'));
+    expect(rms.results.map((result) => result.label), contains('Vpp'));
+    expect(rms.inputErrors, isEmpty);
   });
 
   test('AWG wire gauge drives voltage drop calculations', () {

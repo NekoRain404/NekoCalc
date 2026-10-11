@@ -5,44 +5,6 @@ import '../entities/tool_definition.dart';
 
 const double _timer555Coefficient = 0.693;
 
-List<ToolResult> dbmResults(Map<String, double> valuesByKey) {
-  final dbm = valuesByKey['dbm'] ?? 0;
-  if (!dbm.isFinite) {
-    return const [
-      ToolResult.invalid('功率', 'mW', primary: true),
-      ToolResult.invalid('微瓦', 'μW'),
-      ToolResult.invalid('瓦特', 'W'),
-      ToolResult.invalid('dBW', 'dBW'),
-      ToolResult.invalid('50Ω Vrms', 'V'),
-      ToolResult.invalid('50Ω Vpeak', 'V'),
-      ToolResult.invalid('50Ω Vpp', 'V'),
-      ToolResult.invalid('50Ω dBV', 'dBV'),
-      ToolResult.invalid('50Ω dBu', 'dBu'),
-    ];
-  }
-
-  final mw = math.pow(10, dbm / 10).toDouble();
-  final watts = mw / 1000;
-  final vrms50 = math.sqrt(watts * 50);
-  final vpeak50 = vrms50 * math.sqrt2;
-  // 中文：**两个分贝值先算成数。** 条件不成立那一支产出方明确说算不出来（`null`）。
-  // English: **both decibel figures are computed as numbers first.** The branch where the condition
-  //          fails is the producer saying plainly that it cannot be produced (`null`).
-  final dbv = vrms50 > 0 ? 20 * math.log(vrms50) / math.ln10 : null;
-  final dbu = vrms50 > 0 ? 20 * math.log(vrms50 / 0.775) / math.ln10 : null;
-  return [
-    ToolResult.number('功率', mw, 'mW', primary: true),
-    ToolResult.number('微瓦', mw * 1000, 'μW'),
-    ToolResult.number('瓦特', watts, 'W'),
-    ToolResult.number('dBW', dbm - 30, 'dBW'),
-    ToolResult.number('50Ω Vrms', vrms50, 'V'),
-    ToolResult.number('50Ω Vpeak', vpeak50, 'V'),
-    ToolResult.number('50Ω Vpp', vpeak50 * 2, 'V'),
-    ToolResult.number('50Ω dBV', dbv, 'dBV'),
-    ToolResult.number('50Ω dBu', dbu, 'dBu'),
-  ];
-}
-
 List<ToolResult> rcFilterResults(Map<String, double> valuesByKey) {
   final resistance = (valuesByKey['r'] ?? 0) * 1000;
   final capacitance = (valuesByKey['c'] ?? 0) * 1e-9;
@@ -389,6 +351,27 @@ List<ToolResult> rmsPeakResults(Map<String, double> valuesByKey) {
     ToolResult.number('平均整流值', averageRectified, 'V'),
     ToolResult.number('50Ω 功率', power50Mw, 'mW'),
     ToolResult.number('50Ω dBm', dbm50, 'dBm'),
+    // 中文：**三格从 dBm 换算工具搬过来**（那个工具已删）：微瓦、瓦特与 dBW。
+    //       它们与 `dBm换算` 里的同名结果逐字节同值（mW×1000、mW/1000、dBm−30），
+    //       所以删掉那个工具没有丢任何一个数。
+    // English: **three rows moved here from the deleted dBm converter**: microwatts, watts and dBW.
+    //          They are byte-for-byte the same numbers the old tool produced (mW×1000, mW/1000,
+    //          dBm−30), so deleting that tool dropped no figure.
+    ToolResult.number('微瓦', power50Mw * 1000, 'μW'),
+    ToolResult.number('瓦特', power50W, 'W'),
+    // 中文：**dBW 在用户直接给 dBm 时按输入减 30**，与已删的 `dBm换算` 工具逐位相同
+    //       （旧工具就是 `dbm - 30`；若从算出来的功率再取对数，30dBm 会因舍入变成 3.55e-15）。
+    //       其余输入路径（Vrms/Vpeak/Vpp）没有输入 dBm 可减，只能从功率取对数——那是新增能力。
+    // English: **dBW subtracts 30 from the input when the user gave a dBm directly**, bit-for-bit what
+    //          the deleted dBm converter produced (it was `dbm - 30`; taking the log of the computed
+    //          power instead turns 30 dBm into 3.55e-15). On the other input paths (Vrms/Vpeak/Vpp)
+    //          there is no input dBm to subtract, so it comes from the power — that is new capability.
+    ToolResult.number(
+        'dBW',
+        dbmInput != null
+            ? dbmInput - 30
+            : (power50W > 0 ? 10 * math.log(power50W) / math.ln10 : null),
+        'dBW'),
     ToolResult.number('dBV', dbv, 'dBV'),
     ToolResult.number('dBu', dbu, 'dBu'),
     ToolResult('输入来源', source, ''),
@@ -421,6 +404,9 @@ List<ToolResult> _invalidRmsPeakResults() {
     ToolResult.invalid('平均整流值', 'V'),
     ToolResult.invalid('50Ω 功率', 'mW'),
     ToolResult.invalid('50Ω dBm', 'dBm'),
+    ToolResult.invalid('微瓦', 'μW'),
+    ToolResult.invalid('瓦特', 'W'),
+    ToolResult.invalid('dBW', 'dBW'),
     ToolResult.invalid('dBV', 'dBV'),
     ToolResult.invalid('dBu', 'dBu'),
     ToolResult.invalid('输入来源', ''),

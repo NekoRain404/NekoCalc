@@ -103,57 +103,6 @@ void main() {
     expect(insights, contains('电流为负表示参考方向相反'));
   });
 
-  test('dBm converter includes 50 ohm RF voltage outputs', () {
-    final definition = tool('dbm');
-    final values = <String, double>{'dbm': 30};
-    final results = calculateTool(definition, values);
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-    final insights = buildToolInsights(definition, values, results).join('\n');
-
-    expect(valuesByLabel['功率'], '1000');
-    expect(valuesByLabel['微瓦'], '1000000');
-    expect(valuesByLabel['瓦特'], '1');
-    expect(valuesByLabel['dBW'], '0');
-    expect(valuesByLabel['50Ω Vrms'], startsWith('7.071'));
-    expect(valuesByLabel['50Ω Vpeak'], '10');
-    expect(valuesByLabel['50Ω Vpp'], '20');
-    expect(valuesByLabel['50Ω dBV'], startsWith('16.989'));
-    expect(valuesByLabel['50Ω dBu'], startsWith('19.203'));
-    expect(insights, contains('50Ω 电压按正弦波和匹配负载估算'));
-  });
-
-  test('dBm converter warns about very low RF power', () {
-    final definition = tool('dbm');
-    final values = <String, double>{'dbm': -120};
-    final results = calculateTool(definition, values);
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-    final insights = buildToolInsights(definition, values, results).join('\n');
-
-    expect(valuesByLabel['功率'], '1e-12');
-    expect(valuesByLabel['微瓦'], '1e-9');
-    expect(insights, contains('低于 -100dBm'));
-  });
-
-  test('dBm converter rejects non-finite input', () {
-    final definition = tool('dbm');
-    final values = <String, double>{'dbm': double.infinity};
-    final results = calculateTool(definition, values);
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-    final insights = buildToolInsights(definition, values, results).join('\n');
-
-    expect(valuesByLabel['功率'], '无效');
-    expect(valuesByLabel['瓦特'], '无效');
-    expect(valuesByLabel['50Ω Vrms'], '无效');
-    expect(valuesByLabel['50Ω dBV'], '无效');
-    expect(insights, contains('dBm 输入必须是有限数值'));
-  });
-
   test('LED resistor reports voltage headroom and power rating', () {
     final results = calculateTool(tool('led_resistor'), {
       'vin': 5,

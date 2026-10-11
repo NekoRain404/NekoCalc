@@ -463,7 +463,7 @@ class DetailMetric extends StatelessWidget {
                 //       标签走 `maxLines: 1` + 省略号，而**标签格正好 110.00dp、最长那条要 109.1dp——
                 //       余量只有 0.9dp**。按钮每涨 1dp 都从标签嘴里拿：涨到 48 就只剩 90.0dp，
                 //       上面那 12 条英文标签**全部**被省略号吃掉。那条 110dp 的线是
-                //       `tool_result_label_strings.dart` 里 715 条英文的硬判据（不许超 110dp）。
+                //       `tool_result_label_strings.dart` 里 712 条英文的硬判据（不许超 110dp）。
                 //       **所以「把按钮撑到 48」在这个布局里是拿英文可读性换达标，不是修缺陷。**
                 //
                 //       有一条**能化解而不是交换**的改法——**2026-10-10 已实施**，见本段末尾那条 ⚠️
@@ -496,7 +496,7 @@ class DetailMetric extends StatelessWidget {
                 //          110.00dp while the longest one needs 109.1dp — 0.9dp of slack**. Every dp the
                 //          button grows comes out of the label: at 48 it leaves 90.0dp and those 12
                 //          English labels **all** go to the ellipsis. That 110dp line is a hard
-                //          criterion over 715 English strings in `tool_result_label_strings.dart`
+                //          criterion over 712 English strings in `tool_result_label_strings.dart`
                 //          (nothing may exceed 110dp). **So "push the button to 48" would trade English
                 //          legibility for compliance here — it is not fixing a defect.**
                 //

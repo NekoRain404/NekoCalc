@@ -53,9 +53,10 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('工具目录每个 id 都在这张表里，中文一格与 tool_catalog*.dart 逐字节相同', () {
-    expect(toolCatalog.length, 122,
-        reason: '目录里一共 122 个工具（77 条 title: + 22 个 _unitTool + 23 个 _textTool）；'
-            '这个数字变了，说明目录动过，本表要跟着走');
+    expect(toolCatalog.length, 119,
+        reason: '目录里一共 119 个工具（75 条 title: + 22 个 _unitTool + 23 个 _textTool）；'
+            '这个数字变了，说明目录动过，本表要跟着走。'
+            '上一轮是 120：少的那一条是并进 `scale_ratio` 的 `proportion`');
     expect(zh.toolNames.length, toolCatalog.length,
         reason: '中文表与目录要一一对应：多一条少一条都说明有 id 没跟上');
 
@@ -106,8 +107,9 @@ void main() {
         notPromoted++;
       }
     }
-    expect(promoted, 104,
-        reason: 'A 类一共 99 条：提升出来的名字必须一条不落地能查回别名表');
+    expect(promoted, 102,
+        reason: '提升出来的名字一共 102 条（上一轮 103：`proportion` 并进 `scale_ratio` 之后'
+            '少的那一条就是它）；必须一条不落地能查回别名表');
     expect(notPromoted, authoredNames.length + latinNames.length,
         reason: '不是提升的只应当是下面那张清单里的那些 id');
   });
@@ -127,7 +129,7 @@ void main() {
     for (final entry in authoredNames.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 没写理由');
     }
-    expect(authoredNames.length, 14, reason: 'B 类 14 条');
+    expect(authoredNames.length, 13, reason: 'B 类 13 条');
     expect(latinNames.length, 4, reason: 'L 类 4 条');
   });
 
@@ -352,14 +354,15 @@ void main() {
   });
 }
 
-/// 中文：**新写的 14 条，逐条带理由**——这份清单就是本轮报告里那张要复核的表，理由写在值里。
-///       前九条在两处索引里都没有表；后五条有表，但表里没有一条能当名字用。
-/// English: **the 14 authored names, each with its reason** — this list is the table to scrutinise in
-///          this round's report, with the reason in the value. The first nine have no list in either
+/// 中文：**新写的 13 条，逐条带理由**——这份清单就是本轮报告里那张要复核的表，理由写在值里。
+///       前八条在两处索引里都没有表；后五条有表，但表里没有一条能当名字用。
+///       （`dbm` 已随工具一起删除：它是那条"索引里没有表"的第九条。）
+/// English: **the 13 authored names, each with its reason** — this list is the table to scrutinise in
+///          this round's report, with the reason in the value. The first eight have no list in either
 ///          index; the last five have one, but not a single entry in it can serve as a name.
+///          (`dbm` went with its tool: it was the ninth "no list in either index" entry.)
 const Map<String, String> authoredNames = <String, String>{
   'quadratic': 'no alias list for this id in either index',
-  'dbm': 'no alias list for this id in either index',
   'friction': 'no alias list for this id in either index',
   'inclined_plane': 'no alias list for this id in either index',
   'flow_velocity': 'no alias list for this id in either index',

@@ -371,62 +371,72 @@ void main() {
     expect(incompleteResults.first.value, '无效');
   });
 
-  test('inflation tool reverse solves amount rate years and validates inputs',
+  // 中文：**`inflation` 工具已并进 `compound`**——这一段把那个工具原来的断言整段搬到合并后的工具上：
+  //       键名换成 `principal` / `target`（同一台机器、同一批数），它那两行购买力输出（购买力折现、
+  //       购买力损失）与那句"购买力损失为正"的提示照旧断言；原来的「未来等值 / 累计涨幅 / 等值倍率」
+  //       在合并后的工具上叫「终值 / 收益率 / 增长倍数」，断言的**数一个没少**，只是标签换了。
+  // English: **the `inflation` tool is merged into `compound`** — this block moves that tool's assertions
+  //          onto the merged tool whole: the keys become `principal` / `target` (the same machine, the
+  //          same numbers), its two purchasing-power rows (the discount and the loss) and the
+  //          "purchasing-power loss is positive" hint are asserted as before, and the old
+  //          `未来等值` / `累计涨幅` / `等值倍率` are `终值` / `收益率` / `增长倍数` on the merged tool —
+  //          **not one number is dropped**, only the labels changed.
+  test('compound tool reverse solves principal rate years with inflation rows',
       () {
-    final definition = tool('inflation');
-    final values = <String, double>{'amount': 10000, 'rate': 3, 'years': 10};
+    final definition = tool('compound');
+    final values = <String, double>{'principal': 10000, 'rate': 3, 'years': 10};
     final results = calculateTool(definition, values);
     final valuesByLabel = {
       for (final result in results) result.label: result.value,
     };
     final insights = buildToolInsights(definition, values, results).join('\n');
 
-    expect(valuesByLabel['未来等值'], startsWith('13439.163'));
+    expect(valuesByLabel['终值'], startsWith('13439.163'));
     expect(valuesByLabel['购买力折现'], startsWith('7440.939'));
-    expect(valuesByLabel['累计涨幅'], startsWith('34.391'));
+    expect(valuesByLabel['收益率'], startsWith('34.391'));
     expect(valuesByLabel['购买力损失'], startsWith('2559.060'));
-    expect(valuesByLabel['等值倍率'], startsWith('1.343'));
-    expect(valuesByLabel['输入来源'], '当前金额+年通胀率+年数');
+    expect(valuesByLabel['增长倍数'], startsWith('1.343'));
+    expect(valuesByLabel['输入来源'], '本金+年化收益+年限');
     expect(insights, contains('购买力损失为正'));
 
     final amountFromFuture = calculateTool(definition, {
-      'future': 13439.163793,
+      'target': 13439.163793,
       'rate': 3,
       'years': 10,
     });
     final amountFromFutureByLabel = {
       for (final result in amountFromFuture) result.label: result.value,
     };
-    expect(amountFromFutureByLabel['当前金额'], startsWith('10000'));
-    expect(amountFromFutureByLabel['输入来源'], '未来等值+年通胀率+年数');
+    expect(amountFromFutureByLabel['本金'], startsWith('10000'));
+    expect(amountFromFutureByLabel['输入来源'], '目标终值+年化收益+年限');
 
     final rateFromFuture = calculateTool(definition, {
-      'amount': 10000,
-      'future': 13439.163793,
+      'principal': 10000,
+      'target': 13439.163793,
       'years': 10,
     });
     final rateFromFutureByLabel = {
       for (final result in rateFromFuture) result.label: result.value,
     };
-    expect(rateFromFutureByLabel['年通胀率'], startsWith('3'));
-    expect(rateFromFutureByLabel['输入来源'], '当前金额+未来等值+年数');
+    expect(rateFromFutureByLabel['年化收益率'], startsWith('3'));
+    expect(rateFromFutureByLabel['输入来源'], '本金+目标终值+年限');
 
     final yearsFromFuture = calculateTool(definition, {
-      'amount': 10000,
-      'future': 13439.163793,
+      'principal': 10000,
+      'target': 13439.163793,
       'rate': 3,
     });
     final yearsFromFutureByLabel = {
       for (final result in yearsFromFuture) result.label: result.value,
     };
-    expect(yearsFromFutureByLabel['年数'], startsWith('10'));
-    expect(yearsFromFutureByLabel['输入来源'], '当前金额+未来等值+年通胀率');
+    expect(yearsFromFutureByLabel['年限'], startsWith('10'));
+    expect(yearsFromFutureByLabel['输入来源'], '本金+目标终值+年化收益');
 
     final referenceFutureValues = <String, double>{
-      'amount': 10000,
+      'principal': 10000,
       'rate': 3,
       'years': 10,
-      'future': 13000,
+      'target': 13000,
     };
     final referenceFutureResults =
         calculateTool(definition, referenceFutureValues);
@@ -438,14 +448,14 @@ void main() {
       referenceFutureValues,
       referenceFutureResults,
     ).join('\n');
-    expect(referenceFutureByLabel['输入来源'], '当前金额+年通胀率+年数，未来等值作参考');
-    expect(referenceFutureByLabel['未来等值差值'], startsWith('439.163'));
-    expect(referenceFutureInsights, contains('未来等值参考值与当前计算相差'));
+    expect(referenceFutureByLabel['输入来源'], '本金+年化收益+年限，目标终值作参考');
+    expect(referenceFutureByLabel['终值差值'], startsWith('439.163'));
+    expect(referenceFutureInsights, contains('目标终值与当前计算相差'));
 
-    final invalidIncomplete = calculateTool(definition, {'future': 12000});
+    final invalidIncomplete = calculateTool(definition, {'target': 12000});
     final invalidRateSolve = calculateTool(definition, {
-      'amount': 0,
-      'future': 12000,
+      'principal': 0,
+      'target': 12000,
       'years': 10,
     });
 
@@ -529,8 +539,13 @@ void main() {
   });
 
   test('financial edge cases do not expose infinity text', () {
+    // 中文：**这条原来量的是 `inflation` 工具**；它并进 `compound` 之后，同一组边界（金额 1000、
+    //       年率 -100）改在合并后的工具上量——`rate <= -100` 在两条路径上都是"无效"，断言一字未改。
+    // English: **this used to measure the `inflation` tool**; after the merge the same edge (amount
+    //          1000, rate -100) is measured on the merged tool — `rate <= -100` is "invalid" on both
+    //          paths, and not a word of the assertion moved.
     final inflation = calculateTool(
-        tool('inflation'), {'amount': 1000, 'rate': -100, 'years': 1});
+        tool('compound'), {'principal': 1000, 'rate': -100, 'years': 1});
     final npv = calculateTool(tool('npv'), {
       'initial': 1000,
       'rate': -100,

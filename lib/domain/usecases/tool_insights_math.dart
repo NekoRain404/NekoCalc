@@ -12,7 +12,6 @@ bool isMathInsightTool(ToolKind kind) {
     case ToolKind.linearEquation:
     case ToolKind.combination:
     case ToolKind.percentage:
-    case ToolKind.proportion:
     case ToolKind.probability:
     case ToolKind.statistics:
     case ToolKind.matrix:
@@ -127,18 +126,6 @@ List<String> buildMathToolInsights(
       if (rate != null && rate.abs() > 100) {
         lines.add('百分比绝对值超过 100%，请确认这是倍数变化而不是折扣/占比输入');
       }
-    case ToolKind.proportion:
-      final crossDelta = toolResultNumber(results, '交叉乘积差');
-      final xDelta = toolResultNumber(results, 'x差值');
-      if (toolResultUnavailable(results, 'x')) {
-        lines.add('a、b、c、x 至少填写三项；作为分母使用的量不能为 0');
-      }
-      if (crossDelta != null && crossDelta.abs() > 1e-9) {
-        lines.add('交叉乘积差为 ${formatNumber(crossDelta)}，说明参考值与比例关系不完全一致');
-      }
-      if (xDelta != null) {
-        lines.add('x 参考值与当前计算相差 ${formatNumber(xDelta)}');
-      }
     case ToolKind.probability:
       final p1 = toolResultNumber(results, '事件 A') ?? v['p1'] ?? 0;
       final p2 = toolResultNumber(results, '事件 B') ?? v['p2'] ?? 0;
@@ -246,8 +233,17 @@ List<String> buildMathToolInsights(
     case ToolKind.scaleRatio:
       final ratio = toolResultNumber(results, '缩放比例');
       final scaledDelta = toolResultNumber(results, '缩放值差值');
+      // 中文：这一行并进来的 `proportion` 工具原本写的是「a、b、c、x 至少填写三项；作为分母
+      //       使用的量不能为 0」——口径没变（原比例当除数那一支不能为 0），只换了标签那一套说法。
+      // English: this line comes from the merged `proportion` tool, which read "fill at least three of
+      //          a, b, c and x; a divisor may not be 0" — the rule is unchanged (the source ratio may not
+      //          be 0 in the branch where it divides), only the vocabulary is the scaling one.
+      final crossDelta = toolResultNumber(results, '交叉乘积差');
       if (toolResultUnavailable(results, '缩放后')) {
-        lines.add('原始值、原比例、目标比例和缩放后至少填写三项；原比例不能为 0');
+        lines.add('原始值、原比例、目标比例和缩放后至少填写三项；作为分母使用的量不能为 0');
+      }
+      if (crossDelta != null && crossDelta.abs() > 1e-9) {
+        lines.add('交叉乘积差为 ${formatNumber(crossDelta)}，说明参考值与比例关系不完全一致');
       }
       if (scaledDelta != null) {
         lines.add('缩放后参考值与当前计算相差 ${formatNumber(scaledDelta)}');

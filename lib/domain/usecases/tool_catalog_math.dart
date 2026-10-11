@@ -98,25 +98,6 @@ final List<ToolDefinition> mathToolDefinitions = [
     explanation: '用于快速求解一元一次方程，输出斜率、截距、x 截距、代回校验，并区分唯一解、无解和恒等式。',
   ),
   const ToolDefinition(
-    id: 'proportion',
-    title: '比例计算',
-    description: 'a:b = c:x 比例求值',
-    category: ToolCategory.math,
-    kind: ToolKind.proportion,
-    group: '常用',
-    inputs: [
-      ToolInputDefinition(
-          key: 'a', label: 'a', unit: '', defaultValue: 2, optional: true),
-      ToolInputDefinition(
-          key: 'b', label: 'b', unit: '', defaultValue: 5, optional: true),
-      ToolInputDefinition(
-          key: 'c', label: 'c', unit: '', defaultValue: 8, optional: true),
-      ToolInputDefinition(key: 'x', label: 'x', unit: '', optional: true),
-    ],
-    formula: 'a:b = c:x, a × x = b × c',
-    explanation: 'a、b、c、x 任意填写三项即可反推第四项，并输出比例系数、右侧系数和交叉乘积差。',
-  ),
-  const ToolDefinition(
     id: 'combination',
     title: '排列组合',
     description: 'A(n,k)、C(n,k)、阶乘、重复排列和比例',
@@ -287,6 +268,6 @@ final List<ToolDefinition> mathToolDefinitions = [
           key: 'scaled', label: '缩放后', unit: '', optional: true),
     ],
     formula: 'scaled = value × target / source',
-    explanation: '原始值、原比例、目标比例和缩放后任意填写三项即可反推第四项，输出线性、面积和体积缩放比例。',
+    explanation: '原始值、原比例、目标比例和缩放后任意填写三项即可反推第四项，输出比例关系、比例系数、交叉乘积差和线性、面积、体积缩放比例。',
   ),
 ];

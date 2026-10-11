@@ -312,7 +312,6 @@ class ToolCatalogStrings {
       'percentage': '百分比',
       'exponential_log': '指数对数',
       'linear_equation': '一元一次方程',
-      'proportion': '比例计算',
       'combination': '排列组合',
       'probability': '概率计算',
       'statistics': '统计计算',
@@ -326,7 +325,6 @@ class ToolCatalogStrings {
       'ohms_law': '欧姆定律',
       'voltage_divider': '电阻分压',
       'rc_filter': 'RC滤波',
-      'dbm': 'dBm换算',
       'resistor_network': '电阻串并联',
       'capacitor_network': '电容串并联',
       'inductor_network': '电感串并联',
@@ -369,7 +367,6 @@ class ToolCatalogStrings {
       'roi': 'ROI',
       'discount': '折扣计算',
       'tax': '税前税后',
-      'inflation': '通胀折算',
       'npv': 'NPV',
       'length': '长度',
       'area': '面积',
@@ -576,7 +573,6 @@ class ToolCatalogStrings {
       'exponential_log':
           'Exponent / Logarithm', // A · 'exponent logarithm' · slash = typography for the juxtaposed pair
       'linear_equation': 'Linear Equation', // A · 'linear equation'
-      'proportion': 'Proportion Calculator', // A · 'proportion calculator'
       'combination': 'Combination', // A · 'combination'
       'probability': 'Probability Calculator', // A · 'probability calculator'
       'statistics': 'Statistics', // A · 'statistics'
@@ -591,7 +587,6 @@ class ToolCatalogStrings {
       'ohms_law': 'Ohms Law', // A · 'ohms law'
       'voltage_divider': 'Voltage Divider', // A · 'voltage divider'
       'rc_filter': 'RC Filter', // A · 'rc filter'
-      'dbm': 'dBm Conversion', // B · no alias in either index
       'resistor_network': 'Resistor Network', // A · 'resistor network'
       'capacitor_network': 'Capacitor Network', // A · 'capacitor network'
       'inductor_network': 'Inductor Network', // A · 'inductor network'
@@ -641,7 +636,6 @@ class ToolCatalogStrings {
       'roi': 'Return on Investment', // A · 'return on investment'
       'discount': 'Discount Calculator', // A · 'discount calculator'
       'tax': 'Tax Calculator', // A · 'tax calculator'
-      'inflation': 'Inflation Calculator', // A · 'inflation calculator'
       'npv': 'Net Present Value', // A · 'net present value'
       'length': 'Length Converter', // A · 'length converter'
       'area': 'Area Converter', // A · 'area converter'

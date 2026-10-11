@@ -1,16 +1,23 @@
-/// 中文：**结果标签表的数学那一格**——106 条，`calculate_tool_math.dart`、
+/// 中文：**结果标签表的数学那一格**——110 条，`calculate_tool_math.dart`、
 ///       `_math_algebra.dart`、`_math_geometry.dart` 三个文件产出的结果行标签。机制、规模、
 ///       为什么分六个文件、分割缝与长度判据都写在 `tool_result_label_strings.dart` 的文件头上，
 ///       这里只说这一格自己的话。
+///
+///       （**106 → 110**：这里此前写的 106 与本文件的真实条数一直不符，借这一刀按实测校正；
+///       上一轮是 111——`proportion` 并进 `scale_ratio` 之后，它独有的 `x差值` 随工具删除。）
 ///
 ///       这一格的记号最多：`解 (x1, x2)`、`组合 C(n,k)`、`距离 |A-B|`、`角 A/B/C`、
 ///       `高 ha/hb/hc`、`Frobenius范数`、`行列式 det`、`迹 tr` 各有非 CJK 段，
 ///       **逐段在英文里原样活着**（`Roots (x1, x2)`、`Combns C(n,k)`、`Distance |A-B|`…）。
 ///       英文这一格用了 `Proj.`/`Perms`/`Combns`/`Compl.` 四个缩写，理由只有一个：110dp 装不下全称。
-/// English: **the maths cell of the result-label table** — 106 entries, the result-row labels produced
+/// English: **the maths cell of the result-label table** — 110 entries, the result-row labels produced
 ///          by `calculate_tool_math.dart`, `_math_algebra.dart` and `_math_geometry.dart`. The
 ///          mechanism, the size, why there are six files, where the seam is and the length rule are all
 ///          on `tool_result_label_strings.dart`'s head; this file has only its own note.
+///
+///          (**106 → 110**: the figure here read 106, which never matched the file's real size;
+///          corrected to the measured 110 this round — one below 111, because `proportion` merged
+///          into `scale_ratio` and took `x差值` with it.)
 ///
 ///          This cell carries the most notation: `解 (x1, x2)`, `组合 C(n,k)`, `距离 |A-B|`,
 ///          `角 A/B/C`, `高 ha/hb/hc`, `Frobenius范数`, `行列式 det` and `迹 tr` each hold a non-CJK
@@ -33,7 +40,6 @@ const Map<String, String> toolResultLabelsMathEn = {
   '比例系数': 'Ratio factor',
   '交叉乘积差': 'Cross-product gap',
   '右侧系数': 'Right-hand factor',
-  'x差值': 'x gap',
   '缩放后': 'After scaling',
   '原始值': 'Original value',
   '原比例': 'Original ratio',

@@ -175,9 +175,10 @@ void _addToolSearchAliasesA(String id, List<String> aliases) {
         '反推原始值',
         '面积缩放',
         '体积缩放',
-      ]);
-    case 'proportion':
-      aliases.addAll(const [
+        // 中文：`proportion` 并进这一格之后，它那一整套说法原样搬过来
+        //       （`反推比例` 两边都有，只留上面那一条）。
+        // English: with `proportion` merged into this tool its whole vocabulary moved here unchanged
+        //          (`反推比例` appeared in both lists and is kept once, above).
         'proportion calculator',
         'ratio calculator',
         'rule of three',
@@ -191,7 +192,6 @@ void _addToolSearchAliasesA(String id, List<String> aliases) {
         '三项比例',
         '交叉相乘',
         '交叉乘积',
-        '反推比例',
         '反推x',
         '反推a',
         '反推b',

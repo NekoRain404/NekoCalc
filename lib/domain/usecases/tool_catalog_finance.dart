@@ -207,7 +207,7 @@ final List<ToolDefinition> financeToolDefinitions = [
           key: 'target', label: '目标终值', unit: '元', optional: true),
     ],
     formula: 'FV = PV × (1 + r)^n, r = (FV / PV)^(1/n) - 1',
-    explanation: '本金、年化收益、年限和目标终值任意填写三项即可反推第四项，输出收益、收益率、增长倍数、年化收益率和目标差值。',
+    explanation: '本金、年化收益、年限和目标终值任意填写三项即可反推第四项，输出收益、收益率、购买力折现、购买力损失、增长倍数、年化收益率和目标差值。',
   ),
   const ToolDefinition(
     id: 'profit_margin',
@@ -320,38 +320,6 @@ final List<ToolDefinition> financeToolDefinitions = [
     ],
     formula: '含税金额 = 税前金额 × (1 + 税率), 税率 = 含税金额 / 税前金额 - 1',
     explanation: '税前金额、税率和含税金额任意填写两项即可反推第三项，输出税额、税负率、价税倍率和参考差值。',
-  ),
-  const ToolDefinition(
-    id: 'inflation',
-    title: '通胀折算',
-    description: '按年通胀率折算未来金额和购买力',
-    category: ToolCategory.finance,
-    kind: ToolKind.inflation,
-    group: '投资',
-    inputs: [
-      ToolInputDefinition(
-          key: 'amount',
-          label: '当前金额',
-          unit: '元',
-          defaultValue: 10000,
-          optional: true),
-      ToolInputDefinition(
-          key: 'rate',
-          label: '年通胀率',
-          unit: '%',
-          defaultValue: 3,
-          optional: true),
-      ToolInputDefinition(
-          key: 'years',
-          label: '年数',
-          unit: '年',
-          defaultValue: 10,
-          optional: true),
-      ToolInputDefinition(
-          key: 'future', label: '未来等值', unit: '元', optional: true),
-    ],
-    formula: 'FV = PV × (1 + i)^n, i = (FV / PV)^(1/n) - 1',
-    explanation: '当前金额、年通胀率、年数和未来等值任意填写三项即可反推第四项，输出购买力折现、累计涨幅、购买力损失和参考差值。',
   ),
   const ToolDefinition(
     id: 'npv',

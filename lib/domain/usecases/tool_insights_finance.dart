@@ -14,7 +14,6 @@ bool isFinanceInsightTool(ToolKind kind) {
     case ToolKind.roi:
     case ToolKind.discount:
     case ToolKind.tax:
-    case ToolKind.inflation:
     case ToolKind.npv:
       return true;
     default:
@@ -105,11 +104,22 @@ List<String> buildFinanceToolInsights(
       final multiple = toolResultNumber(results, '增长倍数');
       final source = toolResultText(results, '输入来源') ?? '';
       final targetDelta = toolResultNumber(results, '终值差值');
+      // 中文：**`inflation` 工具并进来之后新增的三句**：购买力那两行是本工具新产的数，
+      //       它们的判据与那句提醒照原样搬来（`购买力损失为正…`、`通胀按固定年率估算…`
+      //       逐字节相同）；只有"年通胀率为负"那句因为标签换成了「年化收益率」而重写。
+      // English: **the three lines the merged `inflation` tool brought in**: the purchasing-power rows
+      //          are new outputs of this tool, and their judgement plus that reminder moved over
+      //          verbatim (`购买力损失为正…`, `通胀按固定年率估算…` are byte-identical); only the
+      //          "negative rate" line was rewritten because its label is now `年化收益率`.
+      final loss = toolResultNumber(results, '购买力损失');
+      final rate = toolResultNumber(results, '年化收益率');
       if (toolResultUnavailable(results, '终值')) {
         lines.add(
             '本金、年化收益、年限和目标终值至少填写三项；本金和目标终值不能为负，年化收益需大于 -100%，年限不能为负，反推年化收益或年限时分母不能为 0');
       }
       if (gain != null && gain < 0) lines.add('收益为负，表示复利期末金额低于初始本金');
+      if (loss != null && loss > 0) lines.add('购买力损失为正，表示同样金额未来实际购买力下降');
+      if (rate != null && rate < 0) lines.add('年化收益率为负，当前相当于按固定通缩率估算');
       if (multiple != null && multiple >= 2) {
         lines.add('增长倍数超过 2x，可以同步看最大回撤和波动风险');
       }
@@ -120,6 +130,7 @@ List<String> buildFinanceToolInsights(
         lines.add('目标终值与当前计算相差 ${formatNumber(targetDelta)}元');
       }
       lines.add('复利按固定年化收益估算，未计入追加投入、提现、税费、手续费和收益波动');
+      lines.add('通胀按固定年率估算，实际价格篮子、地区差异和收入变化未计入');
     case ToolKind.profitMargin:
       final profit = toolResultNumber(results, '利润');
       final margin = toolResultNumber(results, '毛利率');
@@ -253,24 +264,6 @@ List<String> buildFinanceToolInsights(
         lines.add('含税金额参考值与当前计算相差 ${formatNumber(grossDelta)}元');
       }
       lines.add('这里只按简单税率换算，不区分价内税、价外税、抵扣规则和地区税制');
-    case ToolKind.inflation:
-      final loss = toolResultNumber(results, '购买力损失');
-      final rate = toolResultNumber(results, '年通胀率');
-      final source = toolResultText(results, '输入来源') ?? '';
-      final futureDelta = toolResultNumber(results, '未来等值差值');
-      if (toolResultUnavailable(results, '未来等值')) {
-        lines.add(
-            '当前金额、年通胀率、年数和未来等值至少填写三项；金额不能为负，年通胀率需大于 -100%，年数不能为负，反推通胀率或年数时分母不能为 0');
-      }
-      if (loss != null && loss > 0) lines.add('购买力损失为正，表示同样金额未来实际购买力下降');
-      if (rate != null && rate < 0) lines.add('年通胀率为负，当前相当于按固定通缩率估算');
-      if (source.isNotEmpty && !toolResultUnavailable(results, '输入来源')) {
-        lines.add('当前按 $source 计算，其余输出由 FV=PV×(1+i)^n 换算');
-      }
-      if (futureDelta != null && futureDelta.abs() > 1e-12) {
-        lines.add('未来等值参考值与当前计算相差 ${formatNumber(futureDelta)}元');
-      }
-      lines.add('通胀按固定年率估算，实际价格篮子、地区差异和收入变化未计入');
     default:
       break;
   }

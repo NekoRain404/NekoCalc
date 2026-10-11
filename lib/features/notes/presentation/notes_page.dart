@@ -34,13 +34,13 @@ class NotesPage extends StatefulWidget {
   final int reloadToken;
 
   /// 中文：**把一条工具结果的标签换成当前语言。** 历史行里工具那条载荷是 `标签: 值`，标签是
-  ///       `ToolResultLabelStrings` 的键（键就是中文标签，715 条现成）。**由外壳递进来**，因为
+  ///       `ToolResultLabelStrings` 的键（键就是中文标签，712 条现成）。**由外壳递进来**，因为
   ///       笔记页与工具页互不 import（仓库的既有边界：`features/` 之间不互相依赖，
   ///       `shared/presentation/app_shell.dart` 是唯一同时认得两边的地方）。查不到时实现返回
   ///       原样，所以中文界面下这一格一个字节不动。
   /// English: **renders a tool result's label into the active language.** A tool row's payload is
   ///          `label: value`, and the label is a key of `ToolResultLabelStrings` (the key *is* the
-  ///          Chinese label; 715 of them exist). **It is handed in by the shell**, because the notes
+  ///          Chinese label; 712 of them exist). **It is handed in by the shell**, because the notes
   ///          page and the tools page do not import each other (the repository's existing boundary:
   ///          `features/` do not depend on one another, and `shared/presentation/app_shell.dart` is
   ///          the only place that knows both). A miss returns its argument unchanged, so in the

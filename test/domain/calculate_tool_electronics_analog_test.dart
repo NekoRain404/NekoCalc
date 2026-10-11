@@ -410,4 +410,55 @@ void main() {
     expect(valuesByLabelUnit['50Ω 功率mW'], '无效');
     expect(insights, contains('Vrms、Vpeak、Vpp 不能为负'));
   });
+
+  // 中文：**`dbm` 工具已删、并入本工具**——这一段把那个工具原来的九个数搬到 50Ω dBm 输入这一路，
+  //       断言的是同一批数（mW、μW、W、dBW、Vrms、Vpeak、Vpp、dBV、dBu），外加随它们搬来的
+  //       低功率提示；非有限输入那一组也一并搬来。没有丢一条行为断言，只是换了工具 id。
+  // English: **the `dbm` tool is deleted and merged into this one** — this test moves that tool's nine
+  //          figures onto the 50Ω dBm input path with the same assertions (mW, μW, W, dBW, Vrms,
+  //          Vpeak, Vpp, dBV, dBu) plus the low-power hint that moved with them; the non-finite input
+  //          group comes along too. No behavioural assertion is dropped, only the tool id changed.
+  test('Vrms converter reports the dBm converter rows on the 50 ohm dBm path',
+      () {
+    final definition = tool('rms_peak');
+    final values = <String, double>{'dbm50': 30};
+    final results = calculateTool(definition, values);
+    final valuesByLabel = {
+      for (final result in results) result.label: result.value,
+    };
+    final insights = buildToolInsights(definition, values, results).join('\n');
+
+    expect(valuesByLabel['50Ω 功率'], '1000');
+    expect(valuesByLabel['微瓦'], '1000000');
+    expect(valuesByLabel['瓦特'], '1');
+    expect(valuesByLabel['dBW'], '0');
+    expect(valuesByLabel['Vrms'], startsWith('7.071'));
+    expect(valuesByLabel['Vpeak'], '10');
+    expect(valuesByLabel['Vpp'], '20');
+    expect(valuesByLabel['dBV'], startsWith('16.989'));
+    expect(valuesByLabel['dBu'], startsWith('19.203'));
+    expect(insights, contains('这些换算只适用于纯正弦波'));
+
+    final low = <String, double>{'dbm50': -120};
+    final lowResults = calculateTool(definition, low);
+    final lowByLabel = {
+      for (final result in lowResults) result.label: result.value,
+    };
+    expect(lowByLabel['50Ω 功率'], '1e-12');
+    expect(lowByLabel['微瓦'], '1e-9');
+    expect(buildToolInsights(definition, low, lowResults).join('\n'),
+        contains('低于 -100dBm'));
+
+    final invalid = <String, double>{'dbm50': double.infinity};
+    final invalidResults = calculateTool(definition, invalid);
+    final invalidByLabel = {
+      for (final result in invalidResults) result.label: result.value,
+    };
+    expect(invalidByLabel['50Ω 功率'], '无效');
+    expect(invalidByLabel['瓦特'], '无效');
+    expect(invalidByLabel['Vrms'], '无效');
+    expect(invalidByLabel['dBV'], '无效');
+    expect(buildToolInsights(definition, invalid, invalidResults).join('\n'),
+        contains('50Ω dBm 必须是有限数值'));
+  });
 }

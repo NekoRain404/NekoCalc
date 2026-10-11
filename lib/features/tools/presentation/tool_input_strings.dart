@@ -1,13 +1,15 @@
-/// 中文：**工具目录的输入卡表**——`input.label`（231 条）与 `input.unit`（11 条）的英文。
+/// 中文：**工具目录的输入卡表**——`input.label`（227 条）与 `input.unit`（11 条）的英文。
 ///
 ///       **机制（键是中文本身、中文那一侧没有表、回落是 `?? 键`）与三张表为什么分成三个文件，
 ///       写在 `tool_field_strings.dart` 的文件头上，这里不重抄。** 本文件只有一句自己的话：
 ///       **这两格是"输入卡"这一处表面的两半**——左边那列文字与输入框右侧那个后缀，
 ///       同一行里并排出现，所以放在同一张表、同一个文件里。
 ///
-///       逐条量过的规模：`input.label` 在目录里 **346 处**，其中 **231** 个不同字串带汉字
+///       逐条量过的规模：`input.label` 在目录里 **337 处**（上一轮 341：`proportion` 并进
+///       `scale_ratio`，它那四个参数标签 `a`/`b`/`c`/`x` 随工具删除），其中 **227** 个不同字串带汉字
 ///       （另外 **46** 个是 `a`、`pH`、`ROI`、`Vpp`、`50Ω dBm` 这类本来就是拉丁字母的，
-///       **两种语言逐字节相同，所以一条都不进表**）；`input.unit` **288 处**，
+///       **两种语言逐字节相同，所以一条都不进表**）；`input.unit` **283 处**（上一轮这里写的
+///       284 少算了一条：`dbm` 删除与 `inflation` 合并一共带走 5 条非空单位），
 ///       只有 **11** 个不同值带汉字（`元`、`天`、`年`、`万元`、`元/kWh`…），
 ///       其余 65 个是 `Ω`、`nF`、`m/s²`、`℃/W` 这种记号，同样一条都不进表。
 ///
@@ -29,7 +31,7 @@
 ///       单位那一格在输入框内、可用宽度 **118.9dp**；这 11 条里最宽的英文是 `periods`（56.6dp），
 ///       最宽的中文是 `元/kWh`（56.2dp）——**两种语言在这一格上基本齐平（差 0.4dp）**，
 ///       也都只用掉输入框的一半，所以单位这一侧不存在长度问题。
-/// English: **the tools catalogue's input-card table** — the English of `input.label` (231) and
+/// English: **the tools catalogue's input-card table** — the English of `input.label` (227) and
 ///          `input.unit` (11).
 ///
 ///          **The mechanism (the key is the Chinese itself, there is no Chinese-side table, the
@@ -39,10 +41,12 @@
 ///          text in the left column and the suffix inside the field, side by side on the same row, so
 ///          they share one table and one file.
 ///
-///          Measured: `input.label` occurs **346** times, **231** distinct strings holding a Han
+///          Measured: `input.label` occurs **337** times (341 last round: `proportion` merged into
+///          `scale_ratio`, taking its four input labels `a`/`b`/`c`/`x`), **227** distinct strings holding a Han
 ///          character (the other **46** are `a`, `pH`, `ROI`, `Vpp`, `50Ω dBm` and the like — already
 ///          Latin, **byte-identical in both languages, so not one enters the table**); `input.unit`
-///          occurs **288** times with only **11** distinct Han-bearing values (`元`, `天`, `年`,
+///          occurs **283** times (last round's 284 was one short: the `dbm` deletion and the
+///          `inflation` merge took five non-empty units together) with only **11** distinct Han-bearing values (`元`, `天`, `年`,
 ///          `万元`, `元/kWh`, …), the other 65 distinct values being notation such as `Ω`, `nF`,
 ///          `m/s²`, `℃/W`, which likewise stay out.
 ///
@@ -247,10 +251,6 @@ const Map<String, String> toolInputLabelsEn = {
   '税前金额': 'Net',
   '税率': 'Tax rate',
   '含税金额': 'Gross',
-  '当前金额': 'Current value',
-  '年通胀率': 'Inflation rate',
-  '年数': 'Years',
-  '未来等值': 'Future value',
   '初始投入': 'Initial cost',
   '折现率': 'Discount rate',
   '第1期现金流': 'Cash flow 1',

@@ -67,7 +67,7 @@ String historyResultKindToStorage(HistoryResultKind kind) {
 ///       - 其余 → [HistoryResultKind.opaque]。
 ///
 ///       **"带 `标签: 值`"判据用 `': '`（冒号加空格）**，与写入侧 `'$label: ${result.valueWithUnit}'`
-///       逐字节对齐；工具标签表 715 条键里没有一条含 `': '`（实测），所以显示侧按第一个
+///       逐字节对齐；工具标签表 712 条键里没有一条含 `': '`（实测），所以显示侧按第一个
 ///       `': '` 切开无歧义。文本工具与数据拟合的载荷**不保证**是这个形状，那两个调用点显式写
 ///       [HistoryResultKind.opaque]，不靠这条判据去猜。
 /// English: **the one classification verdict.** Four consumers share it: the migration backfill,
@@ -79,7 +79,7 @@ String historyResultKindToStorage(HistoryResultKind kind) {
 ///          - Anything else → [HistoryResultKind.opaque].
 ///
 ///          **The `label: value` test uses `': '` (colon plus space)**, byte-aligned with the
-///          writing side's `'$label: ${result.valueWithUnit}'`; none of the tool label table's 715
+///          writing side's `'$label: ${result.valueWithUnit}'`; none of the tool label table's 712
 ///          keys contains `': '` (measured), so splitting on the first `': '` on the display side is
 ///          unambiguous. A text tool's or data fit's payload is **not guaranteed** to have that
 ///          shape, so those two call sites write [HistoryResultKind.opaque] explicitly rather than

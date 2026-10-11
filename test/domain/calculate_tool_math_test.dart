@@ -279,64 +279,105 @@ void main() {
     expect(zeroBaseByLabel['百分比结果'], '无效');
   });
 
-  test('proportion tool reverse solves each ratio field', () {
-    final definition = tool('proportion');
-    final values = <String, double>{'a': 2, 'b': 5, 'c': 8, 'x': 21};
+  test('scale ratio tool reverse solves each ratio field after the proportion merge',
+      () {
+    // 中文：这一条是并进来的 `proportion` 工具的延续——四个输入与它逐一同构
+    //       （原比例↔a、原始值↔b、目标比例↔c、缩放后↔x），所以它原本断言的每一格
+    //       都换成缩放这一套标签照旧断言一遍。
+    // English: this continues the merged `proportion` tool — its four inputs are isomorphic to that
+    //          tool's (original ratio ↔ a, original value ↔ b, target ratio ↔ c, scaled ↔ x), so every
+    //          cell it asserted is asserted again under the scaling labels.
+    final definition = tool('scale_ratio');
+    final values = <String, double>{'from': 2, 'value': 5, 'to': 8, 'scaled': 21};
     final results = calculateTool(definition, values);
     final valuesByLabel = {
       for (final result in results) result.label: result.value,
     };
     final insights = buildToolInsights(definition, values, results).join('\n');
 
-    expect(valuesByLabel['x'], '20');
-    expect(valuesByLabel['a'], '2');
-    expect(valuesByLabel['b'], '5');
-    expect(valuesByLabel['c'], '8');
+    expect(valuesByLabel['缩放后'], '20');
+    expect(valuesByLabel['原始值'], '5');
+    expect(valuesByLabel['原比例'], '2');
+    expect(valuesByLabel['目标比例'], '8');
     expect(valuesByLabel['比例'], '2:5 = 8:20');
     expect(valuesByLabel['比例系数'], '2.5');
     expect(valuesByLabel['右侧系数'], '2.5');
     expect(valuesByLabel['交叉乘积差'], '0');
-    expect(valuesByLabel['输入来源'], 'a+b+c，x作参考');
-    expect(valuesByLabel['x差值'], '-1');
-    expect(insights, contains('x 参考值与当前计算相差 -1'));
+    expect(valuesByLabel['输入来源'], '原始值+原比例+目标比例，目标值作参考');
+    expect(valuesByLabel['缩放值差值'], '-1');
+    expect(insights, contains('缩放后参考值与当前计算相差 -1'));
 
-    final aResults = calculateTool(definition, {'b': 5, 'c': 8, 'x': 20});
-    final aByLabel = {
-      for (final result in aResults) result.label: result.value
+    // 中文：三项反推第四项——只给三项的那一支，没有参考值，`缩放值差值` 那一行不该出现。
+    // English: three inputs back-solving the fourth — no reference value in this branch, so the
+    //          `缩放值差值` row must not appear.
+    final scaledResults =
+        calculateTool(definition, {'from': 2, 'value': 5, 'to': 8});
+    final scaledByLabel = {
+      for (final result in scaledResults) result.label: result.value
     };
-    expect(aByLabel['a'], '2');
-    expect(aByLabel['输入来源'], 'b+c+x');
+    expect(scaledByLabel['缩放后'], '20');
+    expect(scaledByLabel['输入来源'], '原始值+原比例+目标比例');
+    expect(scaledByLabel.containsKey('缩放值差值'), isFalse);
 
-    final bResults = calculateTool(definition, {'a': 2, 'c': 8, 'x': 20});
-    final bByLabel = {
-      for (final result in bResults) result.label: result.value
+    final fromResults =
+        calculateTool(definition, {'value': 5, 'to': 8, 'scaled': 20});
+    final fromByLabel = {
+      for (final result in fromResults) result.label: result.value
     };
-    expect(bByLabel['b'], '5');
-    expect(bByLabel['输入来源'], 'a+c+x');
+    expect(fromByLabel['原比例'], '2');
+    expect(fromByLabel['输入来源'], '缩放后+原始值+目标比例');
 
-    final cResults = calculateTool(definition, {'a': 2, 'b': 5, 'x': 20});
-    final cByLabel = {
-      for (final result in cResults) result.label: result.value
+    final valueResults =
+        calculateTool(definition, {'from': 2, 'to': 8, 'scaled': 20});
+    final valueByLabel = {
+      for (final result in valueResults) result.label: result.value
     };
-    expect(cByLabel['c'], '8');
-    expect(cByLabel['输入来源'], 'a+b+x');
+    expect(valueByLabel['原始值'], '5');
+    expect(valueByLabel['输入来源'], '缩放后+原比例+目标比例');
+
+    final toResults =
+        calculateTool(definition, {'from': 2, 'value': 5, 'scaled': 20});
+    final toByLabel = {
+      for (final result in toResults) result.label: result.value
+    };
+    expect(toByLabel['目标比例'], '8');
+    expect(toByLabel['输入来源'], '缩放后+原始值+原比例');
+
+    // 中文：**并进来的工具允许原比例当参考时是 0**（`a=0` 能解出 `c=0`）——这一支照旧成立，
+    //       除不出的三格 `比例系数`/`右侧系数`/`缩放比例` 各自显示无效，整份结果不作废。
+    // English: **the merged tool allowed a 0 source ratio as a reference** (`a=0` solves `c=0`) —
+    //          that branch still holds, and the three cells that cannot divide (`比例系数`,
+    //          `右侧系数`, `缩放比例`) each read invalid rather than discarding the whole result.
+    final zeroRefResults =
+        calculateTool(definition, {'scaled': 20, 'value': 5, 'from': 0});
+    final zeroRefByLabel = {
+      for (final result in zeroRefResults) result.label: result.value
+    };
+    expect(zeroRefByLabel['目标比例'], '0');
+    expect(zeroRefByLabel['比例'], '0:5 = 0:20');
+    expect(zeroRefByLabel['交叉乘积差'], '0');
+    expect(zeroRefByLabel['输入来源'], '缩放后+原始值+原比例');
+    expect(zeroRefByLabel['比例系数'], '无效');
+    expect(zeroRefByLabel['右侧系数'], '无效');
+    expect(zeroRefByLabel['缩放比例'], '无效');
   });
 
-  test('proportion tool rejects missing and zero denominator cases', () {
-    final definition = tool('proportion');
-    final invalidResults = calculateTool(definition, {'a': 2, 'b': 5});
+  test('scale ratio tool rejects missing inputs and zero divisors after the proportion merge',
+      () {
+    final definition = tool('scale_ratio');
+    final invalidResults = calculateTool(definition, {'from': 2, 'value': 5});
     final invalidByLabel = {
       for (final result in invalidResults) result.label: result.value,
     };
     final invalidInsights =
-        buildToolInsights(definition, {'a': 2, 'b': 5}, invalidResults)
+        buildToolInsights(definition, {'from': 2, 'value': 5}, invalidResults)
             .join('\n');
 
-    expect(invalidByLabel['x'], '无效');
+    expect(invalidByLabel['缩放后'], '无效');
     expect(invalidByLabel['输入来源'], '无效');
     expect(invalidInsights, contains('至少填写三项'));
 
-    final zeroResults = calculateTool(definition, {'a': 0, 'b': 5, 'c': 8});
+    final zeroResults = calculateTool(definition, {'from': 0, 'value': 5, 'to': 8});
     expect(zeroResults.first.value, '无效');
   });
 

@@ -22,8 +22,6 @@ List<ToolResult> calculateTool(ToolDefinition tool, Map<String, double> v) {
       return math_tools.exponentialLogResults(v);
     case ToolKind.linearEquation:
       return math_tools.linearEquationResults(v);
-    case ToolKind.proportion:
-      return math_tools.proportionResults(v);
     case ToolKind.combination:
       return math_tools.combinationResults(v);
     case ToolKind.probability:
@@ -48,8 +46,6 @@ List<ToolResult> calculateTool(ToolDefinition tool, Map<String, double> v) {
       return basic_electronics.voltageDividerResults(v);
     case ToolKind.rcFilter:
       return signal.rcFilterResults(v);
-    case ToolKind.dbm:
-      return signal.dbmResults(v);
     case ToolKind.resistorNetwork:
       return basic_electronics.resistorNetworkResults(v);
     case ToolKind.capacitorNetwork:
@@ -134,8 +130,6 @@ List<ToolResult> calculateTool(ToolDefinition tool, Map<String, double> v) {
       return finance.discountResults(v);
     case ToolKind.tax:
       return finance.taxResults(v);
-    case ToolKind.inflation:
-      return finance.inflationResults(v);
     case ToolKind.npv:
       return finance.npvResults(v);
     case ToolKind.length:

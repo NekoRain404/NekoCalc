@@ -1,4 +1,4 @@
-/// 中文：**工具结果卡上那一大格**——`result.label` 的英文，**715 条**。
+/// 中文：**工具结果卡上那一大格**——`result.label` 的英文，**712 条**。
 ///       这是工具子树最后一块中文：名字、分类、外壳、命中提示、描述、参数标签、单位、公式、
 ///       解释都已在表里，剩下的是每个结果行左边那句话。
 ///
@@ -6,35 +6,36 @@
 ///       为什么是手写分表而不是 ARB）：写在 `tool_field_strings.dart` 的文件头上。本文件只写
 ///       **这张表自己的三件事**。
 ///
-///       —— 一、规模：**715 条**，一条都没有可对照的东西 ——
+///       —— 一、规模：**712 条**，一条都没有可对照的东西 ——
+///       （**713 → 712**：`proportion` 并进 `scale_ratio`，它独有的 `x差值` 随工具删除。）
 ///       逐条量过：16 个 `lib/domain/usecases/calculate_tool*.dart` 里
 ///       `ToolResult(...)` / `.number(...)` / `.invalid(...)` 的**第一个位置参数**（标签是位置参数，
 ///       不是具名参数——按 `label:` 去数会数到 **0**，这是这张表最容易被量错的地方）
-///       一共 **1784 处**，其中第一个实参是字符串字面量的 **1774 处**（另外 10 处第一个实参是形参：
+///       一共 **1758 处**，其中第一个实参是字符串字面量的 **1748 处**（另外 10 处第一个实参是形参：
 ///       `tool_definition.dart` 里那 5 处是类型定义与构造函数本身，另 5 处是五个转发函数
 ///       （`_unitResults`、`_rangeResult`、`_resistorPowerRating`、`_complexResult`）的形参）。
-///       **去重后 794 条，其中带汉字的 715 条**。剩下那 79 条整条都是记号（`dBW`、`Wh`、`m³`、
+///       **去重后 786 条，其中带汉字的 712 条**。剩下那 73 条整条都是记号（`dBW`、`Wh`、`m³`、
 ///       `ft²`、`mm²`…），两种语言逐字节相同，**一条都不进表**——
 ///       与兄弟表"没有可翻的东西就不进表"是同一条口径。
-///       **这 715 条在仓库里没有第二份**：两处检索索引里没有 `result.label`
+///       **这 712 条在仓库里没有第二份**：两处检索索引里没有 `result.label`
 ///       （见下面第三条），`calculate_tool*.dart` 里只有中文一份。所以本轮和上一轮一样
 ///       **全部是新写的**，报告里那张逐条对照表是它唯一的复核面。
 ///
 ///       —— 二、为什么是六个文件，缝在哪儿 ——
 ///       判据是这棵子树一直在用的那条（"读者知道该打开哪一个"），**不是 800 行硬线**
-///       （715 条并进一个文件约 790 行，是真会顶到线，但那不是分开的理由）。缝取的是
+///       （712 条并进一个文件约 790 行，是真会顶到线，但那不是分开的理由）。缝取的是
 ///       **结果属于哪个工具分类**，因为这条缝本来就在仓库里：`tool_catalog_math.dart` /
 ///       `_electronics.dart` / `_mechanical.dart` / `_finance.dart` / `_science.dart` 就是这么分的
 ///       （见 `tool_catalog.dart` 的六路展开），而每一个工具分类恰好对应一组计算文件：
-///         · `tool_result_label_strings_math.dart` —— 106 条（`calculate_tool_math*.dart`）
+///         · `tool_result_label_strings_math.dart` —— 110 条（`calculate_tool_math*.dart`）
 ///         · `tool_result_label_strings_electronics.dart` —— 221 条（`_basic_electronics`/`_signal`/`_power`）
 ///         · `tool_result_label_strings_mechanical.dart` —— 137 条（`_mechanical`/`_structure`）
-///         · `tool_result_label_strings_finance.dart` —— 107 条（`_finance`/`_finance_business`/`_finance_growth`）
+///         · `tool_result_label_strings_finance.dart` —— 100 条（`_finance`/`_finance_business`/`_finance_growth`）
 ///         · `tool_result_label_strings_science.dart` —— 124 条（`_physics`/`_physics_matter`/`_physics_waves`/`_lifestyle`）
 ///         · 本文件 —— **19 条两个以上分类都会产出的**（`功率`、`效率`、`截面积`、`输入来源`…）
 ///           外加 `calculate_tool.dart` 里那一条 `文本工具`
 ///       单位换算那一类（`calculate_tool_units.dart`）**一个文件都没有**：它的标签全是 `m`、`kg`、
-///       `kPa` 这种符号，715 条里一条都不属于它。
+///       `kPa` 这种符号，712 条里一条都不属于它。
 ///       **跨分类的 19 条不能留在任何一个分类文件里**——放哪一边，另一边就是错的；所以它们在
 ///       本文件里，理由写在表头上。**六个 map 互不相交是编译器保证的**：下面那个合并用的是
 ///       `const` 展开，Dart 对常量 map 的重复键是**编译期错误**，所以"同一条中文在两张表里各写
@@ -54,7 +55,7 @@
 ///       所以"太长的英文"不是多占一行，而是**直接被省略号吃掉**。格宽从渲染树里读出来：
 ///       360dp 屏上结果卡是两列，格 **110.0dp**，字号 **12**、字距 **0.25**
 ///       （读法与数在 `tool_result_label_lengths_test.dart` 里）。
-///       **判据因此比前几轮更硬：715 条英文一条都不许超过 110dp。** 逐条按
+///       **判据因此比前几轮更硬：712 条英文一条都不许超过 110dp。** 逐条按
 ///       `roboto_regular_advances.dart` 那把尺子量过，**最宽的一条是 `Speed for tgt speed`
 ///       109.1dp**，12 条在 105dp 以上，其余都在 105 以下。
 ///       **中文那一侧一个字没动**：它今天有 6 条本来就超过 110dp（最长的是 `保留从动轮所需主动轮直径`
@@ -85,7 +86,7 @@
 ///       （`resultHealthSummaryForDisplay(resultLabel:)` / `resultIssueSummary(resultLabel:)` 收的
 ///       是一个 `String Function(String label)`）。中文下本表是空的、查不到原样返回，
 ///       所以那一屏的中文**逐字节没有变**。
-/// English: **the result card's biggest cell** — the English of `result.label`, **715 entries**. This is
+/// English: **the result card's biggest cell** — the English of `result.label`, **712 entries**. This is
 ///          the tools subtree's last Chinese block: names, categories, chrome, match hints,
 ///          descriptions, parameter labels, units, formulas and explanations are all in tables; what is
 ///          left is the sentence on the left of every result row.
@@ -95,40 +96,41 @@
 ///          `?? key`, and why these are hand-written tables rather than ARB): it is on
 ///          `tool_field_strings.dart`'s head. This file writes **the three things of its own**.
 ///
-///          — 1. Size: **715 entries**, and not one of them had anything to be promoted from —
+///          — 1. Size: **712 entries**, and not one of them had anything to be promoted from —
+///          (**713 → 712**: `proportion` merged into `scale_ratio`, taking its `x差值` label.)
 ///          Measured: across the 16 `lib/domain/usecases/calculate_tool*.dart` files the **first
 ///          positional argument** of `ToolResult(...)` / `.number(...)` / `.invalid(...)` (the label is
 ///          positional, not named — counting on `label:` counts **0**, the easiest way to mis-measure
-///          this table) occurs **1784** times, of which **1774** pass a string literal (in the other 10
+///          this table) occurs **1758** times, of which **1748** pass a string literal (in the other 10
 ///          the first argument is a parameter: the five in `tool_definition.dart` are the type
 ///          definition and its constructors, the other five are the parameters of the five forwarding
 ///          helpers `_unitResults`, `_rangeResult`, `_resistorPowerRating` and `_complexResult`).
-///          **794 distinct, 715 of them holding a Han character**. The remaining 79 are notation end to
+///          **786 distinct, 712 of them holding a Han character**. The remaining 73 are notation end to
 ///          end (`dBW`, `Wh`, `m³`, `ft²`, `mm²`, …) and are byte-identical in both languages, so **not
 ///          one of them enters the table** —
 ///          the same rule as the siblings' "nothing to translate, nothing in the table".
-///          **These 715 exist in exactly one place in the repository**: `result.label` is in neither
+///          **These 712 exist in exactly one place in the repository**: `result.label` is in neither
 ///          search index (see the third note below) and `calculate_tool*.dart` holds Chinese only. So
 ///          this round, like the last, is **authored in full**, and the entry-by-entry table in the
 ///          report is its only review surface.
 ///
 ///          — 2. Why six files, and where the seam is —
 ///          The criterion is the one this subtree has used all along ("the reader knows which file to
-///          open"), **not the 800-line limit** (all 715 in one file would be about 790 lines and really
+///          open"), **not the 800-line limit** (all 712 in one file would be about 790 lines and really
 ///          would touch the limit, but that is not the reason for splitting). The seam is **which tool
 ///          category the result belongs to**, because that seam already exists in the repository:
 ///          `tool_catalog_math.dart` / `_electronics.dart` / `_mechanical.dart` / `_finance.dart` /
 ///          `_science.dart` split that way (see the six-way spread in `tool_catalog.dart`), and each
 ///          category corresponds to a group of calculator files:
-///            · `tool_result_label_strings_math.dart` — 106 (`calculate_tool_math*.dart`)
+///            · `tool_result_label_strings_math.dart` — 110 (`calculate_tool_math*.dart`)
 ///            · `tool_result_label_strings_electronics.dart` — 221 (`_basic_electronics`/`_signal`/`_power`)
 ///            · `tool_result_label_strings_mechanical.dart` — 137 (`_mechanical`/`_structure`)
-///            · `tool_result_label_strings_finance.dart` — 107 (`_finance`/`_finance_business`/`_finance_growth`)
+///            · `tool_result_label_strings_finance.dart` — 100 (`_finance`/`_finance_business`/`_finance_growth`)
 ///            · `tool_result_label_strings_science.dart` — 124 (`_physics`/`_physics_matter`/`_physics_waves`/`_lifestyle`)
 ///            · this file — **the 19 that two or more categories both produce** (`功率`, `效率`,
 ///              `截面积`, `输入来源`, …) plus the one `文本工具` literal in `calculate_tool.dart`
 ///          The unit-conversion family (`calculate_tool_units.dart`) **gets no file at all**: every one
-///          of its labels is a symbol such as `m`, `kg`, `kPa`, and none of the 715 belongs to it.
+///          of its labels is a symbol such as `m`, `kg`, `kPa`, and none of the 712 belongs to it.
 ///          **Those 19 cross-category entries cannot live in any one category's file** — put them on
 ///          either side and the other side is wrong, so they live here, with the reasoning on the
 ///          table's head. **The six maps being disjoint is guaranteed by the compiler**: the merge
@@ -154,7 +156,7 @@
 ///          read off the render tree: on a 360dp screen the result card is two columns, the cell is
 ///          **110.0dp**, the font size **12** and the letter spacing **0.25** (how they are read, and
 ///          the numbers, are in `tool_result_label_lengths_test.dart`).
-///          **So the rule is harder than the previous rounds': not one of the 715 English labels may
+///          **So the rule is harder than the previous rounds': not one of the 712 English labels may
 ///          exceed 110dp.** Measured entry by entry with the ruler in `roboto_regular_advances.dart`,
 ///          **the widest is `Speed for tgt speed` at 109.1dp**, twelve sit above 105dp and the rest
 ///          below.
@@ -251,8 +253,8 @@ class ToolResultLabelStrings {
       ToolResultLabelStrings(toolResultLabelsAllEn);
 }
 
-/// 中文：合并后的英文表，715 条。顺序只是读的顺序，**六个文件互不相交**（见文件头）。
-/// English: the merged English table, 715 entries. The order is only reading order; **the six files are
+/// 中文：合并后的英文表，712 条。顺序只是读的顺序，**六个文件互不相交**（见文件头）。
+/// English: the merged English table, 712 entries. The order is only reading order; **the six files are
 ///          disjoint** (see the file head).
 const Map<String, String> toolResultLabelsAllEn = {
   ...toolResultLabelsSharedEn,

@@ -113,112 +113,20 @@ List<ToolResult> _invalidPercentageResults() {
   ];
 }
 
-List<ToolResult> proportionResults(Map<String, double> valuesByKey) {
-  final aInput = valuesByKey['a'];
-  final bInput = valuesByKey['b'];
-  final cInput = valuesByKey['c'];
-  final xInput = valuesByKey['x'];
-  final inputCount =
-      [aInput, bInput, cInput, xInput].where((value) => value != null).length;
-  if (inputCount < 3 ||
-      (aInput != null && !aInput.isFinite) ||
-      (bInput != null && !bInput.isFinite) ||
-      (cInput != null && !cInput.isFinite) ||
-      (xInput != null && !xInput.isFinite)) {
-    return _invalidProportionResults();
-  }
-
-  double a;
-  double b;
-  double c;
-  double x;
-  String source;
-  double? xDelta;
-  if (aInput != null && bInput != null && cInput != null) {
-    if (aInput == 0) return _invalidProportionResults();
-    a = aInput;
-    b = bInput;
-    c = cInput;
-    x = b * c / a;
-    xDelta = xInput == null ? null : x - xInput;
-    source = xInput == null ? 'a+b+c' : 'a+b+c，x作参考';
-  } else if (xInput != null && bInput != null && cInput != null) {
-    if (xInput == 0) return _invalidProportionResults();
-    x = xInput;
-    b = bInput;
-    c = cInput;
-    a = b * c / x;
-    source = 'b+c+x';
-  } else if (xInput != null && aInput != null && cInput != null) {
-    if (cInput == 0) return _invalidProportionResults();
-    x = xInput;
-    a = aInput;
-    c = cInput;
-    b = a * x / c;
-    source = 'a+c+x';
-  } else if (xInput != null && aInput != null && bInput != null) {
-    if (bInput == 0) return _invalidProportionResults();
-    x = xInput;
-    a = aInput;
-    b = bInput;
-    c = a * x / b;
-    source = 'a+b+x';
-  } else {
-    return _invalidProportionResults();
-  }
-
-  final leftRatio = a == 0 ? double.nan : b / a;
-  final rightRatio = c == 0 ? double.nan : x / c;
-  return [
-    ToolResult.number('x', x, '', primary: true),
-    ToolResult.number('a', a, ''),
-    ToolResult.number('b', b, ''),
-    ToolResult.number('c', c, ''),
-    // 中文：四个数拼成一句「比例」——错误状态由这四个数决定，不由那句话的措辞决定。
-    // English: Four numbers joined into one "proportion" sentence — those four numbers decide the
-    //          error state, not the wording of the sentence.
-    ToolResult(
-      '比例',
-      '${formatNumber(a)}:${formatNumber(b)} = ${formatNumber(c)}:${formatNumber(x)}',
-      '',
-      hasError: !a.isFinite || !b.isFinite || !c.isFinite || !x.isFinite,
-    ),
-    ToolResult.number('比例系数', leftRatio.isFinite ? leftRatio : null, 'x'),
-    ToolResult.number('交叉乘积差', a * x - b * c, ''),
-    ToolResult.number('右侧系数', rightRatio.isFinite ? rightRatio : null, 'x'),
-    ToolResult('输入来源', source, ''),
-    if (xDelta != null) ToolResult.number('x差值', xDelta, ''),
-  ];
-}
-
-List<ToolResult> _invalidProportionResults() {
-  return const [
-    ToolResult.invalid('x', '', primary: true),
-    ToolResult.invalid('a', ''),
-    ToolResult.invalid('b', ''),
-    ToolResult.invalid('c', ''),
-    ToolResult.invalid('比例', ''),
-    ToolResult.invalid('比例系数', 'x'),
-    ToolResult.invalid('交叉乘积差', ''),
-    ToolResult.invalid('右侧系数', 'x'),
-    ToolResult.invalid('输入来源', ''),
-  ];
-}
-
 List<ToolResult> scaleRatioResults(Map<String, double> valuesByKey) {
   final valueInput = valuesByKey['value'];
   final fromInput = valuesByKey['from'];
   final toInput = valuesByKey['to'];
   final scaledInput = valuesByKey['scaled'];
-  final coreInputCount = [
+  final inputCount = [
     valueInput,
     fromInput,
     toInput,
     scaledInput,
   ].where((value) => value != null).length;
-  if (coreInputCount < 3 ||
+  if (inputCount < 3 ||
       (valueInput != null && !valueInput.isFinite) ||
-      (fromInput != null && (fromInput == 0 || !fromInput.isFinite)) ||
+      (fromInput != null && !fromInput.isFinite) ||
       (toInput != null && !toInput.isFinite) ||
       (scaledInput != null && !scaledInput.isFinite)) {
     return _invalidScaleRatioResults();
@@ -231,6 +139,11 @@ List<ToolResult> scaleRatioResults(Map<String, double> valuesByKey) {
   String source;
   double? scaledDelta;
   if (valueInput != null && fromInput != null && toInput != null) {
+    // 中文：**原比例只在它当除数的这一支里不能为 0**——当参考值时可以是 0，这是并进来的
+    //       `proportion` 工具原本就允许的（`a=0` 能解出 `c=0`）。
+    // English: **the source ratio may be 0 except where it is the divisor** — as a reference it may be
+    //          0, which is what the merged `proportion` tool allowed (`a=0` could solve `c=0`).
+    if (fromInput == 0) return _invalidScaleRatioResults();
     value = valueInput;
     from = fromInput;
     to = toInput;
@@ -250,7 +163,6 @@ List<ToolResult> scaleRatioResults(Map<String, double> valuesByKey) {
     value = valueInput;
     to = toInput;
     from = value * to / scaled;
-    if (from == 0) return _invalidScaleRatioResults();
     source = '缩放后+原始值+目标比例';
   } else if (scaledInput != null && valueInput != null && fromInput != null) {
     if (valueInput == 0) return _invalidScaleRatioResults();
@@ -263,15 +175,39 @@ List<ToolResult> scaleRatioResults(Map<String, double> valuesByKey) {
     return _invalidScaleRatioResults();
   }
 
-  final ratio = to / from;
+  // 中文：三支比例都可能在参考值为 0 时除出无穷或 NaN——按并进来的 `proportion` 工具同一套
+  //       口径，把非有限的那一格置为 `null`（那一格显示为无效），而不是整份结果作废。
+  // English: any of the three ratios can divide by zero when a reference is 0 — the same rule the merged
+  //          `proportion` tool used: the non-finite cell becomes `null` (shown as invalid) rather than
+  //          discarding the whole result.
+  final ratio = from == 0 ? double.nan : to / from;
+  final areaRatio = ratio.isFinite ? math.pow(ratio, 2).toDouble() : double.nan;
+  final volumeRatio = ratio.isFinite ? math.pow(ratio, 3).toDouble() : double.nan;
+  final leftRatio = from == 0 ? double.nan : value / from;
+  final rightRatio = to == 0 ? double.nan : scaled / to;
   return [
     ToolResult.number('缩放后', scaled, '', primary: true),
     ToolResult.number('原始值', value, ''),
     ToolResult.number('原比例', from, ''),
     ToolResult.number('目标比例', to, ''),
-    ToolResult.number('缩放比例', ratio, 'x'),
-    ToolResult.number('面积比例', math.pow(ratio, 2).toDouble(), 'x'),
-    ToolResult.number('体积比例', math.pow(ratio, 3).toDouble(), 'x'),
+    ToolResult.number('缩放比例', ratio.isFinite ? ratio : null, 'x'),
+    ToolResult.number('面积比例', areaRatio.isFinite ? areaRatio : null, 'x'),
+    ToolResult.number('体积比例', volumeRatio.isFinite ? volumeRatio : null, 'x'),
+    // 中文：四个数拼成一句「比例」——错误状态由这四个数决定，不由那句话的措辞决定（与并进来的
+    //       `proportion` 工具同一份输出，只是标签换成了缩放这一套说法）。
+    // English: Four numbers joined into one "ratio" sentence — those four numbers decide the error
+    //          state, not the wording (the merged `proportion` tool produced the same row, under the
+    //          scaling vocabulary).
+    ToolResult(
+      '比例',
+      '${formatNumber(from)}:${formatNumber(value)} = ${formatNumber(to)}:${formatNumber(scaled)}',
+      '',
+      hasError:
+          !from.isFinite || !value.isFinite || !to.isFinite || !scaled.isFinite,
+    ),
+    ToolResult.number('比例系数', leftRatio.isFinite ? leftRatio : null, 'x'),
+    ToolResult.number('交叉乘积差', from * scaled - value * to, ''),
+    ToolResult.number('右侧系数', rightRatio.isFinite ? rightRatio : null, 'x'),
     ToolResult('输入来源', source, ''),
     if (scaledDelta != null) ToolResult.number('缩放值差值', scaledDelta, ''),
   ];
@@ -286,6 +222,10 @@ List<ToolResult> _invalidScaleRatioResults() {
     ToolResult.invalid('缩放比例', 'x'),
     ToolResult.invalid('面积比例', 'x'),
     ToolResult.invalid('体积比例', 'x'),
+    ToolResult.invalid('比例', ''),
+    ToolResult.invalid('比例系数', 'x'),
+    ToolResult.invalid('交叉乘积差', ''),
+    ToolResult.invalid('右侧系数', 'x'),
     ToolResult.invalid('输入来源', ''),
   ];
 }

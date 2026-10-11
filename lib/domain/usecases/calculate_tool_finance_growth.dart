@@ -26,13 +26,19 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
   double rawRate;
   double years;
   double target;
+  // 中文：**倍率在四条反推分支里都要算出来**，购买力那两行要用它（`inflation` 工具并进来之后
+  //       新增的两行：折现值 = 本金 / 倍率、购买力损失 = 本金 − 折现值）。
+  // English: **the multiplier is computed in all four back-solve branches** because the two purchasing
+  //          power rows need it (the rows that came in with the merged `inflation` tool: the present
+  //          value is principal / multiplier and the purchasing-power loss is principal − that).
+  double multiplier;
   String source;
   double? targetDelta;
   if (principalInput != null && rateInput != null && yearsInput != null) {
     principal = principalInput;
     rawRate = rateInput;
     years = yearsInput;
-    final multiplier = math.pow(1 + rawRate / 100, years).toDouble();
+    multiplier = math.pow(1 + rawRate / 100, years).toDouble();
     if (!multiplier.isFinite || multiplier < 0) {
       return _invalidCompoundResults();
     }
@@ -40,7 +46,7 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
     targetDelta = targetInput == null ? null : target - targetInput;
     source = targetInput == null ? '本金+年化收益+年限' : '本金+年化收益+年限，目标终值作参考';
   } else if (targetInput != null && rateInput != null && yearsInput != null) {
-    final multiplier = math.pow(1 + rateInput / 100, yearsInput).toDouble();
+    multiplier = math.pow(1 + rateInput / 100, yearsInput).toDouble();
     if (!multiplier.isFinite || multiplier <= 0) {
       return _invalidCompoundResults();
     }
@@ -58,6 +64,7 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
     principal = principalInput;
     target = targetInput;
     years = yearsInput;
+    multiplier = target / principal;
     rawRate = (math.pow(target / principal, 1 / years).toDouble() - 1) * 100;
     if (rawRate <= -100 || !rawRate.isFinite) {
       return _invalidCompoundResults();
@@ -74,6 +81,7 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
     principal = principalInput;
     target = targetInput;
     rawRate = rateInput;
+    multiplier = target / principal;
     years = math.log(target / principal) / math.log(base);
     if (years < 0 || !years.isFinite) return _invalidCompoundResults();
     source = '本金+目标终值+年化收益';
@@ -83,6 +91,8 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
 
   final gain = target - principal;
   final multiple = principal == 0 ? 0.0 : target / principal;
+  final presentPower =
+      multiplier > 0 && multiplier.isFinite ? principal / multiplier : null;
   return [
     ToolResult.number('终值', target, '元', primary: true),
     ToolResult.number('收益', gain, '元'),
@@ -91,6 +101,9 @@ List<ToolResult> compoundResults(Map<String, double> valuesByKey) {
     ToolResult.number('增长倍数', multiple, 'x'),
     ToolResult.number('年化收益率', rawRate, '%'),
     ToolResult.number('年限', years, '年'),
+    ToolResult.number('购买力折现', presentPower, '元'),
+    ToolResult.number(
+        '购买力损失', presentPower == null ? null : principal - presentPower, '元'),
     ToolResult('输入来源', source, ''),
     if (targetDelta != null) ToolResult.number('终值差值', targetDelta, '元'),
   ];
@@ -105,6 +118,8 @@ List<ToolResult> _invalidCompoundResults() {
     ToolResult.invalid('增长倍数', 'x'),
     ToolResult.invalid('年化收益率', '%'),
     ToolResult.invalid('年限', '年'),
+    ToolResult.invalid('购买力折现', '元'),
+    ToolResult.invalid('购买力损失', '元'),
     ToolResult.invalid('输入来源', ''),
   ];
 }
@@ -249,112 +264,6 @@ List<ToolResult> _invalidTaxResults() {
     ToolResult.invalid('税率', '%'),
     ToolResult.invalid('税负率', '%'),
     ToolResult.invalid('价税合计倍率', 'x'),
-    ToolResult.invalid('输入来源', ''),
-  ];
-}
-
-List<ToolResult> inflationResults(Map<String, double> valuesByKey) {
-  final amountInput = valuesByKey['amount'];
-  final rateInput = valuesByKey['rate'];
-  final yearsInput = valuesByKey['years'];
-  final futureInput = valuesByKey['future'];
-  final coreInputCount = [
-    amountInput,
-    rateInput,
-    yearsInput,
-    futureInput,
-  ].where((value) => value != null).length;
-  if (coreInputCount < 3 ||
-      (amountInput != null && (amountInput < 0 || !amountInput.isFinite)) ||
-      (rateInput != null && (rateInput <= -100 || !rateInput.isFinite)) ||
-      (yearsInput != null && (yearsInput < 0 || !yearsInput.isFinite)) ||
-      (futureInput != null && (futureInput < 0 || !futureInput.isFinite))) {
-    return _invalidInflationResults();
-  }
-
-  double amount;
-  double rawRate;
-  double years;
-  double future;
-  double multiplier;
-  String source;
-  double? futureDelta;
-  if (amountInput != null && rateInput != null && yearsInput != null) {
-    amount = amountInput;
-    rawRate = rateInput;
-    years = yearsInput;
-    multiplier = math.pow(1 + rawRate / 100, years).toDouble();
-    future = amount * multiplier;
-    futureDelta = futureInput == null ? null : future - futureInput;
-    source = futureInput == null ? '当前金额+年通胀率+年数' : '当前金额+年通胀率+年数，未来等值作参考';
-  } else if (futureInput != null && rateInput != null && yearsInput != null) {
-    multiplier = math.pow(1 + rateInput / 100, yearsInput).toDouble();
-    if (multiplier <= 0 || !multiplier.isFinite) {
-      return _invalidInflationResults();
-    }
-    future = futureInput;
-    rawRate = rateInput;
-    years = yearsInput;
-    amount = future / multiplier;
-    source = '未来等值+年通胀率+年数';
-  } else if (amountInput != null && futureInput != null && yearsInput != null) {
-    if (amountInput <= 0 || yearsInput <= 0) {
-      return _invalidInflationResults();
-    }
-    amount = amountInput;
-    future = futureInput;
-    years = yearsInput;
-    multiplier = future / amount;
-    rawRate = (math.pow(future / amount, 1 / years).toDouble() - 1) * 100;
-    if (rawRate <= -100 || !rawRate.isFinite) {
-      return _invalidInflationResults();
-    }
-    source = '当前金额+未来等值+年数';
-  } else if (amountInput != null && futureInput != null && rateInput != null) {
-    if (amountInput <= 0 || futureInput <= 0 || rateInput == 0) {
-      return _invalidInflationResults();
-    }
-    final base = 1 + rateInput / 100;
-    if (base <= 0 || base == 1) return _invalidInflationResults();
-    amount = amountInput;
-    future = futureInput;
-    rawRate = rateInput;
-    multiplier = future / amount;
-    years = math.log(future / amount) / math.log(base);
-    if (years < 0 || !years.isFinite) return _invalidInflationResults();
-    source = '当前金额+未来等值+年通胀率';
-  } else {
-    return _invalidInflationResults();
-  }
-
-  if (!multiplier.isFinite || multiplier <= 0) {
-    return _invalidInflationResults();
-  }
-  final presentPower = amount / multiplier;
-  return [
-    ToolResult.number('未来等值', future, '元', primary: true),
-    ToolResult.number('当前金额', amount, '元'),
-    ToolResult.number('年通胀率', rawRate, '%'),
-    ToolResult.number('年数', years, '年'),
-    ToolResult.number('购买力折现', presentPower, '元'),
-    ToolResult.number('累计涨幅', (multiplier - 1) * 100, '%'),
-    ToolResult.number('购买力损失', amount - presentPower, '元'),
-    ToolResult.number('等值倍率', multiplier, 'x'),
-    ToolResult('输入来源', source, ''),
-    if (futureDelta != null) ToolResult.number('未来等值差值', futureDelta, '元'),
-  ];
-}
-
-List<ToolResult> _invalidInflationResults() {
-  return const [
-    ToolResult.invalid('未来等值', '元', primary: true),
-    ToolResult.invalid('当前金额', '元'),
-    ToolResult.invalid('年通胀率', '%'),
-    ToolResult.invalid('年数', '年'),
-    ToolResult.invalid('购买力折现', '元'),
-    ToolResult.invalid('累计涨幅', '%'),
-    ToolResult.invalid('购买力损失', '元'),
-    ToolResult.invalid('等值倍率', 'x'),
     ToolResult.invalid('输入来源', ''),
   ];
 }

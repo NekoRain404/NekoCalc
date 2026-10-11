@@ -29,7 +29,7 @@ import '../shared/source_scan.dart';
 ///       2) **英文表覆盖所有该翻的标签**：源码里每个**带汉字**的结果标签都有条目，非空、无汉字、
 ///          **没有一条等于它的键**（相等就是没翻）。
 ///       3) **没有死条目**：每个键都必须在源码里真的出现（键是字串，抄错一个字符就会变成一条
-///          永远查不到的条目）；六个分类文件**互不相交**，合并后正好 720 条。
+///          永远查不到的条目）；六个分类文件**互不相交**，合并后正好 712 条。
 ///       4) **数学记号逐字符活着**：中文按 CJK 与全角断开，凡**非 CJK 的连续段**都要在英文里
 ///          原样找得到（尺子是 `test/shared/source_scan.dart` 里那把，不是手写清单）。
 ///       5) **屏幕上真的换了**：详情页的结果卡与主结果框，两种语言各是各的。
@@ -47,7 +47,7 @@ import '../shared/source_scan.dart';
 ///          an entry, none empty, none holding a Han character, and **not one equal to its key**;
 ///          (3) **no dead entries** — every key must really occur in the sources (a one-character typo
 ///          in a key makes an entry that can never be found), the six category files are **disjoint**,
-///          and the merge is exactly 720; (4) **the mathematical notation survives character for
+///          and the merge is exactly 712; (4) **the mathematical notation survives character for
 ///          character** — the Chinese is cut at CJK and full-width boundaries and every **non-CJK run**
 ///          must be found verbatim in the English (the ruler is the one in
 ///          `test/shared/source_scan.dart`, not a hand-written list); (5) **the screen really changed** —
@@ -69,12 +69,47 @@ void main() {
     // English: **both numbers are the proof the walk was not vacuous** — a mis-count is more dangerous
     //          than a wrong assertion.
     expect(sites.fileCount, 17, reason: 'calculate_tool*.dart 一共 17 个文件');
-    expect(sites.siteCount, 1781,
-        reason: '源码里第一个位置参数是字面量的构造处一共 1781 处，少了说明扫描没跑对');
-    expect(sites.allLiterals.length, 799, reason: '去重后全部字面量标签 799 条');
-    expect(sites.labels.length, 720, reason: '去重后带汉字的结果标签一共 720 条');
+    // 中文：**1781 → 1769（删 `dbm` 工具）→ 1754（`inflation` 并进 `compound`）→ 1743
+    //       （`proportion` 并进 `scale_ratio`）**：第一刀里 `dbmResults` 的两支共 18 处构造走了，
+    //       `rmsPeakResults` 为补上它丢不掉的三个数（微瓦、瓦特、dBW）各加了有效/无效两支共 6 处，
+    //       18 − 6 = 12。第二刀里 `inflationResults` 与其无效支共 19 处走了，`compoundResults`
+    //       为保住购买力两格在有效/无效两支各加 2 处，19 − 4 = 15。这一刀里 `proportionResults`
+    //       与其无效支共 19 处走了，`scaleRatioResults` 为保住它全部输出从 17 处长到 25 处
+    //       （有效支 9 → 13、无效支 8 → 12，多出来的都是并进来的四条：比例、比例系数、
+    //       交叉乘积差、右侧系数），19 − 8 = 11。**这不是把门调松**：数的是源码里真实存在的构造处。
+    // English: **1781 → 1769 (the `dbm` deletion) → 1754 (`inflation` merged into `compound`) →
+    //          1743 (`proportion` merged into `scale_ratio`)**: in the first cut `dbmResults`' two
+    //          branches held 18 construction sites and `rmsPeakResults` gained 6 (microwatts, watts and
+    //          dBW in both branches), 18 − 6 = 12. In the second cut `inflationResults` and its invalid
+    //          branch held 19 sites and `compoundResults` gained 4 (the two buying-power rows in both
+    //          branches), 19 − 4 = 15. In this cut `proportionResults` and its invalid branch held 19
+    //          sites and `scaleRatioResults` grew from 17 to 25 to keep every row it produced (valid
+    //          9 → 13, invalid 8 → 12; the four added rows are the merged ones: 比例, 比例系数,
+    //          交叉乘积差, 右侧系数), 19 − 8 = 11. **This is not loosening the gate**: the number is the
+    //          construction sites that really exist.
+    expect(sites.siteCount, 1743,
+        reason: '源码里第一个位置参数是字面量的构造处一共 1743 处，少了说明扫描没跑对');
+    // 中文：**799 → 794（删 `dbm`）→ 787（并 `inflation`）→ 785（并 `proportion`）**：第一刀里
+    //       `dbm` 独有的五条纯记号标签（`50Ω Vrms`、`50Ω Vpeak`、`50Ω Vpp`、`50Ω dBV`、`50Ω dBu`）
+    //       随工具删除；第二刀里走掉的七条（`未来等值`、`当前金额`、`年通胀率`、`年数`、`累计涨幅`、
+    //       `等值倍率`、`未来等值差值`）在别的工具里一处都不剩，而保住的 `购买力折现`、`购买力损失`
+    //       在 `compound` 的有效/无效两支里各出现一次。这一刀里 `proportion` 的十条标签有八条
+    //       在 `scale_ratio` 里活着（换个说法但逐字相同的那几条：比例、比例系数、交叉乘积差、
+    //       右侧系数、输入来源），走掉的两条是 `x差值`（带汉字）与 `x`（纯记号），
+    //       两处在别的工具里都不剩。
+    // English: **799 → 794 (the `dbm` deletion) → 787 (the `inflation` merge) → 785 (the `proportion`
+    //          merge)**: in the first cut the five notation-only labels unique to `dbm` (`50Ω Vrms`,
+    //          `50Ω Vpeak`, `50Ω Vpp`, `50Ω dBV`, `50Ω dBu`) went with the tool; in the second cut the
+    //          seven that left (`未来等值`, `当前金额`, `年通胀率`, `年数`, `累计涨幅`, `等值倍率`,
+    //          `未来等值差值`) occur nowhere else, while the kept `购买力折现` and `购买力损失` each
+    //          occur once in `compound`'s valid branch and once in its invalid branch. In this cut eight
+    //          of `proportion`'s ten labels live on in `scale_ratio` (the byte-identical ones under the
+    //          scaling vocabulary: 比例, 比例系数, 交叉乘积差, 右侧系数, 输入来源); the two that left are
+    //          `x差值` (Han-bearing) and `x` (notation end to end), and neither occurs anywhere else.
+    expect(sites.allLiterals.length, 785, reason: '去重后全部字面量标签 785 条');
+    expect(sites.labels.length, 712, reason: '去重后带汉字的结果标签一共 712 条');
     expect(zh.labels, isEmpty,
-        reason: '中文表必须是空的——键就是屏幕上那句中文，写一份只会多出 720 条"值等于键"的行');
+        reason: '中文表必须是空的——键就是屏幕上那句中文，写一份只会多出 712 条"值等于键"的行');
     for (final label in sites.labels) {
       expect(zh.label(label), label,
           reason: '「$label」在中文下不是原样返回——默认语言的那份必须逐字节不变');
@@ -103,7 +138,7 @@ void main() {
     expect(identical, 0, reason: '有 $identical 条英文与中文一字不差——那些行根本没翻');
   });
 
-  test('没有死条目：每个键都在源码里出现；六个文件互不相交，合并正好 720 条', () {
+  test('没有死条目：每个键都在源码里出现；六个文件互不相交，合并正好 712 条', () {
     // 中文：**"死条目"是这张表最可能的坏法**：键抄错一个字符就永远查不到，而屏幕上看不出来
     //       （回落成中文，与"本来就该是中文"长得一模一样）。
     // English: **a dead entry is the likeliest way for this table to go wrong**: a one-character typo in
@@ -136,16 +171,16 @@ void main() {
         seen[key] = part.key;
       }
     }
-    expect(total, 720, reason: '六个文件合起来应当是 720 条，现在是 $total');
-    expect(en.labels.length, 720, reason: '合并后应当是 720 条，现在是 ${en.labels.length}');
+    expect(total, 712, reason: '六个文件合起来应当是 712 条，现在是 $total');
+    expect(en.labels.length, 712, reason: '合并后应当是 712 条，现在是 ${en.labels.length}');
     // 中文：**六个文件的大小是分类的规模**，写下来是为了让"某次编辑把一半条目搬错文件"当场露出来。
     // English: **the six files' sizes are the categories' sizes**; writing them down makes "an edit moved
     //          half the entries into the wrong file" show up at once.
     expect(toolResultLabelsSharedEn.length, 20);
-    expect(toolResultLabelsMathEn.length, 111);
+    expect(toolResultLabelsMathEn.length, 110);
     expect(toolResultLabelsElectronicsEn.length, 221);
     expect(toolResultLabelsMechanicalEn.length, 137);
-    expect(toolResultLabelsFinanceEn.length, 107);
+    expect(toolResultLabelsFinanceEn.length, 100);
     expect(toolResultLabelsScienceEn.length, 124);
   });
 
@@ -162,12 +197,16 @@ void main() {
         }
       }
     }
-    // 中文：**132 是本轮实测的记号段数**，数的是**不同标签**上的出现处。这把尺子认的是
+    // 中文：**131 是本轮实测的记号段数**，数的是**不同标签**上的出现处。这把尺子认的是
     //       `notationRuns`，改中文时它自己跟着变；下面这个数只做"断言没空转"的证据。
-    // English: **132 is this round's measured run count** over **distinct labels**. The ruler is
+    //       上一轮是 132：`proportion` 并进 `scale_ratio` 之后，`x差值` 这一条纯记号标签
+    //       （它自己就是一段 `x`）随工具删除，别的标签一条没动。
+    // English: **131 is this round's measured run count** over **distinct labels**. The ruler is
     //          `notationRuns`, which follows the Chinese when it changes; the number below only proves
-    //          the loop ran.
-    expect(checked, 132, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
+    //          the loop ran. Last round it was 132: with `proportion` merged into `scale_ratio` the
+    //          notation-only label `x差值` (itself a single `x` run) went with the tool and no other
+    //          label moved.
+    expect(checked, 131, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
     expect(missing, isEmpty,
         reason: '这些记号在英文里没了——记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });
@@ -424,31 +463,28 @@ class _LabelSites {
   const _LabelSites(
       this.labels, this.allLiterals, this.siteCount, this.fileCount);
 
-  /// 中文：去重后**带汉字**的标签，720 条。
-  /// English: the de-duplicated **Han-bearing** labels, 720 of them.
+  /// 中文：去重后**带汉字**的标签，712 条。
+  /// English: the de-duplicated **Han-bearing** labels, 712 of them.
   final Set<String> labels;
 
-  /// 中文：去重后**全部**字面量标签，799 条（含 79 条整条都是记号的）。
-  /// English: every de-duplicated literal label, 799 of them (including the 79 that are notation end to
+  /// 中文：去重后**全部**字面量标签，785 条（含 73 条整条都是记号的）。
+  /// English: every de-duplicated literal label, 785 of them (including the 73 that are notation end to
   /// end).
   final Set<String> allLiterals;
 
-  /// 中文：构造处数，1776（第一个实参是形参的那 10 处不算）。
-  ///       **本轮 1774 → 1776**：结论那一族结果改成走 `ToolResult.conclusion(` 之后，其中两处
-  ///       （`'定义域'` 与 `'解 x'`）是"一支是结论、另一支不是"的形状，两支各算一处，于是多了两处。
-  ///       同一个改动里另有四处（三条回收期与 `'跨度/挠度'`）从 `ToolResult(` 换成了
-  ///       `ToolResult.conclusion(`，**它们照样算一处**——认出它们正是下面那条正则里新加的
-  ///       `conclusion` 那一支；不加的话，这四条的标签会**静默**滑出这道扫描（不报错，
-  ///       只是那 4 个标签从此没人看着了）。
-  /// English: the number of construction sites, 1776 (the 10 whose first argument is a parameter are not
-  ///          counted). **1774 → 1776 this round**: once the conclusion family went through
-  ///          `ToolResult.conclusion(`, two of its sites (`'定义域'` and `'解 x'`) have the shape "one
-  ///          branch is a conclusion, the other is not" and count once per branch, hence two more. Four
-  ///          others in the same change (the three payback periods and `'跨度/挠度'`) moved from
-  ///          `ToolResult(` to `ToolResult.conclusion(` and **still count as one site** — recognising
-  ///          them is exactly the `conclusion` alternative added to the pattern below; without it those
-  ///          four labels would **silently** slip out of this scan (nothing goes red; those four labels
-  ///          simply stop being watched).
+  /// 中文：构造处数，1743（第一个实参是形参的那 10 处不算）。
+  ///       **1754 → 1743**：`proportion` 并进 `scale_ratio`，`proportionResults` 与其无效支共 19 处
+  ///       走了；`scaleRatioResults` 为保住它全部输出从 17 处长到 25 处（多出来的四条：比例、
+  ///       比例系数、交叉乘积差、右侧系数），19 − 8 = 11。
+  ///       （再往前一轮是 1769 → 1754：`inflation` 并进 `compound` 时 `inflationResults` 与其无效支
+  ///       共 19 处走了，`compoundResults` 为保住购买力折现与购买力损失两格加了 4 处。）
+  /// English: the number of construction sites, 1743 (the 10 whose first argument is a parameter are not
+  ///          counted). **1754 → 1743**: `proportion` merged into `scale_ratio`, taking `proportionResults`'
+  ///          and its invalid branch's 19 sites, while `scaleRatioResults` grew from 17 to 25 to keep
+  ///          every row it produced (the four added rows: 比例, 比例系数, 交叉乘积差, 右侧系数),
+  ///          19 − 8 = 11. (The round before was 1769 → 1754: `inflation` merged into `compound`, taking
+  ///          `inflationResults`' and its invalid branch's 19 sites while `compoundResults` gained 4 for
+  ///          the buying-power and buying-power-loss rows.)
   final int siteCount;
 
   /// 中文：扫过的文件数，17（`calculate_tool*.dart` 全族）。
@@ -457,11 +493,11 @@ class _LabelSites {
 }
 
 /// 中文：`ToolResult(` / `.number(` / `.invalid(` / `.conclusion(` 后面第一个字符串字面量。
-///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1786 个构造处里有 1781 个在这里，
+///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1748 个构造处里有 1743 个在这里，
 ///       剩下 5 个是 `tool_definition.dart` 里的类型定义本身，没有标签。
 ///       `[ToolResult.number]` 这种注释里的链接不带 `(`，所以匹配不到；条数断言是这条前提的守卫。
 /// English: the first string literal after `ToolResult(` / `.number(` / `.invalid(` / `.conclusion(`. **Only
-///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1781 of the 1786 sites are there and
+///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1743 of the 1748 sites are there and
 ///          the other 5 are the type definition itself in `tool_definition.dart`, which carries no
 ///          label. A comment link such as `[ToolResult.number]` has no `(` after it and cannot match;
 ///          the site-count assertion is what guards that assumption.

@@ -98,21 +98,6 @@ final List<ToolDefinition> electronicsToolDefinitions = [
         '计算 RC 滤波器截止频率、时间常数、容差范围和常用频带参考点；填写目标截止频率后可反推保留 R 或保留 C 时所需的元件值。',
   ),
   const ToolDefinition(
-    id: 'dbm',
-    title: 'dBm换算',
-    description: 'dBm、功率、50Ω 电压和分贝电压换算',
-    category: ToolCategory.electronics,
-    kind: ToolKind.dbm,
-    group: '信号',
-    featured: true,
-    inputs: [
-      ToolInputDefinition(
-          key: 'dbm', label: '功率', unit: 'dBm', defaultValue: 10)
-    ],
-    formula: 'mW = 10^(dBm / 10)',
-    explanation: '射频功率常用单位换算，并给出 50Ω 正弦匹配系统下的 Vrms、Vpeak、Vpp、dBV 和 dBu。',
-  ),
-  const ToolDefinition(
     id: 'resistor_network',
     title: '电阻串并联',
     description: '两个电阻串联 / 并联等效与电导',

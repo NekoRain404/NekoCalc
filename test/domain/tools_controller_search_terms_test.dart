@@ -400,14 +400,19 @@ void main() {
     final reverseYears = controller.searchTools('反推年数');
     final purchasingPowerChinese = controller.searchTools('购买力折现');
 
-    expect(purchasingPower.first.tool.id, 'inflation');
-    expect(futureValue.first.tool.id, 'inflation');
-    expect(cpi.first.tool.id, 'inflation');
-    expect(costOfLiving.first.tool.id, 'inflation');
-    expect(futureEquivalent.first.tool.id, 'inflation');
-    expect(reverseRate.first.tool.id, 'inflation');
-    expect(reverseYears.first.tool.id, 'inflation');
-    expect(purchasingPowerChinese.first.tool.id, 'inflation');
+    // 中文：**`inflation` 工具已并进 `compound`**：八条查询与八条断言逐字未改，只有期望的 id
+    //       从 `inflation` 换成合并后的 `compound`（别名整套搬过去了，所以中文那几条照样命中）。
+    // English: **the `inflation` tool is merged into `compound`**: the eight queries and eight
+    //          assertions are unchanged word for word; only the expected id moved from `inflation` to
+    //          the merged `compound` (its whole alias set came along, so the Chinese queries still hit).
+    expect(purchasingPower.first.tool.id, 'compound');
+    expect(futureValue.first.tool.id, 'compound');
+    expect(cpi.first.tool.id, 'compound');
+    expect(costOfLiving.first.tool.id, 'compound');
+    expect(futureEquivalent.first.tool.id, 'compound');
+    expect(reverseRate.first.tool.id, 'compound');
+    expect(reverseYears.first.tool.id, 'compound');
+    expect(purchasingPowerChinese.first.tool.id, 'compound');
   });
 
   test('search matches motion distance speed time and pace terms', () {
@@ -539,8 +544,8 @@ void main() {
     expect(drawingScale.first.tool.id, 'scale_ratio');
     expect(
         reverseScale.map((result) => result.tool.id), contains('scale_ratio'));
-    expect(ruleOfThree.first.tool.id, 'proportion');
-    expect(crossMultiplication.first.tool.id, 'proportion');
+    expect(ruleOfThree.first.tool.id, 'scale_ratio');
+    expect(crossMultiplication.first.tool.id, 'scale_ratio');
     expect(atLeastOne.first.tool.id, 'probability');
     expect(neitherEvent.first.tool.id, 'probability');
     expect(inradius.first.tool.id, 'triangle');

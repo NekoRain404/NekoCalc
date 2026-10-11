@@ -100,7 +100,9 @@ void main() {
           .toList();
       expect(offenders, isEmpty,
           reason: '这些标签键含 `: `，按第一个 `: ` 切开会有歧义：\n${offenders.join('\n')}');
-      expect(ToolResultLabelStrings.toolResultLabelsEn.labels.length, 720);
+      expect(ToolResultLabelStrings.toolResultLabelsEn.labels.length, 712,
+          reason: '英文结果标签表应当是 712 条（上一轮 713：`proportion` 并进 `scale_ratio`，'
+              '它独有的 `x差值` 随工具删除）');
     });
 
     test('已知标签在英文下翻译、在中文下原样', () {

@@ -1,4 +1,4 @@
-/// 中文：**结果标签表的财务那一格**——107 条，`calculate_tool_finance.dart`、
+/// 中文：**结果标签表的财务那一格**——100 条，`calculate_tool_finance.dart`、
 ///       `_finance_business.dart`、`_finance_growth.dart` 三个文件产出的结果行标签。机制、规模、
 ///       为什么分六个文件、分割缝与长度判据写在 `tool_result_label_strings.dart` 的文件头上。
 ///
@@ -6,7 +6,7 @@
 ///       `Break-even sales`），`现金流` 缩成 `CF`（`Discounted CF`——`CF` 不是本轮发明的，
 ///       目录里那条 NPV 公式写的就是 `Σ CFt/(1+r)^t`），`倍率/倍数` 缩成 `multiple`。
 ///       符号逐段活着：`ROI`、`+2% NPV`、`-2% NPV`（**连那个 ASCII 减号都在**）。
-/// English: **the finance cell of the result-label table** — 107 entries, the result-row labels produced
+/// English: **the finance cell of the result-label table** — 100 entries, the result-row labels produced
 ///          by `calculate_tool_finance.dart`, `_finance_business.dart` and `_finance_growth.dart`. The
 ///          mechanism, the size, why there are six files, where the seam is and the length rule are on
 ///          `tool_result_label_strings.dart`'s head.
@@ -109,15 +109,8 @@ const Map<String, String> toolResultLabelsFinanceEn = {
   '税负率': 'Tax burden',
   '价税合计倍率': 'Gross multiplier',
   '含税金额差值': 'Gross amount gap',
-  '未来等值': 'Future equivalent',
-  '当前金额': 'Present amount',
-  '年通胀率': 'Inflation rate',
-  '年数': 'Years',
   '购买力折现': 'Buying power',
-  '累计涨幅': 'Cumulative rise',
   '购买力损失': 'Buying power loss',
-  '等值倍率': 'Equiv. multiple',
-  '未来等值差值': 'Future equiv. gap',
   '总现金流': 'Total cash flow',
   '折现现金流': 'Discounted CF',
   '盈利指数': 'Profitability index',

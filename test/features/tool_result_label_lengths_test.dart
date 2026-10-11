@@ -120,7 +120,9 @@ void main() {
   });
 
   test('按字宽尺算：英文一条都不超过格宽；中文那一侧仍是 6 条（一个字没动）', () {
-    expect(en.labels.length, 720, reason: '英文表应当是 720 条');
+    expect(en.labels.length, 712,
+        reason: '英文表应当是 712 条（上一轮 713：`proportion` 并进 `scale_ratio`，'
+            '它独有的 `x差值` 随工具删除）');
     expect(zh.labels, isEmpty, reason: '中文表应当是空的——键就是屏幕上那句中文');
 
     final overEnglish = <String>[];
@@ -188,7 +190,9 @@ void main() {
       if (_truncates(value)) truncatedEnglish.add('$value（${width.toStringAsFixed(1)}dp）');
       if (_truncates(label)) truncatedChinese.add(label);
     }
-    expect(measured, 720, reason: '量到的条数变了：$measured');
+    expect(measured, 712,
+        reason: '量到的条数变了：$measured（上一轮 713：`proportion` 并进 `scale_ratio`，'
+            '它独有的 `x差值` 随工具删除）');
     expect(truncatedEnglish, isEmpty,
         reason: '这些英文标签在 ${_cellWidth}dp 的真字体排版里被截断了：\n'
             '${truncatedEnglish.join('\n')}');
