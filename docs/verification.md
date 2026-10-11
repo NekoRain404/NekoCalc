@@ -905,6 +905,49 @@ candidates if a sweep is ever wanted; the ellipsis is a **pervasive pre-existing
 English copy and reversing it is a decision for the owner. Recorded rather than done, so that the finding is
 not lost and nobody re-derives it.
 
+### 5k. 「小而美」: what was cut, on what evidence, and what was deliberately kept (2026-10-11)
+
+The user asked twice for fewer features (「可以删减一些不必要的功能」, then 「功能太多，要**小而美**」). The
+work was driven by an **audit of the whole catalogue** (122 tools, 8 categories) whose brief was to find
+*redundancy*, not to look busy — and its own conclusion was that **most of the 122 do distinct work: "there is
+no evidence for a broad cull"**. That conclusion is part of the result.
+
+**Cut, in two batches, each with the rule "no capability may become unreachable":**
+
+| batch | what | effect |
+|---|---|---|
+| — | the 702-line dead renderer + its 369-line test, `NekoAppMark`, 3 dead setters, 4 unread getters | **−1285 lines** |
+| one | `dbm` (a **strict subset** of `rms_peak`, which already accepts `dBm50`), `inflation` → `compound`, `proportion` → `scale_ratio` — in each case every number the old tool produced is still reachable, **including the corner cases** | catalogue 122 → 119 |
+| two | **21 unit converters → one card** that opens the **same** `UnitPickerSheet` the `CONV` key opens (`ToolCapabilities.opensUnitSheet` → `tool_navigation.dart` → `AppShell._openUnitSheet` → the calculator page's own `_openUnitSheet()`): one sheet, one behaviour, no second implementation | catalogue 119 → **99** |
+
+⚠️ **`temperature` was kept, and the reason is measured, not stylistic**: °C/°F are *deliberately absent* from
+the unit table (`app_unit_catalog.dart:28` records that `_replaceDegree` means `5 °C` is not "5 degrees
+Celsius" on the app side), and the symbol `'C'` is already taken by **coulomb**
+(`AppUnit('C', '库仑', '电学')`) — so it is the one unit tool `CONV` cannot replace.
+
+**Deliberately NOT cut, each with its reason** — recorded so that a later session does not re-derive this
+audit:
+
+- **`data_fit` (~3.7k lines, the largest single tool) — kept.** It looks like the regression sheet, but they do
+  different jobs: one fits **data the user pastes in**, the other only the **stored dataset**. Removing either
+  loses a real entry point. **Capability beats line count.**
+- **The degenerate special cases** (`dcdc_feedback` = the divider with the input voltage fixed,
+  `cylinder` = pressure × area with the bore fixed, `linear_equation` = the quadratic with `a = 0`,
+  `free_fall` = kinematics with `a = g`) **and the resistor/capacitor/inductor trio** — merging them needs a
+  **`choices` input primitive that does not exist** (`ToolInputDefinition` has no such field; the only input
+  widget is a numeric `TextField`), and a numeric sentinel would **lose unit-tagged input** (`1k`, `0.1u`,
+  `104`). Building a new primitive to remove one or two cards is a poor trade, and each merge also costs a
+  dedicated entry point.
+- **`discount`/`tax`, `checksum`/`fnv_crc`, `url_codec`/`query_params`** — the same marginal arithmetic.
+- **The "textbook" tools** (`screw_lead`, `timer_555`, `pcb_current`, `half_life`, `ph`, `ideal_gas`,
+  `uncertainty`, …) — they do distinct work; whether they are *wanted* is the owner's taste, not something the
+  evidence decides. **Left alone.**
+
+⚠️ Every removal moved **count gates** (catalogue size, label tables, site counts, literal counts, promoted
+names) — each one to the **measured** new value with its derivation recorded in the test, and one stale
+figure that was already wrong at HEAD was **corrected and labelled as such** rather than quietly overwritten.
+**No gate was moved to make a red disappear.**
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
