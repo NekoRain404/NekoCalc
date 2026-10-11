@@ -879,12 +879,14 @@ non-comment CJK:
 |---|---|---|
 | `notes_controller.dart` | the **search-summary labels are done** (they moved to `notes_summary_message.dart` in the fifth slice). What is left is `'未命名笔记'` / `'历史结果'` / `'由计算历史保存，时间 …'` at `:317`, `:435`, `:438` | ⚠️ **not an unconverted screen string** — these are **generated note titles and descriptions written into the database**. Slice five found them, and translating them is a **data-language decision**, not an edge-translation job |
 | `data_backup_repository.dart` | **no non-comment CJK at all** (all 42 CJK lines are comments) — its prose *was* converted | ✅ done |
-| `backup_snapshot_validator.dart` | two real remainders: `emptyBackupReplaceErrorMessage` at `:4` (a Chinese `const`) and the `backupTableLabels` map at `:17-19` (`'calculation_history': '历史'`, `'notes': '笔记'`, `'favorite_tools': '收藏'`) — both are **copy the user sees** | ❌ **still open** |
+| `backup_snapshot_validator.dart` | **converted in the sixth slice (2026-10-11)**: the empty-backup sentence is now a **token** thrown by the validator (`emptyBackupReplaceErrorToken`, resolved at the edge by `backupImportFailureMessage`) and the five table labels moved into `SettingsBackupStrings.backupTableLabels`, looked up by `backupTableLabel(tableName, strings)`; the validator keeps only the **keys** (`backupTableNames`) | ✅ done, except the technical `FormatException` sentences, which are deliberately out of scope |
 
-So **the only genuine remainder in this family is `backup_snapshot_validator.dart`'s two items**; the note
-titles are a decision about **stored data**, and everything else named here has been converted. (This is the
-same distinction slice five drew on its own: a string written *into the database* cannot be localised by a
-screen-level table, because it outlives the screen.)
+So **every screen-copy remainder in this family is now converted**; the note titles are a decision about
+**stored data**, and the `FormatException` family is technical messaging. Two honest consequences of the sixth
+slice: the row-error messages now name a table by its **key** (`notes 第 2 条记录不是有效对象` rather than
+`笔记…`), which is arguably more precise for a corrupt-row diagnostic but **is** a copy change; and the guard's
+source scans were **proved non-vacuous** with a throwaway probe (56 literals scanned in the validator, 14 in
+the repository, none of the moved strings present as literals, token present) before it was deleted.
 
 ### 5j. The same defect twice over: English cells copied from the Chinese ones, punctuation and all (2026-10-11)
 

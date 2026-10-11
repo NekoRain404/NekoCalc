@@ -29,11 +29,7 @@ class BackupImportPlan {
   List<BackupTableCount> get tableCounts {
     return [
       for (final tableName in backupTableNames)
-        BackupTableCount(
-          name: tableName,
-          label: backupTableLabels[tableName] ?? tableName,
-          count: expectedFor(tableName),
-        ),
+        BackupTableCount(name: tableName, count: expectedFor(tableName)),
     ];
   }
 
@@ -42,17 +38,18 @@ class BackupImportPlan {
   // 中文：**`expectedTotalLabel` / `modeLabel` / `totalLabel` / `summary` 从前在这里拼那几句中文**
   //       （直接印在设置页的导入对话框上）。数据对象活得比界面长，界面那张按语言切的表够不着它，
   //       于是英文界面下它照样是中文——`docs/verification.md` §5i 记着这条。现在留下的只有
-  //       **载荷**：`replaceExisting`、`expectedTotal` 与每张表的标签 / 条数，字住在
+  //       **载荷**：`replaceExisting`、`expectedTotal` 与每张表的表名（键）/ 条数，字住在
   //       `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
-  //       （`backupPlanModeLabel` / `backupPlanTotalLabel` / `backupPlanSummary`）。
+  //       （`backupPlanModeLabel` / `backupPlanTotalLabel` / `backupPlanSummary`），表名的标签也在
+  //       那里查（`backupTableLabel`）。
   // English: **`expectedTotalLabel` / `modeLabel` / `totalLabel` / `summary` used to compose those
   //          Chinese sentences right here** (printed straight onto the settings page's import dialog).
   //          A data object outlives the UI and a language-keyed interface table cannot reach it, so an
   //          English interface still printed Chinese — recorded in `docs/verification.md` §5i. What is
-  //          left is **the payload only**: `replaceExisting`, `expectedTotal` and each table's label /
-  //          count; the words live in `SettingsBackupStrings` and are composed at the presentation edge
-  //          by `settings_backup_text.dart` (`backupPlanModeLabel` / `backupPlanTotalLabel` /
-  //          `backupPlanSummary`).
+  //          left is **the payload only**: `replaceExisting`, `expectedTotal` and each table's name (the
+  //          key) / count; the words live in `SettingsBackupStrings` and are composed at the presentation
+  //          edge by `settings_backup_text.dart` (`backupPlanModeLabel` / `backupPlanTotalLabel` /
+  //          `backupPlanSummary`), where `backupTableLabel` looks the labels up as well.
 
   List<BackupImportImpact> get impacts {
     if (replaceExisting) return _replaceImpacts();
@@ -60,26 +57,24 @@ class BackupImportPlan {
   }
 
   List<BackupImportImpact> _replaceImpacts() {
+    // 中文：载荷带的是**表名（键）**，不是标签——标签是词，由呈现层按这个键查
+    //       （`backupTableLabel`，`settings_backup_messages.dart` 那两条按令牌取句子的路径）。
+    // English: the payloads carry the **table name (the key)**, not a label — a label is copy, looked up
+    //          from this key by the presentation layer (`backupTableLabel`, in the two token-keyed paths
+    //          of `settings_backup_messages.dart`).
     final destructiveTables = [
       for (final tableName in backupTableNames)
         if (beforeFor(tableName) > 0 && sourceFor(tableName) == 0)
-          BackupImportImpact.deleteTable(
-            _tableLabel(tableName),
-            beforeFor(tableName),
-          ),
+          BackupImportImpact.deleteTable(tableName, beforeFor(tableName)),
     ];
     final reducedTables = [
       for (final tableName in backupTableNames)
         if (deltaFor(tableName) < 0 && sourceFor(tableName) > 0)
-          BackupImportImpact.reduceTable(
-            _tableLabel(tableName),
-            -deltaFor(tableName),
-          ),
+          BackupImportImpact.reduceTable(tableName, -deltaFor(tableName)),
     ];
     final replacedTables = [
       for (final tableName in backupTableNames)
-        if (sourceFor(tableName) > 0 && beforeFor(tableName) > 0)
-          _tableLabel(tableName),
+        if (sourceFor(tableName) > 0 && beforeFor(tableName) > 0) tableName,
     ];
     return [
       if (source.totalRows == 0) const BackupImportImpact.emptySource(),
@@ -96,16 +91,18 @@ class BackupImportPlan {
   }
 
   List<BackupImportImpact> _mergeImpacts() {
-    // 中文：载荷项（「历史 +3」）在这里拼——表名是内容，`+N` 是记号；整句话、连接符与尾巴由呈现层
-    //       拼（`backupImportImpactMessage`）。这与迁移前的分工一致：这一格本来就是给句子备料的。
-    // English: the payload items ("历史 +3") are composed here — a table name is content and `+N` is
-    //          notation; the sentence, the joining separator and the tail are put together by the
-    //          presentation layer (`backupImportImpactMessage`). That is the same split as before the
-    //          move: this cell always prepared the ingredients for the sentence.
+    // 中文：载荷项在这里备料——**表名（键）与条数**；「历史 +3」这句话里的标签与 `+N` 记号都由呈现层
+    //       拼（`backupImportImpactMessage`），表名是内容、`+N` 是记号。这与迁移前的分工一致：
+    //       这一格本来就是给句子备料的，只是备的料从「标签 + 条数」换成了「键 + 条数」。
+    // English: the payload items are prepared here — **the table name (key) and the count**; the label
+    //          and the `+N` notation of "历史 +3" are both put together by the presentation layer
+    //          (`backupImportImpactMessage`). The split is the same as before the move: this cell always
+    //          prepared ingredients for the sentence, only the ingredients became "key + count" instead
+    //          of "label + count".
     final addedTables = [
       for (final tableName in backupTableNames)
         if (sourceFor(tableName) > 0)
-          '${_tableLabel(tableName)} +${sourceFor(tableName)}',
+          BackupTableCount(name: tableName, count: sourceFor(tableName)),
     ];
     return [
       if (source.totalRows == 0)
@@ -124,13 +121,13 @@ class BackupImportPlan {
   }
 }
 
-/// 中文：表名 → 给人看的标签（`backupTableLabels` 认不出时退回表名本身）。迁移前这条查表散在
-///       四处，是重复的；翻成令牌那几格之后仍要它，且只在这一族里用。
-/// English: table name → human-facing label (falling back to the name itself when
-///          `backupTableLabels` does not know it). Before the move this lookup was repeated in four
-///          places; the token cells still need it, and it is used by this family only.
-String _tableLabel(String tableName) =>
-    backupTableLabels[tableName] ?? tableName;
+/// 中文：**表名 → 标签的查表不在这里**（`_tableLabel` 从前站在这儿）：标签是给人看的词，住在
+///       `SettingsBackupStrings.backupTableLabels` 里，由呈现边缘的 `backupTableLabel(tableName,
+///       strings)` 查（`settings_backup_text.dart`）——本文件只经手表名（键）。
+/// English: **the name → label lookup is not here** (a `_tableLabel` used to stand here): a label is
+///          copy, it lives in `SettingsBackupStrings.backupTableLabels` and is looked up at the
+///          presentation edge by `backupTableLabel(tableName, strings)`
+///          (`settings_backup_text.dart`) — this file only handles table names (keys).
 
 enum BackupImportImpactSeverity { info, warning, danger }
 
@@ -148,9 +145,9 @@ enum BackupImportImpactIcon {
 ///
 ///       十格与 `SettingsStrings` 里的十格一一对应（`backupImpactDeleteTable` …
 ///       `backupImpactMergeKeepsHistoryLimit`），由 `settings_backup_messages.dart` 的
-///       `backupImportImpactMessage(impact, strings)` 那个穷尽 `switch` 接上；表名标签、条数与
-///       上限是**载荷**，留在影响上由呈现层拼进句子（多张表时那个连接符也跟着语言走，
-///       `backupTableListSeparator`）。
+///       `backupImportImpactMessage(impact, strings)` 那个穷尽 `switch` 接上；表名（键）、条数与
+///       上限是**载荷**，留在影响上由呈现层拼进句子——表名的标签由 `backupTableLabel` 在那一刻查，
+///       多张表时那个连接符也跟着语言走（`backupTableListSeparator`）。
 ///
 ///       **这十格从前是在这里拼的句子**（`BackupImportImpact.message`，直接印在设置页导入对话框的
 ///       影响清单里）：这份清单由数据层产出、活到界面之外，界面那张按语言切的文案表够不着它，所以
@@ -170,9 +167,10 @@ enum BackupImportImpactIcon {
 ///          The ten values correspond one for one with ten cells in `SettingsStrings`
 ///          (`backupImpactDeleteTable` … `backupImpactMergeKeepsHistoryLimit`), wired up by the
 ///          exhaustive `switch` in `backupImportImpactMessage(impact, strings)` in
-///          `settings_backup_messages.dart`; the table labels, counts and limits are **payload** and
-///          stay on the impact for the presentation layer to splice in (with several tables, the
-///          joining separator follows the language too — `backupTableListSeparator`).
+///          `settings_backup_messages.dart`; the table names (keys), counts and limits are **payload**
+///          and stay on the impact for the presentation layer to splice in — the labels of those names
+///          are looked up at that moment by `backupTableLabel`, and with several tables the joining
+///          separator follows the language too (`backupTableListSeparator`).
 ///
 ///          **These ten used to be sentences composed right here** (`BackupImportImpact.message`,
 ///          printed straight into the import dialog's impact list on the settings page): the list is
@@ -211,8 +209,9 @@ enum BackupImportImpactKind {
 ///       （见 `settings_backup_messages.dart`），所以留一条公开的无名构造就是留一条
 ///       「令牌说 deleteTable、表名却是 null」的路，同 `CalculatorSubmitResult` 那条理由。
 ///
-///       **`labels` 是载荷项本身**：覆盖恢复那几个表名、或合并时「历史 +3」这样的备料项，
-///       连接符由呈现层按语言拼（`backupTableListSeparator`）。
+///       **载荷带的是表名（键）**：覆盖恢复那几个要覆盖的表名、合并时每张表加入多少条
+///       （`BackupTableCount`：键 + 条数），连接符与「历史 +3」里那个标签、那个 `+N` 记号都由呈现层
+///       拼（`backupTableListSeparator`、`backupTableLabel`）。
 /// English: **one import impact: the verdict plus its payload, with no user-facing sentence.**
 ///
 ///          The unnamed constructor is private, the ten named ones each carry their own payload, and
@@ -222,35 +221,37 @@ enum BackupImportImpactKind {
 ///          the token says `deleteTable` while the table name is null — the same reasoning as
 ///          `CalculatorSubmitResult`.
 ///
-///          **`labels` are payload items themselves**: the table names to be overwritten, or merge
-///          ingredients such as "历史 +3"; the joining separator is put in by the presentation layer,
-///          per language (`backupTableListSeparator`).
+///          **The payload carries table names (keys)**: the names to be overwritten, or how many rows
+///          each table gains on a merge (`BackupTableCount`: key + count). The joining separator, the
+///          label inside "历史 +3" and its `+N` notation are all put together by the presentation layer
+///          (`backupTableListSeparator`, `backupTableLabel`).
 class BackupImportImpact {
   const BackupImportImpact._({
     required this.kind,
     required this.severity,
     required this.icon,
-    this.label,
+    this.tableName,
     this.count,
-    this.labels = const [],
+    this.tableNames = const [],
+    this.additions = const [],
     this.limit,
   });
 
-  const BackupImportImpact.deleteTable(String label, int count)
+  const BackupImportImpact.deleteTable(String tableName, int count)
       : this._(
           kind: BackupImportImpactKind.deleteTable,
           severity: BackupImportImpactSeverity.danger,
           icon: BackupImportImpactIcon.delete,
-          label: label,
+          tableName: tableName,
           count: count,
         );
 
-  const BackupImportImpact.reduceTable(String label, int count)
+  const BackupImportImpact.reduceTable(String tableName, int count)
       : this._(
           kind: BackupImportImpactKind.reduceTable,
           severity: BackupImportImpactSeverity.warning,
           icon: BackupImportImpactIcon.replace,
-          label: label,
+          tableName: tableName,
           count: count,
         );
 
@@ -261,12 +262,12 @@ class BackupImportImpact {
           icon: BackupImportImpactIcon.blocked,
         );
 
-  const BackupImportImpact.overwriteTables(List<String> labels)
+  const BackupImportImpact.overwriteTables(List<String> tableNames)
       : this._(
           kind: BackupImportImpactKind.overwriteTables,
           severity: BackupImportImpactSeverity.warning,
           icon: BackupImportImpactIcon.replace,
-          labels: labels,
+          tableNames: tableNames,
         );
 
   const BackupImportImpact.replaceKeepsIdentical()
@@ -283,12 +284,12 @@ class BackupImportImpact {
           icon: BackupImportImpactIcon.merge,
         );
 
-  const BackupImportImpact.mergeAddsTables(List<String> labels)
+  const BackupImportImpact.mergeAddsTables(List<BackupTableCount> additions)
       : this._(
           kind: BackupImportImpactKind.mergeAddsTables,
           severity: BackupImportImpactSeverity.info,
           icon: BackupImportImpactIcon.merge,
-          labels: labels,
+          additions: additions,
         );
 
   const BackupImportImpact.mergeUpdatesSettings()
@@ -318,14 +319,21 @@ class BackupImportImpact {
   final BackupImportImpactSeverity severity;
   final BackupImportImpactIcon icon;
 
-  /// 中文：`deleteTable` / `reduceTable` 的载荷：表名标签与条数。
-  /// English: the payload of `deleteTable` / `reduceTable`: the table label and the count.
-  final String? label;
+  /// 中文：`deleteTable` / `reduceTable` 的载荷：表名（键）与条数。标签是词，由呈现层按这个键查
+  ///       （`backupTableLabel`）。
+  /// English: the payload of `deleteTable` / `reduceTable`: the table name (the key) and the count. The
+  ///          label is copy, looked up from this key at the presentation edge (`backupTableLabel`).
+  final String? tableName;
   final int? count;
 
-  /// 中文：`overwriteTables` / `mergeAddsTables` 的载荷：要连接起来的那些项。
-  /// English: the payload of `overwriteTables` / `mergeAddsTables`: the items to join.
-  final List<String> labels;
+  /// 中文：`overwriteTables` 的载荷：要连接起来的那些表名（键）。
+  /// English: the payload of `overwriteTables`: the table names (keys) to join.
+  final List<String> tableNames;
+
+  /// 中文：`mergeAddsTables` 的载荷：每张表加入多少条（键 + 条数）；标签与 `+N` 记号由呈现层拼。
+  /// English: the payload of `mergeAddsTables`: how many rows each table gains (key + count); the label
+  ///          and the `+N` notation are put together by the presentation layer.
+  final List<BackupTableCount> additions;
 
   /// 中文：两个「上限」格的载荷：合并后每张表保留多少条（`AppDatabase` 的两个常量）。
   /// English: the payload of the two "limit" cells: how many rows per table survive a merge (the two
@@ -370,7 +378,6 @@ class BackupImportReport {
       for (final tableName in backupTableNames)
         BackupImportTableReport(
           name: tableName,
-          label: backupTableLabels[tableName] ?? tableName,
           source: sourceFor(tableName),
           before: beforeFor(tableName),
           after: afterFor(tableName),
@@ -383,21 +390,22 @@ class BackupImportReport {
   // 中文：**`modeLabel` / `resultLabel` / `summary` 从前在这里拼那几句中文**（直接印在导入结果的
   //       `SnackBar` 与详情里）。理由同 `BackupImportPlan`：数据对象活得比界面长。现在留下的只有
   //       **载荷**——`replaceExisting`、`source` / `before` / `after` 三份预览与 `tableReports`
-  //       的读数，字住在 `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
+  //       的读数（每行带表名键，标签由呈现层查），字住在 `SettingsBackupStrings` 里，由
+  //       `settings_backup_text.dart` 在呈现边缘拼
   //       （`backupReportModeLabel` / `backupReportResultLabel` / `backupReportSummary`）。
   // English: **`modeLabel` / `resultLabel` / `summary` used to compose those Chinese sentences right
   //          here** (printed straight into the import result's `SnackBar` and detail). The reason is
   //          the same as `BackupImportPlan`'s: a data object outlives the UI. What is left is **the
   //          payload only** — `replaceExisting`, the three previews `source` / `before` / `after` and
-  //          the readings of `tableReports`; the words live in `SettingsBackupStrings` and are composed
-  //          at the presentation edge by `settings_backup_text.dart` (`backupReportModeLabel` /
+  //          the readings of `tableReports` (each row carries the table key; the label is looked up at
+  //          the edge); the words live in `SettingsBackupStrings` and are composed at the presentation
+  //          edge by `settings_backup_text.dart` (`backupReportModeLabel` /
   //          `backupReportResultLabel` / `backupReportSummary`).
 }
 
 class BackupImportTableReport {
   const BackupImportTableReport({
     required this.name,
-    required this.label,
     required this.source,
     required this.before,
     required this.after,
@@ -405,8 +413,10 @@ class BackupImportTableReport {
     required this.skipped,
   });
 
+  /// 中文：表名（键）；标签由呈现层查（`backupTableLabel`）。
+  /// English: the table name (the key); the label is looked up at the presentation edge
+  ///          (`backupTableLabel`).
   final String name;
-  final String label;
   final int source;
   final int before;
   final int after;

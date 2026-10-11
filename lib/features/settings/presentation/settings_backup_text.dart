@@ -19,10 +19,12 @@ import 'settings_backup_strings.dart';
 ///       `settings_backup_messages.dart` 里那两条**是同一套分工**：那条文件按**令牌**取口语句，
 ///       这一条把**数字与表名**拼进模板——两处都读同一张表 [SettingsBackupStrings]。
 ///
-///       **数字与表名是载荷，句子形状是这里的事**：表名标签（`backupTableLabels` 的结果）与各种
-///       条数留在对象上，连接符（`backupSummarySeparator`）、括号与「跳过」那根尾巴都按语言在这里
-///       拼上去。`_formatDelta`（`+N` / `N`）也从数据层搬来这里——它是记号，与语言无关，但和句子
-///       拼在一起，留在产出方就还会有人想在那里拼整句。
+///       **表名是键、标签是词**：对象上留的是**表名**（`backupTableNames` 那一批，数据），标签住在
+///       [SettingsBackupStrings.backupTableLabels] 里，由 [backupTableLabel] 在**这一刻**查（认不出
+///       回落到表名本身，与迁移前 `backupTableLabels[tableName] ?? tableName` 同一次查表）。数字、
+///       连接符（`backupSummarySeparator`）、括号与「跳过」那根尾巴也都在这里按语言拼。
+///       `_formatDelta`（`+N` / `N`）也从数据层搬来这里——它是记号，与语言无关，但和句子拼在一起，
+///       留在产出方就还会有人想在那里拼整句。
 ///
 ///       **中文逐字节与迁移前相同**：模板、连接符、括号与尾巴都是原来那几行 `return` 的抄本，
 ///       旧文案对照表（`settings_backup_text_test.dart`）钉着它们。
@@ -46,16 +48,31 @@ import 'settings_backup_strings.dart';
 ///          whole sentences by **token**, this one splices **numbers and table names** into templates —
 ///          both read the same table, [SettingsBackupStrings].
 ///
-///          **The numbers and table names are payload, the sentence's shape is this file's business**:
-///          the table labels (what `backupTableLabels` yields) and the various counts stay on the
-///          objects, and the separator (`backupSummarySeparator`), the brackets and the "skipped" tail
-///          are put together here, per language. `_formatDelta` (`+N` / `N`) moved here from the data
-///          layer too — it is notation and language-independent, but it sits inside the sentence, and
-///          leaving it in the producer would still tempt somebody to build the whole sentence there.
+///          **The numbers and the table keys are payload, the sentence's shape is this file's business**:
+///          the objects carry the **table name** (the `backupTableNames` batch, data) while the labels
+///          live in [SettingsBackupStrings.backupTableLabels] and are looked up **at this moment** by
+///          [backupTableLabel] (falling back to the name itself, the same
+///          `backupTableLabels[tableName] ?? tableName` lookup as before the move); the counts, the
+///          separator (`backupSummarySeparator`), the brackets and the "skipped" tail are put together
+///          here, per language. `_formatDelta` (`+N` / `N`) moved here from the data layer too — it is
+///          notation and language-independent, but it sits inside the sentence, and leaving it in the
+///          producer would still tempt somebody to build the whole sentence there.
 ///
 ///          **The Chinese is byte-identical to what it was**: the templates, separator, brackets and
 ///          tails are copies of those `return` lines, pinned by the legacy tables in
 ///          `settings_backup_text_test.dart`.
+
+/// 中文：**表名（键）→ 标签**——查 [SettingsBackupStrings.backupTableLabels]，认不出回落到表名本身。
+///       键是数据（`backupTableNames`，住在校验器里），词在文案表里；这一次查表从前在校验器的
+///       `backupTableLabels` 与数据层的 `_tableLabel` 各有一份，本轮都搬到这条呈现边缘上。
+/// English: **the table name (key) → label** — looks it up in
+///          [SettingsBackupStrings.backupTableLabels], falling back to the name itself when it is not
+///          recognised. The key is data (`backupTableNames`, kept in the validator) and the words live
+///          in the copy table; this lookup used to exist twice, in the validator's `backupTableLabels`
+///          and in the data layer's `_tableLabel`, and both moved to this presentation edge.
+String backupTableLabel(String tableName, SettingsBackupStrings strings) {
+  return strings.backupTableLabels[tableName] ?? tableName;
+}
 
 /// 中文：**一份备份预览里那张表清单的一句话**（`'历史 3 · 笔记 2 · …'`）。
 /// English: **one sentence listing a backup preview's tables** (`'历史 3 · 笔记 2 · …'`).
@@ -64,7 +81,8 @@ String backupPreviewTableSummary(
   SettingsBackupStrings strings,
 ) {
   return preview.tableCounts
-      .map((item) => strings.backupSummaryItem(item.label, item.count))
+      .map((item) =>
+          strings.backupSummaryItem(backupTableLabel(item.name, strings), item.count))
       .join(strings.backupSummarySeparator);
 }
 
@@ -98,7 +116,7 @@ String backupPlanSummary(
 ) {
   return plan.tableCounts
       .map((item) => strings.backupPlanSummaryItem(
-            item.label,
+            backupTableLabel(item.name, strings),
             item.count,
             _formatDelta(plan.deltaFor(item.name)),
           ))
@@ -152,7 +170,7 @@ String backupReportSummary(
 ) {
   return report.tableReports
       .map((item) => strings.backupReportSummaryItem(
-            item.label,
+            backupTableLabel(item.name, strings),
             item.after,
             _formatDelta(item.delta),
             item.skipped > 0

@@ -43,12 +43,14 @@ class _BackupImportPrompt extends StatelessWidget {
           _BackupPlanBlock(
             plan: replacePlan,
             // 中文：这句与 `BackupImportImpact.emptySource` 那格**同一句话**（校验器里那个
-            //       `emptyBackupReplaceErrorMessage` 常量仍用于被拒绝的导入异常）——所以这里也走
-            //       表，英文界面下才不是中文。
+            //       `emptyBackupReplaceErrorMessage` 常量本轮已取消，改抛一枚令牌
+            //       `emptyBackupReplaceErrorToken`，被拒绝导入的失败详情由
+            //       `backupImportFailureMessage` 取同一格）——所以这里也走表，英文界面下才不是中文。
             // English: this is **the same sentence** as the `BackupImportImpact.emptySource` cell (the
-            //          validator's `emptyBackupReplaceErrorMessage` constant is still used for the
-            //          rejected-import exception) — so this site reads the table too, or an English
-            //          interface would print Chinese here.
+            //          validator's `emptyBackupReplaceErrorMessage` constant is gone this round, replaced
+            //          by the token `emptyBackupReplaceErrorToken`, and the rejected import's failure
+            //          detail fetches the same cell through `backupImportFailureMessage`) — so this site
+            //          reads the table too, or an English interface would print Chinese here.
             blockedMessage:
                 replacePlan.source.totalRows == 0 ? bs.backupImpactEmptySource : null,
           ),
@@ -227,7 +229,10 @@ class _BackupPlanBlock extends StatelessWidget {
           const SizedBox(height: 8),
           for (final item in plan.tableCounts) ...[
             _BackupPlanRow(
-              label: item.label,
+              // 中文：行首那格印的是标签，由呈现边缘按表名（键）查（`backupTableLabel`）。
+              // English: the leading cell prints the label, looked up from the table name (key) at the
+              //          presentation edge (`backupTableLabel`).
+              label: backupTableLabel(item.name, bs),
               before: plan.beforeFor(item.name),
               source: plan.sourceFor(item.name),
               expected: plan.expectedFor(item.name),

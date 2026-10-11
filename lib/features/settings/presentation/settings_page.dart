@@ -729,7 +729,14 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (mounted) {
         _showInfo(
-            SettingsStrings.of(context).importFailedTitle, error.toString());
+          SettingsStrings.of(context).importFailedTitle,
+          // 中文：失败详情由呈现边缘取（`settings_backup_messages.dart`）——被拒绝的覆盖恢复印的是
+          //       文案表里那句话，其余异常仍是技术串。
+          // English: the failure detail is read at the presentation edge
+          //          (`settings_backup_messages.dart`) — a rejected replace prints the copy table's
+          //          sentence, every other exception stays a technical string.
+          backupImportFailureMessage(error, SettingsBackupStrings.of(context)),
+        );
       }
     } finally {
       if (mounted) setState(() => _backupBusy = false);
@@ -742,7 +749,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final deltas = [
       for (final item in report.tableReports)
         s.reportTableRow(
-          item.label,
+          // 中文：行首那格是标签，按表名（键）在呈现边缘查（`backupTableLabel`）。
+          // English: the leading cell is the label, looked up from the table name (key) at the
+          //          presentation edge (`backupTableLabel`).
+          backupTableLabel(item.name, bs),
           item.source,
           item.before,
           item.after,

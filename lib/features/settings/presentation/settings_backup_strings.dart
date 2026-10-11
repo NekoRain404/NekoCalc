@@ -11,19 +11,23 @@ import '../../../l10n/app_language.dart';
 ///       两张表同属设置页（`settings_page.dart` 与它的 part `settings_backup_widgets.dart` 各取所
 ///       需），取表的语言都是屏幕的语言。
 ///
-///       **本表装两批东西，来历不同**：
+///       **本表装三批东西，来历不同**：
 ///       1. **警告与影响那一族**（`backupWarning*` / `backupAge*` / `backupImpact*` /
 ///          `backupTableListSeparator`）——第三、四刀从 `BackupPreviewWarning.message` 与
 ///          `BackupImportImpact.message` 搬来，由 `settings_backup_messages.dart` 按令牌取。
 ///       2. **第四刀这一批残余**——`BackupPreview.summary` / `totalLabel`、`BackupImportPlan` 与
-///          `BackupImportReport` 的模式 / 总数 / 摘要、`BackupExportResult.successMessage` / `detail`，
-///          以及 `emptyBackupReplaceErrorMessage` 那句话。句子怎么拼（连接符、括号、尾巴）由
-///          呈现边缘做，词在这里。
+///          `BackupImportReport` 的模式 / 总数 / 摘要、`BackupExportResult.successMessage` / `detail`。
+///          句子怎么拼（连接符、括号、尾巴）由呈现边缘做，词在这里。
+///       3. **第六刀这一批**：`backupTableLabels`（表名 → 标签）从校验器那张同名表搬来——键是
+///          `backupTableNames` 那一批、是数据，仍留在校验器里；标签是给人看的词，住在这里，由
+///          `settings_backup_text.dart` 的 `backupTableLabel(name, strings)` 在呈现边缘查。校验器里
+///          那个 `emptyBackupReplaceErrorMessage` 常量（「空备份不能用于覆盖恢复…」）本轮取消，
+///          只留一枚令牌 `emptyBackupReplaceErrorToken`：那句话本来就只有这里这一格（
+///          `backupImpactEmptySource`），被拒导入的失败详情由 `settings_backup_messages.dart` 的
+///          `backupImportFailureMessage(error, strings)` 按令牌取同一格。
 ///
-///       **没进来的两样**（有意留下，见 `docs/verification.md` §5i）：
-///       `backupTableLabels` 里的表名标签是**内容**（它们作为载荷拼进句子，今天仍是中文，与笔记
-///       标题同一类：那是数据语言的决定，不是屏幕文案）；校验器里那批 `FormatException` 的正文是
-///       **异常的技术串**（与 `NotesController.error` 同一类，只在导入失败的诊断详情里
+///       **没进来的一样**（有意留下，见 `docs/verification.md` §5i）：校验器里那批 `FormatException`
+///       的正文是**异常的技术串**（与 `NotesController.error` 同一类，只在导入失败的诊断详情里
 ///       `error.toString()` 露一次面），要逐条翻得先给它们一套异常分类，那是另一件事。
 /// English: **the copy table for the backup family** — every sentence the settings page's
 ///          "Data" section and the import / export / report dialogs it opens need. The mechanism
@@ -38,23 +42,30 @@ import '../../../l10n/app_language.dart';
 ///          `settings_backup_widgets.dart` each take what they need), and both take their language from
 ///          the screen.
 ///
-///          **This table holds two batches of different origin**:
+///          **This table holds three batches of different origin**:
 ///          1. **The warnings and impacts family** (`backupWarning*` / `backupAge*` / `backupImpact*` /
 ///             `backupTableListSeparator`) — moved by the third and fourth slices out of
 ///             `BackupPreviewWarning.message` and `BackupImportImpact.message`, read by token in
 ///             `settings_backup_messages.dart`.
-///          2. **This round's residuals** — `BackupPreview.summary` / `totalLabel`, the mode / total /
-///             summary of `BackupImportPlan` and `BackupImportReport`, `BackupExportResult.successMessage`
-///             / `detail`, and the `emptyBackupReplaceErrorMessage` sentence. How a sentence is put
-///             together (separators, brackets, tails) is the presentation edge's business; the words are
-///             here.
+///          2. **The fourth slice's residuals** — `BackupPreview.summary` / `totalLabel`, the mode /
+///             total / summary of `BackupImportPlan` and `BackupImportReport`, `BackupExportResult.successMessage`
+///             / `detail`. How a sentence is put together (separators, brackets, tails) is the
+///             presentation edge's business; the words are here.
+///          3. **The sixth slice's batch**: `backupTableLabels` (table name → label) moved here from the
+///             validator's map of the same name — the keys are the `backupTableNames` batch, which is
+///             data and stays in the validator; the labels are copy and live here, looked up at the
+///             presentation edge by `backupTableLabel(name, strings)` in `settings_backup_text.dart`.
+///             The validator's `emptyBackupReplaceErrorMessage` constant ("an empty backup cannot be
+///             used for replace…") is gone this round, leaving a token
+///             `emptyBackupReplaceErrorToken`: that sentence only ever had one home here
+///             (`backupImpactEmptySource`), and the failure detail of a rejected import fetches the
+///             same cell by token through `backupImportFailureMessage(error, strings)` in
+///             `settings_backup_messages.dart`.
 ///
-///          **Two things deliberately absent** (see `docs/verification.md` §5i): the table-name labels in
-///          `backupTableLabels` are **content** (they splice into sentences as payload and are Chinese
-///          today, the same category as a note title — a data-language decision, not screen copy); the
-///          validator's `FormatException` bodies are **an exception's technical string** (the same
-///          category as `NotesController.error`, surfacing only once as `error.toString()` in the import
-///          failure's diagnostic detail), and translating them one by one would first need a taxonomy of
+///          **One thing deliberately absent** (see `docs/verification.md` §5i): the validator's
+///          `FormatException` bodies are **an exception's technical string** (the same category as
+///          `NotesController.error`, surfacing only once as `error.toString()` in the import failure's
+///          diagnostic detail), and translating them one by one would first need a taxonomy of
 ///          exceptions — a different job.
 @immutable
 class SettingsBackupStrings {
@@ -101,6 +112,8 @@ class SettingsBackupStrings {
     required this.backupImpactMergeKeepsRecentLimit,
     required this.backupImpactMergeKeepsHistoryLimit,
     required this.backupTableListSeparator,
+    // —— 表名标签：键（数据）在校验器里，词在这里 ——
+    required this.backupTableLabels,
   });
 
   // —— 预览 / 计划 / 报告 / 导出 ——
@@ -176,6 +189,17 @@ class SettingsBackupStrings {
   final String Function(int count) backupImpactMergeKeepsHistoryLimit;
   final String backupTableListSeparator;
 
+  /// 中文：**表名（键）→ 给人看的标签**——键是 `backupTableNames` 那一批（数据，留在校验器里），
+  ///       标签是词，住在这里；由 `settings_backup_text.dart` 的 `backupTableLabel(tableName, strings)`
+  ///       在呈现边缘查，认不出回落到表名本身（与迁移前 `backupTableLabels[tableName] ?? tableName`
+  ///       同一次查表）。
+  /// English: **table name (the key) → the human-facing label** — the keys are the `backupTableNames`
+  ///          batch (data, kept in the validator), the labels are words and live here; looked up at the
+  ///          presentation edge by `backupTableLabel(tableName, strings)` in
+  ///          `settings_backup_text.dart`, falling back to the name itself (the same
+  ///          `backupTableLabels[tableName] ?? tableName` lookup as before the move).
+  final Map<String, String> backupTableLabels;
+
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
   /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
@@ -238,6 +262,13 @@ class SettingsBackupStrings {
     backupImpactMergeKeepsRecentLimit: (count) => '最近工具只保留最新 $count 条',
     backupImpactMergeKeepsHistoryLimit: (count) => '历史记录合并后仍会保留最近 $count 条',
     backupTableListSeparator: '、',
+    backupTableLabels: const {
+      'calculation_history': '历史',
+      'notes': '笔记',
+      'favorite_tools': '收藏',
+      'recent_tools': '最近工具',
+      'app_settings': '设置',
+    },
   );
 
   static final SettingsBackupStrings backupEn = SettingsBackupStrings(
@@ -298,5 +329,12 @@ class SettingsBackupStrings {
     backupImpactMergeKeepsHistoryLimit: (count) =>
         'History keeps only the newest $count after merging',
     backupTableListSeparator: ', ',
+    backupTableLabels: const {
+      'calculation_history': 'History',
+      'notes': 'Notes',
+      'favorite_tools': 'Favorites',
+      'recent_tools': 'Recently used',
+      'app_settings': 'Settings',
+    },
   );
 }

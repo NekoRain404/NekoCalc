@@ -70,7 +70,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text(emptyBackupReplaceErrorMessage), findsWidgets);
+    // 中文：屏幕上那句仍是原话——这一轮起它从文案表 `backupImpactEmptySource` 取（阻止提示与失败详情
+    //       同一格），中文逐字节未变。
+    // English: the sentence on screen is still the very same one — since this round it is fetched from
+    //          the copy table's `backupImpactEmptySource` (the same cell as the failure detail's), and
+    //          the Chinese is byte-identical.
+    expect(
+        find.text('空备份不能用于覆盖恢复，请改用合并导入或选择包含记录的备份。'),
+        findsWidgets);
     final replaceButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '覆盖恢复'),
     );

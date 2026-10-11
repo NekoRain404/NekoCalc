@@ -1,7 +1,20 @@
 import 'dart:convert';
 
 const backupSchemaVersion = 1;
-const emptyBackupReplaceErrorMessage = '空备份不能用于覆盖恢复，请改用合并导入或选择包含记录的备份。';
+
+/// 中文：**空备份被拒绝用于覆盖恢复时，异常里带的那枚令牌**——它不是给人看的句子。用户读到的那句话
+///       住在 `SettingsBackupStrings.backupImpactEmptySource` 里（与导入对话框那条阻止提示同一格），
+///       由呈现边缘的 `settings_backup_messages.dart` 按这枚令牌取（`backupImportFailureMessage`）。
+///       这里从前立着 `emptyBackupReplaceErrorMessage` 那个中文常量：领域层活得比界面长，界面那张
+///       按语言切的表够不着它，英文界面下失败详情印的仍是中文——`docs/verification.md` §5i 记着这条。
+/// English: **the token the rejection of an empty backup carries in its exception** — not a sentence for
+///          a user. What the user reads lives in `SettingsBackupStrings.backupImpactEmptySource` (the
+///          same cell as the import dialog's blocking notice) and is fetched at the presentation edge by
+///          `settings_backup_messages.dart` (`backupImportFailureMessage`). A Chinese
+///          `emptyBackupReplaceErrorMessage` constant used to stand here: a domain layer outlives the UI
+///          and a language-keyed interface table cannot reach it, so an English interface still printed
+///          Chinese in the failure detail — the layering defect recorded in `docs/verification.md` §5i.
+const emptyBackupReplaceErrorToken = 'empty_backup_replace';
 
 // 中文：导入前必须确认所有业务表都存在，避免坏备份把本地数据清空。
 // English: Validate every business table before import so a damaged backup cannot wipe local data.
@@ -13,23 +26,24 @@ const backupTableNames = [
   'app_settings',
 ];
 
-const backupTableLabels = {
-  'calculation_history': '历史',
-  'notes': '笔记',
-  'favorite_tools': '收藏',
-  'recent_tools': '最近工具',
-  'app_settings': '设置',
-};
+// 中文：**表名 → 标签的表不在这里。** 标签是给人看的词，住在 `SettingsBackupStrings.backupTableLabels`
+//       里，由 `settings_backup_text.dart` 的 `backupTableLabel(tableName, strings)` 在呈现边缘查
+//       （认不出回落到表名本身）。留在这里的只有**键**——那是数据。
+// English: **the name → label map is not here.** A label is copy: it lives in
+//          `SettingsBackupStrings.backupTableLabels` and is looked up at the presentation edge by
+//          `backupTableLabel(tableName, strings)` in `settings_backup_text.dart` (falling back to the
+//          name itself). Only the **keys** stay here — they are data.
 
 class BackupTableCount {
   const BackupTableCount({
     required this.name,
-    required this.label,
     required this.count,
   });
 
+  /// 中文：表名（键）。标签不在这里——那是词，由呈现边缘按这个键查（`backupTableLabel`）。
+  /// English: the table name (the key). No label here — a label is copy, looked up from this key at
+  ///          the presentation edge (`backupTableLabel`).
   final String name;
-  final String label;
   final int count;
 }
 
@@ -51,26 +65,24 @@ class BackupPreview {
   List<BackupTableCount> get tableCounts {
     return [
       for (final tableName in backupTableNames)
-        BackupTableCount(
-          name: tableName,
-          label: backupTableLabels[tableName] ?? tableName,
-          count: counts[tableName] ?? 0,
-        ),
+        BackupTableCount(name: tableName, count: counts[tableName] ?? 0),
     ];
   }
 
   // 中文：**`summary` / `totalLabel` 从前在这里拼那两句中文**（直接印在设置页的本机数据行与导入
   //       对话框上）。领域对象活得比界面长，界面那张按语言切的表够不着它，于是英文界面下它照样是
-  //       中文——`docs/verification.md` §5i 记着这条。现在留下的只有**载荷**：表名标签与计数，
+  //       中文——`docs/verification.md` §5i 记着这条。现在留下的只有**载荷**：表名（键）与计数，
   //       字住在 `SettingsBackupStrings` 里，由 `settings_backup_text.dart` 在呈现边缘拼
-  //       （`backupPreviewSummary(preview, strings)` / `backupPlanTotalLabel`）。
+  //       （`backupPreviewSummary(preview, strings)` / `backupPlanTotalLabel`），表名的标签也由
+  //       那里的 `backupTableLabel(name, strings)` 查。
   // English: **`summary` / `totalLabel` used to compose those two Chinese sentences right here**
   //          (printed straight onto the settings page's on-device row and the import dialog). A domain
   //          object outlives the UI and a language-keyed interface table cannot reach it, so an English
   //          interface still printed Chinese — recorded in `docs/verification.md` §5i. What is left is
-  //          **the payload only**: table labels and counts; the words live in `SettingsBackupStrings`
-  //          and are composed at the presentation edge by `settings_backup_text.dart`
-  //          (`backupPreviewSummary(preview, strings)` / `backupPlanTotalLabel`).
+  //          **the payload only**: the table names (keys) and the counts; the words live in
+  //          `SettingsBackupStrings` and are composed at the presentation edge by
+  //          `settings_backup_text.dart` (`backupPreviewSummary(preview, strings)` /
+  //          `backupPlanTotalLabel`), where `backupTableLabel(name, strings)` also looks the labels up.
 }
 
 enum BackupPreviewWarningSeverity { info, warning, danger }
@@ -351,8 +363,13 @@ void validateBackupSnapshot(Map<String, Object?> snapshot) {
     for (var index = 0; index < rows.length; index += 1) {
       final row = rows[index];
       if (row is! Map) {
+        // 中文：技术串里点的是**表名（键）**：标签是词、住在文案表里，异常这条诊断路径够不着它
+        //       （同 `FormatException` 那一族的理由，见 `settings_backup_strings.dart` 的文件头）。
+        // English: the technical string names the **table key**: a label is copy and lives in the copy
+        //          table, out of reach of this diagnostic path (the same reason as the rest of the
+        //          `FormatException` family, see `settings_backup_strings.dart`'s file head).
         throw FormatException(
-          '${backupTableLabels[tableName] ?? tableName} 第 ${index + 1} 条记录不是有效对象',
+          '$tableName 第 ${index + 1} 条记录不是有效对象',
         );
       }
       final rowMap = _stringKeyMap(row, tableName, index);
@@ -364,7 +381,12 @@ void validateBackupSnapshot(Map<String, Object?> snapshot) {
 void validateBackupReplacementSnapshot(Map<String, Object?> snapshot) {
   validateBackupSnapshot(snapshot);
   if (backupSnapshotTotalRows(snapshot) == 0) {
-    throw const FormatException(emptyBackupReplaceErrorMessage);
+    // 中文：抛的是**令牌**，不是句子：用户读到的那句话在 `SettingsBackupStrings.backupImpactEmptySource`
+    //       里，由 `backupImportFailureMessage` 在呈现边缘按这枚令牌取（见文件头那枚常量的说明）。
+    // English: what is thrown is a **token**, not a sentence: the words the user reads live in
+    //          `SettingsBackupStrings.backupImpactEmptySource` and are fetched at the presentation edge
+    //          by `backupImportFailureMessage`, keyed by this token (see the constant's note at the head).
+    throw const FormatException(emptyBackupReplaceErrorToken);
   }
 }
 
@@ -501,8 +523,10 @@ FormatException _backupRowFormatException(
   int index,
   String reason,
 ) {
+  // 中文：同上面那条——技术串点表名（键），标签在文案表里。
+  // English: as above — the technical string names the table key; the label lives in the copy table.
   return FormatException(
-    '${backupTableLabels[tableName] ?? tableName} 第 ${index + 1} 条记录字段无效：$reason',
+    '$tableName 第 ${index + 1} 条记录字段无效：$reason',
   );
 }
 

@@ -49,7 +49,7 @@ void main() {
     expect(preview.totalRows, 15);
     expect(backupPreviewTableSummary(preview, _zh), contains('历史 3'));
     expect(backupPreviewTableSummary(preview, _zh), contains('设置 5'));
-    expect(preview.tableCounts.map((item) => item.label),
+    expect(preview.tableCounts.map((item) => backupTableLabel(item.name, _zh)),
         ['历史', '笔记', '收藏', '最近工具', '设置']);
   });
 
@@ -81,7 +81,7 @@ void main() {
     expect(report.deltaFor('calculation_history'), 2);
     expect(report.deltaFor('app_settings'), -1);
     expect(report.skippedFor('calculation_history'), 0);
-    expect(report.tableReports.first.label, '历史');
+    expect(backupTableLabel(report.tableReports.first.name, _zh), '历史');
     expect(report.tableReports.first.source, 4);
     expect(report.tableReports.first.before, 2);
     expect(report.tableReports.first.after, 4);
@@ -169,13 +169,18 @@ void main() {
       for (final tableName in backupTableNames) tableName: 0,
     });
 
+    // 中文：数据层抛的是校验器那枚令牌（不是句子）：用户读到的那句话由呈现边缘的
+    //       `backupImportFailureMessage` 按令牌取，对照钉在 `settings_backup_messages_test.dart` 里。
+    // English: the data layer throws the validator's token (not a sentence): the words the user reads
+    //          are fetched from the token at the presentation edge by `backupImportFailureMessage`,
+    //          pinned in `settings_backup_messages_test.dart`.
     await expectLater(
       repository.importJson(source, replaceExisting: true),
       throwsA(
         isA<FormatException>().having(
           (error) => error.message,
           'message',
-          emptyBackupReplaceErrorMessage,
+          emptyBackupReplaceErrorToken,
         ),
       ),
     );
@@ -379,7 +384,8 @@ void main() {
       replaceExisting: false,
     );
 
-    expect(_impactText(replace.impacts.first), emptyBackupReplaceErrorMessage);
+    expect(_impactText(replace.impacts.first),
+        '空备份不能用于覆盖恢复，请改用合并导入或选择包含记录的备份。');
     expect(replace.impacts.first.severity, BackupImportImpactSeverity.danger);
     expect(_impactText(merge.impacts.single), '备份为空，合并导入不会改变本机数据');
   });
@@ -410,7 +416,7 @@ void main() {
         isA<FormatException>().having(
           (error) => error.message,
           'message',
-          contains('最近工具 第 1 条记录不是有效对象'),
+          contains('recent_tools 第 1 条记录不是有效对象'),
         ),
       ),
     );

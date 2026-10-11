@@ -67,7 +67,12 @@ void main() {
         isA<FormatException>().having(
           (error) => error.message,
           'message',
-          contains('笔记 第 2 条记录不是有效对象'),
+          // 中文：技术串里点的是**表名（键）**——表名标签这一轮搬进了文案表，异常这条诊断路径够不着它
+          //       （见 `settings_backup_strings.dart` 的文件头）。
+          // English: the technical string names the **table key** — the table labels moved into the copy
+          //          table this round and this diagnostic path cannot reach it (see
+          //          `settings_backup_strings.dart`'s file head).
+          contains('notes 第 2 条记录不是有效对象'),
         ),
       ),
     );
@@ -90,7 +95,7 @@ void main() {
         isA<FormatException>().having(
           (error) => error.message,
           'message',
-          contains('设置 第 1 条记录字段无效：value 必须是字符串'),
+          contains('app_settings 第 1 条记录字段无效：value 必须是字符串'),
         ),
       ),
     );
@@ -159,13 +164,20 @@ void main() {
     };
 
     expect(backupSnapshotTotalRows(emptySnapshot), 0);
+    // 中文：抛的是那枚 **ASCII 令牌**，不是句子——用户读到的那句话住在 `SettingsBackupStrings` 的
+    //       `backupImpactEmptySource` 里，由 `backupImportFailureMessage` 在呈现边缘按令牌取；那条
+    //       接线与迁移前那句话的逐字节对照钉在 `settings_backup_messages_test.dart` 里。
+    // English: what is thrown is the **ASCII token**, not the sentence — the words the user reads live in
+    //          `SettingsBackupStrings`'s `backupImpactEmptySource` and are fetched at the presentation
+    //          edge by `backupImportFailureMessage`; that wiring, and its byte-for-byte copy of the
+    //          pre-move sentence, are pinned in `settings_backup_messages_test.dart`.
     expect(
       () => validateBackupReplacementSnapshot(emptySnapshot),
       throwsA(
         isA<FormatException>().having(
           (error) => error.message,
           'message',
-          emptyBackupReplaceErrorMessage,
+          emptyBackupReplaceErrorToken,
         ),
       ),
     );
