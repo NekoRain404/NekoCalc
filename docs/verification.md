@@ -30,15 +30,24 @@ asserts off, tree shaking), it **installs cleanly** over the existing 4009 relea
 re-measures at **32.70 MiB (34,289,489 bytes) against the 32.64 MiB baseline** — **+60 KB, unchanged for
 practical purposes**, and the decimal-MB trap above was avoided by comparing MiB to MiB.
 
-⚠️ **The cold-start row is NOT re-measured, and the number obtained must not be compared with the baseline.**
-Three runs of `am start -W` returned `WaitTime` ≈ **3.03 s** (3032 / 3022 / 3025 ms) — but the baseline row's
-`0.33 s` is almost certainly **`TotalTime`**, and **`WaitTime` and `TotalTime` are different quantities**; the
-full output (which would have shown both) could not be obtained because `adb` hangs part-way through command
-sequences on this device (§5f, §5h record the same behaviour for rotation and dark mode). **So the honest state
-is: no comparison has been made either way — not "unchanged", and not "a 10× regression".** The same applies to
-the **idle-memory** row, which was not reached at all. Settling both needs a device whose adb input path is
-responsive; the commands are the ones in this section's history. The `svc power stayon true` used to keep the
-screen awake during the attempt was **reverted and verified** (`stay_on_while_plugged_in = 0`).
+⚠️ **The cold-start row is NOT re-measured — and my first write-up of that fact was itself wrong.** I first
+recorded "`WaitTime` and `TotalTime` are different quantities, so no comparison can be made". **That was an
+inference, and it does not hold here**: this ROM's `am start -W` prints **only** `WaitTime`, so the baseline's
+`336 / 338 / 319 ms` were almost certainly that same field — **which makes them comparable**, and the three runs
+obtained today (`WaitTime` ≈ **3.03 s**: 3032 / 3022 / 3025) would mean a **~9× cold-start regression**.
+
+⚠️ **But there is an internal contradiction that argues for a measurement artefact instead**: the same table
+records **debug at 1.75 s and release at 0.33 s**, and a real change that made release *1.7× slower than debug*
+is not plausible. The three runs were also uniform to within 10 ms, which is the shape of a fixed wait (the
+device was being woken to keep adb alive) rather than of work done. **So the honest state is: an open question
+with evidence pointing both ways — not "unchanged", and not "regressed".** Three attempts to settle it properly
+(wake the device, hold it awake, run five launches to separate first-run compilation from steady state) each
+failed because `adb` hangs part-way through command sequences on this device — the same failure recorded in
+§5f and §5h. **It needs a device whose adb input path is responsive**, and the procedure is the one in that
+paragraph. Each `svc power stayon true` used during the attempts was **reverted and verified**
+(`stay_on_while_plugged_in = 0`).
+
+The **idle-memory** row was not reached at all.
 
 ⚠️ **One measurement is deliberately left out of that table**: the **debug** build's idle memory, measured at
 **391 MiB (`400259` KB)** during the same pass. It is a **different build type**, so it is **not comparable to
