@@ -787,17 +787,38 @@ also **measurably** moved the calculator's display background (`#FFFBF6` peachSu
 with a **stop condition on the measured colour**, not on a count of taps (the first attempt had no `break` at
 all and cycled straight past the target; the pixels are what caught it).
 
-⚠️ **Not verified: how the DARK palette actually renders on the device.** Dark mode is supported, wired
-(`lib/app.dart`'s `darkTheme: AppTheme.dark(…)`) and guarded at the token level — the test asserts
-`AppTheme.dark(t).colorScheme.primary == t.dark.display.indicatorFg` for all three themes — but it has **never
-been looked at on a screen**. Two routes were attempted on 2026-10-11 and **both were blocked by the device
-rather than by the code**: (a) the system switch — this ROM does not honour `cmd uimode night yes` from adb (it
-reports `Night mode: no` before and after, exactly as it ignores the adb rotation commands recorded in §5f);
-and (b) the app's own 主题模式 row — the taps stopped landing and the captures stopped being produced at all,
-with `mCurrentFocus=null` and the screen asleep, i.e. **adb input no longer reaches the UI**. The device was
-left in its natural state and verified so (`Night mode: no`). **Route (b) is still the right one next time**,
-because it is an app setting rather than a system one and it directly exercises `AppTheme.dark()`; it will need
-the device awake and unlocked.
+⚠️ **Verified on 2026-10-11 — by a route that needs no device.** `flutter test` renders in **software** (the
+tester process runs with `--enable-software-rendering`), so a widget test can export the real render as a PNG:
+`RepaintBoundary` around the widget, `tester.renderObject<RenderRepaintBoundary>(...).toImage()`,
+`toByteData(format: ImageByteFormat.png)`. The test font is the stand-in (boxes), so **text metrics mean
+nothing there — but layout and colour are the real ones**, which is exactly what was in question. Rendering
+the structured tool detail screen under `ThemeMode.dark` and sampling its pixels gave:
+
+| measured | share | is |
+|---|---|---|
+| `#1D191B` | 60.6 % | `display.background` (dark) |
+| `#141114` | 27.1 % | `keypadBackground` (dark) |
+| `#9E98A6` | 3.5 % | `display.statusFg` (dark) |
+| `#E8A2AC` | 2.15 % | `display.indicatorFg` (dark) — the accent |
+| `#EDE4E8` | 1.3 % | `keys.functionFg` (dark) — the ink |
+| `#453828` | 1.05 % | `keys.variableBg` (dark) |
+
+**No light-mode colour leaks**: every dominant colour is a roseCream *dark* token, and the four whose share is
+0 % (`operatorBg`, `accentBg`, `destructiveBg`, `modifierBg`) are simply absent because that screen shows no
+calculator keys. ⚠️ **My own untrained eye first read two of these as suspicious** — `#E8A2AC` as a leaking
+"salmon bar" and `#453828` as a rogue "gold disc" — and sampling the pixels is what refuted it. **A second
+instance of the same lesson as §5g's category colours: colour is a property of the combination, so look, but
+then measure.** The one-off instrument was deleted after use (a test that writes PNGs to `/tmp` is not a test);
+the recipe above is what to re-create.
+
+⚠️ **Still not verified: the device's own dark rendering.** Two device routes were tried on 2026-10-11 and
+**both were blocked by the device rather than by the code**: (a) the system switch — this ROM does not honour
+`cmd uimode night yes` from adb (it reports `Night mode: no` before and after, exactly as it ignores the adb
+rotation commands recorded in §5f); and (b) the app's own 主题模式 row — the taps stopped landing and the
+captures stopped being produced at all, with `mCurrentFocus=null` and the screen asleep, i.e. **adb input no
+longer reaches the UI**. The device was left in its natural state and verified so (`Night mode: no`); a
+temporary `svc power stayon true` was reverted with `false`. **Route (b) is still the right one next time**,
+because it is an app setting rather than a system one; it needs the device awake and unlocked.
 
 ### 5i. Multi-language: structurally sound; three gaps and one layering defect (audited 2026-10-10)
 
