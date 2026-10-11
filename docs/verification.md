@@ -47,7 +47,16 @@ failed because `adb` hangs part-way through command sequences on this device —
 paragraph. Each `svc power stayon true` used during the attempts was **reverted and verified**
 (`stay_on_while_plugged_in = 0`).
 
-The **idle-memory** row was not reached at all.
+**The idle-memory row WAS obtained — but it is not comparable to the recorded baseline either.** After a single
+`am start`, three readings bracketed the app's steady state — **96,580 KB at +8 s, then 99,854 KB at +45 s and
+99,812 KB at +60 s** (the last two agree to 0.04 %, so the app really is idle; `TOTAL SWAP PSS` fell from 1442
+to 135 between the first and second). So the release build idles at **≈ 99.8 MB PSS**, against the baseline's
+**217,634 KB ≈ 212.5 MiB**. ⚠️ **That is a 2.2× gap in the "better" direction, and it must not be reported as an
+improvement**: this session deleted ~1800 lines and added a few static tables, which cannot plausibly halve a
+process's memory, and the baseline row says only "idle" — **it does not record how that idle state was reached**
+(how long after launch, what had been done first). The most likely explanation is that the two readings are of
+*states*, not of a change; what this measurement establishes is that the app's steady-state PSS today is
+**~100 MB and stable**, which is a fact in its own right.
 
 **And the question can be narrowed without the device — by checking what this session actually touched on the
 startup path.** `lib/main.dart` was **not modified at all** in the whole stretch of work (0 commits touching it);
