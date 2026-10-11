@@ -23,6 +23,23 @@ The long-form measurements, engine probe logs and hand-over narrative live in
 | Engine call, host, bridge's own sequence | first call 16 ms (lazy `loadGlobalDefinitions`), then 0.02–0.6 ms | not re-measured (a host-side sequence, not reachable from the device pass) |
 | Memory, release, idle | TOTAL PSS 216 MB | **217,634 KB ≈ 212.5 MiB — unchanged** |
 
+⚠️ **Re-check attempt 2026-10-11 (after this session's changes) — one row confirmed, two not obtainable.**
+The **release** build was compiled for the first time since the work began (it is a different compile path —
+asserts off, tree shaking), it **installs cleanly** over the existing 4009 release-signed build
+(`pkgFlags` without `DEBUGGABLE`, same signature and versionCode, i.e. an ordinary replace), and the APK
+re-measures at **32.70 MiB (34,289,489 bytes) against the 32.64 MiB baseline** — **+60 KB, unchanged for
+practical purposes**, and the decimal-MB trap above was avoided by comparing MiB to MiB.
+
+⚠️ **The cold-start row is NOT re-measured, and the number obtained must not be compared with the baseline.**
+Three runs of `am start -W` returned `WaitTime` ≈ **3.03 s** (3032 / 3022 / 3025 ms) — but the baseline row's
+`0.33 s` is almost certainly **`TotalTime`**, and **`WaitTime` and `TotalTime` are different quantities**; the
+full output (which would have shown both) could not be obtained because `adb` hangs part-way through command
+sequences on this device (§5f, §5h record the same behaviour for rotation and dark mode). **So the honest state
+is: no comparison has been made either way — not "unchanged", and not "a 10× regression".** The same applies to
+the **idle-memory** row, which was not reached at all. Settling both needs a device whose adb input path is
+responsive; the commands are the ones in this section's history. The `svc power stayon true` used to keep the
+screen awake during the attempt was **reverted and verified** (`stay_on_while_plugged_in = 0`).
+
 ⚠️ **One measurement is deliberately left out of that table**: the **debug** build's idle memory, measured at
 **391 MiB (`400259` KB)** during the same pass. It is a **different build type**, so it is **not comparable to
 the release `212.5 MiB`** and is recorded here only so nobody compares the two.
