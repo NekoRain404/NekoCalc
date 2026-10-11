@@ -8,6 +8,13 @@ class _ClipboardImportDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = NotesStrings.of(context);
+    // 中文：**这一行的字在画的时候取**（`notes_import_draft_message.dart`）：草稿只带令牌与载荷，
+    //       所以对话框一换语言，这一行立刻跟着换——它从不写库，与保存那一侧拿的是同一批格子，
+    //       但取表的时刻不同（理由在那些函数的文件头上）。
+    // English: **the row's words are fetched at paint time** (`notes_import_draft_message.dart`): a
+    //          draft carries only a token and payloads, so changing the language re-words this row at
+    //          once — it never reaches the database, and it reads the same cells as the save side, only
+    //          at a different moment (the reason is on those functions' file head).
     final previews = plan.previews;
     final previewDrafts = previews.take(5).toList(growable: false);
     final hiddenCount = plan.totalCount - previewDrafts.length;
@@ -21,19 +28,20 @@ class _ClipboardImportDialog extends StatelessWidget {
           children: [
             Text(notesImportPlanSummary(plan, strings)),
             const SizedBox(height: 12),
-            ...previewDrafts.map(
-              (draft) => ListTile(
+            ...previewDrafts.map((preview) {
+              final description = notesImportPreviewDescription(preview, strings);
+              return ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(_sourceIcon(draft.source)),
-                title: Text(draft.title,
+                leading: Icon(_sourceIcon(preview)),
+                title: Text(notesImportPreviewTitle(preview, strings),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: draft.description.isEmpty
+                subtitle: description.isEmpty
                     ? null
-                    : Text(draft.description,
+                    : Text(description,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ),
+              );
+            }),
             if (hiddenCount > 0)
               Text(strings.hiddenCount(hiddenCount),
                   style: Theme.of(context).textTheme.bodySmall),
@@ -51,11 +59,18 @@ class _ClipboardImportDialog extends StatelessWidget {
     );
   }
 
-  IconData _sourceIcon(NotesImportSource source) {
-    return switch (source) {
-      NotesImportSource.note => Icons.article_outlined,
-      NotesImportSource.history => Icons.schedule,
-      NotesImportSource.plainText => Icons.content_paste_outlined,
+  /// 中文：**一行预览前面那个图标。** 判据与迁移前逐字相同：笔记/剪贴板/历史三选一
+  ///       （从前由 `NotesImportSource` 回答，现在密封树与措辞令牌一起回答）。
+  /// English: **the icon in front of one preview row.** The criterion is character-for-character the
+  ///          pre-move one, one of note / clipboard / history (the old `NotesImportSource` answered it;
+  ///          the sealed tree and the wording token answer it now).
+  IconData _sourceIcon(NotesClipboardImportPreview preview) {
+    return switch (preview) {
+      NotesNoteImportPreview(:final draft) => switch (draft.wording) {
+          NotesNoteDraftWording.parsed => Icons.article_outlined,
+          NotesNoteDraftWording.clipboard => Icons.content_paste_outlined,
+        },
+      NotesHistoryImportPreview() => Icons.schedule,
     };
   }
 }

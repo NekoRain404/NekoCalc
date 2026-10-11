@@ -425,22 +425,42 @@ const Map<String, String> _exemptFiles = <String, String>{
   //          side. So this is "where the Chinese is supposed to live", not a missed translation.
   'calculator_paste_strings.dart': '计算器那一族自己的文案表（zh/en 两个实例都在这个文件里）',
   'calculator_report_labels.dart': '计算器那一族自己的报告标签表（CalculatorReportLabels.zh/.en/.all）',
-  // 中文：**笔记与记录那两处**：`notes_clipboard_import.dart` 写下的是**要存进库里的正文**
-  //       （笔记标题、导入正文）与识别粘贴内容用的标记；`record_filter.dart` /
+  // 中文：**笔记与记录那两处**：`notes_clipboard_import.dart` 写下的是**识别粘贴内容用的标记与
+  //       九个往返标签**（`'笔记:'`、`'表达式:'`、`'工具历史:'`、`'NekoCalc 批量导出'`…）与草稿的
+  //       **载荷**（首行原文、表达式原文——都是用户的数据）；`record_filter.dart` /
   //       `record_search_suggestions.dart` 是**过滤与搜索的判据**（日期写法、正则形状、
   //       拿去比中文记录的关键词）。两者都是"数据与输入文法"。
-  //       **这不是说它们没问题**：`'导入笔记'`、`'剪贴板笔记 · …'` 是会给用户看的标题，
-  //       而笔记那一族的界面表是**另一轮的范围**（本轮按指示不动它）——留在这里的是一句
-  //       有名字的、有主的欠账，不是一句"没问题"。
-  // English: **the notes and records pair**: `notes_clipboard_import.dart` writes **the body that
-  //          goes into the database** (note titles, imported text) and the markers it recognises in
-  //          pasted content; `record_filter.dart` / `record_search_suggestions.dart` are **the
-  //          criteria for filtering and search** (date spellings, regex shapes, the keywords compared
-  //          against Chinese records). Both are "data and input grammar". **This does not mean they
-  //          are fine**: `'导入笔记'` and `'剪贴板笔记 · …'` are titles a user will see, and the notes
-  //          family's interface tables are **another round's scope** (this round leaves them alone by
-  //          instruction) — what stays here is a named, owned debt, not a clean bill of health.
-  'notes_clipboard_import.dart': '笔记的持久化正文与粘贴识别标记（笔记那一族是另一轮的范围）',
+  //
+  //       **这一条从前是一笔具名欠账，现在还清了。** 从前它还豁免着两句会给用户看的标题
+  //       （`'导入笔记'`、`'剪贴板笔记 · …'`）——那是**产出方太麻烦**那一类，本文件开头明写不许。
+  //       这一轮按 §5l 的 A+ 形状改掉了：草稿只带**措辞令牌与载荷**，标题与描述在**保存那一刻**
+  //       由 `notes_import_draft_message.dart` 按 `NotesStrings` 拼（控制器手里那张表就是当时的语言，
+  //       与 §5l 那三句同一条路），导入对话框那两行预览同样在画的时候取。所以下面这条豁免今天只
+  //       覆盖"数据与输入文法"这一条入选理由——文件里剩下的宽/全角字面量必须**只是**那些标签；
+  //       而"旧句子一个字都不许留"的看门人是 `notes_receipt_message_test.dart` 与
+  //       `notes_strings_test.dart` 里各一条整文件扫描（两张扫描都不豁免这个文件）。
+  // English: **the notes and records pair**: `notes_clipboard_import.dart` writes **the markers it
+  //          recognises in pasted content and the nine round-trip labels** (`'笔记:'`, `'表达式:'`,
+  //          `'工具历史:'`, `'NekoCalc 批量导出'` …) plus the drafts' **payloads** (the first line as
+  //          written, the expression as written — the user's own data); `record_filter.dart` /
+  //          `record_search_suggestions.dart` are **the criteria for filtering and search** (date
+  //          spellings, regex shapes, the keywords compared against Chinese records). Both are "data
+  //          and input grammar".
+  //
+  //          **This entry used to be a named debt; it is now paid.** It used to exempt two titles a
+  //          user would see (`'导入笔记'`, `'剪贴板笔记 · …'`) — that is the "this producer is
+  //          inconvenient" kind the head of this file forbids. This round changed it to §5l's A+ shape:
+  //          a draft carries only **a wording token and payloads**, the title and description are
+  //          composed **at the moment of saving** by `notes_import_draft_message.dart` from
+  //          `NotesStrings` (the table the controller holds *is* the language of that moment, the same
+  //          road as §5l's three sentences), and the import dialog's two preview rows are fetched when
+  //          they are painted. So this exemption now covers **only** the "data and input grammar"
+  //          qualifying condition — the wide/fullwidth literals left in the file must be **just** those
+  //          labels; and the keepers of "not one word of the old sentences may stay" are one whole-file
+  //          scan each in `notes_receipt_message_test.dart` and `notes_strings_test.dart` (neither scan
+  //          exempts this file).
+  'notes_clipboard_import.dart':
+      '粘贴往返的文法：九个标签与批量导出头（标题与描述已改由笔记呈现层在保存边缘拼）',
   'record_filter.dart': '记录的过滤判据：日期写法与正则形状（拿它去比中文记录，不是拿去印）',
   'record_search_suggestions.dart': '搜索建议的分词判据（同上：输入文法）',
 };

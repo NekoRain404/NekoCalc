@@ -712,4 +712,56 @@ void _wiringTests() {
     expect(db.createdNotes.single.title, 'Untitled note');
     expect(db.createdNotes.single.title, isNot('未命名笔记'));
   });
+
+  testWidgets('英文界面下从剪贴板导入纯文本：对话框那一行与写进库的标题都是英文', (tester) async {
+    // 中文：**这条量的是那条具名欠账的成品**（`docs/verification.md` §5m）：英文界面下粘贴一段
+    //       纯文本，对话框那一行与**写进库的那一份**从前都是中文（`'剪贴板笔记 · …'` /
+    //       `'从剪贴板导入的文本'`，由领域对象拼死）。现在预览与保存拿的是同一批格子、
+    //       按当下的语言拼——所以这一行与将要写进库的那一份逐字相同，只是取表的时刻不同。
+    // English: **this measures the finished product of that named debt** (`docs/verification.md` §5m):
+    //          pasting plain text under an English interface used to give Chinese in the dialog row and
+    //          **in the database** (`'剪贴板笔记 · …'` / `'从剪贴板导入的文本'`, composed inside the
+    //          domain object). Preview and save now read the same cells in the language of the moment —
+    //          so this row is character-for-character what will be written, only fetched at a different
+    //          time.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) {
+      if (call.method == 'Clipboard.getData') {
+        return Future.value({'text': 'Temporary idea\ncheck units next'});
+      }
+      return null;
+    });
+    final db = _FakeNotesDatabase(historyItems: const [], noteItems: const []);
+
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => AppLanguageScope(
+        language: AppLanguage.en,
+        child: child!,
+      ),
+      home: Scaffold(
+        body: NotesPage(
+          db: db,
+          toolResultLabel: _identityLabel,
+          settings: AppSettings.fallback,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Import from clipboard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Will import 1 notes'), findsOneWidget);
+    expect(find.text('Clipboard note: Temporary idea'), findsOneWidget);
+    expect(find.text('Text imported from the clipboard'), findsOneWidget);
+    expect(find.textContaining('剪贴板笔记'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+    await tester.pumpAndSettle();
+
+    expect(db.createdNotes, hasLength(1));
+    expect(db.createdNotes.single.title, 'Clipboard note: Temporary idea');
+    expect(db.createdNotes.single.description, 'Text imported from the clipboard');
+    expect(db.createdNotes.single.body, 'Temporary idea\ncheck units next');
+  });
 }

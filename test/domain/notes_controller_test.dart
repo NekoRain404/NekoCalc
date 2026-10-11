@@ -506,6 +506,60 @@ V = I * R
     }
     controller.dispose();
   });
+
+  test('英文表下导入剪贴板：写进库的标题与描述是英文（这笔欠账还清的判据）', () async {
+    // 中文：**这是那条具名欠账原来的形状**：英文界面下粘贴一段纯文本，存进库的标题是
+    //       `'剪贴板笔记 · …'`、描述是 `'从剪贴板导入的文本'`——领域对象自己拼的中文，界面那张
+    //       按语言切的表够不着它（`docs/verification.md` §5m 记着这三条）。现在句子在**保存那一刻**
+    //       由控制器按它手里的那张表拼，所以判据是：换成英文表，**写进库的**两格是英文，且没有一个
+    //       宽/全角字符。
+    // English: **this is the shape that named debt had**: pasting plain text under an English interface
+    //          stored a note titled `'剪贴板笔记 · …'` and described `'从剪贴板导入的文本'` — Chinese
+    //          composed by the domain object, out of reach of the UI's language-keyed table
+    //          (`docs/verification.md` §5m records the three). The sentence is now composed **at the
+    //          moment of saving** by the controller from the table it holds, so the criterion is: with
+    //          the English table, the two cells **written into the database** are English and hold not
+    //          one wide/fullwidth character.
+    final db = _FakeNotesControllerDatabase(
+      historyItems: const [],
+      noteItems: const [],
+    );
+    final controller = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.en),
+    );
+    final plan = controller.previewClipboardImport('Temporary idea\ncheck units next');
+
+    final result = await controller.importClipboardPlan(plan);
+
+    expect(result.noteIds, hasLength(1));
+    expect(db.createdNotes.single.title, 'Clipboard note: Temporary idea');
+    expect(db.createdNotes.single.description, 'Text imported from the clipboard');
+    expect(db.createdNotes.single.body, 'Temporary idea\ncheck units next');
+    final composed =
+        '${db.createdNotes.single.title}${db.createdNotes.single.description}';
+    expect(containsWideOrFullwidth(composed), isFalse,
+        reason: '英文表下导入剪贴板存进库的标题或描述里还有宽/全角字符：$composed');
+
+    // 中文：同一条路换回中文表，仍是迁移前那句话——**中文侧一个字节不动**（上面那段是英文的成品
+    //       证明，这一段是中文的回归钉子；两段走的是同一个入口，只是换了表）。
+    // English: the same road with the Chinese table still gives the pre-move sentence — **not one byte of
+    //          the Chinese side moves** (the block above is the English finished-product proof, this one
+    //          the Chinese regression pin; both walk the same entry point with the other table).
+    final zhController = NotesController(
+      historyRepository: HistoryRepository(db),
+      notesRepository: NotesRepository(db),
+      strings: NotesStrings.forLanguage(AppLanguage.zh),
+    );
+    final zhPlan = zhController.previewClipboardImport('临时想法\n下一步检查单位换算');
+    await zhController.importClipboardPlan(zhPlan);
+    expect(db.createdNotes.last.title, '剪贴板笔记 · 临时想法');
+    expect(db.createdNotes.last.description, '从剪贴板导入的文本');
+
+    controller.dispose();
+    zhController.dispose();
+  });
 }
 
 NotesController _controller({

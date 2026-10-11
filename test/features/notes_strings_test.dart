@@ -6,6 +6,8 @@ import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/models/note_item.dart';
+import 'package:nekocalc/domain/usecases/notes_clipboard_import.dart';
+import 'package:nekocalc/features/notes/presentation/notes_import_draft_message.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_strings.dart';
 import 'package:nekocalc/l10n/app_language.dart';
@@ -18,10 +20,13 @@ import '../shared/source_scan.dart';
 ///          不变"的**证据本身**，抽查漏掉的那一条正好是将来会漂的那一条。
 ///       2) 英文表里不许出现汉字、也不许出现空串。
 ///       3) 笔记页源码里（除了这张表本身）不许再留中文字符串字面量。
-///       4) **保存时生成、写进库的那三句**（空标题兜底、历史笔记的标题与描述）：英文侧不含宽/全角
-///          字符，中文侧正是那些字（两把方向相反的断言互为反证）。
-///       5) **`notes_controller.dart` 里不再有那三句**，且三格真的被接上（令牌在）——扫的是那三条
-///          具体的句子，因为那个文件还装着故意留下的剪贴板往返格式。
+///       4) **写进库、画在对话框里的那几句**（空标题兜底、历史笔记的标题与描述、剪贴板导入生成的
+///          标题与描述、导入对话框两行预览用的三格）：英文侧不含宽/全角字符，中文侧正是那些字
+///          （两把方向相反的断言互为反证）。
+///       5) **`notes_controller.dart` 里不再有那些句子**，且那几格真的被接上（令牌与拼装函数都在）
+///          ——扫的是那几条具体的句子，因为那个文件还装着故意留下的剪贴板往返格式。
+///       6) **英文这条路的成品是英文**：剪贴板导入的草稿递英文表，拼出来的标题与描述是英文句子
+///          （`notes_import_draft_message.dart`），与领域测试里那条保存路径的证明同源。
 ///
 ///       **第 3 条有一处明写的例外**，写在下面 `_nonUiLiterals` 上：按笔记内容挑图标用的那三条
 ///       内容探针。它们是**拿用户的笔记内容去比**，不是屏幕上印的字。
@@ -32,13 +37,17 @@ import '../shared/source_scan.dart';
 ///          than sampled: this list **is** the evidence for "the default state does not change", and
 ///          the one entry a spot check skips is the one that drifts. (2) The English table must hold
 ///          no CJK and no empty string. (3) No Chinese string literal may remain in the notes page's
-///          sources other than this table. (4) **The three sentences generated at save time and
-///          written into the database** (the blank-title fallback, the history note's title and
-///          description): the English side holds no wide/fullwidth character and the Chinese side
-///          holds exactly those (two opposite assertions proving each other). (5) **not one of those
-///          three is left in `notes_controller.dart`**, and the three cells are really wired in (the
-///          tokens are present) — the scan asks about those three specific sentences, because that
-///          file also carries the deliberately kept clipboard round-trip format.
+///          sources other than this table. (4) **The sentences written into the database and painted in
+///          the dialog** (the blank-title fallback, the history note's title and description, the
+///          clipboard import's generated title and description, and the three cells behind the import
+///          dialog's two preview rows): the English side holds no wide/fullwidth character and the
+///          Chinese side holds exactly those (two opposite assertions proving each other). (5) **not
+///          one of those sentences is left in `notes_controller.dart`**, and those cells are really
+///          wired in (the tokens and the composer both present) — the scan asks about those specific
+///          sentences, because that file also carries the deliberately kept clipboard round-trip
+///          format. (6) **the English road's output is English**: a clipboard import draft handed the
+///          English table composes an English title and description
+///          (`notes_import_draft_message.dart`) — the same proof as the save path's in the domain test.
 ///
 ///          **Clause 3 has one stated exception**, on `_nonUiLiterals` below: the three content
 ///          probes used to pick a note's icon. They are compared against **the user's own note text**,
@@ -164,6 +173,22 @@ void main() {
     expect(zh.untitledNote, '未命名笔记');
     expect(zh.historyNoteTitle, '历史结果');
     expect(zh.historyNoteDescription('2026/06/08 09:30'), '由计算历史保存，时间 2026/06/08 09:30');
+    // —— 剪贴板导入生成、写进库的标题与描述（迁移前硬编码在 `notes_clipboard_import.dart` 里，
+    //    逐字节搬过来；拼接改由 `notes_import_draft_message.dart` 在保存边缘做）——
+    expect(zh.importedNoteTitle, '导入笔记');
+    expect(zh.clipboardNoteTitle('临时想法'), '剪贴板笔记 · 临时想法');
+    expect(zh.clipboardNoteBlankFirstLine, '剪贴板内容');
+    expect(zh.clipboardNoteDescription, '从剪贴板导入的文本');
+    // —— 导入对话框的预览行（同一批句子，也从那个文件搬来；画那一行时按语言取）——
+    expect(zh.historyPreviewTitle('2+3'), '计算历史 · 2+3');
+    expect(zh.toolHistoryPreviewTitle('2+3'), '工具历史 · 2+3');
+    expect(zh.historyPreviewDescription('ohms_law', '2026/06/08 10:15'),
+        '工具 ohms_law · 原时间 2026/06/08 10:15');
+    // 中文：两截都可缺：只有一段时不带分隔符，两段都缺时是空串（画的时候不留副标题）。
+    // English: either half may be missing: a lone half carries no separator, and both missing gives the
+    //          empty string (no subtitle is drawn).
+    expect(zh.historyPreviewDescription('ohms_law', null), '工具 ohms_law');
+    expect(zh.historyPreviewDescription(null, null), '');
 
     // 中文：而英文侧真的换了——否则上面那些"逐字节相同"只是把中文抄了两遍。
     // English: and the English side really differs, otherwise the byte-identical checks above would
@@ -270,6 +295,14 @@ void main() {
       [zh.historyNoteTitle, en.historyNoteTitle],
       [zh.historyNoteDescription('2026/06/08 09:30'),
         en.historyNoteDescription('2026/06/08 09:30')],
+      [zh.importedNoteTitle, en.importedNoteTitle],
+      [zh.clipboardNoteTitle('临时想法'), en.clipboardNoteTitle('AB')],
+      [zh.clipboardNoteBlankFirstLine, en.clipboardNoteBlankFirstLine],
+      [zh.clipboardNoteDescription, en.clipboardNoteDescription],
+      [zh.historyPreviewTitle('2+3'), en.historyPreviewTitle('2+3')],
+      [zh.toolHistoryPreviewTitle('2+3'), en.toolHistoryPreviewTitle('2+3')],
+      [zh.historyPreviewDescription('ohms_law', '2026/06/08 10:15'),
+        en.historyPreviewDescription('ohms_law', '2026/06/08 10:15')],
     ]) {
       expect(pair[0], isNot(pair[1]), reason: '「${pair[0]}」在英文表里没换');
     }
@@ -377,6 +410,14 @@ void main() {
       'untitledNote': en.untitledNote,
       'historyNoteTitle': en.historyNoteTitle,
       'historyNoteDescription': en.historyNoteDescription('2026/06/08 09:30'),
+      'importedNoteTitle': en.importedNoteTitle,
+      'clipboardNoteTitle': en.clipboardNoteTitle('AB'),
+      'clipboardNoteBlankFirstLine': en.clipboardNoteBlankFirstLine,
+      'clipboardNoteDescription': en.clipboardNoteDescription,
+      'historyPreviewTitle': en.historyPreviewTitle('2+3'),
+      'toolHistoryPreviewTitle': en.toolHistoryPreviewTitle('2+3'),
+      'historyPreviewDescription':
+          en.historyPreviewDescription('ohms_law', '2026/06/08 10:15'),
     };
     for (final entry in copy.entries) {
       expect(entry.value.trim(), isNotEmpty, reason: '${entry.key} 是空的');
@@ -390,27 +431,47 @@ void main() {
     expect(zh.searchHint.trim(), isNotEmpty);
   });
 
-  test('保存时生成的三句：英文不含宽/全角字符，中文侧正是那些字', () {
-    // 中文：这三格是**写进库**的字（标题留空时的兜底、从历史保存时的标题与描述），所以"哪一侧
-    //       用了哪套字"要单独量：英文侧用与其它护栏**同一把尺子**（`containsWideOrFullwidth`），
-    //       而中文侧必须**真的**含宽/全角字符——否则"英文侧没有"那一天尺子坏了就成了假通过。
-    //       两条方向相反的断言互为反证。
-    // English: these three cells are **written into the database** (the blank-title fallback, and the
-    //          title/description used when saving from history), so which side uses which character
-    //          set is measured on its own: the English side with **the same ruler** as the other
-    //          guards (`containsWideOrFullwidth`), and the Chinese side must **really** hold
-    //          wide/fullwidth characters — otherwise "the English side has none" would be a false
-    //          pass the day the ruler broke. Two opposite assertions prove each other.
+  test('写进库的那几句：英文不含宽/全角字符，中文侧正是那些字', () {
+    // 中文：这几格是**写进库**的字（标题留空时的兜底、从历史保存时的标题与描述、剪贴板导入时生成的
+    //       标题与描述、外加导入对话框那两行预览用的三格），所以"哪一侧用了哪套字"要单独量：英文侧用
+    //       与其它护栏**同一把尺子**（`containsWideOrFullwidth`，连 `·` 一起算），而中文侧必须**真的**
+    //       含宽/全角字符——否则"英文侧没有"那一天尺子坏了就成了假通过。两条方向相反的断言互为反证。
+    //       **这一条也是"中文侧保留了那个 `·`"的证人**：中文句子里的 `·` 在这把尺子下算宽/全角，
+    //       英文侧换成 ASCII 的 `: ` 与 `, `，两边都过。
+    // English: these cells are **written into the database** (the blank-title fallback, the
+    //          title/description used when saving from history, the title/description generated by a
+    //          clipboard import, plus the three cells behind the import dialog's two preview rows), so
+    //          which side uses which character set is measured on its own: the English side with **the
+    //          same ruler** as the other guards (`containsWideOrFullwidth`, which counts `·` too), and
+    //          the Chinese side must **really** hold wide/fullwidth characters — otherwise "the English
+    //          side has none" would be a false pass the day the ruler broke. Two opposite assertions
+    //          prove each other. **This is also the witness that the Chinese side kept its `·`**: the
+    //          Chinese sentences' `·` is wide/fullwidth under this ruler, the English side uses ASCII
+    //          `: ` and `, ` instead, and both pass.
     const timestamp = '2026/06/08 09:30';
     final englishCells = <String>[
       en.untitledNote,
       en.historyNoteTitle,
       en.historyNoteDescription(timestamp),
+      en.importedNoteTitle,
+      en.clipboardNoteTitle('AB'),
+      en.clipboardNoteBlankFirstLine,
+      en.clipboardNoteDescription,
+      en.historyPreviewTitle('2+3'),
+      en.toolHistoryPreviewTitle('2+3'),
+      en.historyPreviewDescription('ohms_law', timestamp),
     ];
     final chineseCells = <String>[
       zh.untitledNote,
       zh.historyNoteTitle,
       zh.historyNoteDescription(timestamp),
+      zh.importedNoteTitle,
+      zh.clipboardNoteTitle('临时想法'),
+      zh.clipboardNoteBlankFirstLine,
+      zh.clipboardNoteDescription,
+      zh.historyPreviewTitle('2+3'),
+      zh.toolHistoryPreviewTitle('2+3'),
+      zh.historyPreviewDescription('ohms_law', timestamp),
     ];
     for (final cell in englishCells) {
       expect(containsWideOrFullwidth(cell), isFalse,
@@ -422,24 +483,86 @@ void main() {
     }
   });
 
-  test('笔记控制器里不再有那三句生成标题与描述的中文（它们只住在文案表里）', () {
-    // 中文：**扫的是那三条具体的句子**，不是整个文件的宽/全角字面量——那个文件还装着**剪贴板
+  test('英文这条路：剪贴板导入的草稿递英文表，拼出来的就是英文句子', () {
+    // 中文：**这一条是那笔具名欠账的成品证明**（`docs/verification.md` §5m）：同一条草稿——领域层
+    //       给的是令牌与载荷，一个汉字都没有——递中文表出中文、递英文表出**英文**。第三段（旧句子
+    //       不许留在控制器里）证明"字搬走了"，这一条证明"搬到了能跟着语言走的地方"。
+    // English: **this is the finished-product proof for that named debt** (`docs/verification.md`
+    //          §5m): the same draft — the domain hands over a token and payloads, not one Chinese
+    //          character — gives Chinese with the Chinese table and **English** with the English one.
+    //          The third clause (old sentences must not stay in the controller) proves "the words
+    //          moved"; this proves "they moved somewhere that follows the language".
+    final plan = buildNotesClipboardImportPlan('Temporary idea\ncheck units next');
+    final draft = plan.noteDrafts.single;
+    expect(draft.wording, NotesNoteDraftWording.clipboard);
+    expect(draft.title, 'Temporary idea');
+
+    expect(notesNoteDraftTitle(draft, zh), '剪贴板笔记 · Temporary idea');
+    expect(notesNoteDraftDescription(draft, zh), '从剪贴板导入的文本');
+    expect(notesNoteDraftTitle(draft, en), 'Clipboard note: Temporary idea');
+    expect(notesNoteDraftDescription(draft, en), 'Text imported from the clipboard');
+    // 中文：**保存边缘拼出来的那一份不许再含宽/全角**——它要写进库，英文界面下存进去的就是这一份。
+    // English: **what the save edge composes must hold no wide/fullwidth character** — it goes into the
+    //          database, and under an English interface this is the copy that lands there.
+    expect(containsWideOrFullwidth(notesNoteDraftTitle(draft, en)), isFalse);
+    expect(containsWideOrFullwidth(notesNoteDraftDescription(draft, en)), isFalse);
+
+    // 中文：没有标题的导出块（`parsed` 那一支）同一条路：中文 `'导入笔记'`、英文 `'Imported note'`。
+    // English: an export block with no title (the `parsed` branch) takes the same road: `'导入笔记'` in
+    //          Chinese, `'Imported note'` in English.
+    const untitled = NotesNoteImportDraft(
+      wording: NotesNoteDraftWording.parsed,
+      title: '',
+      description: '',
+      body: '',
+    );
+    expect(notesNoteDraftTitle(untitled, zh), '导入笔记');
+    expect(notesNoteDraftTitle(untitled, en), 'Imported note');
+    expect(containsWideOrFullwidth(notesNoteDraftTitle(untitled, en)), isFalse);
+
+    // 中文：对话框那两行预览（历史行）同样：递英文表就是英文，载荷（表达式、工具名、原时间）原样。
+    // English: the dialog's two preview rows (the history one) behave the same: the English table gives
+    //          English while the payloads (expression, tool name, original time) pass through as they
+    //          are.
+    final historyPlan = buildNotesClipboardImportPlan('''
+NekoCalc 批量导出
+历史: 1 条
+
+---
+
+工具历史: ohms_law
+表达式: 电流=2A
+结果: 电压: 10V
+时间: 2026/06/08 10:15
+''');
+    final historyPreview =
+        NotesHistoryImportPreview(historyPlan.historyDrafts.single);
+    expect(notesImportPreviewTitle(historyPreview, en), 'Tool history: 电流=2A');
+    expect(notesImportPreviewDescription(historyPreview, en),
+        'Tool ohms_law, Original time 2026/06/08 10:15');
+    expect(notesImportPreviewTitle(historyPreview, zh), '工具历史 · 电流=2A');
+  });
+
+  test('笔记控制器里不再有生成标题与描述的中文（它们只住在文案表里）', () {
+    // 中文：**扫的是那几条具体的句子**，不是整个文件的宽/全角字面量——那个文件还装着**剪贴板
     //       往返的格式**（`'表达式: '`、`'NekoCalc 批量导出'`… 与 `_noteReport` /
     //       `_historyReport` / `_selectionSummary` 拼出来的正文），它们是数据格式，故意留着
-    //       （理由在 `notes_strings.dart` 的文件头）。所以这里问两个问题：**搬走的那三句一个字
-    //       都不许留**，而**表里的那三格必须真的被接上**（`strings.untitledNote` …）——只查前一条
-    //       的话，把三句删掉、标题硬编码成空串也能过。
+    //       （理由在 `notes_strings.dart` 的文件头）。所以这里问两个问题：**搬走的那几句一个字
+    //       都不许留**，而**表里的那几格必须真的被接上**（`strings.untitledNote` … 与
+    //       `notesNoteDraftTitle` / `notesNoteDraftDescription`——剪贴板导入那两句现在是那边拼的）——
+    //       只查前一条的话，把句子删掉、标题硬编码成空串也能过。
     //
     //       **扫描非空这件事有佐证**：控制器里仍应找得到那套故意留下的往返标签；找不到就说明扫错
     //       了文件或路径，那种"全过"最危险。
-    // English: **the scan asks about those three specific sentences**, not about every wide/fullwidth
+    // English: **the scan asks about those specific sentences**, not about every wide/fullwidth
     //          literal in the file — the file also carries the **clipboard round-trip format**
     //          (`'表达式: '`, `'NekoCalc 批量导出'` …, and the bodies composed by `_noteReport` /
     //          `_historyReport` / `_selectionSummary`), which is a data format deliberately kept (see
-    //          `notes_strings.dart`'s head). So two questions are asked: **not one word of the three
-    //          moved sentences may stay**, and **the table's three cells must really be wired in**
-    //          (`strings.untitledNote` …) — with only the first, deleting the sentences and
-    //          hard-coding an empty title would pass.
+    //          `notes_strings.dart`'s head). So two questions are asked: **not one word of the moved
+    //          sentences may stay**, and **the table's cells must really be wired in**
+    //          (`strings.untitledNote` … plus `notesNoteDraftTitle` / `notesNoteDraftDescription` — the
+    //          clipboard import's two sentences are composed over there now) — with only the first,
+    //          deleting the sentences and hard-coding an empty title would pass.
     //
     //          **Non-vacuity has its own evidence**: the round-trip labels that are deliberately kept
     //          must still be found in the controller; if they are not, the wrong file or path was
@@ -454,23 +577,40 @@ void main() {
     expect(literals.any((literal) => literal.startsWith('NekoCalc 批量导出')), isTrue,
         reason: '控制器里应当仍留着批量导出的头——找不到说明扫错了文件');
 
-    // 中文：**旧句子一个字都不许留。** 列表是迁移前硬编码的那三句（截到分辨得出的片段）。
-    // English: **not one word of the old sentences may stay.** The list is the three sentences that
-    //          used to be hard-coded (cut to distinctive fragments).
-    const movedFragments = <String>['未命名笔记', '历史结果', '由计算历史保存'];
+    // 中文：**旧句子一个字都不许留。** 列表是迁移前硬编码的那些句子（截到分辨得出的片段）：前三句
+    //       是 §5l 那三句，后面的是剪贴板导入那一家（`notes_import_draft_message.dart` 现在拼它们）。
+    // English: **not one word of the old sentences may stay.** The list is the sentences that used to be
+    //          hard-coded (cut to distinctive fragments): the first three are §5l's, the rest are the
+    //          clipboard import family (now composed by `notes_import_draft_message.dart`).
+    const movedFragments = <String>[
+      '未命名笔记',
+      '历史结果',
+      '由计算历史保存',
+      '剪贴板笔记',
+      '从剪贴板导入的文本',
+      '导入笔记',
+      '剪贴板内容',
+      '计算历史 · ',
+      '工具历史 · ',
+      '原时间 ',
+    ];
     for (final fragment in movedFragments) {
       expect(source.contains(fragment), isFalse,
           reason: '控制器里还留着应当住在 NotesStrings 里的旧句子：$fragment');
     }
 
-    // 中文：而这三格**真的被接上了**（令牌在）。
-    // English: and the three cells are **really wired in** (the tokens are present).
+    // 中文：而那几格**真的被接上了**（令牌在）。
+    // English: and those cells are **really wired in** (the tokens are present).
     expect(source.contains('strings.untitledNote'), isTrue,
         reason: '空标题兜底没有接上文案表');
     expect(source.contains('strings.historyNoteTitle'), isTrue,
         reason: '历史笔记标题没有接上文案表');
     expect(source.contains('strings.historyNoteDescription'), isTrue,
         reason: '历史笔记描述没有接上文案表');
+    expect(source.contains('notesNoteDraftTitle'), isTrue,
+        reason: '剪贴板导入的标题没有接上保存边缘的拼装处');
+    expect(source.contains('notesNoteDraftDescription'), isTrue,
+        reason: '剪贴板导入的描述没有接上保存边缘的拼装处');
   });
 
   test('笔记页源码里除了文案表再没有中文字符串字面量', () {

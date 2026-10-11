@@ -11,6 +11,7 @@ import '../../domain/usecases/notes_clipboard_import.dart';
 import '../../domain/usecases/notes_delete_result.dart';
 import '../../domain/usecases/record_filter.dart';
 import '../../domain/usecases/record_search_suggestions.dart';
+import '../../features/notes/presentation/notes_import_draft_message.dart';
 import '../../features/notes/presentation/notes_strings.dart';
 
 typedef NotesTab = RecordTab;
@@ -28,9 +29,10 @@ class NotesController extends ChangeNotifier {
   final HistoryRepository historyRepository;
   final NotesRepository notesRepository;
 
-  /// 中文：**写进库的那几句话从这张表来**（标题留空时的兜底、从计算历史保存时的标题与描述）。
+  /// 中文：**写进库的那几句话从这张表来**（标题留空时的兜底、从计算历史保存时的标题与描述，
+  ///       以及从剪贴板导入时那两条生成的标题与描述——后者见 [importClipboardPlan]）。
   ///       必填、没有中文兜底：忘了递表的调用点编译不过，而不是在英文界面上悄悄存下中文标题——
-  ///       这正是这三位原先的毛病（硬编码中文，见 `docs/verification.md` §5l）。
+  ///       这正是这几位原先的毛病（硬编码中文，见 `docs/verification.md` §5l 与 §5m）。
   ///
   ///       **它可以被换掉，而且必须被换掉。** 页面在 `initState` 里按设置的语言代码取一张
   ///       （`NotesStrings.forCode`，与 `ToolDetailController` 同一形状），随后在
@@ -42,10 +44,11 @@ class NotesController extends ChangeNotifier {
   ///       所以这里冻结的是"创建时的正确语言"，不是"显示时按当前语言重算"——理由与三个选项的取舍
   ///       在 `docs/verification.md` §5l。
   /// English: **the sentences written into the database come from this table** (the blank-title
-  ///          fallback, and the title and description used when saving from a calculation-history
-  ///          row). Required, with no Chinese fallback: a call site that forgets it fails to compile
-  ///          rather than quietly storing a Chinese title into an English interface — which is
-  ///          exactly what these three used to do (hard-coded Chinese, `docs/verification.md` §5l).
+  ///          fallback, the title and description used when saving from a calculation-history row, and
+  ///          the two generated during a clipboard import — see [importClipboardPlan]). Required, with
+  ///          no Chinese fallback: a call site that forgets it fails to compile rather than quietly
+  ///          storing a Chinese title into an English interface — which is exactly what these used to
+  ///          do (hard-coded Chinese, `docs/verification.md` §5l and §5m).
   ///
   ///          **It is reassignable, and it has to be.** The page seeds it in `initState` from the
   ///          settings' language code (`NotesStrings.forCode`, the same shape as
@@ -202,9 +205,17 @@ class NotesController extends ChangeNotifier {
       }
     }
     for (final draft in plan.noteDrafts) {
+      // 中文：**标题与描述在保存这一刻按语言拼**（草稿只带令牌与载荷）。剪贴板那份
+      //       `'剪贴板笔记 · …'` / `'从剪贴板导入的文本'` 从前是在领域层拼死的中文，英文界面下
+      //       存进库的也是中文——与上面那三句同一条具名欠账（`docs/verification.md` §5m）。
+      // English: **the title and description are assembled at this moment, in the active language**
+      //          (the draft carries only a token and payloads). The clipboard pair
+      //          (`'剪贴板笔记 · …'` / `'从剪贴板导入的文本'`) used to be composed in Chinese inside the
+      //          domain layer, so an English interface stored Chinese too — the same named debt as the
+      //          three above (`docs/verification.md` §5m).
       final id = await notesRepository.create(
-        title: draft.title,
-        description: draft.description,
+        title: notesNoteDraftTitle(draft, strings),
+        description: notesNoteDraftDescription(draft, strings),
         body: draft.body,
       );
       if (id > 0) {

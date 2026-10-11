@@ -290,12 +290,14 @@ void main() {
     //
     //       **`notes_clipboard_import.dart` 只量"结果类那一段"**，不是整个文件：这个文件同时装着
     //       **剪贴板往返的格式**——解析器认的那九个标签（`'笔记:'`、`'表达式:'`、`'结果:'`、
-    //       `'工具历史:'`、`'计算历史'`、`'NekoCalc 批量导出'`…）与两个草稿的兜底标题。它们是**数据
+    //       `'工具历史:'`、`'计算历史'`、`'NekoCalc 批量导出'`…）。它们是**数据
     //       格式**，不是给用户看的句子：跟着界面语言翻掉，粘贴就不再认得自己写出来的导出文本
     //       （同一个坑，`calculator_report_labels.dart` 的文件头上写着）。所以这一段从
     //       `class NotesClipboardImportPlan {` 量到 `NotesClipboardImportPlan
     //       buildNotesClipboardImportPlan(String text) {` 之前——**两个端点都必须找得到**，否则
-    //       扫的就可能是一段空字符串（那种"全过"最危险）。
+    //       扫的就可能是一段空字符串（那种"全过"最危险）。**草稿的两个兜底标题从前也在这张豁免单
+    //       上**（它们被当成格式的一部分量在外面）；`'导入笔记'` / `'剪贴板内容'` 现在也搬去了
+    //       `NotesStrings`，所以它们落回下面那条"旧句子一个字都不许留"的底线里——豁免少了两个。
     //
     //       两条底线的第二条：迁移前那几句句子**在两个文件里一个字都不许留**，不管它藏在哪一段。
     // English: **the scan asks "does this file hold any human-facing character"**, not "is a whole
@@ -307,14 +309,17 @@ void main() {
     //          **Only the result classes' stretch of `notes_clipboard_import.dart` is measured**, not the
     //          whole file: that file also carries the **clipboard round-trip format** — the nine labels
     //          the parser knows (`'笔记:'`, `'表达式:'`, `'结果:'`, `'工具历史:'`, `'计算历史'`,
-    //          `'NekoCalc 批量导出'` …) and the two drafts' fallback titles. Those are a **data format**,
+    //          `'NekoCalc 批量导出'` …). Those are a **data format**,
     //          not sentences for a user: translate them with the interface and a paste would no longer
     //          recognise the export this app itself wrote (the same trap, written on
     //          `calculator_report_labels.dart`'s file head). So the stretch runs from
     //          `class NotesClipboardImportPlan {` up to (but not including)
     //          `NotesClipboardImportPlan buildNotesClipboardImportPlan(String text) {` — **both endpoints
     //          must be found**, or the scan could be measuring an empty string (the kind of "all pass"
-    //          that is the most dangerous).
+    //          that is the most dangerous). **The drafts' two fallback titles used to sit on this same
+    //          exemption list** (they were measured as part of the format); `'导入笔记'` / `'剪贴板内容'`
+    //          have now moved into `NotesStrings` too, so they fall back under the "not one word of the
+    //          old sentences may stay" floor below — the exemption shrank by two.
     //
     //          The second floor: the pre-move sentences must **not survive anywhere** in the two files,
     //          whatever stretch they hide in.
@@ -347,10 +352,15 @@ void main() {
             '${offenders.join('\n')}');
 
     // 中文：**旧句子一个字都不许留**（整份文件，含注释被剥掉后的正文）。列表就是那三张对照表里
-    //       的句子去重——将来有人把某一句抄回领域文件，这条会红。
+    //       的句子去重——将来有人把某一句抄回领域文件，这条会红。**剪贴板导入那一家也在列**：
+    //       `'剪贴板笔记 · …'`、`'从剪贴板导入的文本'`、`'导入笔记'`、`'剪贴板内容'` 与两行预览的前缀
+    //       从前就拼在这个文件里，现在只剩令牌与载荷（句子在 `notes_import_draft_message.dart`）。
     // English: **not one word of the old sentences may stay** (the whole file, comments stripped). The
     //          list is the three legacy tables' sentences, de-duplicated — if somebody copies one back
-    //          into a domain file, this goes red.
+    //          into a domain file, this goes red. **The clipboard import family is on it too**:
+    //          `'剪贴板笔记 · …'`, `'从剪贴板导入的文本'`, `'导入笔记'`, `'剪贴板内容'` and the two preview
+    //          row prefixes used to be composed in this very file; only tokens and payloads are left
+    //          (the sentences live in `notes_import_draft_message.dart`).
     final legacySentences = <String>{
       ...legacyPlanSentences.values,
       ...legacyReceiptSentences.values,
@@ -362,6 +372,15 @@ void main() {
       '跳过 3 段',
       '未写入 2 条',
       '2 项未找到或已被删除',
+      // 中文：剪贴板导入那一家（见上）。
+      // English: the clipboard import family (see above).
+      '剪贴板笔记',
+      '从剪贴板导入的文本',
+      '导入笔记',
+      '剪贴板内容',
+      '计算历史 · ',
+      '工具历史 · ',
+      '原时间 ',
     };
     for (final sentence in legacySentences) {
       expect(importSource.contains(sentence), isFalse,
@@ -445,13 +464,18 @@ NotesDeleteResult _deleteFor(NotesDeleteStatus status) {
 }
 
 /// 中文：两个草稿只是**载荷**（数量与正文都不进这三张对照表里量到的那半句），内容取最短的一对。
+///       笔记草稿那一格是**措辞令牌**（`parsed` = 用户数据原样过），与那三张对照表无关——它服务的是
+///       `notes_import_draft_message.dart` 那几张表。
 /// English: the two drafts are **payload** only (neither their count nor their body enters the half of
-///          the sentence the three legacy tables measure); the shortest pair will do.
+///          the sentence the three legacy tables measure); the shortest pair will do. The note draft's
+///          one cell is a **wording token** (`parsed` = the user's own words pass through) and has
+///          nothing to do with those three tables — it serves the tables in
+///          `notes_import_draft_message.dart`.
 const NotesNoteImportDraft _noteDraft = NotesNoteImportDraft(
+  wording: NotesNoteDraftWording.parsed,
   title: 'T',
   description: '',
   body: '',
-  source: NotesImportSource.note,
 );
 
 const NotesHistoryImportDraft _historyDraft = NotesHistoryImportDraft(

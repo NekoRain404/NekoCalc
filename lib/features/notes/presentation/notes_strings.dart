@@ -190,6 +190,15 @@ class NotesStrings {
     required this.untitledNote,
     required this.historyNoteTitle,
     required this.historyNoteDescription,
+    // —— 剪贴板导入：保存时生成的标题与描述 ——
+    required this.importedNoteTitle,
+    required this.clipboardNoteTitle,
+    required this.clipboardNoteBlankFirstLine,
+    required this.clipboardNoteDescription,
+    // —— 剪贴板导入对话框的预览行（只画在屏幕上，不写库）——
+    required this.historyPreviewTitle,
+    required this.toolHistoryPreviewTitle,
+    required this.historyPreviewDescription,
   });
 
   // —— 页头、搜索与胶囊 ——
@@ -358,6 +367,49 @@ class NotesStrings {
   final String historyNoteTitle;
   final String Function(String timestamp) historyNoteDescription;
 
+  // —— 剪贴板导入：保存时生成的标题与描述 ——
+  // 中文：这四格与上面那三格是同一类——**写进 `notes` 表的字**，不是画在屏幕上的字，只是那一族换成了
+  //       剪贴板导入这条路：给导出块里没有标题的笔记兜底（[importedNoteTitle]）、给剪贴板纯文本拼
+  //       标题（[clipboardNoteTitle]，载荷是首行；没有首行时用 [clipboardNoteBlankFirstLine]）与
+  //       描述（[clipboardNoteDescription]）。**同样在保存那一刻按当时的界面语言冻结**，理由与上面
+  //       那三格逐字相同；从前这四句硬编码在 `notes_clipboard_import.dart` 的草稿里，所以英文界面下
+  //       存进去的仍是中文（`docs/verification.md` §5m 记着这条具名欠账）。拼装处是
+  //       `notes_import_draft_message.dart` 的 `notesNoteDraftTitle` / `notesNoteDraftDescription`，
+  //       截断（24 个字符）也在那里。
+  // English: these four cells are the same kind as the three above — **characters written into the
+  //          `notes` table**, not painted on a screen — only the road is the clipboard import: the
+  //          fallback for a note block with no title ([importedNoteTitle]), and the title
+  //          ([clipboardNoteTitle], payload = the first line; [clipboardNoteBlankFirstLine] when there
+  //          is none) and description ([clipboardNoteDescription]) of clipboard plain text. **They also
+  //          freeze at the moment of saving in the then-active interface language**, for exactly the
+  //          reason the three above do; before the move these four sentences were hard-coded in
+  //          `notes_clipboard_import.dart`'s drafts, so an English interface stored Chinese
+  //          (`docs/verification.md` §5m records the debt by name). They are assembled by
+  //          `notesNoteDraftTitle` / `notesNoteDraftDescription` in `notes_import_draft_message.dart`,
+  //          where the 24-character truncation also lives.
+  final String importedNoteTitle;
+  final String Function(String firstLine) clipboardNoteTitle;
+  final String clipboardNoteBlankFirstLine;
+  final String clipboardNoteDescription;
+
+  // —— 剪贴板导入对话框的预览行 ——
+  // 中文：这三格相反：**只画在导入对话框里，从不写库**（对话框那一行是"将要导入什么"的预览），所以
+  //       由呈现边缘在画那一刻按当时的语言取，`NotesController` 不读它们。中文侧逐字节等于迁移前
+  //       `NotesHistoryImportDraft.previewTitle` / `previewDescription` 里那几句；「·」连接符也跟着
+  //       语言走（英文取 `', '`，与 `summaryPartsSeparator` 同一条惯例）。表达式的截断（30 个字符）
+  //       在 `notes_import_draft_message.dart` 里。
+  // English: these three are the opposite: **painted in the import dialog only, never written into the
+  //          database** (that row is a preview of "what is about to be imported"), so the presentation
+  //          edge fetches them in the language of the moment it paints, and `NotesController` does not
+  //          read them. The Chinese side is byte-identical to the pre-move
+  //          `NotesHistoryImportDraft.previewTitle` / `previewDescription`; the "·" separator follows
+  //          the language too (English takes `', '`, the convention `summaryPartsSeparator` follows).
+  //          The expression truncation (30 characters) is in `notes_import_draft_message.dart`.
+  final String Function(String expression) historyPreviewTitle;
+  final String Function(String expression) toolHistoryPreviewTitle;
+  final String Function(String? toolId, String? sourceTimeLabel)
+      historyPreviewDescription;
+
   /// 中文：按当前界面语言取表。**switch 必须穷尽 `AppLanguage`**——加语言时这里编译不过，
   ///       而不是静默回落到中文。
   /// English: Picks the table for the active language. The **switch must exhaust `AppLanguage`** so
@@ -505,6 +557,16 @@ class NotesStrings {
     untitledNote: '未命名笔记',
     historyNoteTitle: '历史结果',
     historyNoteDescription: (timestamp) => '由计算历史保存，时间 $timestamp',
+    importedNoteTitle: '导入笔记',
+    clipboardNoteTitle: (firstLine) => '剪贴板笔记 · $firstLine',
+    clipboardNoteBlankFirstLine: '剪贴板内容',
+    clipboardNoteDescription: '从剪贴板导入的文本',
+    historyPreviewTitle: (expression) => '计算历史 · $expression',
+    toolHistoryPreviewTitle: (expression) => '工具历史 · $expression',
+    historyPreviewDescription: (toolId, sourceTimeLabel) => [
+      if (toolId != null) '工具 $toolId',
+      if (sourceTimeLabel != null) '原时间 $sourceTimeLabel',
+    ].join(' · '),
   );
 
   static final NotesStrings notesEn = NotesStrings(
@@ -626,5 +688,22 @@ class NotesStrings {
     historyNoteTitle: 'History result',
     historyNoteDescription: (timestamp) =>
         'Saved from calculation history at $timestamp',
+    // 中文：**这四格是写进库的字，英文侧刻意不用「·」**（`notes_strings_test.dart` 那条"英文侧
+    //       不含宽/全角字符"的尺子把 `·` 也算进去）：分隔用 ASCII 冒号，与 `summaryPartsSeparator`
+    //       取 `', '` 是同一条惯例。
+    // English: **these four cells are characters written into the database, and the English side
+    //          deliberately avoids the "·"** (the "English side holds no wide/fullwidth character"
+    //          ruler in `notes_strings_test.dart` counts `·` too): the separator is an ASCII colon, the
+    //          same convention that makes `summaryPartsSeparator` take `', '`.
+    importedNoteTitle: 'Imported note',
+    clipboardNoteTitle: (firstLine) => 'Clipboard note: $firstLine',
+    clipboardNoteBlankFirstLine: 'Clipboard content',
+    clipboardNoteDescription: 'Text imported from the clipboard',
+    historyPreviewTitle: (expression) => 'Calculation history: $expression',
+    toolHistoryPreviewTitle: (expression) => 'Tool history: $expression',
+    historyPreviewDescription: (toolId, sourceTimeLabel) => [
+      if (toolId != null) 'Tool $toolId',
+      if (sourceTimeLabel != null) 'Original time $sourceTimeLabel',
+    ].join(', '),
   );
 }
