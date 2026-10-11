@@ -1142,6 +1142,37 @@ the paste round-trip grammar), and **three independent proofs** that an English 
 ⚠️ **What genuinely remains**: the catalogue family's whole-file exemption (architecture, as above — not a
 defect) and the nine clipboard round-trip labels, which are **input grammar read back by a parser**, not copy.
 
+### 5n. The gap class that neither a source scan nor a composer test can see (found and closed 2026-10-11)
+
+Converting the domain-prose families to "token + translate at the edge" gave each family a guard — the
+legacy-sentence table, the en-no-CJK check, a source scan of the producer. **All of those can be green while the
+screen is not wired to the composer at all.** A source scan checks that the *producer* hands over a token; a
+composer test checks that the *composer* renders one; **neither looks at the call site, which is exactly where
+the two meet.** The only thing that catches it is a **widget test that drives the real action and asserts the
+visible sentence**.
+
+Two instances were found — not by any guard, but by asking the question family by family:
+
+| path | state before | closed by |
+|---|---|---|
+| `=` submit (`calculator_key_dispatch.dart`) | **no widget test at all**: composer pinned by `calculator_submit_result_test.dart`, tables by `calculator_strings_test.dart`, the screen by nothing — an earlier agent had flagged it as a known limitation | `56db335` — scope `en`, tap `✓` on an empty screen, assert the English sentence present and the Chinese absent |
+| tool save (`text_tool_detail_screen.dart:315/:336`, `data_fit_actions.dart:316/:337`) | **Chinese side covered, English side not**: `tool_detail_screen_test.dart:388-403` and `:427-441`, `data_fit_tool_screen_test.dart:181-238` assert the Chinese receipts; the only English-scope test on those screens taps *Paste* and **never *Save***; a grep for the English receipts across `test/` returned none | `fda0409` — scope `en`, `Save` → `Note`, assert the English receipts |
+
+**Both new tests were proved non-vacuous the same way**: hard-code the Chinese sentence at the call site, watch
+the English test go red while the Chinese one stays green, then restore and verify `lib/` byte-identical.
+**A wiring test that has never been shown to fail is not yet known to be a wiring test.**
+
+⚠️ **This class cannot be guarded mechanically, and that is worth stating so nobody tries**: the call site looks
+correct in every static sense, and the failure exists only at runtime, in the rendered text. The practical
+answer is a per-path widget test — which is why **each converted family needs one**, and why *"the composer has a
+guard"* is not the same claim as *"the path is covered"*.
+
+⚠️ **And finding them took three failed proxies**: a grep for tests that *import* the composer (wrong — a widget
+test need not import it), a keyword grep for `SnackBar|已保存|Saved` (a possible false negative), and a guess at
+the receipt cells' names (**all four guesses did not exist** — the real ones are `saveHistorySaved` /
+`saveNoteSaved` / `saveNothingToStore` / `saveNoteNotWritten`). **Reading the tests answered it in one pass.**
+For questions about *test coverage*, a grep is a guess about the answer, not a measurement of it.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
