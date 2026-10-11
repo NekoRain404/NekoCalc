@@ -1226,14 +1226,29 @@ never `delete()`d carry ART finalizers — a deferral, not a leak.
 | **PROVEN** | `MainActivity`'s `exportJson`/`importJson` called `startActivityForResult` **unguarded**, while the sibling `exportBytes` has always wrapped it. On a device with no activity handling `ACTION_CREATE_DOCUMENT`, that throws `ActivityNotFoundException`: the exception crosses the platform thread **and** `pendingResult` is left non-null forever, so **every later backup call returns `busy` — export and import are dead for the life of the process**. | `cf6d4c1` — same `try`/`catch` shape as the sibling, clearing the pending state and answering with a real error |
 | **SUSPECTED** | the engine was held as an **Activity field** while `QalculateEngine`'s own class doc promises "the process therefore keeps exactly one `Calculator`". A system-initiated recreation ("Don't keep activities", low-memory) would build a **second engine and a second native thread** — the shared-state race that doc says was deliberately avoided. | `fc1585a` — moved into a nested `object` (one singleton per process); the field became a one-line getter, so **no call site changed** |
 
+⚠️ **And the library itself is stricter than our doc comment was.** Looking up `Calculator`'s own reference on
+2026-10-12 gives: "A calculator object must be created before any other Qalculate! class is used. **There should
+never be more than one calculator object, accessed with `CALCULATOR`.**" So the per-Activity field was not merely
+inconsistent with our own comment — it **violated the library's documented requirement**, and `fc1585a`'s
+process-scoped singleton is what brings the bridge into line with it. (The same page also documents `busy()`,
+"Returns true if the calculate or print thread is busy", and a section of "Functions for handling of threaded
+calculations" — the machinery the finding above says we should adopt.)
+
 **Two remain open, each with its precondition and the smallest fix named** — recorded rather than half-fixed:
 
 - **A hung native call blocks every later evaluation.** One single-thread executor with an **unbounded** queue;
   `calculate` takes **no timeout** (only `print` gets `PRINT_TIMEOUT_MS = 2000`), and the bridge **never calls
-  the engine's own `abort()`** (confirmed to exist via `javap`). The consequence is quiet: Dart's 5 s
-  `engineTimeout` falls back to the legacy parser, so the **UI looks fine while the native queue and CPU grow**.
-  Smallest fix: a per-call `abort()` timer on the engine thread, or refuse-and-error when the executor's queue is
-  already non-empty. **This is a design choice, so it is recorded, not guessed at.**
+  the engine's own `abort()`**. The consequence is quiet: Dart's 5 s `engineTimeout` falls back to the legacy
+  parser, so the **UI looks fine while the native queue and CPU grow**.
+  ⚠️ **The library's own documentation was looked up on 2026-10-12, and it settles the shape of the fix**:
+  `Calculator::abort()` is documented as "Abort formatting, printing or evaluation (**after `startControl()` has
+  been called**)" and — decisively — "This function **will normally be called from a thread** that checks for
+  user input or other conditions". The same page says the `calculate` functions "**start the calculation in a
+  separate thread**" and "The calculation can then be stopped with `abort()`", and offers `busy()` for "the
+  calculate or print thread". **So aborting is not an invention and not a risk — it is the documented,
+  intended use; what the bridge lacks is the engine's own threaded-calculation machinery (`startControl`), not a
+  timer.** That converts this from "a design choice I declined to guess at" into **a documented path**:
+  adopt the engine's threaded API rather than adding a timer to the hand-rolled executor.
 - **`loadGlobalDefinitions() == false` is logged and dropped.** The file's own comment says the return value
   "must be recorded … 400-odd units and every constant vanish silently", but it never leaves logcat, so Dart
   cannot tell "no units loaded" from a real answer. Fixing it needs **both** sides (a key in the result map plus
