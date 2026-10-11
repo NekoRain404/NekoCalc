@@ -1253,6 +1253,33 @@ tasks executed — a Gradle task reported `up-to-date` had fooled me once earlie
 action that did nothing looks like one that ran"). **Neither fix has a behavioural test**: instantiating
 `MainActivity` (a `FlutterActivity`) on the JVM needs Robolectric, which this project does not carry.
 
+### 5p. Is the release build's JNI path intact? — yes, and it corrected two of my own readings (2026-10-12)
+
+The classic severe defect in any JNI app is "debug works, release crashes": R8 renames or strips the classes that
+JNI resolves **by name**. This project ships a release build, so the question was worth asking — and answering it
+corrected two things I had said.
+
+1. **"Minification is off" — wrong.** A grep for `isMinifyEnabled` in `android/app/build.gradle.kts` returns
+   nothing, and I read that as "not enabled". **`dexdump` on the built release APK says otherwise**: the DEX holds
+   **662 class descriptors**, and under `com/nekorain/nekocalc` there is **only `MainActivity`** — the whole
+   `…/nekocalc/qalculate/` package is absent because R8 **merged/inlined** classes that are referenced only by
+   compiler-resolved code and never by name. That is *harmless by construction* (nothing looks them up by
+   string), but it means the release build **is** optimised, and my grep-based reading was a third instance of
+   "a grep that finds nothing is not a measurement of absence".
+2. **The JNI-critical names survive — verified with a real DEX parser.** `dexdump` lists
+   `'Lcom/jherkenhoff/libqalculate/libqalculateJNI;'` and `'Lcom/jherkenhoff/libqalculate/Calculator;'` **by their
+   full names** in the release DEX, which is precisely the property JNI needs; the AAR most likely ships consumer
+   keep rules. Combined with the earlier measurements — the release build **launches and runs**, and its startup
+   smoke test makes an engine call — there is **no evidence of an R8/JNI defect**.
+
+⚠️ **And the method lesson is worth more than the answer.** My first attempt probed the DEX with `strings` and
+"found" the JNI classes while missing `QalculateEngine` — **a class I had edited the same day and knew was
+compiled in**. That control failure is what exposed the method as unreliable (DEX stores its string pool in
+length-prefixed chunks that `strings` cannot be trusted to respect), and the fixed method (`dexdump`, a real
+parser) then produced both the presence of the JNI names and the absence of my own package. **A measurement whose
+control fails is not a measurement** — and the only reason this entry exists at all is that `QalculateEngine`
+showing up as "absent" was too absurd to accept.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
