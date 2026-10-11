@@ -294,7 +294,9 @@ sub-48 classes, named by tooltip). Also re-measured the same day:
   under *labels* is correct, and the `119 × 32` field's three empty semantics strings (label, value, tooltip)
   are **not** a labelling defect. **I nearly recorded them as one**; the guideline check is what stopped it.
 
-Numbers in `.superpowers/backup/comparison-with-hiper.md` §11.
+Numbers in `docs/comparison-with-hiper.md` §11 (⚠️ this second reference was **missed** when the
+document was recovered on 2026-10-12 — it still pointed into the gitignored scratch directory, which
+left the same file at two addresses; both references now name the tracked copy).
 
 ## 5. What is **not** verified
 
