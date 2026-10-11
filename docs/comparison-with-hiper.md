@@ -17,11 +17,11 @@
 
 | 能力 | HiPER | 我们 | 证据 |
 |---|---|---|---|
-| 解方程（一元） | **手册 `solves`/方程解命中为 0** | ✅ `2x+1=7` → `x = 3` | 真机截图；`engine-capability-probe.md` 八 |
+| 解方程（一元） | **手册 `solves`/方程解命中为 0** | ✅ `2x+1=7` → `x = 3` | 真机截图；`.superpowers/backup/engine-capability-probe.md`（⚠️ gitignore 的脚手架目录，**仓库读者打不开**）八 |
 | 方程组 | 同上 | ✅ `x+y=3; x-y=1` → `[ 2  1 ]` | 真机截图 |
-| 日期计算 | **`date`=0、`calendar`=0** | ✅ 工具（工具 #118） | `8f79456` |
-| 不确定度传播 | **`uncertainty`=0、`±`=0** | ✅ 工具（工具 #119） | `ae39b1f` |
-| 复制为 LaTeX | **`latex`=0** | ✅ 真机验证过 snackbar | 真机；`engine-capability-probe.md` 六 |
+| 日期计算 | **`date`=0、`calendar`=0** | ✅ 工具（`date_calc`——原文的「#118」是当时工具清单的编号，删掉 23 个工具后已无从核对，故改记 id） | `8f79456` |
+| 不确定度传播 | **`uncertainty`=0、`±`=0** | ✅ 工具（`uncertainty`——同上，「#119」已无从核对，故改记 id） | `ae39b1f` |
+| 复制为 LaTeX | **`latex`=0** | ✅ 真机验证过 snackbar | 真机；`.superpowers/backup/engine-capability-probe.md` 六 |
 | 罗马数字 | 手册 `roman`=2（**它有**） | ✅ `2026` → `MMXXVI` | 工具里那一行 |
 | 任意进制 | 未量 | ✅ 二进制…36 进制（`255 base 7` → `513`） | `883dcc1` |
 | 质因数分解 | 手册 `factor`=5（**它有**） | ✅ 且**比引擎对**，见第二节 | `261362d` |
@@ -30,12 +30,12 @@
 | **分步（求导）** | **手册不给推导** | ✅ **我们有** | `7080c03` 起 |
 | 矩阵/行列式/特征值 | 有 | ✅ 有 | 既有工具 |
 | 统计/回归/图 | 有 | ✅ 有 | 既有工具 |
-| 单位换算 | 有 | ✅ 有（117 个符号逐个量过） | `app_unit_catalog.dart` |
+| 单位换算 | 有 | ✅ 有（**120** 个符号逐个量过——原文的 117 已过期；表自己也写着「本表今天 120 条，不是上面那句 117」） | `app_unit_catalog.dart` |
 | 拍照解题 | **有**（手册 728–745 行整节，OCR 取式 + 相册导入） | ❌ 无（要接第三方服务） | `hiper.txt:728-745` |
 | 自然语言输入 | 有 | ❌ 无（要写解析器） | —— |
 
 **读法**：上表只列**能力有无**，不列好坏、快慢、好不好用。
-`未量` 与 `❌` 是两种不同的状态（见 `engine-capability-probe.md` 第十八节那条纪律）。
+`未量` 与 `❌` 是两种不同的状态（见 `.superpowers/backup/engine-capability-probe.md` 第十八节那条纪律）。
 
 ---
 
@@ -78,7 +78,7 @@ HiPER 的分步是**十进制 / 表达式模式**的（把 `1+2×3` 拆成"先�
 1. **拍照解题** —— 要接第三方服务，不是一个量级的事。
 2. **自然语言输入** —— 要写解析器。
 4. **多变量求导** —— 工具收 `diff(y^2, y)`，但混合偏导、多元函数没有。
-5. **化简** —— 恒等式那一层做了（去乘 1、去加 0、相同项合并），
+5. **化简** —— 恒等式那一层做了（去乘 1、去加 0），
    **合并同类项、展开括号、任何排版决定都没做**（那些有取舍）。
 
 ---
@@ -426,7 +426,7 @@ try {
 `androidTapTargetGuideline`（Flutter 自带，每个可点目标 ≥48dp）在主屏上**不通过**——
 **但「不通过的是什么」这一节此前记错了，2026-10-10 逐个数过一遍，下面全换成实测的。**
 
-**结构（读 `calculator_keypad.dart` 的 `_row` 定的）**：键盘是 `ColoredBox > Padding(6) > Column`，
+**结构（读 `keypad/calculator_keypad.dart` 的 `_row` 定的）**：键盘是 `ColoredBox > Padding(6) > Column`，
 Column 的每个孩子是一个**行组**，行组两片——`Expanded(flex: 2, _band)` 在**上**、
 `Expanded(flex: 5, _mainStrip)` 在**下**。上面那片是**标签横带**（一行小字，`_bandCell` 每格各自可点），
 下面那片是**主键条**（每颗键各自可点）。横带标的是**它下面那行**键的功能——HiPER 的机制。
@@ -492,5 +492,5 @@ Column 的每个孩子是一个**行组**，行组两片——`Expanded(flex: 2,
 （**那两颗按钮不属于这一类，所以它们修了**——见上：它们不是 HiPER 的排布，是缺陷。
 "是权衡所以不改"这句话**不能拿来豁免缺陷**，本节原来就是在这儿把它们混成一条的。）
 
-**数在上面；几何在 `calculator_keypad.dart`**（`_row` 的那两片、`_bandCell`、`_keyButton`），
-行与标签的**表**在 `hiper_keypad_function_rows.dart`——旧文把指针指到了表上，几何不在那里。
+**数在上面；几何在 `keypad/calculator_keypad.dart`**（`_row` 的那两片、`_bandCell`、`_keyButton`），
+行与标签的**表**在 `keypad/hiper_keypad_function_rows.dart`——旧文把指针指到了表上，几何不在那里。
