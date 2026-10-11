@@ -190,10 +190,11 @@ each, written down so nobody re-walks them:
 | **`web.archive.org`** (Wayback — the route that *would* have sidestepped the JS problem) | **"Claude Code is unable to fetch from web.archive.org"** — blocked by the fetch tool itself, so this is **not** a dead end that more effort fixes |
 
 **What that leaves, and why it is enough.** The comparison that exists is by **capability**, not by vanity
-metrics: `comparison-with-hiper.md` §1's item-by-item table against HiPER's **own v12 manual**, where
-「HiPER 有、我们没有」 no longer appears. **Install count, rating and APK size are not reachable from this
-environment** — and none of the three would change what gets built. If they are wanted, they have to come from
-a source the user supplies.
+metrics: **`docs/comparison-with-hiper.md`** §1's item-by-item table against HiPER's **own v12 manual**, where
+「HiPER 有、我们没有」 no longer appears. (⚠️ That document lived only in the gitignored scratch directory until
+**2026-10-12**, so this sentence was citing a file no reader of the repository could open — it is tracked now.)
+**Install count, rating and APK size are not reachable from this environment** — and none of the three would
+change what gets built. If they are wanted, they have to come from a source the user supplies.
 
 ## 3. Where this project is *more correct than the engine*
 
