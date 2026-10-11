@@ -10,8 +10,8 @@ import '../shared/source_scan.dart';
 ///       `_stringLiterals`）与那份逐条带理由的豁免表一起搬到了这个文件。
 ///
 ///       **覆盖范围一个字没变。** 扫描的目录仍旧是 `lib/features/tools/presentation`（递归、全部
-///       `.dart`），跳过的仍旧只有文案表的名字（本轮从十张变成十三张，见下），判据仍旧是
-///       `containsWideOrFullwidth`，豁免的仍旧只有 `_punctuationOnlyLiterals` 里那四条。
+///       `.dart`），跳过的仍旧只有文案表的名字（上一轮从十张变成十三张，**本轮再添九张**，见下），
+///       判据仍旧是 `containsWideOrFullwidth`，豁免的仍旧只有 `_punctuationOnlyLiterals` 里那四条。
 ///
 ///       跳过表里收的是**表名**，目录自己的**五张**也在其中：`tool_catalog_strings.dart`（117 个工具名
 ///       + 8 个分类的名字与说明）、`tool_description_strings.dart`（描述那 117 条）、
@@ -31,9 +31,9 @@ import '../shared/source_scan.dart';
 ///
 ///          **The coverage did not change by one character.** The directory scanned is still
 ///          `lib/features/tools/presentation` (recursive, every `.dart`), the only names skipped are
-///          still copy tables (ten became thirteen this round; see below), the ruler is still
-///          `containsWideOrFullwidth`, and the only exemptions are still the four literals in
-///          `_punctuationOnlyLiterals`.
+///          still copy tables (ten became thirteen last round, **nine more this round**; see below),
+///          the ruler is still `containsWideOrFullwidth`, and the only exemptions are still the four
+///          literals in `_punctuationOnlyLiterals`.
 ///
 ///          The skip list takes **table names**, and the catalogue's own five are among them:
 ///          `tool_catalog_strings.dart` (117 tool names plus the 8 categories' names and
@@ -47,6 +47,24 @@ import '../shared/source_scan.dart';
 ///          Chinese literal was added to the interface files under `lib/features/tools/presentation`**
 ///          (the round's edits there are four lookup calls in `tool_detail_screen.dart` and
 ///          `tool_category_screen.dart`), so the assertion below did not go one byte slacker.
+///
+///          中文：**本轮再添九张，全是"结果值"与"洞察"那两族的新表**：
+///          `tool_result_value_strings.dart`（结果卡与主结果框那两格 `value` / `unit`，216 条英文）
+///          与 `tool_insight_strings.dart` 加七个按分类拆出去的文件（洞察卡那些句子，
+///          367 条整句 + 90 条带载荷的模板）。**这九个文件里必然是汉字**——表键就是中文本身，
+///          与上面那一串是同一条理由；**界面文件一个都没被放过**：本轮的界面改动只是四处取词
+///          （`tool_widgets.dart` 两处、`tool_detail_output_section.dart` 两处，
+///          外加洞察卡每条印出去之前过一遍表），**没有一行界面文案住进界面文件**。
+///          English: **nine more this round, all of them new tables for the "result value" and
+///          "insight" families**: `tool_result_value_strings.dart` (the result card's and the primary
+///          box's two cells `value` / `unit`, 216 English entries) and `tool_insight_strings.dart`
+///          plus seven files split out of it by category (the insight card's sentences, 367 whole
+///          sentences and 90 payload templates). **Han characters are unavoidable in those nine
+///          files** — the key is the Chinese itself, the same reason as the list above; **not one
+///          interface file was let through**: this round's interface edits are four lookups
+///          (`tool_widgets.dart` twice, `tool_detail_output_section.dart` twice, plus every insight
+///          item going through the table before it is printed) and **not one line of interface copy
+///          moved into an interface file**.
 void main() {
   // 中文：**测试名里不写表数。** 它原先叫「除了**两张**文案表」，而表数从九张一路涨到十张——
   //       名字不是断言，但一个会过期的数字挂在名字上，下一个人会以为守卫的范围没变过。
@@ -66,23 +84,28 @@ void main() {
       // 中文：文案表自己就是汉字住的地方，跳过它们。文本工具那一族有七张
       //       （门面 + 识别组 + 统计 + 数据组 + 编解码组 + Web 格式组 + 时间戳），
       //       目录那一族有**十一张**（名字与分类、描述、分组名、参数标签与单位、公式与解释，
-      //       加上本轮的结果标签六张），它们一样是本目录里的"汉字之家"。
-      //       **本轮加的是结果标签那六张**：`result.label` 的 715 条英文全在
+      //       加上上一轮的结果标签六张），它们一样是本目录里的"汉字之家"。
+      //       **上一轮加的是结果标签那六张**：`result.label` 的 715 条英文全在
       //       `tool_result_label_strings.dart` 与它的五个按分类拆出去的文件里，
       //       而**表键就是中文本身**，所以那六个文件里必然满是汉字。
+      //       **本轮加的是结果值与洞察那九张**：`tool_result_value_strings.dart`、
+      //       `tool_insight_strings.dart` 与它的七个分类文件——理由逐字相同（键就是中文本身）。
       //       **这一串只加表名，不给非表文件开口子**：`text_tool_detail_screen.dart` 之类的
       //       界面文件仍然照扫不误。
       // English: the tables are where the Chinese is *supposed* to live; skip them. The text-tool
       //          family has seven (facade + recognition + statistics + data + codec + web-format +
       //          timestamps) and the catalogue family now has **eleven** (names and categories,
       //          descriptions, group names, parameter labels and units, formulas and explanations, plus
-      //          this round's six result-label files); they are "Chinese homes" in this directory just
-      //          like their siblings. **This round added the six result-label files**: all 715 English
+      //          last round's six result-label files); they are "Chinese homes" in this directory just
+      //          like their siblings. **Last round added the six result-label files**: all 715 English
       //          entries of `result.label` live in `tool_result_label_strings.dart` and the five files
       //          split out of it by category, and **the keys are the Chinese itself**, so those six
-      //          files are necessarily full of Han characters. **Only table names go on this list, never
-      //          a screen file**: interface files such as `text_tool_detail_screen.dart` are still
-      //          scanned like everything else.
+      //          files are necessarily full of Han characters. **This round adds the nine result-value
+      //          and insight files**: `tool_result_value_strings.dart`, `tool_insight_strings.dart`
+      //          and its seven category files — the reason is character-for-character the same (the key
+      //          is the Chinese itself). **Only table names go on this list, never a screen file**:
+      //          interface files such as `text_tool_detail_screen.dart` are still scanned like
+      //          everything else.
       if (name == 'tools_strings.dart' ||
           name == 'data_fit_strings.dart' ||
           name == 'tool_catalog_strings.dart' ||
@@ -96,6 +119,15 @@ void main() {
           name == 'tool_result_label_strings_mechanical.dart' ||
           name == 'tool_result_label_strings_finance.dart' ||
           name == 'tool_result_label_strings_science.dart' ||
+          name == 'tool_insight_strings.dart' ||
+          name == 'tool_insight_strings_electronics.dart' ||
+          name == 'tool_insight_strings_finance.dart' ||
+          name == 'tool_insight_strings_lifestyle.dart' ||
+          name == 'tool_insight_strings_math.dart' ||
+          name == 'tool_insight_strings_mechanical.dart' ||
+          name == 'tool_insight_strings_physics.dart' ||
+          name == 'tool_insight_strings_structure.dart' ||
+          name == 'tool_result_value_strings.dart' ||
           name == 'text_tool_strings.dart' ||
           name == 'text_tool_text_strings.dart' ||
           name == 'text_tool_stats_strings.dart' ||

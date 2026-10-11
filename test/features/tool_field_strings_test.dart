@@ -520,7 +520,23 @@ Future<_DetailReadings> _pumpDetail(
   //          renders two tools in a row it does — **this round neither introduced it nor owns it**.
   await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
   await tester.pump();
-  tester.view.physicalSize = const Size(360 * 3, 2200 * 3);
+  // 中文：**视口要高到把整屏都装下。** 这是一台 360×2200 逻辑像素的手机：`ListView` 只挂载
+  //       视口加上缓存区之内的孩子，2200 时英文那一屏的公式格在 y≈2356（`maxScrollExtent`≈868），
+  //       于是 `find.byType(Text)` 根本看不到它——而下面按文本找元素的那条辅助函数正是靠它。
+  //       **为什么英文那一屏更长**：英文的字比中文长（`Voltage V (optional)` 对 `电压 V（可选）`），
+  //       同样的内容撑高了卡片——这正是本轮把两族文案接到表上之后才出现的差别。
+  //       所以这里量的是"内容高度"而不是"屏幕高度"：换一个高视口，让整屏一次挂载完。
+  // English: **the viewport has to be tall enough to hold the whole screen.** This is a 360×2200
+  //          logical-pixel phone: a `ListView` only mounts children inside the viewport plus its cache
+  //          region, so at 2200 the English screen's formula cell sits at y≈2356
+  //          (`maxScrollExtent`≈868) and `find.byType(Text)` never sees it — and the helper below that
+  //          finds an element by its text relies on exactly that. **Why the English screen is taller**:
+  //          English words are longer than the Chinese ones (`Voltage V (optional)` against
+  //          `电压 V（可选）`), so the same content pushes the cards further down — a difference that
+  //          only appeared once this round wired the two copy families to tables. So what is measured
+  //          here is the *content* height, not a screen height: a taller viewport mounts the screen in
+  //          one go.
+  tester.view.physicalSize = const Size(360 * 3, 3200 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

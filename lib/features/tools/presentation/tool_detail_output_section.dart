@@ -85,6 +85,62 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
     }
   }
 
+  // 中文：**这两个动作是这一半的第七、第八件事，本轮从主文件原样搬来。** `_saveResult` /
+  //       `_saveNote` 与上面三个复制动作是同一条形状——把已经算好的东西送出去（送到库里、
+  //       送到 SnackBar）；主文件那条 800 行硬线已经没有两个 import 的余地（本轮要在那里添
+  //       `ToolInsightStrings` / `ToolResultValueStrings`），所以按本文件开头那条缝搬过来：
+  //       **一行都没有改写**，字段与帮手（`_savingResult` / `_savingNote` / `_detailController`）
+  //       仍住在主文件里，两半同属一个库。
+  // English: **these two actions are this half's seventh and eighth members, moved here verbatim
+  //          from the main file this round.** `_saveResult` / `_saveNote` have the same shape as the
+  //          three copy actions above — hand something already computed over (to the database, to a
+  //          SnackBar) — and the main file's hard 800-line cap had no room left for the two imports
+  //          this round needs there (`ToolInsightStrings` / `ToolResultValueStrings`), so by the seam
+  //          described at the head of this file they moved: **not one line was rewritten**; their
+  //          fields and helpers (`_savingResult` / `_savingNote` / `_detailController`) still live
+  //          in the main file, both halves being one library.
+  Future<void> _saveResult() async {
+    // 中文：SQLite 写入期间忽略重复点击，保护历史记录不被刷屏。
+    // English: Ignore repeated taps while SQLite is writing to keep history from being spammed.
+    if (_savingResult) return;
+    _savingResult = true;
+    final expression = _detailController.inputSummary();
+    try {
+      final result = await _detailController.saveResult(expression);
+      if (mounted) {
+        // 中文：回执在**呈现边缘**翻译——领域层只给令牌，字在 `ToolsStrings` 里，取表的语言就是
+        //       屏幕的语言（`tool_save_message.dart`）。这里从前印的是 `result.message`。
+        // English: the receipt is translated **at the presentation edge** — the domain hands over the
+        //          token and the words live in `ToolsStrings`, so the table's language is the screen's
+        //          (`tool_save_message.dart`). This used to print `result.message`.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
+          ),
+        );
+      }
+    } finally {
+      _savingResult = false;
+    }
+  }
+
+  Future<void> _saveNote() async {
+    if (_savingNote) return;
+    _savingNote = true;
+    try {
+      final result = await _detailController.saveNote();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
+          ),
+        );
+      }
+    } finally {
+      _savingNote = false;
+    }
+  }
+
   // 中文：**参数有错时那句提示与状态卡同源，两处一起走参数卡表。** 表格是 `label (unit): message`，
   //       左边两格（标签、单位）都是显示层的字段（与输入卡左侧那列、输入框里那个 `suffixText` 同一个
   //       `ToolFieldStrings` 的同一对 `of(context)`），第三格是判据写下的那句话。控制器收的是两个
@@ -195,6 +251,12 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
   Widget _primaryResult(ToolResult primary) {
     final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
+    // 中文：主结果框那两格走 `ToolResultValueStrings`，与结果卡上那两格同源——
+    //       同一个 `primary.value` / `primary.unit` 在同一屏上的两处落点不该各翻各的。
+    // English: the primary result's two cells go through `ToolResultValueStrings`, the same table the
+    //          result card's cells use — one `primary.value` / `primary.unit` with two landing places
+    //          on one screen should not be translated twice.
+    final valueStrings = ToolResultValueStrings.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: softPanel(context: context, highlight: true),
@@ -229,7 +291,7 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
             children: [
               Flexible(
                 child: Text(
-                  primary.value,
+                  valueStrings.value(primary.value),
                   style: TextStyle(
                       color: scheme.primary,
                       fontSize: 34,
@@ -239,7 +301,7 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
               const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(primary.unit,
+                child: Text(valueStrings.unit(primary.unit),
                     style: TextStyle(color: scheme.onSurfaceVariant)),
               ),
             ],
@@ -252,6 +314,15 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
   Widget _insightCard() {
     final strings = ToolsStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
+    // 中文：**洞察卡那串句子在 `domain` 里拼好，一句都没经过文案表**——产出方一个字没改，
+    //       改的是这里：每条印出去之前过一遍 `ToolInsightStrings`（整句查表 → 模板匹配 → 原样）。
+    //       控制器那边仍是中文（`_detailController.insights`），屏上这层才是渲染。
+    // English: **the insight card's sentences are assembled in `domain` and not one passed through a
+    //          copy table** — the producers did not change by one character; this is what changed:
+    //          every item goes through `ToolInsightStrings` before it is printed (whole-sentence
+    //          lookup, then template matching, then the text itself). The controller's side is still
+    //          Chinese (`_detailController.insights`); this layer is the rendering.
+    final insightStrings = ToolInsightStrings.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -269,7 +340,7 @@ extension _ToolDetailOutputSection on _ToolDetailScreenState {
                         size: 17, color: scheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: Text(item,
+                        child: Text(insightStrings.insight(item),
                             style: TextStyle(
                                 color: scheme.onSurfaceVariant, height: 1.35))),
                   ],

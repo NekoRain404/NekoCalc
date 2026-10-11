@@ -16,7 +16,9 @@ import '../../../shared/presentation/app_chrome.dart';
 import 'tool_catalog_strings.dart';
 import 'tool_detail_strings.dart';
 import 'tool_field_strings.dart';
+import 'tool_insight_strings.dart';
 import 'tool_result_label_strings.dart';
+import 'tool_result_value_strings.dart';
 import 'tool_save_message.dart';
 import 'tool_widgets.dart';
 import 'tools_strings.dart';
@@ -177,48 +179,12 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
     );
   }
 
-  Future<void> _saveResult() async {
-    // 中文：SQLite 写入期间忽略重复点击，保护历史记录不被刷屏。
-    // English: Ignore repeated taps while SQLite is writing to keep history from being spammed.
-    if (_savingResult) return;
-    _savingResult = true;
-    final expression = _detailController.inputSummary();
-    try {
-      final result = await _detailController.saveResult(expression);
-      if (mounted) {
-        // 中文：回执在**呈现边缘**翻译——领域层只给令牌，字在 `ToolsStrings` 里，取表的语言就是
-        //       屏幕的语言（`tool_save_message.dart`）。这里从前印的是 `result.message`。
-        // English: the receipt is translated **at the presentation edge** — the domain hands over the
-        //          token and the words live in `ToolsStrings`, so the table's language is the screen's
-        //          (`tool_save_message.dart`). This used to print `result.message`.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
-          ),
-        );
-      }
-    } finally {
-      _savingResult = false;
-    }
-  }
 
-  Future<void> _saveNote() async {
-    if (_savingNote) return;
-    _savingNote = true;
-    try {
-      final result = await _detailController.saveNote();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(toolSaveMessage(result, ToolsStrings.of(context))),
-          ),
-        );
-      }
-    } finally {
-      _savingNote = false;
-    }
-  }
-
+  // 中文：`_saveResult` / `_saveNote` 本轮搬去 `tool_detail_output_section.dart`（那一半的章程
+  //       就是"把已经算好的东西送出去"）；搬的是原文，一个字节没改。
+  // English: `_saveResult` / `_saveNote` moved to `tool_detail_output_section.dart` this round (that
+  //          half's charter is exactly "hand over something already computed"); the move was
+  //          verbatim, not one byte rewritten.
   Future<void> _toggleFavorite() async {
     // 中文：收藏切换必须串行，否则快速点击会让 UI 状态和数据库状态互相追赶。
     // English: Favorite toggles must be serialized so UI and database state do not race each other.

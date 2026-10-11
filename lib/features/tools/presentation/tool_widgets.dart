@@ -6,6 +6,7 @@ import '../../../shared/presentation/app_chrome.dart';
 import 'category_visuals.dart';
 import 'tool_catalog_strings.dart';
 import 'tool_result_label_strings.dart';
+import 'tool_result_value_strings.dart';
 import 'tools_strings.dart';
 
 /// 中文：**一张工具卡上说明最多占几行**——两种语言、浏览态与检索态、每一处表面都是这一个数。
@@ -424,6 +425,15 @@ class DetailMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // 中文：值那一格与单位那一格走 `ToolResultValueStrings`——**同排的那句标签早就走表了，
+    //       这两格只是被漏掉**。目录里写下的 `result.value` / `result.unit` 一个字节没改。
+    //       理由与标签表同源，见该文件头；`unit` 与 `value` 共用一张表。
+    // English: the value cell and the unit cell of this row go through `ToolResultValueStrings` —
+    //          **the label beside them has long gone through a table; these two cells were simply
+    //          missed.** The catalogue's own `result.value` / `result.unit` did not change by one
+    //          byte. Same reasoning as the label table, on that file's head; `unit` and `value`
+    //          share one table.
+    final valueStrings = ToolResultValueStrings.of(context);
     final content = Container(
       padding: const EdgeInsets.all(10),
       decoration: softPanel(context: context),
@@ -539,12 +549,12 @@ class DetailMetric extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(result.value,
+          Text(valueStrings.value(result.value),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   color: scheme.primary, fontWeight: FontWeight.w800)),
-          Text(result.unit,
+          Text(valueStrings.unit(result.unit),
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
         ],
       ),
