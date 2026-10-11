@@ -34,8 +34,9 @@
 ///         · `tool_result_label_strings_science.dart` —— 124 条（`_physics`/`_physics_matter`/`_physics_waves`/`_lifestyle`）
 ///         · 本文件 —— **19 条两个以上分类都会产出的**（`功率`、`效率`、`截面积`、`输入来源`…）
 ///           外加 `calculate_tool.dart` 里那一条 `文本工具`
-///       单位换算那一类（`calculate_tool_units.dart`）**一个文件都没有**：它的标签全是 `m`、`kg`、
-///       `kPa` 这种符号，712 条里一条都不属于它。
+///       单位换算那一类（`calculate_tool_units.dart`，今天只剩 `temperature` 一台）**一个文件都没有**：
+///       它的标签全是 `℃`、`°R`、`K` 这种符号，712 条里一条都不属于它（那 21 个逐单位换算工具并成
+///       一张打开 `CONV` 面板的卡之后，这一族一个结果都不再产出，只剩温度那几格）。
 ///       **跨分类的 19 条不能留在任何一个分类文件里**——放哪一边，另一边就是错的；所以它们在
 ///       本文件里，理由写在表头上。**六个 map 互不相交是编译器保证的**：下面那个合并用的是
 ///       `const` 展开，Dart 对常量 map 的重复键是**编译期错误**，所以"同一条中文在两张表里各写
@@ -129,8 +130,11 @@
 ///            · `tool_result_label_strings_science.dart` — 124 (`_physics`/`_physics_matter`/`_physics_waves`/`_lifestyle`)
 ///            · this file — **the 19 that two or more categories both produce** (`功率`, `效率`,
 ///              `截面积`, `输入来源`, …) plus the one `文本工具` literal in `calculate_tool.dart`
-///          The unit-conversion family (`calculate_tool_units.dart`) **gets no file at all**: every one
-///          of its labels is a symbol such as `m`, `kg`, `kPa`, and none of the 712 belongs to it.
+///          The unit-conversion family (`calculate_tool_units.dart`, down to `temperature` alone today)
+///          **gets no file at all**: every one of its labels is a symbol such as `℃`, `°R` or `K`, and
+///          none of the 712 belongs to it (with the 21 per-unit converters folded into one card that
+///          opens the `CONV` sheet, that family produces no results at all beyond temperature's few
+///          cells).
 ///          **Those 19 cross-category entries cannot live in any one category's file** — put them on
 ///          either side and the other side is wrong, so they live here, with the reasoning on the
 ///          table's head. **The six maps being disjoint is guaranteed by the compiler**: the merge

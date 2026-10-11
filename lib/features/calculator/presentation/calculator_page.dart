@@ -60,6 +60,7 @@ class CalculatorPage extends StatefulWidget {
     required this.onOpenSettings,
     required this.settings,
     this.reloadToken = 0,
+    this.openUnitsToken = 0,
     this.onNavigate,
     super.key,
   });
@@ -68,6 +69,18 @@ class CalculatorPage extends StatefulWidget {
   final VoidCallback onOpenSettings;
   final AppSettings settings;
   final int reloadToken;
+
+  /// 中文：**"请把单位面板弹出来"的那个计数令牌**（`reloadToken` 的同一个形状：值变了就做一次）。
+  ///       工具目录里 `unit_convert` 那张卡点开时，外壳切到本页并把这里 +1，本页随后调用的
+  ///       **就是 `CONV` 那颗键调用的同一个 `_openUnitSheet()`**——面板只有一份，行为只有一套。
+  ///       可选、默认 0：不接时卡片是惰性的，独立使用本页的测试不必新增参数。
+  /// English: **the counting token for "raise the unit sheet"** (the same shape as `reloadToken`: a
+  ///          changed value means act once). When the `unit_convert` card in the tools catalogue is
+  ///          opened, the shell switches to this page and bumps this, and the page then calls
+  ///          **the very `_openUnitSheet()` the `CONV` key calls** — one sheet, one behaviour. Optional
+  ///          and 0 by default: unwired, the card is inert and tests that use this page alone need no
+  ///          new argument.
+  final int openUnitsToken;
 
   /// 中文：页面级导航（`HISTORY`、`OTHER`、`CNST`、`CONV` 与四个进制胶囊）。可选——为空时这些键
   ///       是惰性的，独立使用本页（例如组件测试）不会虚构出目标页；外壳接入后传 'history'/'tools'。
@@ -324,6 +337,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (oldWidget.reloadToken != widget.reloadToken) {
       _controller.reloadSettingsAndRestore();
+    }
+    if (oldWidget.openUnitsToken != widget.openUnitsToken) {
+      // 中文：**本页此刻正在被重建**（`didUpdateWidget` 就发生在 build 阶段里），
+      //       而 `showModalBottomSheet` 会推一条路由、要 `setState`——在这里直接调用会在
+      //       同一帧里改状态。所以排到本帧画完之后再做，那时本页已经在上屏的路上，
+      //       面板与 `CONV` 自己打开时长得一模一样。
+      // English: **this page is being rebuilt right now** (`didUpdateWidget` runs inside the build
+      //          phase) and `showModalBottomSheet` pushes a route and calls `setState` — doing that
+      //          here would mutate state in the same frame. So it is queued for after this frame, by
+      //          which time the page is on its way on screen and the sheet looks exactly as it does
+      //          when `CONV` opens it itself.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openUnitSheet();
+      });
     }
   }
 

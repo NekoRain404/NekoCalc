@@ -132,50 +132,13 @@ List<ToolResult> calculateTool(ToolDefinition tool, Map<String, double> v) {
       return finance.taxResults(v);
     case ToolKind.npv:
       return finance.npvResults(v);
-    case ToolKind.length:
-      return units.lengthResults(v);
-    case ToolKind.area:
-      return units.areaResults(v);
-    case ToolKind.volume:
-      return units.volumeResults(v);
-    case ToolKind.mass:
-      return units.massResults(v);
-    case ToolKind.pressure:
-      return units.pressureResults(v);
-    case ToolKind.speed:
-      return units.speedResults(v);
+    // 中文：**这一格是单位换算唯一留下的分支**（2026 那一轮：另外 21 个换算器并进了
+    //       `unit_convert` 那张卡，它们在这里的分支与 `calculate_tool_units.dart` 里的表一起走了）。
+    // English: **the one unit-conversion branch left** (that round folded the other 21 converters into
+    //          the `unit_convert` card; their branches here went with their tables in
+    //          `calculate_tool_units.dart`).
     case ToolKind.temperature:
       return units.temperatureResults(v);
-    case ToolKind.voltage:
-      return units.voltageResults(v);
-    case ToolKind.frequency:
-      return units.frequencyResults(v);
-    case ToolKind.dataSize:
-      return units.dataSizeResults(v);
-    case ToolKind.timeUnit:
-      return units.timeUnitResults(v);
-    case ToolKind.accelerationUnit:
-      return units.accelerationUnitResults(v);
-    case ToolKind.forceUnit:
-      return units.forceUnitResults(v);
-    case ToolKind.powerUnit:
-      return units.powerUnitResults(v);
-    case ToolKind.energyUnit:
-      return units.energyUnitResults(v);
-    case ToolKind.angleUnit:
-      return units.angleUnitResults(v);
-    case ToolKind.currentUnit:
-      return units.currentUnitResults(v);
-    case ToolKind.resistanceUnit:
-      return units.resistanceUnitResults(v);
-    case ToolKind.capacitanceUnit:
-      return units.capacitanceUnitResults(v);
-    case ToolKind.inductanceUnit:
-      return units.inductanceUnitResults(v);
-    case ToolKind.torqueUnit:
-      return units.torqueUnitResults(v);
-    case ToolKind.flowUnit:
-      return units.flowUnitResults(v);
     case ToolKind.motion:
       return physics.motionResults(v);
     case ToolKind.freeFall:

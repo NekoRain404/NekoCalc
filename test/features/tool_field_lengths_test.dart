@@ -55,7 +55,7 @@ void main() {
   final en = ToolFieldStrings.forLanguage(AppLanguage.en);
   final zh = ToolFieldStrings.forLanguage(AppLanguage.zh);
 
-  testWidgets('真字体逐条量：289 处标签 × 两种语言，行数判据一条都不违反', (tester) async {
+  testWidgets('真字体逐条量：268 处标签 × 两种语言，行数判据一条都不违反', (tester) async {
     if (!await _loadRealFonts(tester)) {
       // 中文：**这里不是"通过"，是"没量"。**
       // English: **this is not a pass, it is a skip.**
@@ -94,25 +94,22 @@ void main() {
       }
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
-    // 中文：**三个数都是断言，不是日志**：289 处里 251 处两种语言行数相同、38 处英文多一行
+    // 中文：**三个数都是断言，不是日志**：268 处里 230 处两种语言行数相同、38 处英文多一行
     //       （全是可选参数，多出来的那一行来自 ` (optional)` 比 `（可选）` 宽 9dp 的壳），
     //       英文最多 2 行、中文最多 2 行。**真字体量出来的数与按字宽表算的完全一致**——
     //       也就是说这一轮没有一处英文是被断行规则多挤出一行的。
-    //       上一轮是 293 / 254 / 39：少掉的四处是 `inflation` 并进 `compound` 时跟着走的四个输入
-    //       标签（`当前金额`、`年通胀率`、`年数`、`未来等值`），四个都是可选参数——
-    //       `年数` 的中文一行就装下、英文的 `Years (optional)` 要两行，所以 oneMore 少 1；
-    //       其余三个两种语言都换行，sameLine 少 3。
-    // English: **all three numbers are assertions, not logs**: of the 289 sites, 251 take the same line
+    //       上一轮是 289 / 251 / 38：少掉的 21 处就是那 21 个被并掉的换算工具各带走的一处参数标签
+    //       （`输入值`，都不可选，所以只有 same 少 21，oneMore 一条没动）。
+    // English: **all three numbers are assertions, not logs**: of the 268 sites, 230 take the same line
     //          count in both languages and 38 take one more (all optional, that extra line coming from
     //          the ` (optional)` chrome being 9dp wider than `（可选）`); English never exceeds 2 lines
     //          and neither does Chinese. **The real-font numbers agree exactly with the arithmetic
     //          ones** — no English line here was pushed over by a break rule. Last round it was
-    //          293 / 254 / 39: the four that went are the input labels that left when `inflation` merged
-    //          into `compound` (`当前金额`, `年通胀率`, `年数`, `未来等值`), all four optional —
-    //          `年数` fits on one line in Chinese while its `Years (optional)` needs two, so `oneMore`
-    //          loses 1, and the other three wrap in both languages, so `sameLine` loses 3.
-    expect(measured, 289, reason: '量到的处数变了：$measured');
-    expect(same, 251, reason: '两种语言行数相同的处数变了：$same');
+    //          289 / 251 / 38: the 21 that went are the one input label each folded-away converter took
+    //          with it (`输入值`, none of them optional, so only `same` loses 21 while `oneMore` does not
+    //          move).
+    expect(measured, 268, reason: '量到的处数变了：$measured');
+    expect(same, 230, reason: '两种语言行数相同的处数变了：$same');
     expect(oneMore, 38, reason: '英文多一行的处数变了：$oneMore（应当都是可选参数）');
     expect(worstEnglish, _maxLabelLines, reason: '英文的最多行数变了：$worstEnglish');
     // 中文：**中文那一侧最多 3 行，这是它今天的样子，本轮一个字都没动它。**

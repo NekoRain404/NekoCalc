@@ -2,52 +2,45 @@ import '../entities/tool_category.dart';
 import '../entities/tool_definition.dart';
 
 final List<ToolDefinition> unitToolDefinitions = [
-  _unitTool('length', '长度', 'nm、μm、mm、cm、m、km、Mm、in、ft、mile 换算',
-      ToolKind.length, 'm', 3.3),
-  _unitTool('area', '面积', 'km²、ha、公顷、亩、m²、cm²、mm²、acre、ft²、in² 换算',
-      ToolKind.area, 'm²', 1.2),
-  _unitTool('volume', '体积', 'm³、L、mL、cm³、mm³、gal、qt、pt、fl oz、ft³、in³ 换算',
-      ToolKind.volume, 'm³', 0.02),
-  _unitTool('mass', '质量', 'kg、g、mg、Mg、t、lb、oz、斤 换算', ToolKind.mass, 'kg', 5),
-  _unitTool('pressure', '压力', 'mPa、Pa、kPa、MPa、GPa、bar、mbar、psi、atm 换算',
-      ToolKind.pressure, 'Pa', 101325),
-  _unitTool('speed', '速度', 'm/s、km/h、mph、ft/s、m/min、cm/s、kn 换算', ToolKind.speed,
-      'm/s', 10),
+  // 中文：**单位换算那一张卡——它不是计算器，是那一个面板的入口。**
+  //
+  //       它顶替的是原先 21 张换算卡（长度、面积、体积、质量、压力、速度、电压、频率、数据、
+  //       时间、加速度、力、功率、能量、角度、电流、电阻、电容、电感、扭矩、流量）。那 21 张卡
+  //       与键盘上的 `CONV` 键做的是同一件事，而引擎自己就会换算（`5 km to mi`），所以目录里
+  //       只留一个入口：**点它 = 按 `CONV`**。
+  //
+  //       三处构造上的后果，都不是笔误：
+  //         · `inputs` 是空的、`kind` 是 `staticOnly`——**目录里没有这个工具的算法**，那正是
+  //           `staticOnly` 那一格的意思（文本工具用的是同一格）。`calculateTool` 因此不需要
+  //           为它加一个分支，也不该加：它没有任何"输入 → 结果"的算法可算。
+  //         · 它进不了详情页：`openToolDetail` 认出 `opensUnitSheet` 的这一类，不推路由，
+  //           而是把请求交给外壳（`AppShell` → 计算页 `_openUnitSheet`）。**面板只有一份**，
+  //           就是 `CONV` 打开的那一个；`tool_navigation.dart` 上写着这条路由的形状。
+  //         · `formula` / `explanation` 与 `_unitTool` 那两条逐字节相同：面板做的事就是
+  //           "目标值 = 输入值 × 单位倍率"，这两句今天也仍被 `temperature` 用着，
+  //           所以它们不是死条目。
+  // English: **the one unit-conversion card — not a calculator but the entrance to that one sheet.**
+  //
+  //          It replaces the 21 converter cards (length, area, volume, mass, pressure, speed, voltage,
+  //          frequency, data, time, acceleration, force, power, energy, angle, current, resistance,
+  //          capacitance, inductance, torque, flow). Those cards did exactly what the keypad's `CONV`
+  //          key does, and the engine converts on its own (`5 km to mi`), so the catalogue keeps one
+  //          entrance: **tapping it is pressing `CONV`**.
+  //
+  //          Three consequences of the construction, none of them an accident:
+  //            · `inputs` is empty and `kind` is `staticOnly` — **there is no algorithm for this tool in
+  //              the catalogue**, which is exactly what that kind means (the text tools use the same
+  //              cell), so `calculateTool` needs no branch for it and must not grow one: there is no
+  //              "input → result" algorithm to run.
+  //            · It cannot reach the detail page: `openToolDetail` recognises the `opensUnitSheet`
+  //              class, pushes no route, and hands the request to the shell (`AppShell` →
+  //              `_openUnitSheet` on the calculator page). **There is one sheet**, the one `CONV`
+  //              opens; the shape of that route is written on `tool_navigation.dart`.
+  //            · `formula` / `explanation` are byte-identical to `_unitTool`'s: what the sheet does is
+  //              "target = input × unit factor", and `temperature` still uses both strings, so neither
+  //              is a dead entry.
+  _unitSheetTool('unit_convert', '单位换算', '长度、面积、体积、质量、压力、电学等单位换算'),
   _unitTool('temperature', '温度', '℃、℉、K、°R 换算', ToolKind.temperature, '℃', 25),
-  _unitTool('voltage', '电压', 'μV、mV、V、kV、MV 换算', ToolKind.voltage, 'V', 3.3),
-  _unitTool('frequency', '频率', 'mHz、Hz、kHz、MHz、GHz、THz 换算', ToolKind.frequency,
-      'Hz', 1000),
-  _unitTool('data_size', '数据单位', 'bit、B、KB/MB/GB 与 KiB/MiB/GiB 换算',
-      ToolKind.dataSize, 'B', 1048576),
-  _unitTool('time_unit', '时间', 'ns、μs、ms、s、min、h、day、week 换算',
-      ToolKind.timeUnit, 's', 3600),
-  _unitTool('acceleration', '加速度', 'm/s²、g、ft/s²、cm/s²、Gal 换算',
-      ToolKind.accelerationUnit, 'm/s²', 9.80665),
-  _unitTool(
-      'force_unit', '力', 'mN、N、kN、MN、kgf、lbf 换算', ToolKind.forceUnit, 'N', 100),
-  _unitTool(
-      'power_unit', '功率', 'mW、W、kW、MW、hp、dBm 换算', ToolKind.powerUnit, 'W', 750),
-  _unitTool('energy_unit', '能量', 'J、kJ、cal、kcal、BTU、eV、Wh、kWh、MWh、度 换算',
-      ToolKind.energyUnit, 'J', 3600),
-  _unitTool('angle_unit', '角度', 'deg、rad、turn、grad/gon、arcmin、arcsec 换算',
-      ToolKind.angleUnit, 'deg', 180),
-  _unitTool('current_unit', '电流', 'nA、μA、mA、A、kA、MA 换算', ToolKind.currentUnit,
-      'A', 0.02),
-  _unitTool('resistance_unit', '电阻', 'μΩ、mΩ、Ω、kΩ、MΩ、GΩ 换算',
-      ToolKind.resistanceUnit, 'Ω', 10000),
-  _unitTool('capacitance_unit', '电容', 'F、mF、μF、nF、pF、MF 换算',
-      ToolKind.capacitanceUnit, 'F', 0.000001),
-  _unitTool('inductance_unit', '电感', 'pH、nH、μH、mH、H、kH、MH 换算',
-      ToolKind.inductanceUnit, 'H', 0.001),
-  _unitTool('torque_unit', '扭矩', 'kN·m、N·m、mN·m、N·mm、kgf·cm、lbf·in、ozf·in 换算',
-      ToolKind.torqueUnit, 'N·m', 10),
-  _unitTool(
-      'flow_unit',
-      '流量',
-      'mL/min、L/min、L/h、L/s、m³/h、m³/min、m³/s、GPM、CFM 换算',
-      ToolKind.flowUnit,
-      'L/min',
-      60),
 ];
 
 final List<ToolDefinition> textToolDefinitions = [
@@ -152,6 +145,31 @@ ToolDefinition _unitTool(String id, String title, String description,
       ToolInputDefinition(
           key: 'value', label: '输入值', unit: unit, defaultValue: value)
     ],
+    formula: '目标值 = 输入值 × 单位倍率',
+    explanation: '支持工程常用单位快速换算。',
+  );
+}
+
+/// 中文：**"目录里没有算法、点开是别处的界面"的那一格**（今天是 `unit_convert`）。
+///       它借用 `staticOnly` 那个 kind——那片代码是"这里没有输入 → 结果的算法"，
+///       **不是"这是文本工具"**（判断文本工具的是 `ToolCapabilities.usesTextDetail`，
+///       按 id 判定，与 kind 无关）。`inputs` 为空、`formula` / `explanation` 与 `_unitTool`
+///       共用同两条字串，于是这张卡在检索里仍按那两句中文命中，而英文表里不必新增条目。
+/// English: **the cell for "no algorithm in the catalogue, the screen it opens lives elsewhere"**
+///          (today `unit_convert`). It borrows the `staticOnly` kind, which means "there is no
+///          input → result algorithm here" rather than "this is a text tool" (what makes a text tool is
+///          `ToolCapabilities.usesTextDetail`, decided by id, not by kind). `inputs` is empty and
+///          `formula` / `explanation` share `_unitTool`'s two strings, so the card still matches those
+///          two Chinese sentences in search and the English tables need no new entries.
+ToolDefinition _unitSheetTool(String id, String title, String description) {
+  return ToolDefinition(
+    id: id,
+    title: title,
+    description: description,
+    category: ToolCategory.units,
+    kind: ToolKind.staticOnly,
+    featured: true,
+    inputs: const [],
     formula: '目标值 = 输入值 × 单位倍率',
     explanation: '支持工程常用单位快速换算。',
   );

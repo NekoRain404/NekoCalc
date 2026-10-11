@@ -57,9 +57,10 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('中文表与目录逐条相同，两张表与名字表互为全集（运行期比对，不是照抄）', () {
-    expect(toolCatalog.length, 119,
-        reason: '目录里一共 119 个工具（75 条 title: + 22 个 _unitTool + 23 个 _textTool）；'
-            '上一轮是 120——`proportion` 并进了 `scale_ratio`');
+    expect(toolCatalog.length, 99,
+        reason: '目录里一共 99 个工具（74 条 title: + 1 个 _unitSheetTool（`unit_convert`）'
+            '+ 1 个 _unitTool（`temperature`）+ 23 个 _textTool）；上一轮是 119——'
+            '这一轮 21 个逐单位换算工具并成了打开 `CONV` 面板的那一张卡：119 − 21 + 1 = 99');
     expect(zh.toolDescriptions.length, toolCatalog.length,
         reason: '中文描述表的条数与目录不同——多一条或少一条都会让下面那条断言空转');
     expect(en.toolDescriptions.length, toolCatalog.length,
@@ -111,12 +112,16 @@ void main() {
         }
       }
     }
-    // 中文：191 是改动前的实测值。**这个数字会随着中文措辞一起动**，所以它只做"断言没空转"的
-    //       证据，不是判据本身——判据是上面那条 `contains`。
-    // English: 191 is the measured count before this round. **The number moves with the Chinese
+    // 中文：40 是本轮的实测值（上一轮 191）。**这个数字会随着中文措辞一起动**，所以它只做"断言没
+    //       空转"的证据，不是判据本身——判据是上面那条 `contains`。从 191 掉到 40 是因为那 21 个换算
+    //       工具的中文描述里各自带着一整张单位符号表（`psi`、`MWh`、`平方英尺`…），
+    //       它们随工具一起删除，那一百多段记号也就跟着走了。
+    // English: 40 is this round's measured count (191 last round). **The number moves with the Chinese
     //          wording**, so it is only evidence that the loop ran, not the criterion; the criterion is
-    //          the `contains` above.
-    expect(checked, greaterThan(150), reason: '只查到 $checked 段记号，遍历多半没跑起来');
+    //          the `contains` above. It fell from 191 to 40 because each of the 21 converter tools'
+    //          Chinese description carried a whole unit-symbol list (`psi`, `MWh`, `平方英尺`, …); those
+    //          lists left with their tools, and the hundred-odd notation runs went with them.
+    expect(checked, 40, reason: '只查到 $checked 段记号，遍历多半没跑起来');
     expect(missing, isEmpty,
         reason: '这些记号在英文里没了——数学记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });
@@ -161,13 +166,17 @@ void main() {
             '    英文 ${en.toolDescription(tool.id)}');
       }
     }
-    // 中文：**42 是本轮交付时的实测值**，把它钉住是为了让"英文比中文读得全"这件事不会悄悄退回去
-    //       （中文那一侧是 23）。改小这条数就要说清楚哪一条为什么变长了。
-    // English: **42 is what this round shipped**, pinned so that "the English reads in full more often
-    //          than the Chinese" cannot quietly regress (the Chinese side is 23). Lowering it means
-    //          saying which line grew and why.
-    expect(fits, greaterThanOrEqualTo(42),
-        reason: '完整落在一行内的英文描述从 42 条掉到 $fits 条——有行变长了');
+    // 中文：**39 是本轮的实测值**（上一轮交付时是 42）。这条钉住的是"英文比中文读得全"这件事不会悄悄
+    //       退回去。从 42 掉到 39 **不是有行变长了**：那 21 个被并掉的换算工具里有 3 条英文描述本来就
+    //       完整落在一行之内，它们随工具一起走了（42 − 3 = 39），剩下 99 条里没有一条变长。
+    //       再改小这条数就要说清楚哪一条为什么变长了。
+    // English: **39 is this round's measured count** (42 when last round shipped). It pins "the English
+    //          reads in full more often than the Chinese" so that cannot quietly regress. The fall from
+    //          42 to 39 is **not a line growing**: 3 of the 21 folded-away converters had English
+    //          descriptions that already fit inside one line, and they left with their tools
+    //          (42 − 3 = 39); not one of the remaining 99 grew.
+    expect(fits, 39,
+        reason: '完整落在一行内的英文描述从 39 条掉到 $fits 条——有行变长了');
     expect(over, isEmpty,
         reason: '这些行比中文**更早**被省略号截断（中文没截的它截了，那就是倒退）：\n'
             '${over.join('\n')}');

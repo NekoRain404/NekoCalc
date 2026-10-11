@@ -70,43 +70,57 @@ void main() {
     //          than a wrong assertion.
     expect(sites.fileCount, 17, reason: 'calculate_tool*.dart 一共 17 个文件');
     // 中文：**1781 → 1769（删 `dbm` 工具）→ 1754（`inflation` 并进 `compound`）→ 1743
-    //       （`proportion` 并进 `scale_ratio`）**：第一刀里 `dbmResults` 的两支共 18 处构造走了，
-    //       `rmsPeakResults` 为补上它丢不掉的三个数（微瓦、瓦特、dBW）各加了有效/无效两支共 6 处，
-    //       18 − 6 = 12。第二刀里 `inflationResults` 与其无效支共 19 处走了，`compoundResults`
-    //       为保住购买力两格在有效/无效两支各加 2 处，19 − 4 = 15。这一刀里 `proportionResults`
-    //       与其无效支共 19 处走了，`scaleRatioResults` 为保住它全部输出从 17 处长到 25 处
-    //       （有效支 9 → 13、无效支 8 → 12，多出来的都是并进来的四条：比例、比例系数、
-    //       交叉乘积差、右侧系数），19 − 8 = 11。**这不是把门调松**：数的是源码里真实存在的构造处。
+    //       （`proportion` 并进 `scale_ratio`）→ 1736（21 个换算工具并成一张卡）**：第一刀里
+    //       `dbmResults` 的两支共 18 处构造走了，`rmsPeakResults` 为补上它丢不掉的三个数（微瓦、
+    //       瓦特、dBW）各加了有效/无效两支共 6 处，18 − 6 = 12。第二刀里 `inflationResults` 与其
+    //       无效支共 19 处走了，`compoundResults` 为保住购买力两格在有效/无效两支各加 2 处，
+    //       19 − 4 = 15。第三刀里 `proportionResults` 与其无效支共 19 处走了，`scaleRatioResults`
+    //       为保住它全部输出从 17 处长到 25 处（有效支 9 → 13、无效支 8 → 12，多出来的都是并进来
+    //       的四条：比例、比例系数、交叉乘积差、右侧系数），19 − 8 = 11。这一刀里走掉的是
+    //       `powerUnitResults` 里 7 处第一个位置参数是字面量的构造（`W`、`mW`、`kW`、`MW`、`hp`、
+    //       `dBm`、`dBW`），其余 20 个换算工具的标签都建在变量上（`『$unit』` 那类），本来就不进这
+    //       个数——所以 1743 − 7 = 1736，不是 − 21。**这不是把门调松**：数的是源码里真实存在的构造处。
     // English: **1781 → 1769 (the `dbm` deletion) → 1754 (`inflation` merged into `compound`) →
-    //          1743 (`proportion` merged into `scale_ratio`)**: in the first cut `dbmResults`' two
-    //          branches held 18 construction sites and `rmsPeakResults` gained 6 (microwatts, watts and
-    //          dBW in both branches), 18 − 6 = 12. In the second cut `inflationResults` and its invalid
-    //          branch held 19 sites and `compoundResults` gained 4 (the two buying-power rows in both
-    //          branches), 19 − 4 = 15. In this cut `proportionResults` and its invalid branch held 19
-    //          sites and `scaleRatioResults` grew from 17 to 25 to keep every row it produced (valid
-    //          9 → 13, invalid 8 → 12; the four added rows are the merged ones: 比例, 比例系数,
-    //          交叉乘积差, 右侧系数), 19 − 8 = 11. **This is not loosening the gate**: the number is the
-    //          construction sites that really exist.
-    expect(sites.siteCount, 1743,
-        reason: '源码里第一个位置参数是字面量的构造处一共 1743 处，少了说明扫描没跑对');
-    // 中文：**799 → 794（删 `dbm`）→ 787（并 `inflation`）→ 785（并 `proportion`）**：第一刀里
-    //       `dbm` 独有的五条纯记号标签（`50Ω Vrms`、`50Ω Vpeak`、`50Ω Vpp`、`50Ω dBV`、`50Ω dBu`）
-    //       随工具删除；第二刀里走掉的七条（`未来等值`、`当前金额`、`年通胀率`、`年数`、`累计涨幅`、
-    //       `等值倍率`、`未来等值差值`）在别的工具里一处都不剩，而保住的 `购买力折现`、`购买力损失`
-    //       在 `compound` 的有效/无效两支里各出现一次。这一刀里 `proportion` 的十条标签有八条
-    //       在 `scale_ratio` 里活着（换个说法但逐字相同的那几条：比例、比例系数、交叉乘积差、
-    //       右侧系数、输入来源），走掉的两条是 `x差值`（带汉字）与 `x`（纯记号），
-    //       两处在别的工具里都不剩。
+    //          1743 (`proportion` merged into `scale_ratio`) → 1736 (21 converters folded into one
+    //          card)**: in the first cut `dbmResults`' two branches held 18 construction sites and
+    //          `rmsPeakResults` gained 6 (microwatts, watts and dBW in both branches), 18 − 6 = 12. In
+    //          the second cut `inflationResults` and its invalid branch held 19 sites and
+    //          `compoundResults` gained 4 (the two buying-power rows in both branches), 19 − 4 = 15. In
+    //          the third cut `proportionResults` and its invalid branch held 19 sites and
+    //          `scaleRatioResults` grew from 17 to 25 to keep every row it produced (valid 9 → 13,
+    //          invalid 8 → 12; the four added rows are the merged ones: 比例, 比例系数, 交叉乘积差,
+    //          右侧系数), 19 − 8 = 11. This cut lost the 7 sites in `powerUnitResults` whose first
+    //          positional argument was a literal (`W`, `mW`, `kW`, `MW`, `hp`, `dBm`, `dBW`); the other
+    //          20 converters built their labels on a variable (`『$unit』` and the like) and never entered
+    //          this count — so 1743 − 7 = 1736, not − 21. **This is not loosening the gate**: the number
+    //          is the construction sites that really exist.
+    expect(sites.siteCount, 1736,
+        reason: '源码里第一个位置参数是字面量的构造处一共 1736 处，少了说明扫描没跑对');
+    // 中文：**799 → 794（删 `dbm`）→ 787（并 `inflation`）→ 785（并 `proportion`）→ 779
+    //       （并 21 个换算工具）**：第一刀里 `dbm` 独有的五条纯记号标签（`50Ω Vrms`、`50Ω Vpeak`、
+    //       `50Ω Vpp`、`50Ω dBV`、`50Ω dBu`）随工具删除；第二刀里走掉的七条（`未来等值`、`当前金额`、
+    //       `年通胀率`、`年数`、`累计涨幅`、`等值倍率`、`未来等值差值`）在别的工具里一处都不剩，
+    //       而保住的 `购买力折现`、`购买力损失` 在 `compound` 的有效/无效两支里各出现一次。第三刀里
+    //       `proportion` 的十条标签有八条在 `scale_ratio` 里活着（换个说法但逐字相同的那几条：
+    //       比例、比例系数、交叉乘积差、右侧系数、输入来源），走掉的两条是 `x差值`（带汉字）与 `x`
+    //       （纯记号），两处在别的工具里都不剩。这一刀里 `power_unit` 那 7 条字面量标签中
+    //       **`dBW` 在 `calculate_tool_signal.dart` 里活着**（`rmsPeakResults` 补的那三格里就有它），
+    //       所以在"去重后的全部字面量"里只走掉 6 条（`W`、`mW`、`kW`、`MW`、`hp`、`dBm`），
+    //       785 − 6 = 779。
     // English: **799 → 794 (the `dbm` deletion) → 787 (the `inflation` merge) → 785 (the `proportion`
-    //          merge)**: in the first cut the five notation-only labels unique to `dbm` (`50Ω Vrms`,
-    //          `50Ω Vpeak`, `50Ω Vpp`, `50Ω dBV`, `50Ω dBu`) went with the tool; in the second cut the
-    //          seven that left (`未来等值`, `当前金额`, `年通胀率`, `年数`, `累计涨幅`, `等值倍率`,
-    //          `未来等值差值`) occur nowhere else, while the kept `购买力折现` and `购买力损失` each
-    //          occur once in `compound`'s valid branch and once in its invalid branch. In this cut eight
-    //          of `proportion`'s ten labels live on in `scale_ratio` (the byte-identical ones under the
-    //          scaling vocabulary: 比例, 比例系数, 交叉乘积差, 右侧系数, 输入来源); the two that left are
-    //          `x差值` (Han-bearing) and `x` (notation end to end), and neither occurs anywhere else.
-    expect(sites.allLiterals.length, 785, reason: '去重后全部字面量标签 785 条');
+    //          merge) → 779 (the 21 converters folded)**: in the first cut the five notation-only labels
+    //          unique to `dbm` (`50Ω Vrms`, `50Ω Vpeak`, `50Ω Vpp`, `50Ω dBV`, `50Ω dBu`) went with the
+    //          tool; in the second cut the seven that left (`未来等值`, `当前金额`, `年通胀率`, `年数`,
+    //          `累计涨幅`, `等值倍率`, `未来等值差值`) occur nowhere else, while the kept `购买力折现`
+    //          and `购买力损失` each occur once in `compound`'s valid branch and once in its invalid
+    //          branch. In the third cut eight of `proportion`'s ten labels live on in `scale_ratio` (the
+    //          byte-identical ones under the scaling vocabulary: 比例, 比例系数, 交叉乘积差, 右侧系数,
+    //          输入来源); the two that left are `x差值` (Han-bearing) and `x` (notation end to end), and
+    //          neither occurs anywhere else. In this cut, of `power_unit`'s 7 literal labels **`dBW`
+    //          lives on in `calculate_tool_signal.dart`** (it is one of the three rows `rmsPeakResults`
+    //          gained), so the de-duplicated literal set loses only 6 (`W`, `mW`, `kW`, `MW`, `hp`,
+    //          `dBm`), 785 − 6 = 779.
+    expect(sites.allLiterals.length, 779, reason: '去重后全部字面量标签 779 条');
     expect(sites.labels.length, 712, reason: '去重后带汉字的结果标签一共 712 条');
     expect(zh.labels, isEmpty,
         reason: '中文表必须是空的——键就是屏幕上那句中文，写一份只会多出 712 条"值等于键"的行');
@@ -467,24 +481,27 @@ class _LabelSites {
   /// English: the de-duplicated **Han-bearing** labels, 712 of them.
   final Set<String> labels;
 
-  /// 中文：去重后**全部**字面量标签，785 条（含 73 条整条都是记号的）。
-  /// English: every de-duplicated literal label, 785 of them (including the 73 that are notation end to
+  /// 中文：去重后**全部**字面量标签，779 条（含 67 条整条都是记号的）。
+  /// English: every de-duplicated literal label, 779 of them (including the 67 that are notation end to
   /// end).
   final Set<String> allLiterals;
 
-  /// 中文：构造处数，1743（第一个实参是形参的那 10 处不算）。
-  ///       **1754 → 1743**：`proportion` 并进 `scale_ratio`，`proportionResults` 与其无效支共 19 处
-  ///       走了；`scaleRatioResults` 为保住它全部输出从 17 处长到 25 处（多出来的四条：比例、
-  ///       比例系数、交叉乘积差、右侧系数），19 − 8 = 11。
-  ///       （再往前一轮是 1769 → 1754：`inflation` 并进 `compound` 时 `inflationResults` 与其无效支
-  ///       共 19 处走了，`compoundResults` 为保住购买力折现与购买力损失两格加了 4 处。）
-  /// English: the number of construction sites, 1743 (the 10 whose first argument is a parameter are not
-  ///          counted). **1754 → 1743**: `proportion` merged into `scale_ratio`, taking `proportionResults`'
-  ///          and its invalid branch's 19 sites, while `scaleRatioResults` grew from 17 to 25 to keep
-  ///          every row it produced (the four added rows: 比例, 比例系数, 交叉乘积差, 右侧系数),
-  ///          19 − 8 = 11. (The round before was 1769 → 1754: `inflation` merged into `compound`, taking
-  ///          `inflationResults`' and its invalid branch's 19 sites while `compoundResults` gained 4 for
-  ///          the buying-power and buying-power-loss rows.)
+  /// 中文：构造处数，1736（第一个实参是形参的那 10 处不算）。
+  ///       **1743 → 1736**：21 个换算工具并成打开 `CONV` 面板的一张卡，`powerUnitResults` 里 7 处
+  ///       第一个实参是字面量的构造（`W`、`mW`、`kW`、`MW`、`hp`、`dBm`、`dBW`）随 `power_unit` 一起
+  ///       走了；其余 20 个换算工具的标签建在变量上，本来就不进这个数，所以是 − 7 而不是 − 21。
+  ///       （再往前一轮是 1754 → 1743：`proportion` 并进 `scale_ratio`，`proportionResults` 与其无效
+  ///       支共 19 处走了；`scaleRatioResults` 为保住它全部输出从 17 处长到 25 处（多出来的四条：
+  ///       比例、比例系数、交叉乘积差、右侧系数），19 − 8 = 11。）
+  /// English: the number of construction sites, 1736 (the 10 whose first argument is a parameter are not
+  ///          counted). **1743 → 1736**: the 21 converters folded into one card that opens the `CONV`
+  ///          sheet, taking the 7 sites in `powerUnitResults` whose first argument was a literal (`W`,
+  ///          `mW`, `kW`, `MW`, `hp`, `dBm`, `dBW`) with `power_unit`; the other 20 converters built
+  ///          their labels on a variable and never entered this count, so it is − 7, not − 21. (The
+  ///          round before was 1754 → 1743: `proportion` merged into `scale_ratio`, taking
+  ///          `proportionResults`' and its invalid branch's 19 sites, while `scaleRatioResults` grew from
+  ///          17 to 25 to keep every row it produced (the four added rows: 比例, 比例系数, 交叉乘积差,
+  ///          右侧系数), 19 − 8 = 11.)
   final int siteCount;
 
   /// 中文：扫过的文件数，17（`calculate_tool*.dart` 全族）。
@@ -493,11 +510,11 @@ class _LabelSites {
 }
 
 /// 中文：`ToolResult(` / `.number(` / `.invalid(` / `.conclusion(` 后面第一个字符串字面量。
-///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1748 个构造处里有 1743 个在这里，
+///       **只扫 `lib/domain/usecases/calculate_tool*.dart`**——1741 个构造处里有 1736 个在这里，
 ///       剩下 5 个是 `tool_definition.dart` 里的类型定义本身，没有标签。
 ///       `[ToolResult.number]` 这种注释里的链接不带 `(`，所以匹配不到；条数断言是这条前提的守卫。
 /// English: the first string literal after `ToolResult(` / `.number(` / `.invalid(` / `.conclusion(`. **Only
-///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1743 of the 1748 sites are there and
+///          `lib/domain/usecases/calculate_tool*.dart` is scanned** — 1736 of the 1741 sites are there and
 ///          the other 5 are the type definition itself in `tool_definition.dart`, which carries no
 ///          label. A comment link such as `[ToolResult.number]` has no `(` after it and cannot match;
 ///          the site-count assertion is what guards that assumption.

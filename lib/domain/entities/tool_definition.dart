@@ -62,28 +62,20 @@ enum ToolKind {
   discount,
   tax,
   npv,
-  length,
-  pressure,
-  voltage,
-  frequency,
-  mass,
-  area,
-  volume,
-  speed,
+  // 中文：**单位换算只剩 `temperature` 一格。** 另外 21 个换算器（length/area/volume/mass/
+  //       pressure/speed/voltage/frequency/dataSize/timeUnit/accelerationUnit/forceUnit/
+  //       powerUnit/energyUnit/angleUnit/currentUnit/resistanceUnit/capacitanceUnit/
+  //       inductanceUnit/torqueUnit/flowUnit）并进了目录里**一张开 `CONV` 面板的卡**
+  //       （`unit_convert`），它们那一份"输入值 × 倍率"的表`calculate_tool_units.dart` 里已经删掉。
+  //       温度留下的理由：℃/℉ **刻意不在**可插入的单位表里（见 `app_unit_catalog.dart` 的
+  //       `_replaceDegree`——应用侧 `5 °C` 不是"5 摄氏度"），而 `'C'` 那个记号已经是库仑。
+  // English: **only `temperature` is left of the unit converters.** The other 21 (length/area/…/
+  //          flowUnit) folded into **one catalogue card that opens the `CONV` sheet**
+  //          (`unit_convert`), and their "input × factor" tables are gone from
+  //          `calculate_tool_units.dart`. Temperature stays because ℃/℉ are **deliberately absent**
+  //          from the insertable unit table (`_replaceDegree` in `app_unit_catalog.dart`: app-side
+  //          `5 °C` is not "5 degrees Celsius") and the `'C'` token is already coulomb.
   temperature,
-  dataSize,
-  timeUnit,
-  accelerationUnit,
-  forceUnit,
-  powerUnit,
-  energyUnit,
-  angleUnit,
-  currentUnit,
-  resistanceUnit,
-  capacitanceUnit,
-  inductanceUnit,
-  torqueUnit,
-  flowUnit,
   motion,
   freeFall,
   workPower,

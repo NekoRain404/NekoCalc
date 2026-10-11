@@ -213,22 +213,15 @@ void main() {
     expect(invalidInsights, isNot(contains('无效kg')));
   });
 
-  test('data size converter exposes decimal binary and bit outputs', () {
-    final results = calculateTool(tool('data_size'), {
-      'value': 1099511627776,
-    });
-    final valuesByLabel = {
-      for (final result in results) result.label: result.value,
-    };
-
-    expect(valuesByLabel['B'], startsWith('1.0995'));
-    expect(valuesByLabel['bit'], startsWith('8.796093e+12'));
-    expect(valuesByLabel['Gbit'], startsWith('8796.093'));
-    expect(valuesByLabel['GB'], startsWith('1099.511'));
-    expect(valuesByLabel['GiB'], '1024');
-    expect(valuesByLabel['TB'], startsWith('1.099512'));
-    expect(valuesByLabel['TiB'], '1');
-  });
+  // 中文：**这里原先还有一条 `data_size` 逐格输出的测试**（`data size converter exposes decimal
+  //       binary and bit outputs`）。它随工具与被删掉的换算数学一起删除：`ToolKind.dataSize`
+  //       分支、`calculate_tool_units.dart` 里那张 1024 进制表与 `UnitConverter` 都已不存在，
+  //       没有一条断言还能到达被删的数学；单位换算今天走引擎自己的 `to` 翻译层。
+  // English: **a per-cell `data_size` test used to stand here** (`data size converter exposes decimal
+  //          binary and bit outputs`). It went with the tool and the deleted conversion maths: the
+  //          `ToolKind.dataSize` branch, the 1024-based table in `calculate_tool_units.dart` and
+  //          `UnitConverter` no longer exist, so no assertion could still reach the deleted maths; unit
+  //          conversion is the engine's own `to` translation today.
 
   test('motion tool reports distance conversions pace and invalid inputs', () {
     final definition = tool('motion');

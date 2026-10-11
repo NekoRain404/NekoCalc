@@ -50,6 +50,7 @@ const double _shellDrawerButtonBand = 56;
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   int _calculatorReloadToken = 0;
+  int _calculatorOpenUnitsToken = 0;
   int _notesReloadToken = 0;
   int _toolsReloadToken = 0;
   int _graphReloadToken = 0;
@@ -193,11 +194,17 @@ class _AppShellState extends State<AppShell> {
           onOpenSettings: _openSettings,
           settings: widget.settings,
           reloadToken: _calculatorReloadToken,
+          openUnitsToken: _calculatorOpenUnitsToken,
           onNavigate: _navigate),
       1 => ToolsHomePage(
           db: widget.db,
           settings: widget.settings,
-          reloadToken: _toolsReloadToken),
+          reloadToken: _toolsReloadToken,
+          // 中文：目录里 `unit_convert` 那张卡的终点在本页而不是在工具子树里，见 `_openUnitSheet`
+          //       与 `tool_navigation.dart`。
+          // English: the destination of the catalogue's `unit_convert` card is this page rather than
+          //          the tools subtree — see `_openUnitSheet` and `tool_navigation.dart`.
+          onOpenUnitSheet: _openUnitSheet),
       2 => GraphPage(
           db: widget.db,
           restoreState: widget.settings.restoreState,
@@ -227,6 +234,47 @@ class _AppShellState extends State<AppShell> {
     });
     _pageController.animateToPage(
       value,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// 中文：**工具目录里 `unit_convert` 那张卡的落点：回计算页，把单位面板弹出来。**
+  ///
+  ///       三件事，各有一条理由：
+  ///         · **先弹掉压在外壳上的路由**（分类页是从工具首页推上来的）。面板由计算页提出，
+  ///           而全 App 只有外壳这一个 Navigator——不先回到外壳，面板会盖在分类页上，
+  ///           插进表达式里的记号却落在用户看不见的计算页里。
+  ///         · **切到计算页并 +1 那个令牌**（`CalculatorPage.openUnitsToken`）。计数而不是布尔：
+  ///           连点两次也要弹两次，而值没变的重建不该再弹一次。
+  ///         · **面板本身一次都不在这里提**。它由计算页的 `_openUnitSheet()` 打开——
+  ///           与键盘 `CONV` 是同一个方法。**外壳只负责把用户送到那一页**，
+  ///           所以这里没有第二份 `showModalBottomSheet`、没有第二份单位表。
+  /// English: **where the catalogue's `unit_convert` card lands: back to the calculator, with the unit
+  ///          sheet raised.**
+  ///
+  ///          Three moves, one reason each:
+  ///            · **pop whatever covers the shell first** (the category page is pushed from the tools
+  ///              home). The sheet is raised by the calculator page and the app has exactly one
+  ///              Navigator — without returning to the shell the sheet would hang over the category page
+  ///              while the tokens it inserts land in an expression the user cannot see.
+  ///            · **switch to the calculator and bump that token** (`CalculatorPage.openUnitsToken`). A
+  ///              counter rather than a boolean: two taps in a row must raise it twice, while a rebuild
+  ///              that does not change the value must not raise it again.
+  ///            · **the sheet itself is never raised here.** The calculator page's `_openUnitSheet()`
+  ///              opens it — the same method the keypad's `CONV` calls. **The shell only gets the user to
+  ///              that page**, so there is no second `showModalBottomSheet` and no second unit table.
+  void _openUnitSheet() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
+    setState(() {
+      _index = AppDrawer.calculatorDestination;
+      _calculatorOpenUnitsToken++;
+    });
+    _pageController.animateToPage(
+      AppDrawer.calculatorDestination,
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
     );

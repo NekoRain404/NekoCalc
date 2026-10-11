@@ -4,9 +4,14 @@ import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/models/history_item.dart';
 import 'package:nekocalc/data/models/note_item.dart';
+import 'package:nekocalc/domain/entities/tool_category.dart';
 import 'package:nekocalc/features/calculator/presentation/calculator_page.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/math_expression_view.dart';
+import 'package:nekocalc/features/calculator/presentation/widgets/unit_picker_sheet.dart';
 import 'package:nekocalc/features/graph/presentation/graph_page.dart';
 import 'package:nekocalc/features/notes/presentation/notes_page.dart';
+import 'package:nekocalc/features/tools/presentation/tool_category_screen.dart';
+import 'package:nekocalc/features/tools/presentation/tool_widgets.dart';
 import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/shared/presentation/app_shell.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
@@ -244,6 +249,77 @@ void main() {
       expect(find.byType(NotesPage), findsOneWidget);
     });
   });
+
+  // 中文：**`unit_convert` 那张卡必须落在键盘 `CONV` 打开的那一张面板上——同一张，不是第二份
+  //       实现。** 这张卡本身没有工具页：外壳把它接住（`AppShell._openUnitSheet`），先收掉工具
+  //       那一路推出来的路由、切回计算页，再走计算页自己的 `_openUnitSheet()`——与 `CONV` 键
+  //       走的是同一个方法。这条测试从工具首页一路点到卡片，量的是"到的是那张面板，插进去的单位
+  //       真的进了表达式"。
+  // English: **the `unit_convert` card must land on the very sheet the keypad's `CONV` opens — the same
+  //          one, not a second implementation.** The card has no tool page of its own: the shell catches
+  //          it (`AppShell._openUnitSheet`), pops the routes the tools path pushed, switches back to the
+  //          calculator page and calls that page's own `_openUnitSheet()` — the same method the `CONV`
+  //          key calls. This test walks from the tools home to the card and measures "the sheet it lands
+  //          on, and that a tapped unit really reaches the expression".
+  group('单位换算那张卡打开 CONV 面板', () {
+    testWidgets('从工具首页 → 单位换算分类 → 卡片，落到同一张面板，插进去的单位进了表达式',
+        (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('打开导航'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('工具').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(ToolsHomePage).hitTestable(), findsOneWidget);
+
+      // 中文：首页那张分类卡按 `category` 认，不按文字认——「单位换算」这四个字在首页上不止一处
+      //       （分类卡与"建议工具"里那张 featured 的卡同名）；分类网格在首屏之下，先滚到看得见。
+      // English: the category card on the home is found by `category`, not by text — 「单位换算」 occurs
+      //          more than once there (the category card and the featured tool card in the suggested
+      //          strip share the name); the categories grid sits below the first screen, so it is
+      //          scrolled into view first.
+      final unitsCategory = find.byWidgetPredicate(
+          (widget) => widget is CategoryCard && widget.category == ToolCategory.units);
+      await tester.ensureVisible(unitsCategory);
+      await tester.pumpAndSettle();
+      await tester.tap(unitsCategory);
+      await tester.pumpAndSettle();
+      expect(find.byType(ToolCategoryScreen), findsOneWidget);
+
+      // 中文：分类页上那张卡片按 `tool.id` 认，理由同上（页头与卡片同名）。
+      // English: the card on the category page is found by `tool.id`, for the same reason (the page head
+      //          and the card share the name).
+      final unitCard = find.byWidgetPredicate(
+          (widget) => widget is ToolListTile && widget.tool.id == 'unit_convert');
+      await tester.ensureVisible(unitCard);
+      await tester.pumpAndSettle();
+      await tester.tap(unitCard);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UnitPickerSheet), findsOneWidget,
+          reason: '这张卡必须打开 `CONV` 那张面板（同一个 `UnitPickerSheet`）');
+      expect(find.byType(ToolCategoryScreen), findsNothing,
+          reason: '工具那一路的路由要被收掉，面板是浮在计算页上的');
+      expect(find.text('CONV'), findsOneWidget,
+          reason: '面板底下应当是计算页的键盘');
+
+      await tester.tap(find.text('km  千米'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<MathExpressionView>(
+                find.byType(MathExpressionView).first)
+            .expression,
+        'km',
+        reason: '面板里点出来的单位要真的进计算页的表达式',
+      );
+      expect(find.byType(CalculatorPage).hitTestable(), findsOneWidget,
+          reason: '关掉面板后停在计算页');
+    });
+  });
 }
 
 class _FakeDatabase implements AppDatabase {
@@ -265,6 +341,17 @@ class _FakeDatabase implements AppDatabase {
 
   @override
   Future<List<String>> recentToolIds({int limit = 8}) async => const [];
+
+  // 中文：分类页点任意一张卡都会先记一条"最近使用"（`_openTool` 里那行 `markRecent`），
+  //       `unit_convert` 那张卡也不例外——它虽然不开工具页，但这行统计照记。这里答空即可；
+  //       不答的话 `noSuchMethod` 会同步抛出，把点击本身打断（当初正是这么红的）。
+  // English: tapping any card on a category page records a "recently used" entry first (the
+  //          `markRecent` line in `_openTool`), and the `unit_convert` card is no exception — it
+  //          records it even though it opens no tool page. Answering with nothing is enough; without
+  //          this the `noSuchMethod` fallback throws synchronously and breaks the tap itself (which is
+  //          exactly how this went red).
+  @override
+  Future<void> markRecent(String toolId) async {}
 
   // 中文：笔记页的整轮刷新是一个 try——`notes` / `history` / `noteTags` 有一个抛异常，页面就只剩
   //       错误面板，连一条可长按的记录都没有。所以这三条都要答得出来，历史里给一条记录。

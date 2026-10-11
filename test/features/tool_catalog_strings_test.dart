@@ -20,7 +20,7 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          找到（那张表是 `ToolSearch.searchAliases` 给的，也就是
 ///          `tool_search_aliases_{a,b,c}.dart` 与 `tool_search_data.dart` 的 `unitSearchAliases`
 ///          两处索引的并集），`B` 类与 `L` 类则必须与下面那张**逐条带理由**的清单互为全集。
-///          这一条把"99 条是提升、14 条是新写、4 条本来就是拉丁字母"从报告里的话变成机器能验的事实。
+///          这一条把"82 条是提升、13 条是新写、4 条本来就是拉丁字母"从报告里的话变成机器能验的事实。
 ///       4) **屏幕上真的换了**：主页与分类页在装作用域与否两种情况下各渲染一次。
 ///       5) **分类名放得下**：分类卡标题那行的**可用宽度与字号从渲染树里读出来**，八个英文名各按
 ///          一把**从真 Roboto 里量出来的尺子**（每字符 advance，见 `_robotoBlackPerMille`）算宽度，
@@ -38,7 +38,7 @@ import 'package:nekocalc/l10n/app_language.dart';
 ///          list `ToolSearch.searchAliases` returns, i.e. the union of the two index sources —
 ///          `tool_search_aliases_{a,b,c}.dart` and `ToolSearchData.unitSearchAliases` in
 ///          `tool_search_data.dart`), while the `B` and `L` ids must be **exactly** the ids on the
-///          reason-per-entry list below. This clause turns "99 promoted, 14 authored, 4 already
+///          reason-per-entry list below. This clause turns "82 promoted, 13 authored, 4 already
 ///          Latin" from a claim in a report into a machine-checked fact. (4) **The screen really
 ///          changed**: the tools home and the category page are each rendered twice, with and without
 ///          the language scope. (5) **The category names fit**: the title line's **available width and
@@ -53,10 +53,11 @@ void main() {
   final en = ToolCatalogStrings.forLanguage(AppLanguage.en);
 
   test('工具目录每个 id 都在这张表里，中文一格与 tool_catalog*.dart 逐字节相同', () {
-    expect(toolCatalog.length, 119,
-        reason: '目录里一共 119 个工具（75 条 title: + 22 个 _unitTool + 23 个 _textTool）；'
-            '这个数字变了，说明目录动过，本表要跟着走。'
-            '上一轮是 120：少的那一条是并进 `scale_ratio` 的 `proportion`');
+    expect(toolCatalog.length, 99,
+        reason: '目录里一共 99 个工具（74 条 title: + 1 个 _unitSheetTool（`unit_convert`）'
+            '+ 1 个 _unitTool（`temperature`）+ 23 个 _textTool）；'
+            '上一轮是 119——这一轮 21 个逐单位换算工具并成了打开 `CONV` 面板的那一张卡：'
+            '119 − 21 + 1 = 99（`temperature` 留在原地，理由见 `tool_catalog_utilities.dart` 的头）');
     expect(zh.toolNames.length, toolCatalog.length,
         reason: '中文表与目录要一一对应：多一条少一条都说明有 id 没跟上');
 
@@ -107,9 +108,10 @@ void main() {
         notPromoted++;
       }
     }
-    expect(promoted, 102,
-        reason: '提升出来的名字一共 102 条（上一轮 103：`proportion` 并进 `scale_ratio` 之后'
-            '少的那一条就是它）；必须一条不落地能查回别名表');
+    expect(promoted, 82,
+        reason: '提升出来的名字一共 82 条（上一轮 102：这一轮 21 个换算工具与它们的英文名一起走了，'
+            '新来的 `unit_convert` 那一条能查回别名表里的 `unit conversion`，102 − 21 + 1 = 82）；'
+            '必须一条不落地能查回别名表');
     expect(notPromoted, authoredNames.length + latinNames.length,
         reason: '不是提升的只应当是下面那张清单里的那些 id');
   });

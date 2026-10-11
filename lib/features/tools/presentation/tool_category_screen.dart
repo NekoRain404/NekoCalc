@@ -21,6 +21,7 @@ class ToolCategoryScreen extends StatefulWidget {
     required this.category,
     required this.favoriteIds,
     required this.settings,
+    this.onOpenUnitSheet,
     super.key,
   });
 
@@ -28,6 +29,16 @@ class ToolCategoryScreen extends StatefulWidget {
   final ToolCategory category;
   final Set<String> favoriteIds;
   final AppSettings settings;
+
+  /// 中文：与 `ToolsHomePage.onOpenUnitSheet` 同一件事、同一份面板：`unit_convert` 那一类工具
+  ///       点开时把它交出去，由外壳切到计算页再弹（理由见 `tool_navigation.dart`）。
+  ///       本页由工具首页推上来时**原样转交**，所以两张屏幕上那颗卡的落点逐字相同。
+  /// English: the same one sheet as `ToolsHomePage.onOpenUnitSheet`: the `unit_convert` class of tools
+  ///          hands it out when opened, and the shell switches to the calculator before raising it
+  ///          (why, on `tool_navigation.dart`). When this page is pushed from the tools home the
+  ///          callback is **passed straight through**, so the card lands in the same place on both
+  ///          screens.
+  final VoidCallback? onOpenUnitSheet;
 
   @override
   State<ToolCategoryScreen> createState() => _ToolCategoryScreenState();
@@ -54,6 +65,7 @@ class _ToolCategoryScreenState extends State<ToolCategoryScreen> {
       db: widget.db,
       tool: tool,
       settings: widget.settings,
+      onOpenUnitSheet: widget.onOpenUnitSheet,
     );
     await _reloadFavorites();
   }

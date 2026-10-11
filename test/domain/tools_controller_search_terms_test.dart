@@ -118,19 +118,17 @@ void main() {
     expect(targetThermalMargin.first.tool.id, 'thermal_rise');
   });
 
-  test('search matches data size binary and Chinese unit aliases', () {
-    final mib = controller.searchTools('MiB');
-    final megabit = controller.searchTools('megabit');
-    final byteConverter = controller.searchTools('byte converter');
-    final bitConverter = controller.searchTools('比特换算');
-    final chinese = controller.searchTools('兆字节');
-
-    expect(mib.first.tool.id, 'data_size');
-    expect(megabit.first.tool.id, 'data_size');
-    expect(byteConverter.first.tool.id, 'data_size');
-    expect(bitConverter.first.tool.id, 'data_size');
-    expect(chinese.first.tool.id, 'data_size');
-  });
+  // 中文：**这里原先有一条 `search matches data size binary and Chinese unit aliases`**，
+  //       逐条量 `MiB`、`megabit`、`byte converter`、`比特换算`、`兆字节` 五条数据单位别名。
+  //       `data_size` 并进 `unit_convert` 那张卡之后五条查询**一条结果都没有**（实测），
+  //       "别名还命中同一个工具"这件事在这里没有落点，所以整条删除；数据单位记号仍可搜——
+  //       搜的是计算页那个 `CONV` 面板。
+  // English: **a `search matches data size binary and Chinese unit aliases` test used to stand here**,
+  //          measuring the five data-unit aliases `MiB`, `megabit`, `byte converter`, `比特换算` and
+  //          `兆字节`. After `data_size` folded into the `unit_convert` card all five queries return
+  //          **nothing at all** (measured), so "the alias still hits the same tool" has nowhere to land
+  //          and the whole test is gone; data-unit tokens are still searchable — inside the
+  //          calculator's `CONV` sheet.
 
   test('search matches descriptive statistics terms', () {
     final median = controller.searchTools('中位数');

@@ -143,15 +143,20 @@ void main() {
     final state = await _controller(fakeDb).load();
 
     expect(state.favoriteIds, {'json_format', 'loan'});
+    // 中文：**夹具里那几条换算工具的 id 今天都取不到工具了**（`area`、`volume`、`mass`、`length`、
+    //       `pressure` 这 21 个并成了 `unit_convert` 一张卡），所以它们与两条 `legacy_*` 一样被过滤
+    //       掉；`temperature` 仍在目录里，照旧留下。夹具不改——它要量的正是"取不到的就滤掉"。
+    // English: **the converter ids in the fixture no longer resolve to a tool** (`area`, `volume`,
+    //          `mass`, `length`, `pressure` — those 21 folded into the `unit_convert` card), so they
+    //          are filtered out exactly like the two `legacy_*` entries; `temperature` is still in the
+    //          catalogue and stays. The fixture is left alone — "what cannot be resolved is filtered
+    //          out" is the very thing it measures.
     expect(state.recentIds, [
       'json_format',
       'data_fit',
       'ohms_law',
       'loan',
-      'area',
-      'volume',
-      'mass',
-      'length',
+      'temperature',
     ]);
     expect(fakeDb.requestedRecentLimit, 24);
   });
@@ -235,8 +240,14 @@ void main() {
     expect(alias.matchLabel, ToolMatchTokens.alias);
     expect(alias.matchText, 'curve fitting');
 
-    expect(unit.tool.id, 'resistance_unit');
-    expect(unit.matchText, isNotEmpty);
+    // 中文：单位那一档原先查的是 `kΩ` → `resistance_unit`；那个工具这一轮并进了 `unit_convert`，
+    //       而 `kΩ` 这个记号仍在 `rc_filter` 的输入单位里，所以改钉它——命中的仍是"单位"那一档。
+    // English: the unit band used to query `kΩ` → `resistance_unit`; that tool folded into
+    //          `unit_convert` this round, while the `kΩ` token still lives in `rc_filter`'s input units,
+    //          so it pins that one — still the unit band that matches.
+    expect(unit.tool.id, 'rc_filter');
+    expect(unit.matchLabel, ToolMatchTokens.unit);
+    expect(unit.matchText, 'kΩ');
 
     expect(title.tool.id, 'loan');
     expect(title.matchLabel, ToolMatchTokens.title);
@@ -247,17 +258,28 @@ void main() {
   });
 
   test('search normalizes symbols punctuation and multi word unit queries', () {
+    // 中文：**两条"平方 英尺/立方 英尺"的查询换成了 `mm2` 与 `m/s2`。** 前两条原先命中被并掉的
+    //       面积/体积换算工具，今天一个结果都没有；换上的两条量的是同一件事（纯记号 + 多词/幂次
+    //       查询要归一），命中的是 `wire_voltage_drop` 与 `force` 的输入单位。
+    // English: **the two `平方 英尺` / `立方 英尺` queries are replaced by `mm2` and `m/s2`.** The
+    //          former two used to hit the folded-away area/volume converters and return nothing today;
+    //          the replacements measure the same thing (notation and multi-word or power-suffixed
+    //          queries must be normalised) against `wire_voltage_drop` and `force`'s input units.
     final ohmSymbol = controller.searchTools('kΩ');
     final ohmWord = controller.searchTools('k ohm');
-    final squareChinese = controller.searchTools('平方 英尺');
-    final cubicChinese = controller.searchTools('立方 英尺');
+    final squareMillimetre = controller.searchTools('mm2');
+    final metresPerSecondSquared = controller.searchTools('m/s2');
+    final chineseFold = controller.searchTools('单位 换算');
+    final chineseTemperatureFold = controller.searchTools('温度 换算');
     final hyphenated = controller.searchTools('theta-ja thermal');
     final slashQuery = controller.searchTools('url/query 参数');
 
-    expect(ohmSymbol.first.tool.id, 'resistance_unit');
-    expect(ohmWord.first.tool.id, 'resistance_unit');
-    expect(squareChinese.first.tool.id, 'area');
-    expect(cubicChinese.first.tool.id, 'volume');
+    expect(ohmSymbol.first.tool.id, 'rc_filter');
+    expect(ohmWord.first.tool.id, 'rc_filter');
+    expect(squareMillimetre.first.tool.id, 'wire_voltage_drop');
+    expect(metresPerSecondSquared.first.tool.id, 'force');
+    expect(chineseFold.first.tool.id, 'unit_convert');
+    expect(chineseTemperatureFold.first.tool.id, 'temperature');
     expect(hyphenated.first.tool.id, 'ldo_power');
     expect(slashQuery.first.tool.id, 'query_params');
   });

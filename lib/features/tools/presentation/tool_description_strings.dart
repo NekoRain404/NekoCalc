@@ -1,11 +1,11 @@
-/// 中文：**工具目录的描述表**——117 条 `tool.description` 的两种语言。
+/// 中文：**工具目录的描述表**——99 条 `tool.description` 的两种语言。
 ///
 ///       **机制本身不在这里重抄。** 为什么是手写分表而不是 ARB / `gen-l10n`、为什么**兄弟表**
 ///       （`settings_strings.dart`）是 `static final`，都写在设置页那张表的文件头上；本文件的两张表
 ///       是**顶层 `const` Map**而不是一个类，理由见下一条。
 ///
 ///       **为什么另起一个文件，而不是并进 `tool_catalog_strings.dart`。** 那条线是**行数硬线**：
-///       `tool_catalog_strings.dart` 本轮开始时是 **684 行**，再塞进 117×2 条描述（每条一行、还要带
+///       `tool_catalog_strings.dart` 本轮开始时是 **684 行**，再塞进 99×2 条描述（每条一行、还要带
 ///       注释）会直接冲过八百行。这与 `data_fit_strings.dart` 当初从 `tools_strings.dart` 里切出来的
 ///       理由是同一个。**切分判据是"一屏看得完"，不是"一个屏幕一张"**：描述与名字是同一张表的两个
 ///       字段，不该按屏幕切。
@@ -18,18 +18,19 @@
 ///       （英文下这种漏会以中文的样子露出来，同时测试已经红了）——与 [ToolCatalogStrings.toolName]
 ///       那条完全同形。
 ///
-///       ⚠️ **这 117 条英文没有一条是"提升"来的，全部是**本轮新写的**。** 上一轮的名字有出处：
-///       99 条能在 `tool_search_aliases_{a,b,c}.dart` 与 `tool_search_data.dart` 两处检索索引里
-///       找到已经提交的同义英文。**描述没有这样一份索引**——两处索引里没有任何一处存过描述，
-///       `tool.description` 本身也只有中文一份。所以这一轮**没有可对照的东西**：
+///       ⚠️ **这 99 条英文没有一条是"提升"来的，全部是**新写的**。** 名字那张表有出处：
+///       上一轮（117 条目录时）有 99 条能在 `tool_search_aliases_{a,b,c}.dart` 与
+///       `tool_search_data.dart` 两处检索索引里找到已经提交的同义英文（今天 99 条目录里是 82 条，
+///       见 `tool_catalog_strings_test.dart` 那条门槛）。**描述没有这样一份索引**——两处索引里没有任何
+///       一处存过描述，`tool.description` 本身也只有中文一份。所以这一轮**没有可对照的东西**：
 ///       `.superpowers/backup/tool-descriptions-report.md` 里那张逐条对照表是它唯一的复核面。
 ///
 ///       **长度是有规矩的，而且量过。** 卡片上那一格（`ToolListTile` 的 subtitle）在 360dp 手机上
 ///       只有 **162dp** 宽（分类页 170dp、"其它分类"那张面板 140dp），一个汉字约 14dp、一个小写拉丁
-///       字母约 7.4dp，所以**中文比英文宽得多**——本表落地时它还是 `maxLines: 1`，**117 条中文里
+///       字母约 7.4dp，所以**中文比英文宽得多**——本表落地时它还是 `maxLines: 1`，**那时 117 条中文里
 ///       只有 23 条完整显示**，其余 94 条在省略号处截断（`齿轮传动比、转速、扭矩和功率损耗` 就是
 ///       这么被截成 `齿轮传动比、转速、扭矩和功…` 的）。**那一轮之后，卡片改成让说明换行**
-///       （`toolDescriptionMaxLines`，见 `tool_widgets.dart`）：今天两种语言的 117 条在四种表面、
+///       （`toolDescriptionMaxLines`，见 `tool_widgets.dart`）：今天两种语言的 99 条在四种表面、
 ///       两种状态下都完整显示，一个字的文案都没动。
 ///
 ///       规矩仍然是这一条，因为它管的是**宽度**——英文比中文宽出去的那一截，最终要从行数里出：
@@ -39,10 +40,12 @@
 ///       也就是两句话：中文**本来就被截断**的那些，英文**不许比它更早截断**；中文**本来读得全**的
 ///       那些，英文**也必须读得全**。宽度用真 Roboto-Regular 的逐字符 advance 表量（尺子在
 ///       `test/shared/roboto_regular_advances.dart`，与命中提示那条护栏共用一把）。实测结果：
-///       **英文 117 条一条都不违反**，其中 **42 条完整落在 162dp 那一行之内**——中文只有 23 条。
-///       换句话说英文那 42 条一行读得全，剩下 75 条与中文一样要换行（换行之后两种语言都读得全），
-///       但**没有一条比中文占得宽**。逐条的字数、屏上宽度、以及 11 条"比中文宽、但仍完整落在一行内"
-///       的例外，都在上面那份报告里。
+///       **英文 99 条一条都不违反**，其中 **39 条完整落在分类页那一行（本轮量到 170dp）之内**——
+///       中文 24 条（上一轮 117 条目录时是英文 42 条、中文 23 条；从 42 掉到 39 是因为 3 条完整落在
+///       一行内的英文描述随它们那 21 个换算工具一起走了，42 − 3 = 39）。换句话说英文那 39 条一行
+///       读得全，剩下 60 条与中文一样要换行（换行之后两种语言都读得全），但**没有一条比中文占得
+///       宽**。逐条的字数、屏上宽度、以及今天 12 条"比中文宽、但仍完整落在一行内"的例外，
+///       都在上面那份报告里。
 ///
 ///       **数学记号逐字符活着，而且是机器查的。** 中文描述里带着与语言无关的记号——`ax² + bx + c = 0`、
 ///       `x^y`、`y^x`、`a:b = c:x`、`2x2`、`A(n,k)`、`PV=nRT`、`V/I/R/P`、`50Ω`、`kN·m`、`℃`/`℉`/`°R`、
@@ -55,7 +58,7 @@
 ///       读的还是它，所以命中的字符串、分数与排序与改动前逐条相同；**中文描述照旧被检索**。
 ///       本表只被**显示**读，不参与匹配、不落库（写笔记时那三处 `description: tool.description`
 ///       是持久化，本轮一行未动）。
-/// English: **the tools catalogue's description table** — the two languages of all 117
+/// English: **the tools catalogue's description table** — the two languages of all 99
 ///          `tool.description` strings.
 ///
 ///          **The mechanism is not copied here.** Why hand-written tables rather than ARB /
@@ -65,7 +68,7 @@
 ///
 ///          **Why its own file rather than part of `tool_catalog_strings.dart`.** That line is the
 ///          **line-count limit**: `tool_catalog_strings.dart` stood at **684 lines** when this round
-///          began, and 117 × 2 more entries (one line each, comments on top) would cross 800. This is
+///          began, and 99 × 2 more entries (one line each, comments on top) would cross 800. This is
 ///          the same reason `data_fit_strings.dart` was split out of `tools_strings.dart`.
 ///          **The split is judged by "readable in one screen", not by "one table per screen"**:
 ///          descriptions and names are two fields of one table and must not be split by screen.
@@ -80,9 +83,10 @@
 ///          miss shows up as Chinese while the test is already red) — exactly the shape of
 ///          [ToolCatalogStrings.toolName].
 ///
-///          ⚠️ **Not one of these 117 English lines is promoted; every one is authored this round.**
-///          The names had a source: 99 of them were English the repository had already committed, in
-///          the two search indexes (`tool_search_aliases_{a,b,c}.dart` and `tool_search_data.dart`).
+///          ⚠️ **Not one of these 99 English lines is promoted; every one is authored.** The names had a
+///          source: last round (a 117-entry catalogue) 99 of them were English the repository had already
+///          committed, in the two search indexes (`tool_search_aliases_{a,b,c}.dart` and
+///          `tool_search_data.dart`) — 82 of 99 today, see the gate in `tool_catalog_strings_test.dart`.
 ///          **Descriptions have no such index** — neither index has ever held a description, and
 ///          `tool.description` itself exists only in Chinese. So this round **has nothing to check
 ///          against**: the entry-by-entry table in `.superpowers/backup/tool-descriptions-report.md`
@@ -92,10 +96,10 @@
 ///          only **162dp** wide on a 360dp phone (170dp on the category page, 140dp in the "other
 ///          categories" panel); one CJK glyph is about 14dp and one lowercase Latin letter about 7.4dp,
 ///          so **the Chinese runs far wider than the English** — when this table landed the cell was
-///          still `maxLines: 1`, and **only 23 of the 117 Chinese entries rendered in full**; the other
-///          94 stopped at the ellipsis (`齿轮传动比、转速、扭矩和功率损耗` is cut to
+///          still `maxLines: 1`, and **only 23 of the 117 Chinese entries then rendered in full**; the
+///          other 94 stopped at the ellipsis (`齿轮传动比、转速、扭矩和功率损耗` is cut to
 ///          `齿轮传动比、转速、扭矩和功…` that way). **Since that round the card lets the description
-///          wrap** (`toolDescriptionMaxLines`, see `tool_widgets.dart`): today all 117 render in full in
+///          wrap** (`toolDescriptionMaxLines`, see `tool_widgets.dart`): today all 99 render in full in
 ///          both languages, on all four surfaces and in both states, with not one word of copy changed.
 ///
 ///          The rule still stands because it governs **width** — whatever the English is wider by has to
@@ -107,11 +111,14 @@
 ///          earlier**; where the Chinese **reads in full**, the English **must read in full too**.
 ///          Widths come from real Roboto-Regular per-character advances (the ruler lives in
 ///          `test/shared/roboto_regular_advances.dart`, shared with the match-hint guard). Measured:
-///          **not one of the 117 English lines violates it**, and **42 of them fit the 162dp line
-///          entirely** — against 23 for Chinese. Those 42 read in a single line; the remaining 75 wrap
-///          like their Chinese (and both languages read in full once wrapped), but **not one of them
-///          takes more width than its Chinese**. Per-line character counts, on-screen widths and the 11
-///          exceptions ("wider than the Chinese yet still wholly inside one line") are in that report.
+///          **not one of the 99 English lines violates it**, and **39 of them fit the category page's
+///          line entirely** (measured at 170dp this round) — against 24 for Chinese (last round, with the
+///          117-entry catalogue, it was 42 English and 23 Chinese; the fall from 42 to 39 is three
+///          one-line English descriptions leaving with their 21 converter tools, 42 − 3 = 39). Those 39
+///          read in a single line; the remaining 60 wrap like their Chinese (and both languages read in
+///          full once wrapped), but **not one of them takes more width than its Chinese**. Per-line
+///          character counts, on-screen widths and today's 12 exceptions ("wider than the Chinese yet
+///          still wholly inside one line") are in that report.
 ///
 ///          **The mathematical notation survives character for character, and a machine checks it.**
 ///          The Chinese carries notation that is language-neutral — `ax² + bx + c = 0`, `x^y`, `y^x`,
@@ -199,28 +206,8 @@ const Map<String, String> toolDescriptionsZh = {
       'discount': '原价、折扣、节省金额与优惠比例',
       'tax': '税率、税额、含税金额和税负率',
       'npv': '多期现金流净现值、盈利指数和回收期',
-      'length': 'nm、μm、mm、cm、m、km、Mm、in、ft、mile 换算',
-      'area': 'km²、ha、公顷、亩、m²、cm²、mm²、acre、ft²、in² 换算',
-      'volume': 'm³、L、mL、cm³、mm³、gal、qt、pt、fl oz、ft³、in³ 换算',
-      'mass': 'kg、g、mg、Mg、t、lb、oz、斤 换算',
-      'pressure': 'mPa、Pa、kPa、MPa、GPa、bar、mbar、psi、atm 换算',
-      'speed': 'm/s、km/h、mph、ft/s、m/min、cm/s、kn 换算',
+      'unit_convert': '长度、面积、体积、质量、压力、电学等单位换算',
       'temperature': '℃、℉、K、°R 换算',
-      'voltage': 'μV、mV、V、kV、MV 换算',
-      'frequency': 'mHz、Hz、kHz、MHz、GHz、THz 换算',
-      'data_size': 'bit、B、KB/MB/GB 与 KiB/MiB/GiB 换算',
-      'time_unit': 'ns、μs、ms、s、min、h、day、week 换算',
-      'acceleration': 'm/s²、g、ft/s²、cm/s²、Gal 换算',
-      'force_unit': 'mN、N、kN、MN、kgf、lbf 换算',
-      'power_unit': 'mW、W、kW、MW、hp、dBm 换算',
-      'energy_unit': 'J、kJ、cal、kcal、BTU、eV、Wh、kWh、MWh、度 换算',
-      'angle_unit': 'deg、rad、turn、grad/gon、arcmin、arcsec 换算',
-      'current_unit': 'nA、μA、mA、A、kA、MA 换算',
-      'resistance_unit': 'μΩ、mΩ、Ω、kΩ、MΩ、GΩ 换算',
-      'capacitance_unit': 'F、mF、μF、nF、pF、MF 换算',
-      'inductance_unit': 'pH、nH、μH、mH、H、kH、MH 换算',
-      'torque_unit': 'kN·m、N·m、mN·m、N·mm、kgf·cm、lbf·in、ozf·in 换算',
-      'flow_unit': 'mL/min、L/min、L/h、L/s、m³/h、m³/min、m³/s、GPM、CFM 换算',
       'motion': '速度、时间、距离三选二互算和配速',
       'free_fall': '高度、初速度、落地时间、末速度和冲击能量',
       'work_power': '力、位移、夹角、效率、功和平均功率',
@@ -259,9 +246,9 @@ const Map<String, String> toolDescriptionsZh = {
       'custom_formula': '创建自己的公式工具',
 };
 
-/// 中文：工具 id → 描述，英文。**117 条全部是本轮新写的**（理由见文件头），长度按本文件头那条
+/// 中文：工具 id → 描述，英文。**99 条全部是新写的**（理由见文件头），长度按本文件头那条
 ///       「英文宽 ≤ max(中文宽, 162dp)」的规矩量过。
-/// English: tool id → description, English. **All 117 are authored this round** (see the file head), and
+/// English: tool id → description, English. **All 99 are authored** (see the file head), and
 ///          every one was measured against the file head's rule, "English width ≤ max(Chinese width,
 ///          162dp)".
 const Map<String, String> toolDescriptionsEn = {
@@ -326,36 +313,8 @@ const Map<String, String> toolDescriptionsEn = {
       'discount': 'List price, discount, saving, final',
       'tax': 'Rate, tax, gross price',
       'npv': 'Net present value, PI, payback',
-      'length': 'nm, μm, mm, cm, m, km, Mm, in, ft, mile',
-      // 中文：`亩` 写成 `mu`——那是换算表自己收下的拉丁拼法（`tool_unit_conversion_units_core.dart`）。
-      // English: `亩` is written `mu`, the Latin spelling the conversion table itself accepts (it is
-      //          in `tool_unit_conversion_units_core.dart`).
-      'area': 'km², ha, hectare, mu, m², cm², mm², acre, ft², in²',
-      'volume': 'm³, L, mL, cm³, mm³, gal, qt, pt, fl oz, ft³, in³',
-      // 中文：`斤` 在换算表里只有这一个拼法（没有 `jin` 别名），英文一侧按通行的拉丁拼法写作 `jin`。
-      // English: `斤` has exactly one spelling in the conversion table (there is no `jin` alias); the
-      //          English side writes it `jin`, the usual Latin spelling.
-      'mass': 'kg, g, mg, Mg, t, lb, oz, jin',
-      'pressure': 'mPa, Pa, kPa, MPa, GPa, bar, mbar, psi, atm',
-      'speed': 'm/s, km/h, mph, ft/s, m/min, cm/s, kn',
+      'unit_convert': 'Length, area, volume, mass, pressure, etc',
       'temperature': '℃, ℉, K, °R',
-      'voltage': 'μV, mV, V, kV, MV',
-      'frequency': 'mHz, Hz, kHz, MHz, GHz, THz',
-      'data_size': 'bit, B, KB/MB/GB, KiB/MiB/GiB',
-      'time_unit': 'ns, μs, ms, s, min, h, day, week',
-      'acceleration': 'm/s², g, ft/s², cm/s², Gal',
-      'force_unit': 'mN, N, kN, MN, kgf, lbf',
-      'power_unit': 'mW, W, kW, MW, hp, dBm',
-      // 中文：`度` 在换算表里就是 `kWh` 的同义词，英文一侧只列一次。
-      // English: `度` is a synonym of `kWh` in the conversion table, so the English side lists it once.
-      'energy_unit': 'J, kJ, cal, kcal, BTU, eV, Wh, kWh, MWh',
-      'angle_unit': 'deg, rad, turn, grad/gon, arcmin, arcsec',
-      'current_unit': 'nA, μA, mA, A, kA, MA',
-      'resistance_unit': 'μΩ, mΩ, Ω, kΩ, MΩ, GΩ',
-      'capacitance_unit': 'F, mF, μF, nF, pF, MF',
-      'inductance_unit': 'pH, nH, μH, mH, H, kH, MH',
-      'torque_unit': 'kN·m, N·m, mN·m, N·mm, kgf·cm, lbf·in, ozf·in',
-      'flow_unit': 'mL/min, L/min, L/h, L/s, m³/h, m³/min, m³/s, GPM, CFM',
       'motion': 'Speed, time, distance, pace',
       'free_fall': 'Height, initial speed, fall time, impact',
       'work_power': 'Force, distance, angle, work, power',

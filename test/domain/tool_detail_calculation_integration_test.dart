@@ -521,22 +521,14 @@ void main() {
     expect(discount.primary?.value, '254.15');
     expect(discount.inputErrors, isEmpty);
 
-    final dataTool = toolCatalog.firstWhere((item) => item.id == 'data_size');
-    final dataSize = ToolDetailController(
-      historyRepository: HistoryRepository(AppDatabase.instance),
-      notesRepository: NotesRepository(AppDatabase.instance),
-      toolUsageRepository: ToolUsageRepository(AppDatabase.instance),
-      tool: dataTool,
-    strings: ToolDetailStrings.toolDetailZh,
-    );
-
-    dataSize.updateValue('value', '1.5 MiB');
-    expect(dataSize.values['value'], closeTo(1572864, 1e-9));
-    expect(dataSize.primary?.label, 'B');
-    expect(dataSize.results.map((result) => result.value), contains('1.5'));
-    expect(dataSize.results.map((result) => result.label), contains('MiB'));
-    expect(dataSize.results.map((result) => result.label), contains('GiB'));
-    expect(dataSize.results.map((result) => result.label), contains('TiB'));
-    expect(dataSize.inputErrors, isEmpty);
+    // 中文：**这里原先还有一段 `data_size` 的粘贴解析与输出断言**（`1.5 MiB` → B/GiB/TiB…）。
+    //       它随工具与被删掉的换算数学一起删除：`ToolKind.dataSize` 分支、那张 1024 进制表与
+    //       `UnitConverter` 都已不存在，`toolCatalog` 里也再没有 `data_size` 这个 id——
+    //       那段断言连工具都取不到了。单位换算今天走引擎自己的 `to` 翻译层。
+    // English: **a `data_size` pasted-parse block used to stand here** (`1.5 MiB` → B/GiB/TiB …). It
+    //          went with the tool and the deleted conversion maths: the `ToolKind.dataSize` branch, the
+    //          1024-based table and `UnitConverter` no longer exist, and `toolCatalog` no longer holds a
+    //          `data_size` id at all — that block could not even fetch its tool. Unit conversion is the
+    //          engine's own `to` translation today.
   });
 }

@@ -25,12 +25,22 @@ class ToolsHomePage extends StatefulWidget {
     required this.db,
     required this.settings,
     this.reloadToken = 0,
+    this.onOpenUnitSheet,
     super.key,
   });
 
   final AppDatabase db;
   final AppSettings settings;
   final int reloadToken;
+
+  /// 中文：`unit_convert` 那一类工具点开时要弹的单位面板（键盘 `CONV` 打开的那一个）。
+  ///       可选：为空时那些卡是惰性的，独立渲染本页的测试不必新增参数；真实 App 里由外壳接上。
+  ///       为什么不在本页直接弹——见 `tool_navigation.dart` 上 `openToolDetail` 的注释。
+  /// English: the unit sheet the `unit_convert` class of tools raises when opened (the one the
+  ///          keypad's `CONV` opens). Optional: with no callback those cards are inert and tests that
+  ///          render this page on their own need no new argument; the shell wires it in the real app.
+  ///          Why the sheet is not raised here — see `openToolDetail`'s note in `tool_navigation.dart`.
+  final VoidCallback? onOpenUnitSheet;
 
   @override
   State<ToolsHomePage> createState() => _ToolsHomePageState();
@@ -77,6 +87,7 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
       db: widget.db,
       tool: tool,
       settings: widget.settings,
+      onOpenUnitSheet: widget.onOpenUnitSheet,
     );
     await _reload();
   }
@@ -283,7 +294,8 @@ class _ToolsHomePageState extends State<ToolsHomePage> {
                       db: widget.db,
                       category: category,
                       favoriteIds: _state.favoriteIds,
-                      settings: widget.settings),
+                      settings: widget.settings,
+                      onOpenUnitSheet: widget.onOpenUnitSheet),
                 ));
                 _reload();
               },

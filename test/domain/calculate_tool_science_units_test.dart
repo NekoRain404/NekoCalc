@@ -371,132 +371,32 @@ void main() {
     expect(insights, contains('当前以 pH 作为输入来源'));
   });
 
-  test('common unit converters expose supported pasted units as outputs', () {
+  // 中文：**这里原先还有两条逐单位换算的测试**（`common unit converters expose supported pasted
+  //       units as outputs` 与 `time energy and electrical converters expose fine grained outputs`），
+  //       覆盖 length/area/volume/…/flow 那 21 个工具的每一格输出。**它们随工具与被删掉的换算数学
+  //       一起删除了**：那 21 个 `ToolKind` 分支、`calculate_tool_units.dart` 里的换算表与
+  //       `UnitConverter` 都已不存在（"没有任何地方还调用它们"的检索证据写在当轮报告里），
+  //       没有一条断言还能到达被删的数学。单位换算今天由引擎自己的 `to` 翻译层承担，
+  //       那条路径的覆盖在计算页与 `unit_convert` 卡那几条测试里。
+  // English: **two per-unit converter tests used to stand here** (`common unit converters expose
+  //          supported pasted units as outputs` and `time energy and electrical converters expose fine
+  //          grained outputs`), covering every output cell of the 21 tools from length to flow. **They
+  //          went with the tools and the deleted conversion maths**: those 21 `ToolKind` branches, the
+  //          factor tables in `calculate_tool_units.dart` and `UnitConverter` no longer exist (the
+  //          greps proving nothing calls them are in that round's report), so no assertion could still
+  //          reach the deleted maths. Unit conversion is the engine's own `to` translation today, and
+  //          that path is covered by the calculator-page and `unit_convert`-card tests.
+  test('temperature keeps its four scales as outputs', () {
     Map<String, String> values(String toolId, double value) => {
           for (final result in calculateTool(tool(toolId), {'value': value}))
             result.label: result.value,
         };
 
-    final length = values('length', 1609.344);
-    final area = values('area', 1);
-    final volume = values('volume', 1);
-    final mass = values('mass', 1);
-    final pressure = values('pressure', 101325);
-    final voltage = values('voltage', 1000000);
-    final frequency = values('frequency', 1);
-    final terahertz = values('frequency', 1000000000000);
-    final torque = values('torque_unit', 1);
-    final speed = values('speed', 1);
-    final acceleration = values('acceleration', 1);
-    final flow = values('flow_unit', 60);
-    final power = values('power_unit', 1000);
-    final force = values('force_unit', 1);
-    final angle = values('angle_unit', 180);
     final temperature = values('temperature', 25);
-
-    expect(length['km'], '1.609344');
-    expect(length['Mm'], '0.001609');
-    expect(length['μm'], '1.609344e+9');
-    expect(length['nm'], '1.609344e+12');
-    expect(length['mi'], '1');
-    expect(area['km²'], '0.000001');
-    expect(area['ha'], '0.0001');
-    expect(area['亩'], '0.0015');
-    expect(area['acre'], startsWith('0.000247'));
-    expect(area['in²'], startsWith('1550'));
-    expect(area['yd²'], startsWith('1.19599'));
-    expect(volume['cm³'], '1000000');
-    expect(volume['mm³'], '1e+9');
-    expect(volume['gal'], startsWith('264.172'));
-    expect(volume['qt'], startsWith('1056.688'));
-    expect(volume['tbsp'], startsWith('67628.045'));
-    expect(volume['tsp'], startsWith('202884.136'));
-    expect(mass['Mg'], '0.001');
-    expect(mass['t'], '0.001');
-    expect(mass['oz'], startsWith('35.273'));
-    expect(mass['斤'], '2');
-    expect(pressure['mPa'], '101325000');
-    expect(pressure['atm'], '1');
-    expect(pressure['GPa'], '0.000101');
-    expect(pressure['mbar'], '1013.25');
-    expect(pressure['mmHg'], startsWith('760'));
-    expect(voltage['MV'], '1');
-    expect(voltage['mV'], '1e+9');
-    expect(frequency['mHz'], '1000');
-    expect(frequency['kHz'], '0.001');
-    expect(terahertz['GHz'], '1000');
-    expect(terahertz['THz'], '1');
-    expect(power['mW'], '1000000');
-    expect(power['kW'], '1');
-    expect(power['MW'], '0.001');
-    expect(power['dBW'], '30');
-    expect(force['mN'], '1000');
-    expect(force['MN'], '0.000001');
-    expect(speed['m/min'], '60');
-    expect(speed['cm/s'], '100');
-    expect(speed['kn'], startsWith('1.94384'));
-    expect(acceleration['cm/s²'], '100');
-    expect(acceleration['Gal'], '100');
-    expect(torque['kN·m'], '0.001');
-    expect(torque['mN·m'], '1000');
-    expect(torque['N·mm'], '1000');
-    expect(torque['lbf·in'], startsWith('8.850'));
-    expect(torque['ozf·in'], startsWith('141.612'));
-    expect(flow['L/h'], '3600');
-    expect(flow['mL/min'], '60000');
-    expect(flow['L/s'], '1');
-    expect(flow['m³/min'], '0.06');
-    expect(flow['m³/s'], '0.001');
-    expect(flow['CFM'], startsWith('2.11888'));
-    expect(angle['rad'], startsWith('3.14159'));
-    expect(angle['turn'], '0.5');
-    expect(angle['grad'], '200');
-    expect(angle['arcmin'], '10800');
-    expect(angle['arcsec'], '648000');
+    expect(temperature['℃'], '25');
+    expect(temperature['℉'], '77');
+    expect(temperature['K'], '298.15');
     expect(temperature['°R'], '536.67');
-  });
-
-  test('time energy and electrical converters expose fine grained outputs', () {
-    Map<String, String> values(String toolId, double value) => {
-          for (final result in calculateTool(tool(toolId), {'value': value}))
-            result.label: result.value,
-        };
-
-    final time = values('time_unit', 1);
-    final energy = values('energy_unit', 3600000);
-    final current = values('current_unit', 0.000001);
-    final resistance = values('resistance_unit', 1);
-    final capacitance = values('capacitance_unit', 0.001);
-    final inductance = values('inductance_unit', 0.001);
-
-    expect(time['ms'], '1000');
-    expect(time['μs'], '1000000');
-    expect(time['ns'], '1e+9');
-    expect(time['week'], '0.000002');
-    expect(energy['kcal'], startsWith('860.420'));
-    expect(energy['BTU'], startsWith('3412.141'));
-    expect(energy['eV'], startsWith('2.246943e+25'));
-    expect(energy['kWh'], '1');
-    expect(energy['MWh'], '0.001');
-    expect(energy['mWh'], '1000000');
-    expect(energy['度'], '1');
-    expect(current['μA'], '1');
-    expect(current['nA'], '1000');
-    expect(current['kA'], '1e-9');
-    expect(current['MA'], '1e-12');
-    expect(resistance['μΩ'], '1000000');
-    expect(resistance['mΩ'], '1000');
-    expect(resistance['kΩ'], '0.001');
-    expect(resistance['GΩ'], '1e-9');
-    expect(capacitance['mF'], '1');
-    expect(capacitance['μF'], '1000');
-    expect(capacitance['MF'], '1e-9');
-    expect(inductance['kH'], '0.000001');
-    expect(inductance['mH'], '1');
-    expect(inductance['μH'], '1000');
-    expect(inductance['nH'], '1000000');
-    expect(inductance['pH'], '1e+9');
-    expect(inductance['MH'], '1e-9');
   });
 
   test('section property tool exposes inertia and section modulus', () {

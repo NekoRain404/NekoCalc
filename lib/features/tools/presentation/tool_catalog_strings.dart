@@ -5,28 +5,31 @@ import '../../../domain/usecases/tool_catalog.dart';
 import '../../../l10n/app_language.dart';
 import 'tool_description_strings.dart';
 
-/// 中文：**工具目录的名字表**——117 个工具的名字，加上 8 个分类的名字与说明（16 条）。
+/// 中文：**工具目录的名字表**——99 个工具的名字，加上 8 个分类的名字与说明（16 条）。
 ///       机制本身（为什么是手写分表而不是 ARB / `gen-l10n`、为什么**兄弟表**是 `static final`
 ///       而不是 `const`）与设置页那张表共用一套理由，写在 `settings_strings.dart` 的文件头上，
 ///       这里不重抄；**这一张是 `static const`**，与兄弟表不同的那一点写在 [toolCatalogZh] 上。
 ///
 ///       **为什么这是工具子树的第三张表，而不是并进 `ToolsStrings`。** 前两张装的是"包在目录
-///       外面的壳"（页头、按钮、提示），这一张装的是**目录本身的名字**。并进去要多 234 条
-///       （117×2）加 16 条分类，`tools_strings.dart` 会直接冲过八百行硬线——`data_fit_strings.dart`
+///       外面的壳"（页头、按钮、提示），这一张装的是**目录本身的名字**。并进去要多 198 条
+///       （99×2）加 16 条分类，`tools_strings.dart` 会直接冲过八百行硬线——`data_fit_strings.dart`
 ///       的文件头已经为同样的理由做过一次切分。**切分判据是"一屏看得完"，不是"一个屏幕一张"**：
 ///       这张表是唯一一张被工具首页 / 分类页 / 工具详情页 / 文本工具页 / 拟合页**五处共用**的
 ///       名字来源，按屏幕切它没有落点。
 ///
-///       **117 个名字里有 99 个不是本轮写的，是把仓库里已经提交的英文找出来。**
+///       **99 个名字里有 82 个不是本轮写的，是把仓库里已经提交的英文找出来。**
 ///       那份检索索引有**两处**，都是故意做实了的双语数据：`tool_search_aliases_{a,b,c}.dart`
-///       里 **86** 个 id 各一张别名表（33 + 28 + 25），`tool_search_data.dart` 的
-///       `unitSearchAliases` 里再 **21** 个（22 个换算工具中的 21 个在那里，剩下的 `data_size`
-///       在前一处）——合起来 **107** 个 id 有别名表。**表里第一条能当名字用的英文别名就是这个
-///       工具的英文名**；本表按那条规则取名，只做排版归一（首字母大写；连字符、斜杠按英文写法
-///       补上），一个词都不增删。**两处索引本轮一个字节都没动**：本表读它们，不改它们。
-///       每条英文后面的注释写着它属于哪一类：
-///         · `A` 提升（promoted，**99 条**）——名字就是该 id 别名表里的某一条，注释里是那条原文；
-///         · `B` 新写（authored，**14 条**）——**没有可用的别名**，注释里是理由：九条是该 id 在
+///       里 **88** 个 id 各一张别名表（32 + 31 + 25），`tool_search_data.dart` 的
+///       `unitSearchAliases` 里再 **2** 个（`unit_convert` 与 `temperature`）——合起来 **90** 个 id
+///       有别名表。（这一轮之前逐个数是 89 + 21 = 110：21 个换算工具并成一张卡时，
+///       `unitSearchAliases` 里 20 张逐单位的表走了、添回 `unit_convert` 一张，`aliases_b` 里
+///       `data_size` 那张也走了。文件头上原写的「86（33 + 28 + 25）/107」与改动前的 HEAD 逐个数
+///       对不上——那 3 个差不是这一轮产生的，这里改按今天逐个数出来的写。）**表里第一条能当名字
+///       用的英文别名就是这个工具的英文名**；本表按那条规则取名，只做排版归一（首字母大写；
+///       连字符、斜杠按英文写法补上），一个词都不增删。**两处索引本轮一个字节都没动**：本表读
+///       它们，不改它们。每条英文后面的注释写着它属于哪一类：
+///         · `A` 提升（promoted，**82 条**）——名字就是该 id 别名表里的某一条，注释里是那条原文；
+///         · `B` 新写（authored，**13 条**）——**没有可用的别名**，注释里是理由：八条是该 id 在
 ///              两处索引里根本没有表，五条是有表但表里没有一条是名字
 ///              （`timestamp`、`url_codec`、`uuid`、`jwt_decode`、`text_stats`）；
 ///         · `L` 本来就是拉丁字母（**4 条**）——中文标题就是 `Base64`、`pH / pOH`、`FNV/CRC32`、
@@ -69,7 +72,7 @@ import 'tool_description_strings.dart';
 ///          **content** (`tool.group` and **this table's category names**) passes through verbatim — so
 ///          this table is still their one source on screen. The rule for the two halves is written on
 ///          `ToolsStrings.match`.
-/// English: **the tools catalogue's name table** — the 117 tool names plus the 8 categories' names
+/// English: **the tools catalogue's name table** — the 99 tool names plus the 8 categories' names
 ///          and descriptions (16 strings). The mechanism itself (why hand-written tables rather than
 ///          ARB / `gen-l10n`, why the tables are `static final` rather than `const`) shares one set of
 ///          reasons with the settings table and is written on `settings_strings.dart`'s file head; it
@@ -78,27 +81,31 @@ import 'tool_description_strings.dart';
 ///
 ///          **Why this is the tools subtree's third table instead of part of `ToolsStrings`.** The
 ///          first two hold the shell around the catalogue (page heads, buttons, hints); this one holds
-///          **the catalogue's own names**. Folding it in would add 234 entries (117 × 2) plus the 16
+///          **the catalogue's own names**. Folding it in would add 198 entries (99 × 2) plus the 16
 ///          category strings and push `tools_strings.dart` straight past the hard 800-line limit —
 ///          the very split `data_fit_strings.dart`'s file head already made for the same reason.
 ///          **The split is judged by "readable in one screen", not by "one table per screen"**: this
 ///          is the one table **five** screens share (tools home, category, tool detail, text tool
 ///          detail, fit), so splitting it by screen has nowhere to land.
 ///
-///          **99 of the 117 names are not written this round — they are English the repository had
+///          **82 of the 99 names are not written this round — they are English the repository had
 ///          already committed.** That search index lives in **two** places, both deliberately
-///          bilingual: `tool_search_aliases_{a,b,c}.dart` (one alias list each for **86** ids — 33 +
-///          28 + 25) and `ToolSearchData.unitSearchAliases` in `tool_search_data.dart` (another
-///          **21**, which is 21 of the 22 conversion tools; `data_size` is in the first place) —
-///          **107** ids with an alias list between them. **The first name-like English entry is that
-///          tool's English name**; this table takes names by that rule, normalising typography only
-///          (initial capitals; hyphens and slashes where English orthography wants them) and adding or
-///          dropping not one word. **Neither index was touched this round by one byte**: this table
-///          reads them, it does not edit them. The comment after each English entry says which class
-///          it belongs to:
-///            · `A` promoted (**99**) — the name *is* one of that id's committed aliases, quoted in
+///          bilingual: `tool_search_aliases_{a,b,c}.dart` (one alias list each for **88** ids — 32 +
+///          31 + 25) and `ToolSearchData.unitSearchAliases` in `tool_search_data.dart` (another
+///          **2**: `unit_convert` and `temperature`) — **90** ids with an alias list between them.
+///          (Counted one by one before this round it was 89 + 21 = 110: when the 21 converters folded
+///          into one card, 20 per-unit lists left `unitSearchAliases` and `unit_convert`'s arrived, and
+///          `data_size`'s list left `aliases_b` too. The "86 (33 + 28 + 25) / 107" formerly written on
+///          this head does not match a one-by-one count of the pre-change HEAD — those 3 are not this
+///          round's, and this head now carries today's counted numbers.) **The first name-like English
+///          entry is that tool's English name**; this table takes names by that rule, normalising
+///          typography only (initial capitals; hyphens and slashes where English orthography wants
+///          them) and adding or dropping not one word. **Neither index was touched this round by one
+///          byte**: this table reads them, it does not edit them. The comment after each English entry
+///          says which class it belongs to:
+///            · `A` promoted (**82**) — the name *is* one of that id's committed aliases, quoted in
 ///              the comment;
-///            · `B` authored (**14**) — **no usable alias exists**; the comment gives the reason. Nine
+///            · `B` authored (**13**) — **no usable alias exists**; the comment gives the reason. Eight
 ///              of these ids have no list in either index, and five have a list whose entries are not
 ///              names (the `timestamp`, `url_codec`, `uuid`, `jwt_decode`, `text_stats` kind);
 ///            · `L` already Latin (**4**) — the Chinese title itself is `Base64`, `pH / pOH`,
@@ -160,12 +167,12 @@ class ToolCatalogStrings {
   });
 
   /// 中文：**工具 id → 名字**。八分类那种"封闭集合"这里用不了字段名：ids 来自目录，字段名给不了
-  ///       编译期完整性（没有任何东西把字段和目录里的 id 绑起来），而 117 条 × 四行（构造参数、
+  ///       编译期完整性（没有任何东西把字段和目录里的 id 绑起来），而 99 条 × 四行（构造参数、
   ///       字段、两份表）正好把文件顶到八百行。完整性交给 `tool_catalog_strings_test.dart` 里那条
   ///       遍历 `toolCatalog` 的断言，与 `settings_strings_test.dart` 遍历 `CalcTheme.all` 同一种做法。
   /// English: **tool id → name.** The named-field treatment the eight categories get cannot be used
   ///          here: the ids come from the catalogue, so field names would not give compile-time
-  ///          completeness (nothing ties a field to a catalogue id), and 117 entries × four lines
+  ///          completeness (nothing ties a field to a catalogue id), and 99 entries × four lines
   ///          (constructor parameter, field, two tables) would put this file against the 800-line
   ///          limit. Completeness is carried by the assertion in `tool_catalog_strings_test.dart` that
   ///          walks `toolCatalog` — the same trick `settings_strings_test.dart` uses for `CalcTheme.all`.
@@ -368,28 +375,8 @@ class ToolCatalogStrings {
       'discount': '折扣计算',
       'tax': '税前税后',
       'npv': 'NPV',
-      'length': '长度',
-      'area': '面积',
-      'volume': '体积',
-      'mass': '质量',
-      'pressure': '压力',
-      'speed': '速度',
+      'unit_convert': '单位换算',
       'temperature': '温度',
-      'voltage': '电压',
-      'frequency': '频率',
-      'data_size': '数据单位',
-      'time_unit': '时间',
-      'acceleration': '加速度',
-      'force_unit': '力',
-      'power_unit': '功率',
-      'energy_unit': '能量',
-      'angle_unit': '角度',
-      'current_unit': '电流',
-      'resistance_unit': '电阻',
-      'capacitance_unit': '电容',
-      'inductance_unit': '电感',
-      'torque_unit': '扭矩',
-      'flow_unit': '流量',
       'motion': '速度时间距离',
       'free_fall': '自由落体',
       'work_power': '功与功率',
@@ -427,8 +414,8 @@ class ToolCatalogStrings {
       'fnv_crc': 'FNV/CRC32',
       'custom_formula': '自定义公式',
     },
-    // 中文：描述那 117 条住在 `tool_description_strings.dart`，理由见文件头。
-    // English: the 117 descriptions live in `tool_description_strings.dart`; the reason is on the file
+    // 中文：描述那 99 条住在 `tool_description_strings.dart`，理由见文件头。
+    // English: the 99 descriptions live in `tool_description_strings.dart`; the reason is on the file
     //          head.
     toolDescriptions: toolDescriptionsZh,
     mathTitle: '方程与数学',
@@ -637,30 +624,8 @@ class ToolCatalogStrings {
       'discount': 'Discount Calculator', // A · 'discount calculator'
       'tax': 'Tax Calculator', // A · 'tax calculator'
       'npv': 'Net Present Value', // A · 'net present value'
-      'length': 'Length Converter', // A · 'length converter'
-      'area': 'Area Converter', // A · 'area converter'
-      'volume': 'Volume Converter', // A · 'volume converter'
-      'mass': 'Mass Converter', // A · 'mass converter'
-      'pressure': 'Pressure Converter', // A · 'pressure converter'
-      'speed': 'Speed Converter', // A · 'speed converter'
+      'unit_convert': 'Unit Conversion', // A · 'unit conversion'
       'temperature': 'Temperature Converter', // A · 'temperature converter'
-      'voltage': 'Voltage Converter', // A · 'voltage converter'
-      'frequency': 'Frequency Converter', // A · 'frequency converter'
-      'data_size':
-          'Data Size Converter', // A · 'data size converter' · first two entries name one unit
-      'time_unit': 'Time Converter', // A · 'time converter'
-      'acceleration': 'Acceleration Converter', // A · 'acceleration converter'
-      'force_unit': 'Force Converter', // A · 'force converter'
-      'power_unit': 'Power Converter', // A · 'power converter'
-      'energy_unit': 'Energy Converter', // A · 'energy converter'
-      'angle_unit': 'Angle Converter', // A · 'angle converter'
-      'current_unit': 'Current Converter', // A · 'current converter'
-      'resistance_unit': 'Resistance Converter', // A · 'resistance converter'
-      'capacitance_unit':
-          'Capacitance Converter', // A · 'capacitance converter'
-      'inductance_unit': 'Inductance Converter', // A · 'inductance converter'
-      'torque_unit': 'Torque Converter', // A · 'torque converter'
-      'flow_unit': 'Flow Converter', // A · 'flow converter'
       'motion':
           'Distance / Time / Speed', // A · 'distance time speed' · slash = typography
       'free_fall': 'Free Fall', // A · 'free fall'

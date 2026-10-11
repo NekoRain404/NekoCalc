@@ -27,7 +27,7 @@ import '../shared/source_scan.dart';
 ///       4) **没有死条目**：每张表的每个键都得在目录里真的出现（键是字串，抄错一个字符就会
 ///          变成一条永远查不到的条目——那正是这张表最可能的坏法）。
 ///       5) **长度**：标签那一格 **89.1dp** 的宽度、字号 14、字距 0.25 是**从渲染树里读出来的**，
-///          不是抄的；然后 294 处带汉字的标签 × 两种语言逐条量行数，判据是
+///          不是抄的；然后 268 处带汉字的标签 × 两种语言逐条量行数，判据是
 ///          `英文行数 ≤ 中文行数 + (可选 ? 1 : 0)` 且 `≤ 2`（理由见 `tool_field_strings.dart`）。
 ///       6) **屏幕上真的换了**：分类页的分组标题、详情页的标签 / 单位 / 公式 / 解释，
 ///          两种语言各是各的，英文下这几个位置上没有汉字。
@@ -48,7 +48,7 @@ import '../shared/source_scan.dart';
 ///          report. (4) **No dead entries**: every key must really occur in the catalogue (a
 ///          one-character typo in a key makes an entry that can never be found — the likeliest way
 ///          for this table to go wrong). (5) **Length**: the label cell's **89.1dp**, the 14sp font and
-///          the 0.25 letter spacing are **read off the render tree**, not copied; then all 294
+///          the 0.25 letter spacing are **read off the render tree**, not copied; then all 268
 ///          Han-bearing label sites are measured in both languages against
 ///          `English lines ≤ Chinese lines + (optional ? 1 : 0)` and `≤ 2` (the reasoning is on
 ///          `tool_field_strings.dart`). (6) **The screen really changed**: the category page's group
@@ -61,8 +61,9 @@ void main() {
   final en = ToolFieldStrings.forLanguage(AppLanguage.en);
 
   test('中文表是空的（键就是中文），五个字段逐条与目录逐字节相同', () {
-    expect(toolCatalog.length, 119,
-        reason: '目录里一共 119 个工具（上一轮 120：`proportion` 并进了 `scale_ratio`）');
+    expect(toolCatalog.length, 99,
+        reason: '目录里一共 99 个工具（上一轮 119——这一轮 21 个逐单位换算工具并成了打开 `CONV` '
+            '面板的那一张卡：119 − 21 + 1 = 99）');
     expect(zh.inputLabels, isEmpty);
     expect(zh.inputUnits, isEmpty);
     expect(zh.groups, isEmpty);
@@ -84,13 +85,13 @@ void main() {
         labelSites++;
       }
     }
-    // 中文：**337 = 345 − 4 − 4**：`inflation` 并进 `compound` 之后，它那四个参数标签
-    //       （`当前金额`、`年通胀率`、`年数`、`未来等值`）跟着走了；`proportion` 并进
-    //       `scale_ratio` 之后，它那四个（`a`、`b`、`c`、`x`）也走了。
-    // English: **337 = 345 − 4 − 4**: with `inflation` merged into `compound`, its four input labels
-    //          (`当前金额`, `年通胀率`, `年数`, `未来等值`) went with it; with `proportion` merged into
-    //          `scale_ratio`, its four (`a`, `b`, `c`, `x`) went too.
-    expect(labelSites, 337, reason: '目录里的参数一共 337 处，少了说明遍历没跑对');
+    // 中文：**316 = 337 − 21**：那 21 个被并掉的换算工具每个正好一个输入参数
+    //       （标签都是 `输入值`），它们随工具一起走了；新来的 `unit_convert` 没有输入参数
+    //       （它只负责打开 `CONV` 面板），留下的 `temperature` 那一处没动。
+    // English: **316 = 337 − 21**: each of the 21 folded-away converters had exactly one input
+    //          (labelled `输入值`), and those went with their tools; the new `unit_convert` has no inputs
+    //          at all (it only opens the `CONV` sheet), and `temperature`'s one site did not move.
+    expect(labelSites, 316, reason: '目录里的参数一共 316 处，少了说明遍历没跑对');
   });
 
   test('英文表：带汉字的字段一条不漏、非空、无汉字、没有一条等于它的键', () {
@@ -173,21 +174,16 @@ void main() {
         walk('单位', input.unit, en.inputUnits[input.unit]);
       }
     }
-    // 中文：**214 是实测的记号段数**，数的是**出现处**（每一条分组名 + 公式 + 解释 + 参数 × 标签与单位两格）。
-    //       上一轮是 218：`proportion` 并进 `scale_ratio` 之后，它那条解释
-    //       （`a、b、c、x 任意填写三项即可反推第四项，…`）里四段记号 `a`、`b`、`c`、`x` 跟着走了；
-    //       它那条公式整条是纯 ASCII，本来就不进英文表（表里只收带汉字的字段），一处也不算；
-    //       它那四个参数标签 `a`/`b`/`c`/`x` 同样不进表，更不算段。
-    //       这个数会随中文措辞一起动，所以它只做"断言没空转"的证据，判据是上面那条 `contains`。
-    // English: **214 is the measured run count**, counting **occurrence sites** (each tool's group name,
-    //          formula and explanation plus every input's label and unit). Last round it was 218: with
-    //          `proportion` merged into `scale_ratio`, the four runs in its explanation
-    //          (`a、b、c、x 任意填写三项即可反推第四项，…` — the runs `a`, `b`, `c`, `x`) went with it;
-    //          its formula is pure ASCII and never had an English entry (the table only holds
-    //          Han-bearing fields), so it never counted a run; its four input labels `a`/`b`/`c`/`x`
-    //          never entered the table either. The number moves with the Chinese wording, so it only
-    //          proves the loop ran; the criterion is the `contains` above.
-    expect(checked, 214, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
+    // 中文：**194 是本轮的实测值**（上一轮 214），数的是**出现处**（每一条分组名 + 公式 + 解释 +
+    //       参数 × 标签与单位两格）。从 214 掉到 194 **不是净少 21 段**：21 个换算工具各自的那条公式
+    //       （`目标值 = 输入值 × 单位倍率`）里都有一段 `×` 记号，工具走了那 21 段跟着走；
+    //       但新来的 `unit_convert` 用的正是同一条公式，又添回 1 段，21 − 1 = 20。
+    // English: **194 is this round's measured count** (214 last round), counting **occurrence sites**
+    //          (each tool's group name, formula and explanation plus every input's label and unit). The
+    //          fall from 214 to 194 is **not a net 21 runs**: each of the 21 converters had one `×` run
+    //          in its formula (`目标值 = 输入值 × 单位倍率`) and those 21 left with their tools — but the
+    //          new `unit_convert` carries that very formula and adds one back, 21 − 1 = 20.
+    expect(checked, 194, reason: '记号段数变了（$checked）：中文改过，或者遍历没跑全');
     expect(missing, isEmpty,
         reason: '这些记号在英文里没了——记号是语言无关的，必须逐字符活着：\n${missing.join('\n')}');
   });
@@ -205,7 +201,7 @@ void main() {
     expect(row.letterSpacing, _letterSpacing, reason: '标签的字距变了，尺子得跟着换');
   });
 
-  test('真字宽：289 处标签 × 两种语言，英文那一行数一条都不许多出来', () {
+  test('真字宽：268 处标签 × 两种语言，英文那一行数一条都不许多出来', () {
     var sameLine = 0;
     var oneMore = 0;
     final violations = <String>[];
@@ -234,21 +230,18 @@ void main() {
       }
     }
     expect(violations, isEmpty, reason: violations.join('\n'));
-    // 中文：**两个数是断言，不是日志。** 251 处两种语言同样行数，其余英文多一行——那些都是
+    // 中文：**两个数是断言，不是日志。** 230 处两种语言同样行数，其余英文多一行——那些都是
     //       **可选**参数，多出来的那一行来自 `ToolsStrings.optionalInput` 的 ` (optional)` 比
-    //       `（可选）` 宽 9dp，不是标签写长了。合起来 289 处；上一轮是 293 处（345 个参数减掉 52 处
-    //       本来就拉丁字母的）——少掉的四处是 `inflation` 并进 `compound` 时跟着走的四个参数标签
-    //       （`当前金额`、`年通胀率`、`年数`、`未来等值`），四个都是可选参数——`年数` 中文一行、
-    //       英文的 `Years (optional)` 两行（oneMore 少 1），其余三个两种语言都换行（sameLine 少 3）。
-    // English: **both numbers are assertions, not logs.** 251 sites take the same line count in both
+    //       `（可选）` 宽 9dp，不是标签写长了。合起来 268 处（上一轮 289）；从 289 掉到 268 就是那
+    //       21 个被并掉的换算工具各带走的一处参数标签（`输入值`，都不可选，所以只有 sameLine 少了
+    //       21，oneMore 一条没动）。
+    // English: **both numbers are assertions, not logs.** 230 sites take the same line count in both
     //          languages and the rest take one more, every one of them an **optional** input — the extra
     //          line comes from `ToolsStrings.optionalInput`'s ` (optional)` being 9dp wider than
-    //          `（可选）`, not from a long label. 289 in all; last round it was 293 (345 inputs minus the
-    //          52 already in Latin letters) — the four that went are the input labels that left when
-    //          `inflation` merged into `compound` (`当前金额`, `年通胀率`, `年数`, `未来等值`), all four
-    //          optional — `年数` fits on one line in Chinese while its `Years (optional)` needs two
-    //          (`oneMore` loses 1) and the other three wrap in both languages (`sameLine` loses 3).
-    expect(sameLine, 251, reason: '两种语言同样行数的处数变了：$sameLine');
+    //          `（可选）`, not from a long label. 268 in all (289 last round); the fall from 289 to 268 is
+    //          the one input label each of the 21 folded-away converters took with it (`输入值`, none of
+    //          them optional, so only `sameLine` loses 21 while `oneMore` does not move).
+    expect(sameLine, 230, reason: '两种语言同样行数的处数变了：$sameLine');
     expect(oneMore, 38, reason: '英文多占一行的处数变了：$oneMore（应当都是可选参数）');
   });
 
@@ -354,7 +347,13 @@ void main() {
     //          assertions only show that Chinese still finds its tools.
     expect(_ids('基准值'), contains('percentage'), reason: '中文标签查不到了');
     expect(_ids('万元'), contains('loan'), reason: '中文单位查不到了');
-    expect(_ids('单位倍率'), contains('length'), reason: '中文公式查不到了');
+    // 中文：公式那一档原先查的是 `length`——那个工具这一轮并进了 `unit_convert`，
+    //       而 `单位倍率` 这三个字现在落在 `unit_convert` 与 `temperature` 两条公式上（两者共用
+    //       `目标值 = 输入值 × 单位倍率`），所以改钉那张打开的卡。
+    // English: the formula band used to query `length`, which this round folded into `unit_convert`;
+    //          `单位倍率` now lives in two formulas (`unit_convert` and `temperature` share
+    //          `目标值 = 输入值 × 单位倍率`), so it pins the card instead.
+    expect(_ids('单位倍率'), contains('unit_convert'), reason: '中文公式查不到了');
     expect(_ids('判别式'), contains('quadratic'), reason: '中文解释查不到了');
     expect(_ids('借贷'), contains('loan'), reason: '中文分组名查不到了');
   });
