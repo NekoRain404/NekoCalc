@@ -81,4 +81,13 @@ dependencies {
     //          Kotlin DSL overload gives it no default; the Groovy spelling
     //          implementation(name:…, ext:…) does not compile in a .kts build script.
     implementation(group = "", name = "libqalculate-5.12.0", ext = "aar")
+
+    // 中文：本仓库的**第一套 Kotlin/JVM 测试**（`src/test/kotlin`，AGP 的 `testDebugUnitTest`
+    //       变体任务）。跑在宿主 JVM 上，不进 APK。JUnit 4 是 AGP 的单元测试默认搭配，版本就取
+    //       本机 Gradle 缓存里已有的那个，不为此升级任何东西。
+    // English: The repository's **first Kotlin/JVM tests** (`src/test/kotlin`, AGP's
+    //          `testDebugUnitTest` variant task). They run on the host JVM and never enter the APK.
+    //          JUnit 4 is AGP's default unit-test companion; the version is the one already in this
+    //          machine's Gradle cache, and nothing is upgraded for it.
+    testImplementation("junit:junit:4.12")
 }
