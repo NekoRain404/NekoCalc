@@ -1336,8 +1336,8 @@ screen that reads as a jump to the beginning, or as "nothing happened", because 
 
 **And the selection arrives from the previous session.** With `restoreState` on, `_persistState` writes
 `calculator_cursor` / `calculator_selection_start` / `calculator_selection_end`
-(`calculator_controller_persistence.dart:447-449`); `_restoredSelection` rebuilds the range (`:507-515`) and
-`restoreIfEnabled()` assigns it post-frame from `calculator_page.dart:328`. A selection left behind by the last
+(`calculator_controller_persistence.dart:459`); `_restoredSelection` rebuilds the range (`:514`, assigned at
+`:52`) and `restoreIfEnabled()` assigns it post-frame from `calculator_page.dart:328`. A selection left behind by the last
 session is thus back **at the first keypress after launch** — invisible, and surviving the very restart that
 would have cleared it. This is §5n's shape in a new place: **the controller holds a state the screen cannot
 express** — and here that state also outlives the process.
@@ -1448,12 +1448,15 @@ the bullet-by-bullet audit replaced it. Evidence base: 25 test files green on 20
 `libsqlite3`** (`:62-65`) — so the Data-layer rows below rest on the in-memory fakes, not on real SQLite.
 
 **The headline is a defect, not a gap: the graph ignores the app's angle mode.**
-`graph_models.dart:98` hard-codes `ExpressionParser(parsed, degreeMode: false)`, while the calculator passes
-`degreeMode: angleMode == 'DEG'` (`calculator_controller_evaluation.dart:762`) and `GraphPage` cannot even reach
-the mode — its constructor takes only `db`, `restoreState`, `reloadToken` (`graph_page.dart:23-37`). So under
+`graph_models.dart` hard-coded `ExpressionParser(parsed, degreeMode: false)` — **line 98 when this was written;
+the call now reads `degreeMode: degreeMode` at `:117`, see §5s** — while the calculator passes
+`degreeMode: angleMode == 'DEG'` (`calculator_controller_evaluation.dart:780`) and `GraphPage` could not even
+reach the mode: its constructor took only `db`, `restoreState`, `reloadToken` (it takes `angleMode` as of §5s).
+So under
 DEG the curve, the markers solved on it (zeros, intersections, extrema), and the calculator **disagree on the
 same input**. ⚠️ **The sharpest form of description rot found so far is not in the docs but in the code**: the
-comment two lines above the defect (`:95-96`) claims the parser is shared 「保证计算器和图形函数语义一致」 —
+comment two lines above the defect (then `:95-96`, now `:111-117` — and finally true) claims the parser is
+shared 「保证计算器和图形函数语义一致」 —
 the comment asserted **exactly the property the code did not have**. Confirmed by reading, and fixed in this
 round; it is the one item here that was **known-wrong** rather than **known-unguarded**.
 
@@ -1475,6 +1478,19 @@ fake), and **rendered readability** (the fit chart in light/dark, which this pro
 render check, not a token comparison). The audit handed back **14 further items that are testable without a
 device** — including one test that would have caught the graph defect as a *sequence*: tap DRG, type `sin(90)`,
 press `=`, assert `1`.
+
+**Postscript, same day: the notes-search suspicion is confirmed, and its shape is exact.** The audit listed it as
+a suspicion, so it was read rather than left ambiguous. `_databaseNoteQuery` (`notes_controller.dart:245-254`)
+hands the query to SQL **only** when it matches `^[A-Za-z0-9一-鿿]+(\s+…)*$` — plain words and CJK.
+Anything else — a date such as `2026-05-12`, an engineering symbol, any punctuation — returns `null`, so the
+repository is called **with no query at all** and hands back its **first page** (`limit: _notePageSize`,
+`:263-269`); the filter at `:85` then runs over that page alone. A note that matches a date query on page 2+
+**cannot be found**: the search looks empty rather than incomplete. ⚠️ The comment beside it (`:248-249`)
+correctly explains why the SQL prefilter cannot carry dates — **that part is sound; what is missing is any
+handling of the consequence.** Not yet fixed: the fix requires a decision about fetching past the page when the
+filter can only run locally, and the existing test that pins the prefilter choice
+(`test/domain/notes_controller_test.dart`) has to change in the same commit — deliberately deferred rather than
+half-done, and written down here so it is not rediscovered as a surprise.
 
 ### 5s. The graph angle-mode fix, and the decision it deliberately did **not** make (2026-10-12)
 
@@ -1507,18 +1523,17 @@ rests on**, and **the choice it handed back instead of applying**.
   that did not exist before the fix. A compile error is not assertion evidence; dressing it up as such is the
   same error as reading a grep that found nothing (§5p). Both are stated, neither is inflated.
 
-**Postscript, same day: the notes-search suspicion is confirmed, and its shape is exact.** The audit listed it as
-a suspicion, so it was read rather than left ambiguous. `_databaseNoteQuery` (`notes_controller.dart:245-254`)
-hands the query to SQL **only** when it matches `^[A-Za-z0-9一-鿿]+(\s+…)*$` — plain words and CJK.
-Anything else — a date such as `2026-05-12`, an engineering symbol, any punctuation — returns `null`, so the
-repository is called **with no query at all** and hands back its **first page** (`limit: _notePageSize`,
-`:263-269`); the filter at `:85` then runs over that page alone. A note that matches a date query on page 2+
-**cannot be found**: the search looks empty rather than incomplete. ⚠️ The comment beside it (`:248-249`)
-correctly explains why the SQL prefilter cannot carry dates — **that part is sound; what is missing is any
-handling of the consequence.** Not yet fixed: the fix requires a decision about fetching past the page when the
-filter can only run locally, and the existing test that pins the prefilter choice
-(`test/domain/notes_controller_test.dart`) has to change in the same commit — deliberately deferred rather than
-half-done, and written down here so it is not rediscovered as a surprise.
+⚠️ **And every `file:line` in §5q, §5r and §5s was re-checked hours later — four had already moved.** Each
+citation in these three sections was verified against the working tree on 2026-10-12, and four were stale:
+`calculator_controller_evaluation.dart:762 → 780` (the definitions verdict's insertion moved it),
+`graph_models.dart:98 → 117` (this very section's fix — the hard-coded call the sentence describes *is* the line
+that changed), `calculator_controller_editing.dart:398 → 404` and `calculator_controller_persistence.dart:447 →
+459` (the cursor fix's deletions). ⚠️ **The pattern is the point: the fixes moved the lines that document them.**
+That is the same rot this project keeps finding in prose — a sentence that was true when written and false when
+read — and it takes the same mitigation the code comments needed: **name the symbol wherever the line is
+load-bearing**, and where a line number describes a state that no longer exists, **mark it as a former position**
+(as done in §5r) rather than quietly updating it, so a reader can still tell "this moved" from "this was always
+wrong".
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
