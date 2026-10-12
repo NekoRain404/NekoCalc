@@ -332,14 +332,24 @@ mixin _CalculatorEditing on _CalculatorState {
 
   String get expressionAfterCursor => expression.substring(selection.end);
 
+  /// 中文：**两颗光标键一律只走一个字符，起点是屏幕上那根光标。** 光标画在 `cursorIndex` 上，
+  ///       而它等于 `selection.end`——所以哪怕选区没有折叠，屏幕上也只看得见末端那一根条，
+  ///       按一下就该从那里挪一个字。以前这两颗键见到非折叠选区会先塌到选区对应边（左→起点、
+  ///       右→末端），用户看到的是「按一下直接就是首尾」：主显示区**一个高亮都不画**，选区本来
+  ///       就是不可见状态（恢复 `restoreState` 时它还会跟着上次会话从盘上回来），于是那一次跳转
+  ///       完全没有可以解释它的东西。选区的整段替换语义不在这些键上，在 `input`/`backspace` 里
+  ///       （`_replaceSelectionWith`）——那一条路一个字都没动。
+  /// English: **both cursor keys move exactly one character, starting from the caret on screen.** The
+  ///          caret is drawn at `cursorIndex`, which equals `selection.end` — so even with a
+  ///          non-collapsed selection, the only thing visible is that bar at the end, and one press
+  ///          must move one character from there. These keys used to collapse a non-collapsed
+  ///          selection to the edge matching the direction (left → start, right → end), which the
+  ///          user met as "one press goes straight to the ends": the display band **draws no
+  ///          highlight at all**, so a selection is already invisible (and one restored from the last
+  ///          session via `restoreState` comes back from disk), leaving nothing on screen to explain
+  ///          that jump. Replacing a whole selected range is not these keys' job — that lives in
+  ///          `input`/`backspace` (`_replaceSelectionWith`) and did not move a byte.
   void moveCursorLeft() {
-    if (!selection.isCollapsed) {
-      _markStateEdited();
-      cursorIndex = selection.start;
-      unawaited(_persistState());
-      notifyListeners();
-      return;
-    }
     if (cursorIndex == 0) return;
     _markStateEdited();
     cursorIndex--;
@@ -347,14 +357,10 @@ mixin _CalculatorEditing on _CalculatorState {
     notifyListeners();
   }
 
+  /// 中文：见 [moveCursorLeft] 的注释——方向相反，规矩逐字相同。
+  /// English: see the note on [moveCursorLeft] — the direction is the other way, the rule is word for
+  ///          word the same.
   void moveCursorRight() {
-    if (!selection.isCollapsed) {
-      _markStateEdited();
-      cursorIndex = selection.end;
-      unawaited(_persistState());
-      notifyListeners();
-      return;
-    }
     if (cursorIndex >= expression.length) return;
     _markStateEdited();
     cursorIndex++;

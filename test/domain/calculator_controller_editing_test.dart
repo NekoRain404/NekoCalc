@@ -106,19 +106,32 @@ void main() {
     controller.dispose();
   });
 
-  test('cursor movement collapses a selection at the requested edge', () {
+  test('cursor movement with a selection moves one character from the caret',
+      () {
+    // 中文：**这条测试以前钉的是「按方向塌到选区的对应边」**（左→选区起点、右→选区末端）。
+    //       用户看到的不是那个：主显示区只画一根光标条，位置就是 `cursorIndex`（= 选区末端），
+    //       所以带选区时按 ◀ 会从屏幕上的光标处一路跳到选区起点——用户的话是「直接就是首尾」。
+    //       现在两颗键一律只走一个字符，起点是**屏幕上那根光标**（选区末端）。
+    // English: **this test used to pin "collapse to the selection's edge in the direction of travel"**
+    //          (left → selection start, right → selection end). That is not what the user sees: the
+    //          main display band draws a single caret at `cursorIndex` (= the selection's end), so
+    //          with a selection ◀ jumped from the on-screen caret all the way to the selection's
+    //          start — in the user's words, "straight to the ends". Both keys now move exactly one
+    //          character, starting from **the caret on screen** (the selection's end).
     final controller = _controller(_FakeDatabase());
 
     controller.setExpression('123456');
     controller.setSelection(const ExpressionSelection(2, 5));
     controller.moveCursorLeft();
 
-    expect(controller.selection, const ExpressionSelection.collapsed(2));
+    expect(controller.selection, const ExpressionSelection.collapsed(4),
+        reason: '按 ◀ 应从屏幕上的光标（选区末端 5）左移一个字到 4，不是跳到选区起点 2');
 
     controller.setSelection(const ExpressionSelection(2, 5));
     controller.moveCursorRight();
 
-    expect(controller.selection, const ExpressionSelection.collapsed(5));
+    expect(controller.selection, const ExpressionSelection.collapsed(6),
+        reason: '按 ▶ 应从屏幕上的光标（选区末端 5）右移一个字到 6，不是塌在 5 上不动');
 
     controller.dispose();
   });

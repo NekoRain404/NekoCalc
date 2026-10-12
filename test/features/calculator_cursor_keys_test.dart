@@ -132,6 +132,52 @@ void main() {
       expect(_displayedExpression(tester), '56');
       expect(_displayedExpression(tester), isNot(contains('cursor')));
     });
+
+    testWidgets('开机恢复的非折叠选区：按 ◀ 只左移一个字，不是跳到选区起点', (tester) async {
+      // 中文：**这条钉的正是用户报的那一条。** 非折叠选区能在屏幕上存在而一个高亮都不画——主显示区
+      //       只有 `MathExpressionView` 的那一根光标条（位置 = `cursorIndex` = 选区末端），于是
+      //       「按 ◀ 跳到选区起点」在用户眼里就是「按一下直接到开头」。而选区是**从盘上恢复的**：
+      //       `restoreState` 打开时 `_persistState` 一直在存 `calculator_selection_start/end`，
+      //       开机后 `restoreIfEnabled()` 原样装回，第一次按键就撞上——用户完全看不出为什么。
+      // English: **this pins the exact report.** A non-collapsed selection can exist on screen without
+      //          drawing a single highlight — the display band has only `MathExpressionView`'s caret
+      //          (at `cursorIndex` = the selection's end) — so "◀ jumps to the selection's start"
+      //          reads to the user as "one press goes straight to the beginning". And the selection is
+      //          **restored from disk**: while `restoreState` is on, `_persistState` always writes
+      //          `calculator_selection_start/end`, `restoreIfEnabled()` puts it back after launch, and
+      //          the first keypress meets it — with nothing on screen to explain it.
+      await _pumpRestoredScreen(
+        tester,
+        expression: '12345',
+        selectionStart: 1,
+        selectionEnd: 4,
+      );
+      expect(_caret(tester), 4, reason: '恢复后屏幕上的那根光标条画在选区末端');
+
+      await _tapKey(tester, '◀');
+
+      expect(_caret(tester), 3,
+          reason: '按一下 ◀ 只左移一个字（从屏幕上那根光标处算），不是跳到选区起点 1');
+      expect(_displayedExpression(tester), '12345',
+          reason: '光标键只动光标，表达式一个字符都不该变');
+    });
+
+    testWidgets('开机恢复的非折叠选区：按 ▶ 只右移一个字，不是钉在选区末端', (tester) async {
+      await _pumpRestoredScreen(
+        tester,
+        expression: '12345',
+        selectionStart: 1,
+        selectionEnd: 4,
+      );
+      expect(_caret(tester), 4, reason: '恢复后屏幕上的那根光标条画在选区末端');
+
+      await _tapKey(tester, '▶');
+
+      expect(_caret(tester), 5,
+          reason: '按一下 ▶ 只右移一个字；旧行为是把光标塌到选区末端——与按之前同一个位置，等于没动');
+      expect(_displayedExpression(tester), '12345',
+          reason: '光标键只动光标，表达式一个字符都不该变');
+    });
   });
 }
 
@@ -233,6 +279,84 @@ class _FakeDatabase implements AppDatabase {
 
   @override
   Future<void> setSetting(String key, String value) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// 中文：带一份**已落盘状态**的主屏：表达式、一个非折叠选区 `[selectionStart, selectionEnd)`、
+///       恢复开关打开——开机后 `restoreIfEnabled()` 会把它原样装回控制器，与用户重启 App 之后
+///       看到的那一刻同形（屏幕上只有一根画在选区末端的光标条，没有任何高亮）。
+/// English: the main screen with **persisted state on disk**: the expression, a non-collapsed selection
+///          `[selectionStart, selectionEnd)` and restore switched on — after launch
+///          `restoreIfEnabled()` puts it back into the controller exactly as a real restart leaves it
+///          (a single caret drawn at the selection's end, no highlight anywhere).
+Future<void> _pumpRestoredScreen(
+  WidgetTester tester, {
+  required String expression,
+  required int selectionStart,
+  required int selectionEnd,
+}) async {
+  await tester.pumpWidget(
+    _restoredApp(expression, selectionStart, selectionEnd),
+  );
+  await tester.pumpAndSettle();
+}
+
+Widget _restoredApp(String expression, int selectionStart, int selectionEnd) {
+  return MaterialApp(
+    theme: ThemeData.light(),
+    home: Scaffold(
+      body: CalculatorPage(
+        db: _SeededDatabase(<String, String>{
+          'restore_state': 'true',
+          'calculator_expression': expression,
+          'calculator_result': '0',
+          'calculator_angle': 'RAD',
+          'calculator_memory': '0',
+          'calculator_cursor': '$selectionEnd',
+          'calculator_selection_start': '$selectionStart',
+          'calculator_selection_end': '$selectionEnd',
+        }),
+        onOpenSettings: () {},
+        settings: const AppSettings(
+          haptics: false,
+          hapticStrength: '标准',
+          restoreState: true,
+          autoSaveHistory: false,
+          angleMode: 'RAD',
+          precision: 6,
+          themeModeLabel: '跟随系统',
+          expressionDisplayMode: '数学符号',
+          groupThousands: false,
+        ),
+      ),
+    ),
+  );
+}
+
+/// 中文：一份**先有内容**的设置表（`restore_state` 与上次会话的表达式、光标、选区都写在里面），
+///       写入照常落回这张表——恢复路径读的就是它。
+/// English: a settings table that **starts out populated** (restore switch, the last session's
+///          expression, cursor and selection); writes land back in the same table — the restore path
+///          reads exactly this.
+class _SeededDatabase implements AppDatabase {
+  _SeededDatabase(this._settings);
+
+  final Map<String, String> _settings;
+
+  @override
+  Future<Map<String, String>> settings() async => _settings;
+
+  @override
+  Future<void> setSettings(Map<String, String> values) async {
+    _settings.addAll(values);
+  }
+
+  @override
+  Future<void> setSetting(String key, String value) async {
+    _settings[key] = value;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
