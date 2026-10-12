@@ -1234,7 +1234,8 @@ process-scoped singleton is what brings the bridge into line with it. (The same 
 "Returns true if the calculate or print thread is busy", and a section of "Functions for handling of threaded
 calculations" — the machinery the finding above says we should adopt.)
 
-**Two remain open, each with its precondition and the smallest fix named** — recorded rather than half-fixed:
+**Two items were carried here.** One is fixed as of 2026-10-12 (below); the other still stands, and each is
+recorded with its precondition and the smallest fix named — recorded rather than half-fixed:
 
 - **A hung native call blocks every later evaluation.** One single-thread executor with an **unbounded** queue;
   `calculate` takes **no timeout** (only `print` gets `PRINT_TIMEOUT_MS = 2000`), and the bridge **never calls
