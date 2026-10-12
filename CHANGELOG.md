@@ -15,6 +15,10 @@ beta 之后的修复。**不给版本号**，因为其中还没有一条在**真
 - Fixed the graph page **ignoring the app's angle mode**: under DEG a `sin(x)` curve — and its zeros,
   intersections and extrema — were computed in radians while the calculator used degrees, so the two
   disagreed on the same input. The code's own comment claimed they matched. (docs/verification.md §5r, §5s)
+- Fixed note search **missing matches past the first page**: a query holding a date, an engineering symbol or
+  punctuation cannot go through the SQL filter, so it was applied locally — **to the first page only**, which
+  made "searched, found nothing" a false answer rather than an incomplete one. The decision to read one page,
+  rather than every match, is unchanged; what changed is its consequence. (docs/verification.md §5r)
 - Fixed the engine's "units and constants failed to load" verdict being **written only to logcat**, which made
   an engine with no units indistinguishable from one returning a real answer. (docs/verification.md §5o)
 - Fixed backup export/import over the storage-access channel: on a device with no activity for
