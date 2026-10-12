@@ -1648,7 +1648,12 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   takes a **nullable** `BuildContext? context` and falls back only when it is null, and **all fifteen call
   sites** in `lib/` and `test/` pass one. So those three literals are **never drawn**, and a colour comparison
   could not have found them either way. ✅ They are **kept, not deleted**: a nullable parameter is an API
-  decision, and the honest record is "unreachable today" rather than a silent removal. The honest split, then:
+  decision, and the honest record is "unreachable today" rather than a silent removal.
+  ⚠️ **And the sentence further down — "none of them is a rendering bug now" — is reasoning, not looking.** This
+  project's own rule for a colour claim is a **render check** (a screenshot, or a widget test rendered to PNG),
+  and **no render check was run for this claim** ✗. It is recorded here so the next reader does not mistake it for
+  something that was seen; the check needs a small PNG harness (or the phone), and the honest description of the
+  claim as it stands is "**nobody has looked**". The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
 - ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
