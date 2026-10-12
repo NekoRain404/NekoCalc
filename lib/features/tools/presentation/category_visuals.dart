@@ -83,7 +83,7 @@ const Color _identityClay = Color(0xFFD98A5C);
 ///          it and `% colors.length` lands two indices on one value, so tools on a single screen start
 ///          repeating colours. The order is existing behaviour (it decides which id gets which colour)
 ///          — do not reshuffle it in passing.
-const List<Color> _toolIdentityColors = <Color>[
+const List<Color> toolIdentityColorRing = <Color>[
   _identityRose,
   _identityClay,
   _identityAmber,
@@ -220,7 +220,7 @@ extension ToolDefinitionVisuals on ToolDefinition {
 
   Color get color {
     final index = id.codeUnits.fold<int>(0, (sum, code) => sum + code) %
-        _toolIdentityColors.length;
-    return _toolIdentityColors[index];
+        toolIdentityColorRing.length;
+    return toolIdentityColorRing[index];
   }
 }
