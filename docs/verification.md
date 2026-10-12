@@ -1649,11 +1649,14 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   sites** in `lib/` and `test/` pass one. So those three literals are **never drawn**, and a colour comparison
   could not have found them either way. ✅ They are **kept, not deleted**: a nullable parameter is an API
   decision, and the honest record is "unreachable today" rather than a silent removal.
-  ⚠️ **And the sentence further down — "none of them is a rendering bug now" — is reasoning, not looking.** This
-  project's own rule for a colour claim is a **render check** (a screenshot, or a widget test rendered to PNG),
-  and **no render check was run for this claim** ✗. It is recorded here so the next reader does not mistake it for
-  something that was seen; the check needs a small PNG harness (or the phone), and the honest description of the
-  claim as it stands is "**nobody has looked**". ⚠️ **And one attempt at the harness is recorded here so the
+  ✅ **And the sentence further down — "none of them is a rendering bug now" — has now been looked at, for the
+  one item that is visible.** The favourite star was rendered in the **violet** palette (`lavenderMist`: a widget
+  test rendering the tools home with one favourite, at 2×, to a PNG) and **looked at on 2026-10-12**. The amber
+  star reads as a **deliberate highlight** on an otherwise cool screen — exactly the convention this decision
+  claims — and **not** as "something else", which was the only real question it faced. ⚠️ So the decision holds
+  **visually**, not merely by argument. ⚠️ Two caveats, both stated on purpose: the PNG shows **tofu boxes** where
+  text should be (the widget-test environment has no CJK font — **not** an app defect, said here before someone
+  files it), and the rest of that sentence — the app's other screens — is still **reasoning, not looking** ✗. ⚠️ **And one attempt at the harness is recorded here so the
   next one starts slightly ahead of this:** a `test/features/favorite_star_render_test.dart` was written — render
   the tools home in `lavenderMist` with one favourite, assert the star's colour is `favoriteStarColor`, and write
   a PNG for a human to look at — and it **hung**. The cause was an incomplete minimal fake database: a method the
@@ -1661,6 +1664,12 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   ⚠️ **It was deleted rather than committed, and that is the point: a test that hangs is worse than no test** — it
   hangs every future suite. What the next attempt needs: the fake must implement **every** method the page awaits
   (two were not enough), and the rendering half (`RepaintBoundary` + `toImage`) was written but never reached.
+  ⚠️ **A second attempt then produced the look — and was still deleted.** With the fake completed to the **six**
+  methods `ToolUsageRepository` awaits, the assertions ran (the PNG is written *after* them, so **its existence
+  is what proves they passed**) and produced the image described above. ⚠️ The test was **deleted anyway**: it
+  fails on teardown — the page leaves a pending timer, which `flutter_test` counts as a failure — and **a red test
+  cannot stay any more than a hanging one can**. So the **observation** is recorded and the **pin** is not: the
+  next attempt should keep the assertions and fix the teardown.
   The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
