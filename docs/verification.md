@@ -1459,8 +1459,10 @@ things came out of the attempt and are worth keeping:
 - **Where a non-collapsed selection can come from is now a closed question**, searched rather than assumed:
   the live writers in `lib/` are the inline editor's `onSelectionChanged` (`calculator_page.dart:498`, from
   `_synchronizeToCalculator`, `inline_expression_editor.dart:92-103`) and the persisted restore
-  (`calculator_controller_persistence.dart:510`). `selectAll()` has **no caller in `lib/`**, and
-  `applyPastedText` collapses (`cursorIndex = expression.length`). The trigger set is those two — which is
+  (`calculator_controller_persistence.dart:510`). `selectAll()` had **no caller in `lib/`** — and has since been
+  **removed, with the one test that used it**, since nothing on screen could reach it (§6's own rule about
+  unreferenced code). `applyPastedText` collapses (`cursorIndex = expression.length`). The trigger set is those
+  two, and that is what this section's explanation rests on — no more.
   what this section's explanation rests on, no more.
 
 ⚠️ **And one operational rule this round broke: the writer stopped touching the device.** A main panel that

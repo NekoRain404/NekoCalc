@@ -400,15 +400,6 @@ mixin _CalculatorEditing on _CalculatorState {
     notifyListeners();
   }
 
-  void selectAll() {
-    final next = ExpressionSelection(0, expression.length);
-    if (_selection == next) return;
-    _markStateEdited();
-    _selection = next;
-    unawaited(_persistState());
-    notifyListeners();
-  }
-
   void moveCursorToStart() {
     if (selection.isCollapsed && cursorIndex == 0) return;
     _markStateEdited();

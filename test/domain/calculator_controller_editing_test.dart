@@ -184,18 +184,6 @@ void main() {
     controller.dispose();
   });
 
-  test('select all selects the full expression', () {
-    final controller = _controller(_FakeDatabase());
-
-    controller.setExpression('12+sqrt(81)+345');
-    controller.cursorIndex = 4;
-    controller.selectAll();
-
-    expect(controller.selection, const ExpressionSelection(0, 15));
-
-    controller.dispose();
-  });
-
   test('restores persisted selection bounds and keeps a legacy cursor',
       () async {
     final db = _FakeDatabase()
