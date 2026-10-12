@@ -1610,9 +1610,17 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   deliberate. ⚠️ **Whether that is a defect or a decision is a design call, not a measurement.** A favourite
   star keeps a semantic amber in most apps, while this palette is thematic — so the question is whether
   "favourite" is a *semantic* colour (keep amber, and say so in the code) or a *thematic* one (give it a token
-  per palette). What is **not** defensible is the present state: an amber literal that *looks* deliberate
-  because a test asserts it, with no sentence anywhere recording which of the two it is meant to be. Whoever
-  owns that call should write it down; this paragraph exists so it is at least visible as a call to make.
+  per palette). What was **not** defensible was the state at the time of the audit: an amber literal that
+  *looks* deliberate because a test asserts it, with no sentence anywhere recording which of the two it is
+  meant to be. ✅ **Closed the same day — and the decision was "semantic", with no colour changed.** The star
+  keeps amber: an amber star is the industry-wide "favourited" at a glance, while a per-palette accent would
+  read as something else in the violet, ocean and warm-sand themes (this app themes its *state* colours —
+  error, indicator — but "favourite" is a **convention**). What changed is that the choice is now **a named
+  constant with its reasoning written beside it** (`favoriteStarColor` in `tool_widgets.dart`), and the test
+  asserts **that constant** instead of the literal — so it can no longer be an accident that merely looks
+  deliberate. ⚠️ **The lesson worth keeping is about this list's own shape:** what it recorded as a defect was
+  never the hue, it was **the missing sentence** — a findings list can point straight at a decision and still
+  be read as a to-do.
   ⚠️ **And the other two sites turned out not to be visible at all — a consequence the first draft of this
   paragraph asserted without checking.** `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` is
   passed into the preview **probe** as the `GraphFunction`'s colour, and `GraphFunctionInputPreview` has **no
