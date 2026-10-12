@@ -1653,7 +1653,15 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   project's own rule for a colour claim is a **render check** (a screenshot, or a widget test rendered to PNG),
   and **no render check was run for this claim** ✗. It is recorded here so the next reader does not mistake it for
   something that was seen; the check needs a small PNG harness (or the phone), and the honest description of the
-  claim as it stands is "**nobody has looked**". The honest split, then:
+  claim as it stands is "**nobody has looked**". ⚠️ **And one attempt at the harness is recorded here so the
+  next one starts slightly ahead of this:** a `test/features/favorite_star_render_test.dart` was written — render
+  the tools home in `lavenderMist` with one favourite, assert the star's colour is `favoriteStarColor`, and write
+  a PNG for a human to look at — and it **hung**. The cause was an incomplete minimal fake database: a method the
+  page awaits went through `noSuchMethod`, so the future never completed and `pumpAndSettle` span to its timeout.
+  ⚠️ **It was deleted rather than committed, and that is the point: a test that hangs is worse than no test** — it
+  hangs every future suite. What the next attempt needs: the fake must implement **every** method the page awaits
+  (two were not enough), and the rendering half (`RepaintBoundary` + `toImage`) was written but never reached.
+  The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
 - ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
