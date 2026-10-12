@@ -1666,6 +1666,27 @@ were **never true** — "removed the network permission" never happened. This do
 about rot (§5s, §5t: true when written, false when read), and a sentence can also simply be **wrong on day
 one**. Nothing distinguishes the two except reading the claim against the artifact it describes.
 
+### 5v. The capability register itself, audited — and it holds (2026-10-12)
+
+`docs/comparison-with-hiper.md` is the 496-line, 88-row register of "what this app has that HiPER does not". It
+is the closest thing this project has to an answer for 「超越 HiPER」, so it was measured the same way as §5u —
+**against the artifacts it cites**, not read as prose:
+
+- ✅ **No phantom citations.** Every file it names exists (`app_unit_catalog.dart`, `calculator_keypad.dart`,
+  `arithmetic_steps.dart`, …). The one weak spot — `engine-capability-probe.md`, cited three times and living
+  **inside the gitignored `.superpowers/` tree** — is **flagged by the document itself** (「仓库读者打不开」),
+  and that self-limitation is what makes the rest of it usable.
+- ✅ **A sample of six capabilities traces to real tests**, one by one: solving (`2x+1=7 → x=3`), LaTeX copy,
+  the 120-symbol unit catalogue, graph zeros/intersections/extrema, multi-series data fit, and backup validation
+  before import — each matched to the test files that pin it.
+- ✅ **And it marks its own gaps**: 28 `未量` / `❌` / `⚠️` marks, an explicit rule at `:38` — 「`未量` 与 `❌` 是
+  两种不同的状态」 — and at `:416` a row recorded as corrected from "未量" to a measured reading.
+
+⚠️ **What this establishes, and what it does not, stated plainly:** it establishes that the register is
+**accurate**, which is the only property of it measurable from inside this repository. It does **not** establish
+that the app surpasses HiPER — that needs the other app, which is not here. **An accurate register is what makes
+such a claim checkable later; it is not the claim.**
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
