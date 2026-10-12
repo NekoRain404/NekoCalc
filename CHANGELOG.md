@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Post-beta fixes. They are listed here, without a version number, because none of them has been **felt on a
+device** yet — the entry gets a version when that changes.
+
+beta 之后的修复。**不给版本号**，因为其中还没有一条在**真机上被感受到**过——等到那一步，它们才会有版本号。
+
+- Fixed the `◀` `▶` cursor keys jumping to the ends: they now move **exactly one character** from the caret on
+  screen. The cause was a non-collapsed selection the display band never draws (it renders a single caret at
+  `selection.end`), which also survived a restart because `restoreState` persists and restores it — so the first
+  keypress after launch met it with nothing on screen to explain the jump. Range replacement
+  (`input`/`backspace`) is untouched. (docs/verification.md §5q)
+- Fixed backup export/import over the storage-access channel: on a device with no activity for
+  `ACTION_CREATE_DOCUMENT` the call threw across the platform thread and left the channel answering `busy`
+  **for the rest of the process's life**. Both paths now catch, reset their state, and answer a real error.
+- Made the libqalculate bridge **process-scoped**. The library documents that there should never be more than
+  one `Calculator` object per process; holding it per Activity created a second engine and a second native
+  thread whenever the system recreated the Activity.
+- Locked the interface to portrait.
+- Unified theming: every Material colour role now resolves through a `CalcTheme` token, with light and dark
+  built by a single builder, so a theme change cannot leave a screen on the old palette.
+- Added the Kotlin/JNI layer's first tests (11 JVM tests over the pure mapping logic, plus a JNI test double
+  that shadows the AAR's glue so a broken double fails loudly instead of passing quietly).
+- Added widget tests that drive the **real** cursor keys — including the launch-restored selection case that
+  the previous tests never entered.
+
 ## v1.2.0-beta.1
 
 NekoCalc 1.2 beta is a release-candidate style preview that closes the large feature and maintainability work for the next public release.

@@ -23,8 +23,14 @@ flutter build apk --release --split-per-abi
 
 ## Quality Gate
 
+⚠️ **Do not run `dart format` over this repository.** The pinned SDK disagrees with the committed formatting:
+a repo-wide run wants to reflow **196 of 449 files**, which buries the change under a formatting diff and has
+been deliberately avoided. Format only the files you touched, or not at all.
+
+⚠️ **不要在这个仓库上跑全量 `dart format`。** 固定版本的 SDK 与已提交的格式不一致：全量跑会重排 **449 个文件里的
+196 个**，把真正的改动埋进格式 diff 里，此前已刻意避开。只格式化你动过的文件，或者干脆不动。
+
 ```bash
-dart format lib test
 flutter analyze
 flutter test
 flutter build apk --release --split-per-abi
