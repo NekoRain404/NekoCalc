@@ -65,6 +65,7 @@ void main() {
   }
 
   _writePathTests(requireFfi);
+  _toolTableTests(requireFfi);
 
   /// 中文：建一个**没有 `result_kind`** 的 v6 库——就是升级前用户手里的形状。
   /// English: builds a v6 database **without `result_kind`** — the shape a user had before the upgrade.
@@ -259,5 +260,122 @@ void _writePathTests(void Function() requireFfi) {
     final items = await db.history();
     expect(items.map((item) => item.resultKind).toSet(),
         {HistoryResultKind.number, HistoryResultKind.opaque});
+  });
+}
+
+/// 中文：**收藏与最近这两张表，也在真库上真的写一次、读回来。**
+///
+///       **它补的是哪一格。** 界面那一侧「点星、图标变亮」由 `tool_category_screen_test.dart`
+///       用假库钉住，重载与渲染由 `tools_home_page_test.dart` 钉住——但 `favorite_tools` 与
+///       `recent_tools` 这两张表**从来没有一行是真的写进去过**：仓库里每一条测试都走内存假库，
+///       于是「写进真 SQLite 再读回来」这条路一行都没被跑过（与迁移那一组存在的理由逐字相同）。
+///
+///       **每一条都读两种东西**：`AppDatabase` 自己的读方法（`favoriteToolIds` / `recentToolIds`），
+///       以及**表本身**（`db.database.query(...)`）。只读前者的话，一个把收藏留在内存里的实现也能
+///       全绿——「真的在表里」这句话的判据只能是表。
+///
+///       **`closeForTest()` 那一步是「重启」**：连接放掉、下一次读重新打开同一个文件，值仍在，
+///       才说明它落的是盘而不只是这条连接的缓存。删除与清空也各量一次——只有写没有删，
+///       「取消收藏」这条路今天没有任何一条真库测试碰过。
+///
+///       **这一组住在 `app_database_v7_test.dart` 里是刻意的**：`AppDatabase` 用的是真库的
+///       **默认路径**（`getDatabasesPath()` 那个 `nekocalc.db`），而 `flutter test` 按文件并行
+///       （本仓库 `--concurrency=16`）。另开一个同样用真库的测试文件，两边会在同一个文件上互相
+///       建/删/写——一个随机的红。这一组与上面两组共用同一个 `setUp`（那个 `setUp` 每次先删库），
+///       所以必须与它们住在同一个文件里。
+/// English: **the favourites and recents tables, also really written and read back on the real
+///          database.**
+///
+///          **The cell this fills.** On the interface side, "tap the star, the icon lights up" is
+///          pinned by `tool_category_screen_test.dart` with a fake database, and reload/render by
+///          `tools_home_page_test.dart` — but **not one row has ever really been written** into the
+///          `favorite_tools` / `recent_tools` tables: every test in the repository uses an in-memory
+///          fake, so the road "write into real SQLite and read it back" was never walked (the same
+///          reason the migration group above exists, word for word).
+///
+///          **Each case reads two things**: `AppDatabase`'s own readers (`favoriteToolIds` /
+///          `recentToolIds`) and **the tables themselves** (`db.database.query(...)`). Reading only
+///          the former would keep an implementation that holds favourites in memory green — the only
+///          criterion for "it really is in the table" is the table.
+///
+///          **The `closeForTest()` step is a "restart"**: the connection is dropped and the next read
+///          reopens the same file; the value still being there is what says it landed on disk rather
+///          than in that connection's cache. Deleting and clearing are each measured too — with only
+///          writes and no deletes, "un-star a tool" would have no real-database test at all.
+///
+///          **This group lives in `app_database_v7_test.dart` on purpose**: `AppDatabase` uses the
+///          real database's **default path** (`nekocalc.db` under `getDatabasesPath()`) and
+///          `flutter test` runs files in parallel (this repository uses `--concurrency=16`). A second
+///          test file that also used the real database would create, delete and write the same file
+///          from both sides — a random red. This group shares the `setUp` above (which deletes the
+///          database every time), so it has to live in the same file.
+void _toolTableTests(void Function() requireFfi) {
+  test('收藏：写进 favorite_tools 表、读回来、关库重开仍在；取消收藏把行删掉', () async {
+    requireFfi();
+    final db = AppDatabase.instance;
+
+    await db.setFavorite('ohms_law', true);
+    expect(await db.favoriteToolIds(), {'ohms_law'});
+
+    // 中文：**判据是表**：`favoriteToolIds()` 之外，直接查一次表。
+    // English: **the table is the criterion**: besides `favoriteToolIds()`, query the table itself.
+    final rows = await (await db.database).query('favorite_tools');
+    expect(rows.map((row) => row['tool_id']), ['ohms_law'],
+        reason: '收藏必须真的在 favorite_tools 表里，不能只活在内存里');
+    expect(rows.single['created_at'], isA<int>());
+
+    // 中文：**关掉连接、重新打开同一个文件**——「重启之后收藏还在」这句话的判据。
+    // English: **drop the connection and reopen the same file** — the criterion for "favourites are
+    //          still there after a restart".
+    await db.closeForTest();
+    expect(await db.favoriteToolIds(), {'ohms_law'},
+        reason: '连接关掉再打开，收藏必须还在——它得是落在盘上的');
+
+    await db.setFavorite('ohms_law', false);
+    expect(await db.favoriteToolIds(), isEmpty);
+    expect(await (await db.database).query('favorite_tools'), isEmpty,
+        reason: '取消收藏必须把那一行真的从表里删掉');
+  });
+
+  test('最近：写进 recent_tools 表、同一个工具不漏行，删除与清空同样落到表上', () async {
+    requireFfi();
+    final db = AppDatabase.instance;
+
+    await db.markRecent('data_fit');
+    expect(await db.recentToolIds(), ['data_fit']);
+    expect(
+      (await (await db.database).query('recent_tools'))
+          .map((row) => row['tool_id']),
+      ['data_fit'],
+      reason: '最近的工具必须真的在 recent_tools 表里',
+    );
+
+    // 中文：`tool_id` 是主键——重复打开同一个工具只更新时间，不该长出第二行。
+    // English: `tool_id` is the primary key — reopening the same tool only updates its timestamp and
+    //          must not grow a second row.
+    await db.markRecent('data_fit');
+    final afterRepeat = await (await db.database).query('recent_tools');
+    expect(afterRepeat, hasLength(1),
+        reason: '同一个工具打开两次，表里仍该只有一行（主键 replace）');
+    expect(afterRepeat.single['used_at'], isA<int>());
+
+    await db.markRecent('ohms_law');
+    expect(await db.recentToolIds(), containsAll(<String>['data_fit', 'ohms_law']));
+
+    await db.closeForTest();
+    expect(await db.recentToolIds(), containsAll(<String>['data_fit', 'ohms_law']),
+        reason: '连接关掉再打开，最近用过的那几个必须还在');
+
+    await db.deleteRecentTool('data_fit');
+    expect(await db.recentToolIds(), ['ohms_law']);
+    expect(
+      (await (await db.database).query('recent_tools'))
+          .map((row) => row['tool_id']),
+      ['ohms_law'],
+    );
+
+    await db.clearRecentTools();
+    expect(await db.recentToolIds(), isEmpty);
+    expect(await (await db.database).query('recent_tools'), isEmpty);
   });
 }
