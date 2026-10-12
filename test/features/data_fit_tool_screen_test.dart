@@ -238,6 +238,82 @@ x,y
     expect(find.textContaining('保存笔记失败'), findsOneWidget);
   });
 
+  testWidgets('复制方程：剪贴板收到的正是屏幕上那条方程', (tester) async {
+    // 中文：**这条钉的是「点一下，剪贴板里真的多出屏幕上那条方程」。** 此前这块只有
+    //       `data_fit_copy_test.dart` 的**源码扫描**在守：它能证明代码里写着 `Clipboard.setData`，
+    //       却证明不了用户点得到，也证明不了写进去的和看到的是同一个东西。
+    //       断言把剪贴板里那串**反查回屏幕**——于是它既不是"非空就算过"，也不依赖方程的排版格式。
+    // English: **this pins "tap it and the clipboard really gains the equation that is on screen".** Until
+    //          now only `data_fit_copy_test.dart`'s **source scan** guarded this: it proves
+    //          `Clipboard.setData` exists in the code, but neither that a user can reach it nor that what
+    //          lands in the clipboard is what they saw. The assertion looks the clipboard string back up
+    //          **on screen**, so it is neither "non-null, therefore fine" nor tied to the equation's exact
+    //          formatting.
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) {
+      if (call.method == 'Clipboard.setData') {
+        final args = call.arguments;
+        if (args is Map) copied = args['text'] as String?;
+      }
+      return null;
+    });
+    final tool = toolCatalog.firstWhere((item) => item.id == 'data_fit');
+    final db = _FakeToolDetailDatabase(
+      Completer<Map<String, String>>()..complete(const <String, String>{}),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: DataFitToolScreen(
+        db: db,
+        tool: tool,
+        settings: AppSettings.fallback,
+      ),
+    ));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '1,10\n2,20\n3,30');
+    await tester.pump(const Duration(milliseconds: 110));
+    // 中文：**先把过渡动画走完再点。** `_animatedResult` 那层是切换动画，动画期间**新旧两个子节点同时挂着**——
+    //       实测搜索器会因此找到**两颗**「复制方程」，`tap()` 直接因"找到 2 个"抛异常。**这不是页面把卡画了两遍**
+    //       （`_resultCard` 全屏只被放一次，见 `data_fit_tool_screen.dart:353`），是我的测试没等它落定。
+    // English: **let the transition finish before tapping.** `_animatedResult` is a switcher animation, and
+    //          while it runs **both the outgoing and the incoming child stay mounted** — measured: the finder
+    //          then sees **two** 「复制方程」 buttons and `tap()` throws on the ambiguity. **The page is not
+    //          drawing the card twice** (`_resultCard` is placed exactly once, `data_fit_tool_screen.dart:353`);
+    //          the test simply had not let it settle.
+    await tester.pumpAndSettle();
+
+    // 中文：**按标签找，不按图标找**——`Icons.functions` 在这一页上有**两个**（方程一处、另一处复制也有），
+    //       实测 `tap()` 会因"找到 2 个"直接抛异常。标签是这颗键自己的名字，图标不是。
+    //       页面在这里渲染中文：测试里没有装语言作用域，与隔壁那条"装上 en 作用域之后整屏没有汉字"互为对照。
+    // English: **find it by its label, not by its icon** — `Icons.functions` appears **twice** on this page
+    //          (the equation and another copy action), and `tap()` throws on an ambiguous finder. The label
+    //          is this key's own name; the icon is not. The page renders Chinese here because no language
+    //          scope is installed — the mirror image of the neighbouring test, which installs the en scope
+    //          and demands no Chinese anywhere.
+    // 中文：**先滚到看得见再点。** 默认测试视口是 800×600，而这张卡在输入卡、结果、图表、数据表之后——
+    //       不滚的话 `tap()` 会**点空**，日志里留一行 `Warning: A call to tap() … was not hit`，而现象看起来
+    //       却是「复制没生效」（剪贴板为空 ✗）。**"什么都没发生"有好几种来源，这一种是视口，不是功能。**
+    //       滚动这一步照本文件既有的写法（六处 `scrollUntilVisible`）。
+    // English: **scroll it into view first.** The default test surface is 800×600 and this card sits after the
+    //          input card, the result, the chart and the data table — tapping without scrolling **misses**, the
+    //          log keeps a `Warning: A call to tap() … was not hit` line, and the symptom instead looks like
+    //          "copy does not work" (an empty clipboard ✗). **"Nothing happened" has several causes; this one
+    //          is the viewport, not the feature.** The scroll follows this file's own idiom (six other uses).
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, '复制方程'),
+      360,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '复制方程'));
+    await tester.pumpAndSettle();
+
+    expect(copied, isNotNull, reason: '点了「复制方程」，剪贴板一个字节都没收到');
+    expect(find.text(copied!), findsOneWidget,
+        reason: '写进剪贴板的那串在屏幕上找不到——用户复制的不是他看到的那个东西');
+  });
+
   testWidgets('slow data fit paste completion is ignored after page pop',
       (tester) async {
     final clipboardCompleter = Completer<Map<String, Object?>>();
