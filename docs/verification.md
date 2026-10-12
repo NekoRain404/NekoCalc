@@ -1744,6 +1744,17 @@ was the **only** record, a cited file that later **vanished**, and a screenshot 
 **tracked**, or the thing itself has to be **quoted where it is cited**. The scratch tree is a working surface,
 not an archive — anything whose only copy lives there is **one cleanup away from being unverifiable**.
 
+⚠️ **And the classification behind that claim needed measuring twice.** A first pass sorted the 26 files by
+whether they contain the words 抄本 / 逐字 / verbatim / quote, and reported **21 quoted, 4 pointer-only**. Opening
+those four: **all four targets still exist on disk**, and in each case the fact is already in the comment — e.g.
+`roman_numeral_test.dart` says the values `400` / `900` / `1990` / `2026` / `3888` / `3999` were 「逐条量过」 and
+cites the probe as *provenance*. So the heuristic had **false positives** (it keyed on one particular spelling of
+"quoted" — 逐条 is not 逐字), and the honest count is: **every surviving citation either quotes its content, or
+points at a file that is still there.** ⚠️ **Nothing in this repository is currently one cleanup away from being
+unverifiable** — the three failures this section records (`hiper.txt`, `HANDOVER.md`, the unnamed screenshots) are
+**historical**, and each is now marked where it was cited. ⚠️ **A word-matching heuristic is not a reading**: the
+four files had to be opened to discover that the count had been wrong in the reassuring direction.
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
