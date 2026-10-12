@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/hiper_keypad.dart';
 import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definition.dart';
 
-/// 中文：**我们跟的是厂商"当前默认布局"——两条可执行的断言，外加一条已量到一半的记录。**
+/// 中文：**我们跟的是厂商"当前默认布局"——三条可执行的断言。**
 ///
 ///       键位与 HiPER 的对照此前**只有一次读图**（记在 `hiper_keypad_number_rows.dart` 的类注释里：
 ///       厂商当前主屏截图 `assets/img/01 calculator.png` 与本机那张 1440×3200 真机截图，**两套布局**，
@@ -13,13 +13,12 @@ import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definiti
 ///       ✅ **① `CNST`/`CONV` 落在 `1`/`2` 上方的横带里**（当前默认布局；旧版 Version 10 那里是 `gcd`/`lcm`）。
 ///       ✅ **② 没有任何一格的键面或横带写着 `gcd`/`lcm`** —— 这正是"**看起来像差异**"的那一处，
 ///          所以它值得一条明确的**不存在**断言 ✓✓（注释写的是"没有格子" ✓，这一条把它变成会红的检查 ✓）。
-///       ⚠️ **③ 相机键：已量到它存在，键面的表示还没查清，所以这里不断言它** ✗ ——
-///          它确实在第 2 行第 6 格 ✓（`hiper_keypad.dart` 与 `hiper_keypad_angle_matrix_row.dart` 的文件头
-///          都写着「行 2——DRG / x⇔E / 矩阵 / 求和 / 求积 / **相机**」✓），id 是 **`dis:camera`** ✓
-///          （`dis:` 前缀 = 禁用键，见 `hiper_keypad.dart` 的文件头 ✓）。但它的**键面**不是 `base.icon`
-///          ✗（实测：那一格 `base.icon == null`），而"键面画什么"在这套键盘里是**内容**之一
-///          （见 `keypad_definition_test.dart` 关于图形进签名的注释 ✓）—— 所以它该由**另一次测量**回答，
-///          而不是由我这里猜一个字段名 ✓。
+///       ✅ **③ 第 2 行第 6 格是相机键，键面是 `📷`**（`hiper_keypad_angle_matrix_row.dart:594`：
+///          `KeyVariant(label: '📷', id: 'dis:camera')` ✓、分类 `KeyCategory.disabled` ✓）。
+///          ⚠️ **这一条我第一版写错过一次** ✗：我按 `base.icon` 找键面，实测 `null` ✓ ——
+///          而键面本来就在 `label` 上（`icon` 为 null 时画的就是这几个字 ✓，见 `keypad_definition.dart`
+///          对 `label` 的注释 ✓）。**那次"找不到"是我的字段名错，不是键位错** ✓ —— 与 §5x 那句同形：
+///          一个读数错了，结论就会整条错 ✓。
 /// English: **we follow the vendor's *current default* layout — two executable assertions, plus one
 ///          half-measured note.**
 ///
@@ -80,6 +79,22 @@ void main() {
     expect(offenders, isEmpty,
         reason: '当前默认布局里 gcd/lcm 没有格子（两个动作仍在调度表里，入口在「更多函数」面板）'
             '——出现即说明键位被换回了旧版布局：$offenders');
+
+    // ③ 相机键：第 2 行第 6 格，键面是 `📷`。⚠️ **键面在 `label` 上，不是 `icon`** ✓ —— 我第一版看错了字段。
+    // English: the camera key — row 2's sixth cell, face `📷`. ⚠️ The face lives on `label`, not `icon`.
+    KeypadRow? cameraRow;
+    for (final r in rows) {
+      if (r.labels.any((l) => _bandText(l) == 'FSE')) {
+        cameraRow = r;
+        break;
+      }
+    }
+    expect(cameraRow, isNotNull, reason: '找不到横带里有 FSE 的那一行（相机键所在行）');
+    expect(cameraRow!.keys.length, greaterThan(5), reason: '那一行不足 6 格');
+    expect(cameraRow.keys[5].base.label, '📷',
+        reason: '第 6 格应当是相机键——厂商当前默认用它占掉了旧版放 `CONV` 的那一格');
+    expect(cameraRow.keys[5].category, KeyCategory.disabled,
+        reason: '相机键是禁用键（`dis:` 前缀那一族）——它是厂商布局的记录，不是本应用的动作');
   });
 }
 
