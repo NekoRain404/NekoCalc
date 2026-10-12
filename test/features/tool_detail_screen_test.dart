@@ -192,6 +192,48 @@ void main() {
     expect(find.textContaining('单位 V 与 Ω 不匹配'), findsWidgets);
   });
 
+  testWidgets('打字也会让结果上屏：10 mA / 4.7kΩ → 屏幕上出现 47', (tester) async {
+    // 中文：**这条补的是审计 §5r 第 2.3 条的欠账。** 那条说：打字驱动重算有测试，但**没有一条**断言
+    //       结果真的**上了屏** ✗。同文件里唯一能断言"屏幕上有结果"的测试走的是**粘贴**（`find.text('47')`）✓，
+    //       所以这里走**输入**，可观察量照它那条 ✓——`findsOneWidget` 意味着屏幕上**恰好一个** 47 ✓
+    //       （主结果框与结果卡不会各印一个 ✓）。
+    //
+    //       ⚠️ **它证明什么、不证明什么，写清楚**：它证明"打字 → 结果上屏"这条路通 ✓；
+    //       它**不**把断言**限定**在主结果框那一格内 ✗——那个抓手（框内复制按钮的 tooltip）在我早先的一版里
+    //       `find.byTooltip` 命中 0 个 ✗，**原因没查明** ✓，而我不拿一个没查清的抓手去写断言 ✗。
+    // English: **this pays the debt audit §5r item 2.3 recorded.** That item said typed input driving recompute
+    //          has tests, but **nothing** asserted the result had actually **reached the screen** ✗. The only
+    //          test in this file that asserts "a result is on screen" goes through **paste**
+    //          (`find.text('47')`) ✓, so this one goes through **typing**, with the same observable —
+    //          `findsOneWidget` means there is **exactly one** 47 on screen ✓ (the primary box and the result
+    //          card do not each print one ✓).
+    //
+    //          ⚠️ **What it proves, and what it does not, stated plainly:** it proves the "typing → the result
+    //          reaches the screen" road works ✓. It does **not** scope the assertion to the primary box's own
+    //          cell ✗ — that handle (the box's copy-button tooltip) matched **zero** widgets in an earlier
+    //          version ✗, **the reason was never found** ✓, and a handle whose behaviour is unknown is not
+    //          something to build an assertion on ✗.
+    final tool = toolCatalog.firstWhere((item) => item.id == 'ohms_law');
+    final db = _FakeToolDetailDatabase(
+        Completer<Map<String, String>>()..complete(const <String, String>{}));
+
+    await tester.pumpWidget(MaterialApp(
+      home: ToolDetailScreen(
+        db: db,
+        tool: tool,
+        settings: AppSettings.fallback,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_toolInput(tool.id, 'current'), '10 mA');
+    await tester.enterText(_toolInput(tool.id, 'resistance'), '4.7kΩ');
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.text('47'), findsOneWidget,
+        reason: '打了 10 mA / 4.7kΩ，屏幕上应当出现 47（粘贴那条测试就是这么断言的）');
+  });
+
   testWidgets('tool copied inputs can be parsed back as pasted parameters',
       (tester) async {
     String? copiedText;
