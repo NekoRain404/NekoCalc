@@ -252,9 +252,26 @@ void _writePathTests(void Function() requireFfi) {
   test('addHistory 派生：计算器→number，工具行→tool，显式 opaque 不被形状覆盖', () async {
     requireFfi();
     final db = AppDatabase.instance;
-    await db.addHistory(expression: '2+3', result: '5');
+    // 中文：**三次写入各给一个不同的 `createdAt`——这修掉一条真实的 flake。** 此前三条都用默认的"此刻"，
+    //       而那是**毫秒**：三条在同一个毫秒里写完时时间戳**并列**，`history()` 的"按时间倒序"于是成了
+    //       **任意顺序**，下面那条断言偶尔倒过来。这条测试要测的是 `result_kind` 的**派生**，顺序只是它的
+    //       读法 ⇒ 让排序键**唯一**（负载下实测：15 遍红 3 遍，全是这一条）。
+    //       文件里第二条测试（导出→导入往返）不断言顺序（`containsAll` / `.toSet()`），所以它不需要改。
+    // English: **distinct `createdAt`s each — this fixes a real flake.** All three used to take the default
+    //          "now", which is a **millisecond**: written inside one millisecond they **tie**, "newest-first"
+    //          becomes **arbitrary order**, and the assertion below occasionally came back reversed. What this
+    //          test is about is the `result_kind` **derivation**; the order is only how it reads it, so the fix
+    //          is to make the sort key **unique** (measured under load: 3 of 15 runs red, always this test).
+    //          The file's second test (export → import) asserts no order (`containsAll` / `.toSet()`).
     await db.addHistory(
-        expression: '电流=2A, 电阻=5Ω', result: '电压 V: 20V', toolId: 'ohms_law');
+        expression: '2+3',
+        result: '5',
+        createdAt: DateTime(2026, 6, 8, 9, 30, 0));
+    await db.addHistory(
+        expression: '电流=2A, 电阻=5Ω',
+        result: '电压 V: 20V',
+        toolId: 'ohms_law',
+        createdAt: DateTime(2026, 6, 8, 9, 30, 1));
     // 中文：形状像 `标签: 值`，但调用方显式说是 opaque——必须存 opaque。
     // English: the shape looks like `label: value`, but the caller explicitly says opaque — opaque must
     //          be stored.
@@ -262,7 +279,8 @@ void _writePathTests(void Function() requireFfi) {
         expression: 'x',
         result: '拟合: y=2x',
         toolId: 'data_fit',
-        resultKind: HistoryResultKind.opaque);
+        resultKind: HistoryResultKind.opaque,
+        createdAt: DateTime(2026, 6, 8, 9, 30, 2));
 
     final items = await db.history();
     // 中文：`history()` 按时间倒序，后写的在前。
@@ -409,6 +427,25 @@ void _writePathTests(void Function() requireFfi) {
 ///          confined to a *different* synthetic condition and to a single test; and the release checklist's
 ///          own command (`--concurrency=16`) under deliberate parallel load went from **~2/14 red to 6/6
 ///          green**.
+///
+///          ⚠️ **That isolation was necessary but not sufficient, and the next sighting proved it.** The suite
+///          went red again the same afternoon on this very test — and the *isolated* file failed **alone**
+///          under load, which killed the "cross-file" reading outright. The residue had a second, entirely
+///          different cause: ⚠️ **the test itself asserted a total order on a sort key that is not unique.**
+///          It wrote its three rows with the default timestamp — a **millisecond** — so rows written inside one
+///          millisecond **tie**, `history()`'s "newest-first" becomes **arbitrary order**, and the assertion
+///          occasionally came back reversed. **The fix is to make the key unique, not to loosen the
+///          assertion**: the three rows now carry distinct `createdAt`s, because what this test is about is the
+///          `result_kind` **derivation**, and the order is only how it reads it. **Evidence:** the three-channel
+///          harness finished **15/15 green** (11 red → 3 red → **0 red** across the two fixes), and the release
+///          command under parallel load ran **2/2 green**.
+///
+///          ⚠️ **The lesson worth keeping from this second half is about verification conditions:** the two
+///          causes were unrelated, and the first fix's evidence — 6/6 green under load — **looked** like a
+///          clean bill of health. **A fix verified under one condition says nothing about the others**, and the
+///          condition that mattered here was not the harsher one (three lanes on one file) but the one it
+///          actually failed under (the whole suite in parallel). Only a sighting *there*, plus the assertion
+///          text rather than its name, settled it.
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
