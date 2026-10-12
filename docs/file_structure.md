@@ -9,7 +9,7 @@
 - `docs/`：需求、参考图、结构说明和 demo 记录。
 - `test/`：核心解析器、计算逻辑和记录分类的自动化测试。
 - `tool/`：开发期脚本与宿主探针（装机、拉设备数据库、引擎语义探针）。不是应用源码，不参与打包。
-- `.flutter/`：本机 Flutter Gradle 插件兼容层缓存。用于避开部分系统 Flutter 安装缺少 Gradle 插件目录的问题，不作为源码提交。
+- `.flutter/`：本机 Flutter Gradle 插件兼容层缓存。用于避开部分系统 Flutter 安装缺少 Gradle 插件目录的问题。⚠️ **但这个目录里有一个例外**：`.flutter/flutter_tools_gradle/`（**51 个文件**）**是故意入库的**——`android/settings.gradle.kts` 按路径引用它（`file("../.flutter/flutter_tools_gradle")`），理由写在 `.gitignore` 里那一段。本行此前写的是「**不作为源码提交**」，**与 `.gitignore` 直接矛盾**：下一个人若照它去找，会以为那 51 个文件不该在仓库里。
 - `CHANGELOG.md`：Beta 版本更新记录。
 - `pubspec.yaml` / `pubspec.lock`：Flutter 依赖与版本锁定。
 - `analysis_options.yaml`：Dart 静态分析规则。
@@ -35,7 +35,7 @@
 - `android/.gradle/`
 - `android/.kotlin/`
 - `android/build/`
-- `.flutter/`
+- `.flutter/`（⚠️ **有例外**：`.flutter/flutter_tools_gradle/` 是**故意入库**的，见上面对它的说明）
 - `.idea/workspace.xml`
 - `.idea/deploymentTargetSelector.xml`
 

@@ -34,5 +34,5 @@ Data 由 Application 或 UI 注入，不让 Domain 依赖 SQLite、Flutter 页�
 - 通用 UI 放 `shared/presentation`，带业务语义的组件留在各自 feature。
 - 单个文件过大时优先按职责拆，不按“工具类大全”堆放。
 - Domain 不依赖 Flutter UI 类型；图标、颜色等视觉映射放在 feature 的 presentation 层。
-- 当前 Flutter Android 入口是 `android/`，根级旧 `app/` 原生模块暂不作为应用入口。
+- 当前 Flutter Android 入口是 `android/`。⚠️ 本行此前还写着「根级旧 `app/` 原生模块暂不作为应用入口」——**那个目录已经不在仓库里了**（磁盘上已无 `app/`），所以不必去找它。
 - 工具页统一通过 `tool_navigation.dart` 打开详情页，不在各个列表页面分散判断工具类型。
