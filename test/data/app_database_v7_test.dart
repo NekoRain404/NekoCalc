@@ -344,6 +344,13 @@ void _writePathTests(void Function() requireFfi) {
 ///          the same day, and the honest position is that its `closeForTest()` is as likely a trigger as the
 ///          older ones. Reproducing it at will was not achieved in three runs, so the next step is a loop
 ///          over the suite (not over this file — alone it never fails) with the timing recorded.
+///
+///          ⚠️ **Follow-up measurement, same day:** five consecutive full-suite runs afterwards were **all
+///          green** (0/5), which puts the observed rate near **2 in 13** — and it **refines the suspect
+///          rather than closing it**: both sightings happened while other work was running on this machine
+///          (one of them inside the very command that committed and pushed). That makes a **timing race** the
+///          leading hypothesis, and it gives the next attempt a sharper prescription: reproduce it by running
+///          the suite **under load**, not by running it more times on an idle machine.
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
