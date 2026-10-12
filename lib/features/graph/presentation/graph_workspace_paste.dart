@@ -71,16 +71,22 @@ class GraphWorkspacePasteResult {
 }
 
 /// 中文：**`strings` 是必填参数。** 理由见本文件头上那段（调用方已入库、默认值已删）。
+///       [degreeMode] 是产出的函数（与它们各自那次预览探测）求值用的角度单位，由调用方——图形页——
+///       从设置里递下来；理由见 `GraphFunction.degreeMode`。
 /// English: **`strings` is required.** The reasoning is in the block at the head of this file (the
-///          caller is committed and the default was removed).
+///          caller is committed and the default was removed). [degreeMode] is the angle unit the
+///          resulting functions (and each of their preview probes) evaluate under; the caller — the
+///          graph page — hands it down from settings. See `GraphFunction.degreeMode`.
 GraphWorkspacePasteResult parseGraphWorkspacePasteText(
   String input, {
   required GraphStrings strings,
+  bool degreeMode = false,
 }) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return GraphWorkspacePasteResult.empty(strings: strings);
 
-  final jsonWorkspace = decodeGraphWorkspace(trimmed, strings: strings);
+  final jsonWorkspace =
+      decodeGraphWorkspace(trimmed, strings: strings, degreeMode: degreeMode);
   if (jsonWorkspace != null) {
     return GraphWorkspacePasteResult(
       workspace: jsonWorkspace,
@@ -89,7 +95,8 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
     );
   }
 
-  final copyWorkspace = _parseGraphCopyTextWorkspace(trimmed, strings);
+  final copyWorkspace =
+      _parseGraphCopyTextWorkspace(trimmed, strings, degreeMode);
   if (copyWorkspace != null) {
     return GraphWorkspacePasteResult(
       workspace: copyWorkspace,
@@ -99,7 +106,7 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
   }
 
   final functionTextWorkspace =
-      _parseGraphFunctionTextWorkspace(trimmed, strings);
+      _parseGraphFunctionTextWorkspace(trimmed, strings, degreeMode);
   if (functionTextWorkspace == null) {
     return GraphWorkspacePasteResult.empty(strings: strings);
   }
@@ -114,6 +121,7 @@ GraphWorkspacePasteResult parseGraphWorkspacePasteText(
 GraphWorkspace? _parseGraphCopyTextWorkspace(
   String input,
   GraphStrings strings,
+  bool degreeMode,
 ) {
   final lines = const LineSplitter().convert(input);
   if (!_looksLikeGraphCopyText(lines)) return null;
@@ -156,6 +164,7 @@ GraphWorkspace? _parseGraphCopyTextWorkspace(
         expression,
         color: graphPalette[functions.length % graphPalette.length],
         strings: strings,
+        degreeMode: degreeMode,
       );
       if (preview.isValid) {
         functions.add(GraphFunction(
@@ -163,6 +172,7 @@ GraphWorkspace? _parseGraphCopyTextWorkspace(
           label: preview.label,
           color: graphPalette[functions.length % graphPalette.length],
           visible: visible,
+          degreeMode: degreeMode,
         ));
       }
       continue;
@@ -203,6 +213,7 @@ bool _looksLikeGraphCopyText(List<String> lines) {
 GraphWorkspace? _parseGraphFunctionTextWorkspace(
   String input,
   GraphStrings strings,
+  bool degreeMode,
 ) {
   final functions = <GraphFunction>[];
   final seen = <String>{};
@@ -216,14 +227,15 @@ GraphWorkspace? _parseGraphFunctionTextWorkspace(
     final candidate = _graphFunctionExpressionFromFreeText(line);
     if (candidate == null) continue;
     final color = graphPalette[functions.length % graphPalette.length];
-    final preview =
-        previewGraphFunctionInput(candidate, color: color, strings: strings);
+    final preview = previewGraphFunctionInput(candidate,
+        color: color, strings: strings, degreeMode: degreeMode);
     if (!preview.isValid) continue;
     if (!seen.add(preview.normalizedExpression)) continue;
     functions.add(GraphFunction(
       expression: preview.normalizedExpression,
       label: preview.label,
       color: color,
+      degreeMode: degreeMode,
     ));
     if (functions.length == _maxPastedFunctionTextCount) break;
   }

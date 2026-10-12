@@ -208,6 +208,13 @@ class _AppShellState extends State<AppShell> {
       2 => GraphPage(
           db: widget.db,
           restoreState: widget.settings.restoreState,
+          // 中文：**图形页也要拿到角度单位。** 与计算页把 `settings` 递下去是同一条路（外壳是唯一
+          //       读得到设置的地方）；不接的话图形页只能按弧度制求值，用户选的角度制在图上不生效。
+          // English: **the graph page needs the angle unit too.** The same route by which the
+          //          calculator page is handed `settings` (the shell is the only reader of settings);
+          //          unwired, the graph page can only evaluate in radians and the user's degree mode
+          //          does not reach the plot.
+          angleMode: widget.settings.angleMode,
           reloadToken: _graphReloadToken),
       3 => NotesPage(
           db: widget.db,

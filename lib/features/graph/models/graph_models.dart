@@ -16,12 +16,27 @@ class GraphFunction {
     required this.label,
     required this.color,
     this.visible = true,
+    this.degreeMode = false,
   });
 
   final String expression;
   final String label;
   final Color color;
   final bool visible;
+
+  /// 中文：求值时的角度单位——`true` 是角度制（DEG），`false` 是弧度制（RAD）。**它是函数自己身上的
+  ///       字段**，因为求值发生在三条独立路径上（画曲线、解标记、适配 y 窗口，另有预览那一次探测），
+  ///       它们手里都只有一个 [GraphFunction]；把模式放在这里，四条路就都跟着同一个值走。
+  ///       调用方是图形页：它从外壳递下来的设置里取当前单位，装进它持有的每一个函数。
+  ///       默认 `false` 等于弧度制，也就是本应用 `AppSettings.fallback` 的角度单位。
+  /// English: the angle unit used when evaluating — `true` is degrees (DEG), `false` radians (RAD).
+  ///          **It is a field on the function itself** because evaluation happens on three separate
+  ///          paths (plotting the curve, solving markers, fitting the y window, plus the preview's one
+  ///          probe), and each of them holds nothing but a [GraphFunction]; putting the mode here makes
+  ///          all four follow the same value. The caller is the graph page, which takes the current
+  ///          unit from the settings handed down by the shell and puts it on every function it holds.
+  ///          The `false` default is radians — the app's angle unit in `AppSettings.fallback`.
+  final bool degreeMode;
 
   static String labelFor(String expression) {
     return 'y = ${formatExpressionForDisplay(
@@ -82,20 +97,24 @@ class GraphFunction {
     return value;
   }
 
-  GraphFunction copyWith({bool? visible}) {
+  GraphFunction copyWith({bool? visible, bool? degreeMode}) {
     return GraphFunction(
         expression: expression,
         label: label,
         color: color,
-        visible: visible ?? this.visible);
+        visible: visible ?? this.visible,
+        degreeMode: degreeMode ?? this.degreeMode);
   }
 
   double evaluate(double x) {
     try {
-      // 中文：图形页复用核心表达式解析器，保证计算器和图形函数语义一致。
-      // English: The graph page reuses the core expression parser so graph functions match calculator semantics.
+      // 中文：图形页复用核心表达式解析器，并把**当前角度单位**一起递给它（[degreeMode]），
+      //       于是计算器和图形函数语义一致：`sin(90)` 在角度制下两边都是 `1`。
+      // English: the graph page reuses the core expression parser and hands it **the current angle
+      //          unit** ([degreeMode]), so graph functions match calculator semantics: `sin(90)` is
+      //          `1` on both sides under degree mode.
       final parsed = _normalizeForParser(expression, x);
-      return ExpressionParser(parsed, degreeMode: false).parse();
+      return ExpressionParser(parsed, degreeMode: degreeMode).parse();
     } catch (_) {
       return double.nan;
     }
@@ -316,7 +335,7 @@ String encodeGraphWorkspace({
 ///          head (the models layer has no `BuildContext`, so the language is fixed by the caller at
 ///          construction; omitting it is a compile error rather than a silent fallback).
 GraphWorkspace? decodeGraphWorkspace(String? raw,
-    {required GraphStrings strings}) {
+    {required GraphStrings strings, bool degreeMode = false}) {
   if (raw == null || raw.trim().isEmpty) return null;
   try {
     final decoded = jsonDecode(raw);
@@ -331,6 +350,7 @@ GraphWorkspace? decodeGraphWorkspace(String? raw,
         rawFunctions[i],
         fallbackColor: graphPalette[i % graphPalette.length],
         strings: strings,
+        degreeMode: degreeMode,
       );
       if (function != null) functions.add(function);
     }
@@ -348,13 +368,14 @@ GraphFunction? _graphFunctionFromJson(
   Object? raw, {
   required Color fallbackColor,
   required GraphStrings strings,
+  required bool degreeMode,
 }) {
   if (raw is! Map) return null;
   final rawExpression = raw['expression'];
   if (rawExpression is! String) return null;
   final color = _colorFromJson(raw['color']) ?? fallbackColor;
-  final preview =
-      previewGraphFunctionInput(rawExpression, color: color, strings: strings);
+  final preview = previewGraphFunctionInput(rawExpression,
+      color: color, strings: strings, degreeMode: degreeMode);
   if (!preview.isValid) return null;
   final visible = raw['visible'] is bool ? raw['visible'] as bool : true;
   return GraphFunction(
@@ -362,6 +383,7 @@ GraphFunction? _graphFunctionFromJson(
     label: preview.label,
     color: color,
     visible: visible,
+    degreeMode: degreeMode,
   );
 }
 
@@ -385,12 +407,16 @@ int? _parseColorString(String raw) {
   return int.tryParse(text, radix: 16);
 }
 
-/// 中文：**表是必填参数**，理由同 `decodeGraphWorkspace`。
+/// 中文：**表是必填参数**，理由同 `decodeGraphWorkspace`。[degreeMode] 是这次探测求值用的角度
+///       单位（也是产出的函数的），理由写在 [GraphFunction.degreeMode] 上。
 /// English: **The table is a required parameter**, for the same reason as `decodeGraphWorkspace`.
+///          [degreeMode] is the angle unit this probe evaluates under (and the one the resulting
+///          function carries); the reasoning is on [GraphFunction.degreeMode].
 GraphFunctionInputPreview previewGraphFunctionInput(
   String raw, {
   required Color color,
   required GraphStrings strings,
+  bool degreeMode = false,
 }) {
   final normalized = GraphFunction.normalizeExpression(raw);
   if (normalized.isEmpty) {
@@ -408,6 +434,7 @@ GraphFunctionInputPreview previewGraphFunctionInput(
     expression: normalized,
     label: GraphFunction.labelFor(normalized),
     color: color,
+    degreeMode: degreeMode,
   );
   final validSamples = [-2.0, -1.0, 0.0, 1.0, 2.0]
       .map(probe.evaluate)

@@ -16,7 +16,33 @@ import 'package:nekocalc/features/tools/presentation/tools_home_page.dart';
 import 'package:nekocalc/shared/presentation/app_shell.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
-Widget _app({ThemeMode? themeMode}) => MaterialApp(
+const AppSettings _radSettings = AppSettings(
+  haptics: false,
+  hapticStrength: '标准',
+  restoreState: false,
+  autoSaveHistory: false,
+  angleMode: 'RAD',
+  precision: 6,
+  themeModeLabel: '跟随系统',
+  expressionDisplayMode: '数学符号',
+);
+
+/// 中文：只把角度单位换成角度制的一份设置——用来量"设置里的角度单位到不到得了图形页"。
+/// English: the same settings with only the angle unit changed to degrees — used to measure whether
+///          the angle unit in settings reaches the graph page.
+const AppSettings _degSettings = AppSettings(
+  haptics: false,
+  hapticStrength: '标准',
+  restoreState: false,
+  autoSaveHistory: false,
+  angleMode: 'DEG',
+  precision: 6,
+  themeModeLabel: '跟随系统',
+  expressionDisplayMode: '数学符号',
+);
+
+Widget _app({ThemeMode? themeMode, AppSettings settings = _radSettings}) =>
+    MaterialApp(
       // 中文：`themeMode` 用来区分「应用自己的明暗」与「平台亮度」——`app.dart` 正是用 `themeMode`
       //       把设置里的浅色/深色/跟随系统落到 `MaterialApp` 上的。
       // English: `themeMode` separates the app's own light/dark from the platform's brightness — it is
@@ -26,16 +52,7 @@ Widget _app({ThemeMode? themeMode}) => MaterialApp(
       themeMode: themeMode ?? ThemeMode.system,
       home: AppShell(
         db: _FakeDatabase(),
-        settings: const AppSettings(
-          haptics: false,
-          hapticStrength: '标准',
-          restoreState: false,
-          autoSaveHistory: false,
-          angleMode: 'RAD',
-          precision: 6,
-          themeModeLabel: '跟随系统',
-          expressionDisplayMode: '数学符号',
-        ),
+        settings: settings,
         onSettingsChanged: () async {},
         onThemeModeChanged: (_) {},
       ),
@@ -132,6 +149,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GraphPage), findsOneWidget);
     expect(find.byType(GraphPage).hitTestable(), findsOneWidget);
+  });
+
+  // 中文：**设置里的角度单位必须走到图形页的求值里。** 只看"页面上有个 `angleMode` 参数"是循环
+  //       论证；这里量的是屏幕上读得出来的那个数：同一批默认函数（`sin(x)` 与一条抛物线）按下
+  //       「零点」，弧度制给 5 个（sin 的 0、±π 加抛物线两个），角度制给 3 个（sin 只剩 x = 0）。
+  //       `sin(x)` 是两种单位下都画得出来的曲线，差别只在解出来的零点上。
+  // English: **the angle unit in settings has to reach the graph page's evaluation.** Checking that the
+  //          page widget carries an `angleMode` argument would be circular; what is measured here is a
+  //          number readable off the screen: press 零点 on the same default functions (`sin(x)` plus a
+  //          parabola) and radians give 5 zeros (sin's 0, ±π and the parabola's two) while degrees give
+  //          3 (sin keeps only x = 0). `sin(x)` plots under both units; only the solved zeros differ.
+  testWidgets('设置里的角度制真的到达图形页：零点按度解', (tester) async {
+    await tester.pumpWidget(_app(settings: _degSettings));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('打开导航'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('图形').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(GraphPage).hitTestable(), findsOneWidget);
+
+    final graphList = find.descendant(
+        of: find.byType(GraphPage), matching: find.byType(ListView));
+    await tester.drag(graphList, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('零点'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('找到 3 个零点'), findsOneWidget,
+        reason: '角度制下 sin(x) 在 [-6, 6] 里只剩 x = 0 一个零点');
+    expect(find.textContaining('3.141593'), findsNothing,
+        reason: 'π 是弧度制下的零点，设置选了角度制就不该出现');
   });
 
   // 中文：底部栏消失后最容易出的事故——走进「工具」再回不到计算页，App 就废了。这条测试只允许用

@@ -24,12 +24,23 @@ class GraphPage extends StatefulWidget {
   const GraphPage({
     required this.db,
     required this.restoreState,
+    this.angleMode = 'RAD',
     this.reloadToken = 0,
     super.key,
   });
 
   final AppDatabase db;
   final bool restoreState;
+
+  /// 中文：**应用当前的角度单位**（`'DEG'` / `'RAD'`），由外壳从 `AppSettings` 里递下来——与
+  ///       `restoreState` 同一个来源、同一种形状。判据与计算页逐字一致（`angleMode == 'DEG'`），
+  ///       图形页每求一次值都按它走，所以 `sin(90)` 在两边是同一个答案。
+  /// English: **the app's current angle unit** (`'DEG'` / `'RAD'`), handed down by the shell from
+  ///          `AppSettings` — the same source and the same shape as `restoreState`. The test is
+  ///          character-for-character the calculator page's (`angleMode == 'DEG'`), and every
+  ///          evaluation here follows it, so `sin(90)` is one answer on both sides.
+  final String angleMode;
+
   final int reloadToken;
 
   @override
@@ -39,7 +50,32 @@ class GraphPage extends StatefulWidget {
 class _GraphPageState extends State<GraphPage> {
   late final SettingsRepository _settingsRepository =
       SettingsRepository(widget.db);
-  final List<GraphFunction> _functions = defaultGraphFunctions();
+  final List<GraphFunction> _functions = [];
+
+  /// 中文：**当前角度单位是不是角度制。** 判据与计算页那条逐字相同（`angleMode == 'DEG'`），
+  ///       值是外壳从设置里递下来的，所以图形页与计算器认的是同一个开关。
+  /// English: **whether the current angle unit is degrees.** The test is character-for-character the
+  ///          calculator page's (`angleMode == 'DEG'`) and the value is handed down from settings by
+  ///          the shell, so the graph page and the calculator read the same switch.
+  bool get _degreeMode => widget.angleMode == 'DEG';
+
+  /// 中文：**把当前角度单位盖在一批函数上。** `_functions` 里每一个函数都必须带着它——求值发生在
+  ///       画曲线、解标记、适配 y 窗口三条路径上，它们手里只有一个 [GraphFunction]；工作区恢复与
+  ///       粘贴那条路已经把模式传进解析器了，这个方法是给"不是从线和格式里来"的那些来源用的：
+  ///       默认函数、以及**角度单位本身换掉的时候**（那时已经画出来的每个函数都要重盖，否则曲线
+  ///       会继续按旧单位画）。
+  /// English: **stamps the current angle unit onto a batch of functions.** Every function in
+  ///          `_functions` must carry it: evaluation happens on three paths (plotting, marker solving,
+  ///          fitting the y window) and each holds nothing but a [GraphFunction]. The workspace-restore
+  ///          and paste routes already pass the mode into the parser; this method covers the sources
+  ///          that do **not** come from the wire — the default functions, and **a change of the angle
+  ///          unit itself**, when every function already on screen has to be re-stamped or the curves
+  ///          keep drawing under the old unit.
+  List<GraphFunction> _withAngleMode(Iterable<GraphFunction> functions) => [
+        for (final function in functions)
+          function.copyWith(degreeMode: _degreeMode),
+      ];
+
   GraphViewport _viewport = defaultGraphViewport;
   List<GraphMarker> _markers = const [];
   int? _selectedMarker;
@@ -78,12 +114,30 @@ class _GraphPageState extends State<GraphPage> {
   @override
   void initState() {
     super.initState();
+    _functions.addAll(_withAngleMode(defaultGraphFunctions()));
     if (widget.restoreState) unawaited(_loadWorkspace());
   }
 
   @override
   void didUpdateWidget(covariant GraphPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.angleMode != widget.angleMode) {
+      // 中文：**角度单位换了，屏幕上的东西要跟着换。** 逐个函数重盖新单位——曲线、标记与 y 窗口
+      //       适配都只认函数身上那一个字段；已经解出来的标记是旧单位下的解，留着就是错的，一并撤掉。
+      //       这里不调 `setState`：`didUpdateWidget` 之后框架马上就会重建这一帧，直接改即可。
+      // English: **the angle unit changed, so what is on screen has to change with it.** Every
+      //          function is re-stamped — the curve, the markers and the y-window fit all read that one
+      //          field on the function; and the markers already solved are solutions under the old
+      //          unit, so keeping them would be wrong and they go too. No `setState` here: the
+      //          framework rebuilds this frame right after `didUpdateWidget`, so a direct write is
+      //          enough.
+      final restamped = _withAngleMode(_functions);
+      _functions
+        ..clear()
+        ..addAll(restamped);
+      _markers = const [];
+      _selectedMarker = null;
+    }
     final imported = oldWidget.reloadToken != widget.reloadToken;
     if (imported) {
       if (widget.restoreState) {
@@ -121,6 +175,7 @@ class _GraphPageState extends State<GraphPage> {
         expression: expression,
         label: GraphFunction.labelFor(expression),
         color: graphPalette[_functions.length % graphPalette.length],
+        degreeMode: _degreeMode,
       ));
       _markers = const [];
       _selectedMarker = null;
@@ -140,6 +195,7 @@ class _GraphPageState extends State<GraphPage> {
         title: title,
         initialExpression: initialExpression,
         confirmLabel: confirmLabel,
+        degreeMode: _degreeMode,
       ),
     );
   }
@@ -172,7 +228,8 @@ class _GraphPageState extends State<GraphPage> {
           expression: expression,
           label: GraphFunction.labelFor(expression),
           color: current.color,
-          visible: current.visible);
+          visible: current.visible,
+          degreeMode: _degreeMode);
       _markers = const [];
       _selectedMarker = null;
       _status = strings.updatedFunction(expression);
@@ -208,7 +265,7 @@ class _GraphPageState extends State<GraphPage> {
   void _restoreDefaultWorkspace({required String status}) {
     _functions
       ..clear()
-      ..addAll(defaultGraphFunctions());
+      ..addAll(_withAngleMode(defaultGraphFunctions()));
     _viewport = defaultGraphViewport;
     _markers = const [];
     _selectedMarker = null;
@@ -234,7 +291,8 @@ class _GraphPageState extends State<GraphPage> {
     final raw = settings[graphWorkspaceSettingKey];
     if (!mounted) return;
     final strings = GraphStrings.of(context);
-    final workspace = decodeGraphWorkspace(raw, strings: strings);
+    final workspace =
+        decodeGraphWorkspace(raw, strings: strings, degreeMode: _degreeMode);
     if (!mounted ||
         !widget.restoreState ||
         token != _workspaceLoadToken ||

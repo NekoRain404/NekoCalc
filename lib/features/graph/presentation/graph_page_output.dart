@@ -94,7 +94,8 @@ extension _GraphPageOutput on _GraphPageState {
     if (!mounted) return;
     final text = data?.text;
     if (text == null || text.trim().isEmpty) return;
-    final paste = parseGraphWorkspacePasteText(text, strings: strings);
+    final paste = parseGraphWorkspacePasteText(text,
+        strings: strings, degreeMode: _degreeMode);
     if (!paste.hasWorkspace) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(paste.summary)),

@@ -124,6 +124,28 @@ void main() {
     expect(equation.evaluate(3), closeTo(5, 1e-9));
   });
 
+  // 中文：**角度单位是函数自己的一个字段，evaluate 认它。** `sin(90)` 是一眼分得开的那一对：
+  //       角度制 `1`、弧度制 `0.8939966636005579`——计算器在同样的设置下给的就是这两个数。
+  // English: **the angle unit is a field on the function and `evaluate` honours it.** `sin(90)` is the
+  //          pair that separates at a glance: `1` under degrees, `0.8939966636005579` under radians —
+  //          the very two numbers the calculator returns under the same setting.
+  test('evaluates angles in the function\'s own unit: sin(90) is 1 in DEG', () {
+    const radians = GraphFunction(
+      expression: 'sin(x)',
+      label: 'y = sin(x)',
+      color: Color(0xFF1677FF),
+    );
+    const degrees = GraphFunction(
+      expression: 'sin(x)',
+      label: 'y = sin(x)',
+      color: Color(0xFF1677FF),
+      degreeMode: true,
+    );
+
+    expect(radians.evaluate(90), closeTo(0.8939966636005579, 1e-12));
+    expect(degrees.evaluate(90), closeTo(1, 1e-12));
+  });
+
   test('previews graph function input normalization and validation', () {
     final prefixed = previewGraphFunctionInput(
       'f(x)=sin(x)，定义域 x∈[0,2π]',

@@ -10,11 +10,19 @@ class FunctionExpressionDialog extends StatefulWidget {
     required this.title,
     required this.initialExpression,
     required this.confirmLabel,
+    required this.degreeMode,
   });
 
   final String title;
   final String initialExpression;
   final String confirmLabel;
+
+  /// 中文：预览那一次探测求值用的角度单位——**必填**，因为它必须是图形页正在用的那一个；
+  ///       漏传该是编译错误，而不是悄悄按弧度制预览（那正是这个缺陷的形状）。
+  /// English: the angle unit the preview's one probe evaluates under — **required**, because it must
+  ///          be the very unit the graph page is using; omitting it should be a compile error rather
+  ///          than silently previewing in radians (which is the shape of the defect this fixes).
+  final bool degreeMode;
 
   @override
   State<FunctionExpressionDialog> createState() =>
@@ -45,6 +53,7 @@ class _FunctionExpressionDialogState extends State<FunctionExpressionDialog> {
       _controller.text,
       color: const Color(0xFF1677FF),
       strings: strings,
+      degreeMode: widget.degreeMode,
     );
   }
 
