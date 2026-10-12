@@ -1476,6 +1476,37 @@ render check, not a token comparison). The audit handed back **14 further items 
 device** — including one test that would have caught the graph defect as a *sequence*: tap DRG, type `sin(90)`,
 press `=`, assert `1`.
 
+### 5s. The graph angle-mode fix, and the decision it deliberately did **not** make (2026-10-12)
+
+§5r's headline defect is fixed. What a future reader needs is not that fact but two others: **what the fix
+rests on**, and **the choice it handed back instead of applying**.
+
+- **The mode now travels on the `GraphFunction` itself** (a `degreeMode` field, `graph_models.dart`), because
+  all four evaluating paths — the plotted curve, the **four marker builders** (11 `evaluate` call sites in
+  `graph_marker_builders.dart`), the y-window fit, and the input preview's probe — hold **nothing but a
+  `GraphFunction`**. There was no other context to thread, which is why the field, not a page-level argument,
+  is the shape that reaches all of them. Settings arrive through the shell (`app_shell.dart:217`), and
+  `didUpdateWidget` re-stamps every function and **drops stale markers** when the unit changes, so a live
+  DEG↔RAD switch moves the curve rather than leaving the previous unit's zeros on screen.
+- ⚠️ **`GraphFunctionExpressionDialog.degreeMode` is `required`**, so a preview silently rendered in radians is
+  a **compile error** rather than something a reviewer has to catch — the same trick the parser already used
+  (`ExpressionParser`'s `degreeMode` was already a required named parameter, which is why no construction site
+  could be missed).
+- ⚠️ **The decision that was deliberately left alone**, and the reason this paragraph exists: the **workspace
+  wire format carries no angle information**. `encodeGraphWorkspace` writes version, viewport and functions
+  {expression, visible, color}; the copy-text and free-text paste formats likewise. A graph saved under DEG and
+  restored — or pasted — while the app is in RAD is therefore evaluated **under RAD**. Changing that needs a
+  **format version bump plus a new line in the bilingual copy-text wire format**, and the angle unit is an
+  **app-level setting**, so the behaviour is defensible as it stands. It is **pinned by a test** rather than
+  left to chance (`graph_page_test.dart`: a `sin(x)` written in radians, restored under DEG, has exactly one
+  zero). **If a future release wants per-function units, that test is the sentence to revise and this
+  paragraph is the record of why it was not done now.**
+- ⚠️ **The red evidence is reported as two different things, because they are two different things.** One file
+  failed on a **real assertion** — settings' degree mode reaching the graph page, `sin(x)` on [-6,6] having one
+  zero under degrees instead of five — and two files failed as **compile errors**, because they exercise API
+  that did not exist before the fix. A compile error is not assertion evidence; dressing it up as such is the
+  same error as reading a grep that found nothing (§5p). Both are stated, neither is inflated.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran

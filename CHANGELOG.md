@@ -12,6 +12,11 @@ beta 之后的修复。**不给版本号**，因为其中还没有一条在**真
   `selection.end`), which also survived a restart because `restoreState` persists and restores it — so the first
   keypress after launch met it with nothing on screen to explain the jump. Range replacement
   (`input`/`backspace`) is untouched. (docs/verification.md §5q)
+- Fixed the graph page **ignoring the app's angle mode**: under DEG a `sin(x)` curve — and its zeros,
+  intersections and extrema — were computed in radians while the calculator used degrees, so the two
+  disagreed on the same input. The code's own comment claimed they matched. (docs/verification.md §5r, §5s)
+- Fixed the engine's "units and constants failed to load" verdict being **written only to logcat**, which made
+  an engine with no units indistinguishable from one returning a real answer. (docs/verification.md §5o)
 - Fixed backup export/import over the storage-access channel: on a device with no activity for
   `ACTION_CREATE_DOCUMENT` the call threw across the platform thread and left the channel answering `busy`
   **for the rest of the process's life**. Both paths now catch, reset their state, and answer a real error.
