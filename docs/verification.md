@@ -1610,9 +1610,15 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   per palette). What is **not** defensible is the present state: an amber literal that *looks* deliberate
   because a test asserts it, with no sentence anywhere recording which of the two it is meant to be. Whoever
   owns that call should write it down; this paragraph exists so it is at least visible as a call to make.
-  Then `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` — a stray default
-  blue in a themed dialog — and `app_chrome.dart:279,284,285,291`'s `Colors.white` + `Color(0xFFD8D3FF)` +
-  `Color(0xFFE8ECF7)` (cool-toned colours from **before** the warm palette) + a hard-coded shadow.
+  ⚠️ **And the other two sites turned out not to be visible at all — a consequence the first draft of this
+  paragraph asserted without checking.** `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` is
+  passed into the preview **probe** as the `GraphFunction`'s colour, and `GraphFunctionInputPreview` has **no
+  colour field** — so nothing draws it. It is a **latent** off-palette value that would surface only if a
+  future change renders that preview as a curve. `app_chrome.dart:279,284,285,291`'s `Colors.white` +
+  `Color(0xFFD8D3FF)` + `Color(0xFFE8ECF7)` sit on **fallback** branches taken only when the scheme is absent —
+  ⚠️ whether that branch is ever taken in the app was **not** established here. The honest split, then:
+  **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
+  The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
 - ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
   themes are in force, so these are **places where the palette can drift**, and a colour change is exactly the
   kind of claim this project says needs a **render check**, not a token swap in the dark. The list is written
