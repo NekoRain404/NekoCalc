@@ -1666,10 +1666,21 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   (two were not enough), and the rendering half (`RepaintBoundary` + `toImage`) was written but never reached.
   ⚠️ **A second attempt then produced the look — and was still deleted.** With the fake completed to the **six**
   methods `ToolUsageRepository` awaits, the assertions ran (the PNG is written *after* them, so **its existence
-  is what proves they passed**) and produced the image described above. ⚠️ The test was **deleted anyway**: it
-  fails on teardown — the page leaves a pending timer, which `flutter_test` counts as a failure — and **a red test
-  cannot stay any more than a hanging one can**. So the **observation** is recorded and the **pin** is not: the
-  next attempt should keep the assertions and fix the teardown.
+  is what proves they passed**) and produced the image described above.
+  ⚠️ **Three variants were then tried, and every one of them hung — after the body had finished.**
+  `pumpAndSettle` was replaced with two **bounded** pumps (its own documentation forbids it while a timer is
+  pending, and this page owns a 70 ms debounce), the page was **unmounted** before the test ended, and the run was
+  left to the framework's `--timeout 60s` instead of being killed by hand. Each variant produced the PNG and then
+  hung; ⚠️ `--timeout` **never fired**, so the fake-async clock was stuck somewhere the test body could not reach.
+  ⚠️ **The test was deleted** — a hanging test cannot stay any more than a red one can — and with it went the
+  **pin**. The **observation** above is what survives, and it is the part that was actually wanted.
+  ⚠️ **A correction worth keeping:** an earlier version of this paragraph said the test "fails on teardown — the
+  page leaves a pending timer". That was **inference**, and reading the log showed otherwise: the error visible
+  there was **my own `timeout` killing the process mid-stream** (`Cannot close sink while adding stream`, from
+  `flutter_tools`). So the honest next step is not "fix the teardown" but: ⚠️ **try `tester.runAsync` for the image
+  half** — `toImage` / `toByteData` are `dart:ui` futures, and keeping them *out* of the fake-async zone is the
+  documented remedy in widget tests. They **did** complete here (the PNG exists), which is exactly why the
+  remaining hypothesis has to be about **what they leave behind**, not about whether they work.
   The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
