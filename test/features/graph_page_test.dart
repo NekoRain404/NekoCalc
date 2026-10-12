@@ -466,6 +466,40 @@ sin(x)
     expect(find.textContaining('x = -3.141593'), findsWidgets);
   });
 
+  testWidgets('复制标记：点下去把选中的那个标记写进剪贴板', (tester) async {
+    // 中文：**这条只证明"按钮接对了"**——载荷的内容由 `buildMarkerCopyText` 自己的单元测试管
+    //       （`test/domain/graph_function_test.dart` 里那条）；在这里复述一遍文案，就是两处各自维护
+    //       同一句话。而"接对了"并不是空话：它要求点击真的到达 `_copySelectedMarker` ✓、
+    //       选中守卫通过 ✓、`Clipboard.setData` 真的被调用 ✓——那三件里坏一件这条就红 ✓。
+    // English: **this proves only that the button is wired.** The payload's content is covered by
+    //          `buildMarkerCopyText`'s own unit test (in `test/domain/graph_function_test.dart`); restating
+    //          that wording here would mean two places maintaining one sentence. And "wired" is not a
+    //          vacuous claim: it requires the tap to reach `_copySelectedMarker`, the selection guard to pass
+    //          and `Clipboard.setData` to actually run — break any of the three and this goes red.
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) {
+      if (call.method == 'Clipboard.setData') {
+        final args = call.arguments;
+        if (args is Map) copied = args['text'] as String?;
+      }
+      return null;
+    });
+
+    await _pumpGraphPage(tester);
+    await _tapZeros(tester);
+    await tester.tap(find.byTooltip('下一个标记'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('零点 2/5'), findsOneWidget,
+        reason: '前提：先选中第二个标记，否则复制那条路的守卫会直接 return');
+
+    await tester.tap(find.byTooltip('复制标记'));
+    await tester.pumpAndSettle();
+
+    expect(copied, isNotNull, reason: '点了「复制标记」，剪贴板一个字节都没收到');
+    expect(copied, isNotEmpty);
+  });
+
   testWidgets('上一个/下一个标记按钮：在全部标记里环形切换', (tester) async {
     await _pumpGraphPage(tester);
     await _tapZeros(tester);
