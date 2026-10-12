@@ -66,6 +66,7 @@ void main() {
 
   _writePathTests(requireFfi);
   _toolTableTests(requireFfi);
+  _settingsPersistenceTests(requireFfi);
 
   /// 中文：建一个**没有 `result_kind`** 的 v6 库——就是升级前用户手里的形状。
   /// English: builds a v6 database **without `result_kind`** — the shape a user had before the upgrade.
@@ -309,6 +310,51 @@ void _writePathTests(void Function() requireFfi) {
 ///          test file that also used the real database would create, delete and write the same file
 ///          from both sides — a random red. This group shares the `setUp` above (which deletes the
 ///          database every time), so it has to live in the same file.
+/// 中文：**设置也真的写进 `app_settings` 表、并且关库重开仍在——「内存跟着重启活下来」的存储那一半。**
+///
+///       填的是哪一格：界面侧"记忆键立刻更新"由 `calculator_page_hiper_keypad_test.dart` 用假库钉着，
+///       控制器的持久化由 `calculator_controller_persistence_test.dart` 钉着——但**每一处都走内存假库**，
+///       "写进真 SQLite 再读回来"这条路从没走过。而"重启之后内存还在"正是发布清单上的一条用户可见行为。
+///
+///       **判据照 `_toolTableTests` 那条规矩：读访问器之外，直接查表。** 只读 `settings()` 的话，
+///       一个把设置留在内存里的实现也能全绿——"真的在表里"这句话的判据只能是表。
+/// English: **settings really written into `app_settings` and still there after the connection is dropped —
+///          the storage half of "the memory value survives a restart".**
+///
+///          The cell this fills: the interface side ("memory keys update instantly") is pinned by
+///          `calculator_page_hiper_keypad_test.dart` against a fake database, and the controller's
+///          persistence by `calculator_controller_persistence_test.dart` — but **every one of them uses an
+///          in-memory fake**, so "write into real SQLite and read it back" was never walked. And "the memory
+///          value is still there after a restart" is a user-visible line on the release checklist.
+///
+///          **The criterion follows `_toolTableTests`: besides the accessor, query the table itself.**
+///          Reading only `settings()` would keep an implementation that holds settings in memory green — the
+///          only criterion for "it really is in the table" is the table.
+void _settingsPersistenceTests(void Function() requireFfi) {
+  test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
+    requireFfi();
+    final db = AppDatabase.instance;
+
+    await db.setSetting('calculator_memory', '12.5');
+    expect((await db.settings())['calculator_memory'], '12.5');
+
+    // 中文：**判据是表**：`settings()` 之外，直接查一次。
+    // English: **the table is the criterion**: besides `settings()`, query it directly.
+    final rows = await (await db.database).query('app_settings',
+        where: 'key = ?', whereArgs: ['calculator_memory']);
+    expect(rows.single['value'], '12.5',
+        reason: '设置必须真的落在 app_settings 表里，不能只活在内存里');
+    expect(rows.single['updated_at'], isA<int>());
+
+    // 中文：**关掉连接、重新打开同一个文件**——「重启之后还在」这句话的判据。
+    // English: **drop the connection and reopen the same file** — the criterion for "still there after a
+    //          restart".
+    await db.closeForTest();
+    expect((await db.settings())['calculator_memory'], '12.5',
+        reason: '连接关掉再打开，设置必须还在——它得是落在盘上的');
+  });
+}
+
 void _toolTableTests(void Function() requireFfi) {
   test('收藏：写进 favorite_tools 表、读回来、关库重开仍在；取消收藏把行删掉', () async {
     requireFfi();
