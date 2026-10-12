@@ -210,9 +210,14 @@ void main() {
     //
     //          ⚠️ **What it proves, and what it does not, stated plainly:** it proves the "typing → the result
     //          reaches the screen" road works ✓. It does **not** scope the assertion to the primary box's own
-    //          cell ✗ — that handle (the box's copy-button tooltip) matched **zero** widgets in an earlier
-    //          version ✗, **the reason was never found** ✓, and a handle whose behaviour is unknown is not
-    //          something to build an assertion on ✗.
+    //          cell ✗ — and a later measurement narrowed why: `copyPrimaryResult` lives in **one** table only
+    //          (`tools_strings.dart`, zh `'复制主结果'`) and `_primaryResult` reads exactly that table, so the
+    //          literal was right — **the box itself was not rendered.** ⚠️ And `findsOneWidget` is what says so:
+    //          if the primary box were drawing the value too there would be **two** 47s on screen, not one. So
+    //          with these inputs (`ohms_law`, `10 mA`, `4.7kΩ`) the 47 here comes from the **result card**, and
+    //          this screen has **no primary** — while the domain-level integration test does read
+    //          `primary?.value == '47'` from the same tool, which means it drives the controller differently.
+    //          That difference is a real open question, recorded rather than papered over.
     final tool = toolCatalog.firstWhere((item) => item.id == 'ohms_law');
     final db = _FakeToolDetailDatabase(
         Completer<Map<String, String>>()..complete(const <String, String>{}));
