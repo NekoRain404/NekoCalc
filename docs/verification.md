@@ -1250,6 +1250,39 @@ recorded with its precondition and the smallest fix named — recorded rather th
   intended use; what the bridge lacks is the engine's own threaded-calculation machinery (`startControl`), not a
   timer.** That converts this from "a design choice I declined to guess at" into **a documented path**:
   adopt the engine's threaded API rather than adding a timer to the hand-rolled executor.
+
+  ⚠️ **Attempted on 2026-10-12, and reverted unshipped. What the attempt reached is kept here as a map**, so the
+  next one starts from a design instead of from zero — and so the reason it was *not* shipped is on the record:
+
+  - **Shape (Kotlin).** A separate `QalculateThreadedEvaluation` owns dispatch-and-wait: dispatch through the
+    library's threaded `calculate` overload, **wait by polling the engine's own `busy()`** rather than with a
+    timer, and stop by calling the engine's `abort()`.
+  - **The request-id protocol — the part that is not obvious.** `abort()` hits **whatever the engine is running
+    at that moment**, so an evaluation has to be **named** to be stopped: `requestId` becomes a **required**
+    channel argument, incremented per call by Dart, and the native side calls `abort()` **only when the pending
+    abort's id matches the running one** — a missing id is **rejected rather than invented**, the same rule the
+    reader already applies to `angleMode`.
+  - ⚠️ **"Stop" is best-effort, not a promise.** The evaluation may have already finished, or not yet started;
+    a queued request **claims the abort when it launches**, so it dies at its first step instead of burning a
+    full run. The Dart side's `abortInFlight` therefore returns nothing: the caller has already given up, and
+    there is nothing left to decide from the result.
+  - ✅ **Measured side-effect worth keeping: the wait responsibility comes out cleanly.** It is one self-contained
+    job — the single shared entry point for both the submit path and as-you-type evaluation — reading only
+    `_engine`, `engineTimeout` and `_engineCalls`. Lifting it into its own mixin took
+    `calculator_controller_evaluation.dart` from **798 to 725 lines**, which is also how that file gets real
+    headroom under the 800-line rule. ⚠️ Mixin order matters and is **not** arbitrary: the wait mixin must
+    precede `_CalculatorEvaluation` in the `with` list, because it provides the `_askEngine` the others call —
+    wrong order is a compile error, not a silent misbehaviour.
+  - ⚠️ **Why it was reverted rather than finished:** the change is **three-sided** (Kotlin threads, the channel
+    protocol, the Dart wait), and **its seams cannot be verified here** — there is no device in this loop, and a
+    JVM double stages *what a device would return*, which proves the double (§5o already records that
+    limitation). Shipping an **unrun concurrency** change on the one path every calculation depends on is
+    precisely what this document exists to prevent. Recorded as a retreat, not dressed up as progress.
+  - ⚠️ **Process note, and it cost real work:** the attempt was stopped **while it was writing** — eleven files
+    were touched between the check that showed a clean tree and the kill itself. Recovering meant restoring
+    **eight files from HEAD** (with `git show HEAD:<path>` into a temp file and `mv`, so a wrong path cannot
+    truncate a file) and deleting **three** that HEAD never had. **Stopping an agent is only cheap if it has not
+    started writing** — the tree, not the agent's prose, is what has to be checked immediately before the kill.
 - **`loadGlobalDefinitions() == false` is logged and dropped.** ✅ **Fixed (2026-10-12).** The file's own comment
   said the return value "must be recorded … 400-odd units and every constant vanish silently", but it never left
   logcat, so Dart could not tell "no units loaded" from a real answer. Both sides now exist, as this bullet said
