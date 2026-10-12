@@ -1584,10 +1584,10 @@ load-bearing**, and where a line number describes a state that no longer exists,
 (as done in §5r) rather than quietly updating it, so a reader can still tell "this moved" from "this was always
 wrong".
 
-## 6. Four mechanical checks that exist because of repeated mistakes
+## 6. Five mechanical checks that exist because of repeated mistakes
 
-All four guard the **same shape**: an action that did nothing looks exactly like one that ran
-and had no effect.
+All five guard one of **two** shapes: an action that did nothing looks exactly like one that ran and had no
+effect; or **a limit nobody is watching gets crossed without anything happening at all.**
 
 | Check | Guards against |
 |---|---|
@@ -1595,6 +1595,7 @@ and had no effect.
 | `test/features/new_text_tools_screen_test.dart` | a tool **registered but unreachable on screen** |
 | `tool/pull_device_db.sh` | pulling the SQLite database **without its `-wal`** (reads a stale value) |
 | `tool/install_debug_over_release.sh` | losing the device's debuggable build — it **sidesteps** the versionCode (build the debug variant at the installed one) instead of fighting the downgrade guard (§2) |
+| `test/features/file_size_limit_test.dart` | a source file under `lib/`, `test/` or `android/app/src/` **drifting past the user's 800-line cap**. The cap was kept by memory alone until 2026-10-12, when two slips of mine came from the same shape — a new test pushed `notes_controller_test.dart` to **817 lines**, and `calculator_controller_evaluation.dart` sat at **798**, two lines from the edge. Survey that day: **nothing over the line, 36 files above 700** — one small change between the pressure and the breach. The guard's own reading is `wc -l`-identical on purpose (see its header): an instrument that miscounts by one line would cry wolf, and a guard that cries wolf gets switched off. |
 
 ⚠️ **Measuring trap, learned the hard way**: `meetsGuideline` reports failures **asynchronously** —
 `expect(...)` does not throw. try/catch cannot be used to see whether it passes.
