@@ -1768,6 +1768,14 @@ that only memory enforces is a rule that breaks silently.** That is also why the
 comments before judging — the manifest's own comment *names* both strings it requires, so a raw substring check
 would pass on a manifest whose attributes had been deleted.
 
+⚠️ **The table's two device tools were audited on 2026-10-12, and both hold up by design.** They were re-read
+because that day's device work produced two facts that *could* have made them stale — the `versionCode` split and
+a credential failure on push. ⚠️ `install_debug_over_release.sh` **reads the installed `versionCode` off the
+device** instead of hard-coding it (the `4009` in its header is *history*, not a constant), so the split can change
+underneath it without the script going wrong; `pull_device_db.sh` carries the `-wal` handling its own row
+describes. ⚠️ Recorded deliberately: **a clean audit of a tool is worth as much as a defect found in one** — it is
+what stops the next person from "fixing" a script that is already right.
+
 | Check | Guards against |
 |---|---|
 | `test/features/math_reachability_test.dart` | a file under `lib/core/math/` that **nothing references** |
