@@ -1298,6 +1298,91 @@ parser) then produced both the presence of the JNI names and the absence of my o
 control fails is not a measurement** — and the only reason this entry exists at all is that `QalculateEngine`
 showing up as "absent" was too absurd to accept.
 
+### 5q. The cursor keys jumped to the ends because the selection was **invisible** — and it came back from disk (2026-10-12)
+
+Reported from the device, in the user's words: 「计算器的左右键应该每次只动一个字，你现在直接就是首尾」. The keys
+were not mis-bound — `◀`/`▶` did reach `moveCursorLeft()`/`moveCursorRight()`. The defect was what those methods
+did with a **non-collapsed selection**: left collapsed it to `selection.start`, right to `selection.end`. On
+screen that reads as a jump to the beginning, or as "nothing happened", because of an asymmetry worth naming:
+
+- **The display band draws no selection highlight at all.** `MathExpressionView`'s only caret parameter is
+  `cursorIndex` (`math_expression_view.dart:32,73`), and `int get cursorIndex => _selection.end`
+  (`calculator_controller_state.dart:280`) — so a non-collapsed selection renders as **one caret at its end**,
+  with nothing anywhere marking the other end.
+- "Collapse to `selection.start`" therefore moved the caret from where the user could see it to a position no
+  pixel had ever pointed at. And because the `cursorIndex` setter collapses too (`:282-284`), the jump happened
+  **once per selection** — which is exactly the shape of 「每次都直接首尾」.
+
+**And the selection arrives from the previous session.** With `restoreState` on, `_persistState` writes
+`calculator_cursor` / `calculator_selection_start` / `calculator_selection_end`
+(`calculator_controller_persistence.dart:447-449`); `_restoredSelection` rebuilds the range (`:507-515`) and
+`restoreIfEnabled()` assigns it post-frame from `calculator_page.dart:328`. A selection left behind by the last
+session is thus back **at the first keypress after launch** — invisible, and surviving the very restart that
+would have cleared it. This is §5n's shape in a new place: **the controller holds a state the screen cannot
+express** — and here that state also outlives the process.
+
+The fix is the narrowest of the three candidates: the keys **ignore a non-collapsed selection** and move one
+character from the caret the user can actually see (`selection.end`), the setter collapsing it as a side effect.
+The other two were rejected for not making the user's sentence true — "collapse to the edge, then move" still
+teleports (`(1,4)` under `◀` lands at 0, not one character away), and "stop persisting the selection" does not
+touch the in-session selection the inline editor creates via `onSelectionChanged` (`calculator_page.dart:498`),
+so the keys would still jump in that state. **Range replacement is untouched**: whole-range editing lives in
+`input`/`backspace` through `_replaceSelectionWith`, and its tests stayed green.
+
+⚠️ **The boundary of this change, stated rather than left to be discovered.** The keypad is reachable while
+the inline editor is open **on purpose** — `calculator_page.dart:483-488` says the keys writing into the
+editor's selection "is the whole point of this editing interaction" — and inside that editor the selection
+**is** drawn (it is a real `TextField`). So with a visible selection there, the keypad's `◀` now collapses it
+to `selection.end - 1`, not to the selection's left edge, which is what a text field would do. That is a
+deliberate trade-off: the rule became "one character from the caret", uniformly, because the alternative —
+edge-collapse when the selection is visible, one character when it is not — makes the same key behave
+differently depending on which surface holds focus, which is harder to predict than it is to explain. If the
+editor case is ever judged more important than the uniformity, **that** is the sentence to revise, not the
+keys. `_closeInlineEditor` (`:575-585`) only flips its two flags and never collapses the selection, so a range
+selected in the editor does survive closing it — reaching the controller in exactly the state this section is
+about.
+
+**One existing test had been pinning the bug.** `cursor movement collapses a selection at the requested edge`
+asserted exactly the old behaviour (`collapsed(2)` / `collapsed(5)` for selection `(2,5)`); it is now
+`cursor movement with a selection moves one character from the caret`, expecting `collapsed(4)` / `collapsed(6)`.
+Stated explicitly because "an existing expectation changed" and "a test was loosened to fit the code" are
+different events, and the difference is only visible if someone writes it down.
+
+⚠️ **The red was reproduced as a control, not taken from a report.** The pre-fix file was put back from
+`git show HEAD:…`, the files re-run, and the three tests failed **with the predicted numbers** —
+`Expected: <3> Actual: <1>`, `Expected: <5> Actual: <4>`, and the domain test's selection value — while the 29
+other tests in those two files passed on both versions. The fixed file was then restored and verified by
+sha256. That is §5o and §5p's discipline arriving from the other direction: an agent's "it was red before" is a
+claim; **the control is the measurement.**
+
+⚠️ **The install step has exactly one way to destroy user data, and this round walked up to it.** The first
+rebuild of this fix used `--target-platform android-arm64` on its own, which emits `app-release.apk` at
+**versionCode 2009** — while the device carried **4009** from the ABI-split APK installed during the smoke
+test. ⚠️ **The two files are the same payload: `app-release.apk` and `app-arm64-v8a-release.apk` are both
+34,289,489 bytes.** Only the number differs — and that number alone decides whether the install is an upgrade
+or a refusal. It is the downgrade guard **§2:117-148** already owns (first met in the debug direction, and
+scripted around in `tool/install_debug_over_release.sh`), and it creates the same temptation: the reflex that
+clears the refusal is **uninstall, then install**, which takes history, notes and settings with it. What
+resolves it is not a flag but **the right build**: each ABI carries its own versionCode (`armeabi-v7a` 3009,
+`arm64-v8a` **4009**, `x86_64` 6009), so rebuilding the **same ABI split** lands on an equal number and
+installs as an ordinary upgrade. The check costs two `aapt2 dump badging` reads, one per side, **before**
+pressing install; `lastUpdateTime` moving (10:23:09 → 10:36:40) confirmed it afterwards. This paragraph is
+short on purpose — §2 closes by noting it was re-derived the hard way once already, and re-telling it here
+would be the same mistake in a new place.
+
+⚠️ **The device's build predates this fix.** The APK installed during the release smoke test carries
+`1.2.0-beta.1` / versionCode 4009, so the report and the fix sit on opposite sides of it. The point of
+rebuilding and reinstalling in this round is that the fix should be **felt on the phone, not read in a
+report** — a green suite is not a user pressing ◀. **What was verified on the device, and what was not**:
+the rebuilt APK installed cleanly over the running one, and `am start -W` returned `Status: ok` with the
+process alive — so the release build launches. ⚠️ **Its UI was not seen.** The screen was asleep
+(`mWakefulness=Asleep`, which is why the first capture was a black frame — and note that `screencap -d 0`
+and `-d 1` silently produced **0-byte files**, because `-d` wants SurfaceFlinger's *physical* display id,
+not the logical one). After waking it the window stack reported `mCurrentFocus=null` behind the
+notification shade, and the capture guard refused to screenshot **the user's own screen** rather than
+learn anything from it. So: launches — measured; draws — **not** measured; the key press that this whole
+section is about is the user's to make.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
