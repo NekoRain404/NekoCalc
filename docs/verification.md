@@ -1813,6 +1813,17 @@ was swept for the two vocabularies those findings used, and every hit was checke
   number* returned noise (78 "hits" in a file that merely does arithmetic), while matching the **measurement
   words** returned three sites. **A count is not a reading** — the four pointer-only files in §5w had to be
   opened for exactly that reason, and there the count had been wrong in the reassuring direction.
+- ⚠️ **A third vocabulary — the layout transcription — is *not* closed, and closing it is the best remaining item
+  of this kind.** The keypad's fidelity to HiPER rests on the class comment in `hiper_keypad_number_rows.dart`,
+  which records a **careful reading of two screenshots** (the vendor's current default, and this machine's device
+  screenshot — two layout versions, with the vendor's own strings cited for why they differ).
+  `keypad_definition_test.dart`'s per-cell snapshot pins **our** faces, but **not that they equal HiPER's**. ⚠️
+  **The way to close it is clear, and it would be the first comparison this project runs *against* HiPER rather
+  than *about* it:** transcribe the vendor's current default layout into a **tracked test fixture**, then assert
+  our keypad equals it **cell for cell**, bands included. ⚠️ **Deliberately not attempted on 2026-10-12, at hour
+  17.7:** the work *is* a careful transcription, and this day's demonstrated failure mode was exactly that — nine
+  miscounted-indentation slips in one evening. **A test that enshrines a mis-transcription is worse than no test**,
+  so the transcription is left for a sitting with attention to spare, and this paragraph is its brief.
 
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
