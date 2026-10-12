@@ -1687,6 +1687,17 @@ is the closest thing this project has to an answer for 「超越 HiPER」, so it
 that the app surpasses HiPER — that needs the other app, which is not here. **An accurate register is what makes
 such a claim checkable later; it is not the claim.**
 
+⚠️ **And this audit missed one — which is worth as much as what it found.** Its citation check covered `.dart` /
+`.kt` / `.md` paths, so the register's row for 拍照解题 — whose evidence cell read **`hiper.txt:728-745`** — went
+through untouched. **That file is no longer on disk**, and the manual's text is not in the scratch tree in any
+other form (the one `.html` there matches `拍照` / `photo` / `OCR` / `camera` **zero** times). The *fact*
+survives — the manual's lines 728–745 are a photo-solving section, and the register records it in two further
+places — but its **provenance is gone**, so a reader cannot re-check it. ⚠️ **That is §5s's rot, found inside
+the audit that was looking for rot**, and it was missed only because the check had a **narrower extension list
+than the documents it was checking**. The row's own evidence cell now says so. ⚠️ The trade-off is the familiar
+one: a narrow check cannot cry wolf (§6), and a narrow check also has blind spots — the honest move is to
+**record the blind spot** rather than widen the check until it starts crying wolf.
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
