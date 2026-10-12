@@ -114,7 +114,24 @@ my app-arm64-v8a-release.apk : CN=NekoCalc, OU=NekoRain, ... SHA-256 bbb28c50…
 **Same certificate ⇒ `adb install -r` replaces in place and keeps the data** (it also went `2009 → 4009`, an
 upgrade, so no downgrade guard fires). Both release rows above come from that install.
 
-⚠️ **The reverse direction is worse than "needs `-d`" — measured, `-d` is not enough on this device.** ⚠️ **And
+⚠️ **`HANDOVER.md` is not in this repository** (noted 2026-10-12). The citations below — and seven more elsewhere:
+four comments in `hiper_keypad_angle_matrix_row.dart`, two in `calculator_value_start_test.dart`, one each in
+`calculator_page_test.dart` and `tool/pull_device_db.sh` — point at a file that is **neither tracked nor on
+disk**. **The knowledge did not go with it**: what §十九 held is **re-derived and recorded in this section**
+(from `:119` onward), and those code comments **quote their citation inline**, which is how a citation should
+read anyway. ⚠️ **A pointer to a file that is gone is exactly the rot §5s tracks** — recorded here **once**
+rather than rewritten in nine places, and deliberately **not** recreated: a second copy of the same knowledge
+would put one sentence in two places, which is the thing this repository keeps refusing to do.
+
+⚠️ **`HANDOVER.md` 不在这个仓库里**（2026-10-12 记）。下面这段引用，以及别处另外七处 ——
+`hiper_keypad_angle_matrix_row.dart` 四条注释、`calculator_value_start_test.dart` 两处、
+`calculator_page_test.dart` 与 `tool/pull_device_db.sh` 各一处 —— 指的是一份**既未入库、也不在磁盘上**的
+文件。**知识并没有跟着丢**：§十九 记的那些，在**本节**被重新推导并逐条记下（`:119` 起）；而那些代码注释
+**把引文直接写在旁边**，这本来就是引用该有的样子。⚠️ **指向一个已经不存在的文件，正是 §5s 在追的那种腐烂**
+—— 在这里记**一次**，好过在九处各改一遍；也**故意不重造**那份文件：同一份知识放两个地方，正是这个仓库一直
+拒绝做的事。
+
+
 none of this is new.** `HANDOVER.md` **§十九** — whose heading is "read this before going onto the device" —
 recorded the whole trap on **2026-09-30**: the `4009`/`2009` split, all three flags being refused, `run-as`
 breaking, and the uninstall + byte-exact database restore it used to recover. **I re-derived it the hard way
