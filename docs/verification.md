@@ -1507,6 +1507,19 @@ rests on**, and **the choice it handed back instead of applying**.
   that did not exist before the fix. A compile error is not assertion evidence; dressing it up as such is the
   same error as reading a grep that found nothing (§5p). Both are stated, neither is inflated.
 
+**Postscript, same day: the notes-search suspicion is confirmed, and its shape is exact.** The audit listed it as
+a suspicion, so it was read rather than left ambiguous. `_databaseNoteQuery` (`notes_controller.dart:245-254`)
+hands the query to SQL **only** when it matches `^[A-Za-z0-9一-鿿]+(\s+…)*$` — plain words and CJK.
+Anything else — a date such as `2026-05-12`, an engineering symbol, any punctuation — returns `null`, so the
+repository is called **with no query at all** and hands back its **first page** (`limit: _notePageSize`,
+`:263-269`); the filter at `:85` then runs over that page alone. A note that matches a date query on page 2+
+**cannot be found**: the search looks empty rather than incomplete. ⚠️ The comment beside it (`:248-249`)
+correctly explains why the SQL prefilter cannot carry dates — **that part is sound; what is missing is any
+handling of the consequence.** Not yet fixed: the fix requires a decision about fetching past the page when the
+filter can only run locally, and the existing test that pins the prefilter choice
+(`test/domain/notes_controller_test.dart`) has to change in the same commit — deliberately deferred rather than
+half-done, and written down here so it is not rediscovered as a surprise.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
