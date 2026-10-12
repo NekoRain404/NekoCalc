@@ -210,7 +210,9 @@ HiPER 的分步是**十进制 / 表达式模式**的（把 `1+2×3` 拆成"先�
 
 ✅ **那"两种可能"查清了，而且答案是第三种：两者都不是。**
 
-`calculator_controller.dart:254` 写着 **`engineTimeout = Duration(seconds: 5)`**。
+`calculator_controller.dart` 里 `engineTimeout` 的默认值是 **`Duration(seconds: 5)`**（⚠️ 引用的那一行本轮在
+`:266`——**按名字找，别按行号找**：同一天里，这个文件因为别处的注释插入把行号整体顶走了一次，
+`verification.md` §5s 记着这条规矩与它的代价）。
 所以"两分钟没出结果"的真相是：**应用在第 5 秒就放弃了这一发**，把它当成"引擎失败"处理——
 而那条路**不写 `calculator_result`**。**"引擎还在算"这个可能被排除**：它在 5 秒时就被丢掉了。
 

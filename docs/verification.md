@@ -1492,7 +1492,8 @@ the bullet-by-bullet audit replaced it. Evidence base: 25 test files green on 20
 **The headline is a defect, not a gap: the graph ignores the app's angle mode.**
 `graph_models.dart` hard-coded `ExpressionParser(parsed, degreeMode: false)` — **line 98 when this was written;
 the call now reads `degreeMode: degreeMode` at `:117`, see §5s** — while the calculator passes
-`degreeMode: angleMode == 'DEG'` (`calculator_controller_evaluation.dart:780`) and `GraphPage` could not even
+`degreeMode: angleMode == 'DEG'` (`calculator_controller_evaluation.dart:735`; ⚠️ that number has moved **twice**
+in one day — see the extraction note below, and prefer the symbol) and `GraphPage` could not even
 reach the mode: its constructor took only `db`, `restoreState`, `reloadToken` (it takes `angleMode` as of §5s).
 So under
 DEG the curve, the markers solved on it (zeros, intersections, extrema), and the calculator **disagree on the
@@ -1577,7 +1578,9 @@ rests on**, and **the choice it handed back instead of applying**.
 
 ⚠️ **And every `file:line` in §5q, §5r and §5s was re-checked hours later — four had already moved.** Each
 citation in these three sections was verified against the working tree on 2026-10-12, and four were stale:
-`calculator_controller_evaluation.dart:762 → 780` (the definitions verdict's insertion moved it),
+`calculator_controller_evaluation.dart:762 → 780 → 735` (the definitions verdict's insertion moved it, and then
+the **same afternoon's** extraction of the wait responsibility moved it again — so the count of "how many times
+this one citation has been chased" is now **three**),
 `graph_models.dart:98 → 117` (this very section's fix — the hard-coded call the sentence describes *is* the line
 that changed), `calculator_controller_editing.dart:398 → 404` and `calculator_controller_persistence.dart:447 →
 459` (the cursor fix's deletions). ⚠️ **The pattern is the point: the fixes moved the lines that document them.**
