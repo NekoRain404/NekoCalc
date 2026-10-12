@@ -330,6 +330,20 @@ void _writePathTests(void Function() requireFfi) {
 ///          **The criterion follows `_toolTableTests`: besides the accessor, query the table itself.**
 ///          Reading only `settings()` would keep an implementation that holds settings in memory green — the
 ///          only criterion for "it really is in the table" is the table.
+///
+///          ⚠️ **A flake was measured in this file on 2026-10-12, and this test is one of the suspects.**
+///          What was measured, not inferred: running the full suite at `--concurrency=16` (the release
+///          checklist's own command) failed **twice** on `addHistory 派生：计算器→number，工具行→tool，显式
+///          opaque 不被形状覆盖` — a test in the **migration group**, not this one — and a three-run repeat
+///          gave **fail / pass / pass**. The same file run **alone** is green every time, and each test file
+///          is its own isolate, so the interference travels through the **filesystem or the working
+///          directory**, not through in-process state. ⚠️ **The named suspect is the singleton plus
+///          `closeForTest()`** — `AppDatabase.instance` is shared by every group in this file, and both
+///          `_toolTableTests` and this group drop its connection mid-file; whether a drop races a previous
+///          test's still-landing write is **not established**. ⚠️ **This test is not exempt**: it was added
+///          the same day, and the honest position is that its `closeForTest()` is as likely a trigger as the
+///          older ones. Reproducing it at will was not achieved in three runs, so the next step is a loop
+///          over the suite (not over this file — alone it never fails) with the timing recorded.
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
