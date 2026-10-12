@@ -1266,13 +1266,17 @@ recorded with its precondition and the smallest fix named — recorded rather th
     a queued request **claims the abort when it launches**, so it dies at its first step instead of burning a
     full run. The Dart side's `abortInFlight` therefore returns nothing: the caller has already given up, and
     there is nothing left to decide from the result.
-  - ✅ **Measured side-effect worth keeping: the wait responsibility comes out cleanly.** It is one self-contained
-    job — the single shared entry point for both the submit path and as-you-type evaluation — reading only
-    `_engine`, `engineTimeout` and `_engineCalls`. Lifting it into its own mixin took
-    `calculator_controller_evaluation.dart` from **798 to 725 lines**, which is also how that file gets real
-    headroom under the 800-line rule. ⚠️ Mixin order matters and is **not** arbitrary: the wait mixin must
-    precede `_CalculatorEvaluation` in the `with` list, because it provides the `_askEngine` the others call —
-    wrong order is a compile error, not a silent misbehaviour.
+  - ✅ **Done separately (2026-10-12), without the threading change:** the wait responsibility now lives in its
+    own mixin (`calculator_controller_engine_wait.dart`), which took `calculator_controller_evaluation.dart`
+    from **798 to 753 lines** — real headroom under the 800-line rule, instead of a boundary the next change
+    would collide with. ⚠️ The attempted version above measured **725**, because it also carried the threading
+    work's other pieces; **753 is what this extraction alone yields**, and it is the number to check that file
+    against. The order constraint held exactly as predicted: the mixin must precede `_CalculatorEvaluation` on
+    the `with` list, and getting it wrong is a **compile error**. ⚠️ And the move caught its own trap: the
+    original method carried an `@override` (it implements an abstract declaration in
+    `calculator_controller_state.dart`), the moved copy first omitted it — **one missed annotation produced two
+    warnings**, "overrides without the annotation" on the new side and "annotated but overriding nothing" on
+    the old. Which is why the move had to be checked with `flutter analyze`, not just with a green suite.
   - ⚠️ **Why it was reverted rather than finished:** the change is **three-sided** (Kotlin threads, the channel
     protocol, the Dart wait), and **its seams cannot be verified here** — there is no device in this loop, and a
     JVM double stages *what a device would return*, which proves the double (§5o already records that

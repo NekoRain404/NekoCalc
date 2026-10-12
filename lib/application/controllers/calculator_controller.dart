@@ -35,6 +35,12 @@ part 'calculator_controller_state.dart';
 part 'calculator_controller_editing.dart';
 part 'calculator_controller_insertion.dart';
 part 'calculator_controller_evaluation.dart';
+// 中文：**顺序承重**，与下面那条同一种（理由写在这个文件自己的头部注释里）：它提供
+//       `_CalculatorEvaluation` 要调用的 `_askEngine`，所以必须在前面——换顺序是编译错误。
+// English: **load-bearing order**, the same kind as the entry below (the reasoning is at this file's own
+//          head): it provides the `_askEngine` that `_CalculatorEvaluation` calls, so it comes first —
+//          reordering is a compile error.
+part 'calculator_controller_engine_wait.dart';
 // 中文：**顺序承重**：边打边算那条流程读 `_CalculatorEvaluation` 的 `_selectEngineResult` 与
 //       `_askEngineTranslated`，所以它必须排在它**后面**（`on` 子句里写着）。换顺序是一个编译
 //       错误，不是一条静默的错行为。
@@ -224,6 +230,12 @@ class CalculatorController extends ChangeNotifier
         //          (`_engineMathResult`), so this one has to come first. Reordering is a compile
         //          error, not a silent wrong behaviour.
         _CalculatorEngineDisplay,
+        // 中文：**顺序承重**：它提供 `_askEngine`，而 `_CalculatorEvaluation` 要调它——
+        //       所以必须排在那一个之前。换顺序是编译错误，不是静默的错行为。
+        // English: **the order is load-bearing**: it provides `_askEngine`, which `_CalculatorEvaluation`
+        //          calls, so it has to come before that one. Reordering is a compile error, not a silent
+        //          misbehaviour.
+        _CalculatorEngineWait,
         _CalculatorEvaluation,
         _CalculatorLiveEvaluation,
         _CalculatorPersistence,

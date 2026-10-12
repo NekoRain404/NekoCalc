@@ -569,51 +569,6 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
       _relationCameBackAsTruthValue(answer) ||
       _systemCameBackUnsolved(answer);
 
-  @override
-  Future<EngineReply> _askEngine(String expression) {
-    final completer = Completer<EngineReply>();
-    final timer = Timer(engineTimeout, () {
-      _engineCalls.remove(completer);
-      if (completer.isCompleted) return;
-      completer.complete(
-        EngineReply.failure(
-            'engine_timeout: ${engineTimeout.inMilliseconds}ms'),
-      );
-    });
-    _engineCalls[completer] = timer;
-
-    /// 中文：引擎回话（或抛出来）时的收尾，两条路共用。
-    /// English: The wrap-up for whichever way the engine answers (or throws); both paths share it.
-    void settle(EngineReply reply) {
-      _engineCalls.remove(completer);
-      if (completer.isCompleted) return;
-      timer.cancel();
-      completer.complete(reply);
-    }
-
-    try {
-      unawaited(
-        _engine.evaluate(expression, angleMode: angleMode).then(
-              settle,
-              onError: (Object error) =>
-                  settle(EngineReply.failure('engine_threw: $error')),
-            ),
-      );
-    } catch (error) {
-      // 中文：`evaluate` 在返回 Future 之前就抛了出来——异步方法抛算是被拒绝的 Future（走
-      //       `onError`），但一个同步实现可以在返回之前直接抛。这一条在修复轮 1 把引擎调用搬出
-      //       原来那个 `try` 时丢掉了，`=` 于是从「回落旧解析器」变成「表达式错误」；这里补回来，
-      //       并且顺手把定时器收掉。
-      // English: `evaluate` threw before it returned a Future — an `async` method's throw becomes a
-      //          rejected future (handled by `onError`), but a synchronous implementation can throw
-      //          before it returns at all. Fix round 1 lost this when it moved the engine call out of
-      //          the old `try`, which turned "=" from a legacy fallback into "表达式错误"; this puts
-      //          it back and collects the timer while it is at it.
-      settle(EngineReply.failure('engine_threw: $error'));
-    }
-    return completer.future;
-  }
-
   /// 中文：**引擎那一份答案选出来之后怎么画在屏幕上**——取整只有这一处实现，选出来的那一份由
   ///       `calculator_controller_engine_display.dart` 画（本文件到了 800 行那条硬边界，那一半
   ///       本轮搬了出去；本文件只到「取哪一份」为止）。
