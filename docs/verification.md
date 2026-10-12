@@ -1587,6 +1587,32 @@ load-bearing**, and where a line number describes a state that no longer exists,
 (as done in §5r) rather than quietly updating it, so a reader can still tell "this moved" from "this was always
 wrong".
 
+### 5t. The colour literals that really are off-token — and the two that were my own miscount (2026-10-12)
+
+The directive asks for **UI consistency**, and §5h's claim was narrow: `app_theme.dart` maps every Material role
+to a `CalcTheme` token and holds **no colour literal** — that still measures true. But the same grep run over the
+rest of `lib/` returns **12 files**, and a count is not a finding. Reading every hit split them three ways:
+
+- **Legitimate palettes — not defects.** `calc_theme.dart`'s 144 literals are the **definitions** (six themes ×
+  ~23 tokens); `category_visuals.dart` (9) and `fit_chart_painter.dart` (4) and `graph_models.dart` (7) are
+  per-identity colours (tool categories, chart series, function curves) that a theme cannot supply.
+- ⚠️ **Two hits were mine, not the code's.** `status_chips.dart`'s two are inside **comments**;
+  `text_tool_web_strings.dart`'s four are **prose** — that file *documents* the `Color(0xAARRGGBB)` syntax the
+  text tool accepts. A strings file appearing in a colour grep looks alarming right up until it is read.
+  **"12 stray literals" would have been a false finding**; the read is what made it true.
+- **Genuinely off-token — 7 sites in 5 files:** ⚠️ `Colors.amber` **four times** as the favourite star
+  (`tool_widgets.dart:315,323`, `tools_home_page.dart:585`, `tool_detail_screen.dart:236`) — and the reason it
+  survived is worth more than the finding: **a test pins it**
+  (`tool_category_screen_test.dart` asserts `favoriteIcon.color == Colors.amber`), so the literal reads as
+  deliberate. A warm amber star inside the violet or ocean palette is a consistency defect that no token
+  comparison can see. Then `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` — a stray default
+  blue in a themed dialog — and `app_chrome.dart:279,284,285,291`'s `Colors.white` + `Color(0xFFD8D3FF)` +
+  `Color(0xFFE8ECF7)` (cool-toned colours from **before** the warm palette) + a hard-coded shadow.
+- ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
+  themes are in force, so these are **places where the palette can drift**, and a colour change is exactly the
+  kind of claim this project says needs a **render check**, not a token swap in the dark. The list is written
+  down so the pass that changes colours starts from a measured list instead of from a grep count.
+
 ## 6. Six mechanical checks that exist because of repeated mistakes
 
 All six guard one of **three** shapes: an action that did nothing looks exactly like one that ran and had no
