@@ -26,9 +26,21 @@ Backup export creates a local JSON backup file selected by you. Import reads the
 
 ## Permissions / 权限
 
-NekoCalc uses the vibration permission only for optional haptic feedback during calculator and tool interactions.
+NekoCalc declares **two** permissions: **vibration**, used only for optional haptic feedback during calculator
+and tool interactions, and **internet**, used only by the user-initiated "check for updates" action in Settings
+— which fetches the public release list from GitHub and **uploads nothing**.
 
-NekoCalc 仅使用震动权限，用于计算器和工具交互中的可选触感反馈。
+NekoCalc 声明**两项**权限：**震动**，仅用于计算器和工具交互中的可选触感反馈；以及**网络**，仅用于设置页里
+**由用户主动触发**的「检查更新」——它从 GitHub 取公开的发行列表，**不上传任何内容**。
+
+⚠️ **Corrected 2026-10-12.** This section used to say "the vibration permission only", while
+`AndroidManifest.xml` also declares `android.permission.INTERNET` (for the update check described above).
+**A privacy policy that omits one of the permissions is worse than one that lists none** — it lets the reader
+believe they have seen them all.
+
+⚠️ **2026-10-12 更正。** 本节此前写的是「仅使用震动权限」，而 `AndroidManifest.xml` 里同时声明着
+`android.permission.INTERNET`（供上面那条更新检查使用）。**漏列一项权限的隐私政策比不写更坏**——
+它会让读者以为自己已经看到了全部。
 
 ## Data Deletion / 数据删除
 

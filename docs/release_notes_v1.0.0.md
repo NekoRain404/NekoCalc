@@ -19,6 +19,18 @@ NekoCalc 1.0 是本地优先 Android 计算工具箱的第一个正式稳定版�
 - Removed unused network permission. NekoCalc remains offline and local-first.
 - 移除了未使用的网络权限。NekoCalc 保持离线、本地优先。
 
+  ⚠️ **Corrected 2026-10-12 — this line is wrong on both counts.** `AndroidManifest.xml` still declares
+  `android.permission.INTERNET`, and it is **not** unused: the user-initiated "check for updates" action in
+  Settings fetches the public release list from GitHub (`github_release_checker.dart`). Nothing is uploaded
+  and the app stays local-first — but "removed the permission" never happened, and "offline" was never exact.
+  The privacy policy carried the same omission and was corrected the same day. The original line is kept above
+  on purpose: **a published release note is a record, so it gets a dated correction rather than a rewrite.**
+  ⚠️ **2026-10-12 更正——这一行两处都不成立。** `AndroidManifest.xml` 里仍然声明着
+  `android.permission.INTERNET`，而且它**并非未使用**：设置页里**由用户主动触发**的「检查更新」会从 GitHub
+  取公开的发行列表（`github_release_checker.dart`）。**不上传任何内容**，应用也仍然是本地优先——
+  但"移除了权限"从未发生，"离线"也从来不够准确。隐私政策有同一处漏列，同日一并更正。
+  上面那行**刻意保留**：**发布过的发行说明是记录，所以给它一处注明日期的更正，而不是改写它。**
+
 ## Assets / 下载包
 
 - `NekoCalc-v1.0.0+6-arm64-v8a.apk` for most modern Android phones.
