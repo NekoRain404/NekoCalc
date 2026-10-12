@@ -818,8 +818,11 @@ occurrences are the same highlighted primary-result panel), 12 = nested tinted b
 fixed-size tiles (the 78dp tool tile; `DetailMetric`, whose label cell is measured at 110.00 against a 109.1dp
 longest string), 6 = the inset between a chart's border and its painted content.
 
-**Removable weight found in the same pass** (evidence = reference counts, not opinion; *candidates* — nothing
-here is deleted yet):
+**Removable weight found in the same pass** (evidence = reference counts, not opinion). ⚠️ **Status as of
+2026-10-12: all four are gone** — `math_expression_text.dart` no longer exists on disk, and every symbol named
+below measures **zero references** in `lib/` and `test/`. The table is kept as the record of *what went* and
+what it cost, **not as a to-do list** — it read as one for a while, which is the same rot this document keeps
+catching: a sentence that was true when written and false when read:
 
 | candidate | evidence | what would be lost |
 |---|---|---|
