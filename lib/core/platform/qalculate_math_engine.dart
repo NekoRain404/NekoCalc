@@ -75,6 +75,40 @@ class QalculateMathEngine implements MathEngine {
   static EngineReply _replyFrom(Map<String, String> payload) {
     final messages = payload['messages'] ?? '';
     final aborted = payload['aborted'] == 'true';
+    // 中文：**这台引擎有没有单位与常数。** 原生侧 `loadGlobalDefinitions()` 回 false 时算术照常
+    //       工作，但 400 多个单位与所有常数静默消失——那时同一条输入会被引擎读成**别的东西**，
+    //       印出来的答案与真的没有区别（§5o）。这份回执因此按「这一次没有引擎答案」处理：不采用
+    //       它的结果，回落旧解析器，与引擎缺席、超时、失败走同一条路（`engine_definitions_unloaded`
+    //       这条错误串由应用层解析成一句人话）。
+    //
+    //       **只有显式 `'false'` 才算数**：键整个不在（旧的原生侧、版本不匹配）时按今天的行为走，
+    //       与 `kind` 那条同一条规矩——认不出来不放宽，也不新增失败。
+    //
+    //       位置在 `ok` 检查**之前**：`false` 是根因，守卫那一条出口的 `ok=false` 只是它的后果
+    //       （定义没加载 ⇒ 符号表是空的 ⇒ 每个调用名都不认识），根因应当胜出。
+    // English: **does the engine have its units and constants.** When the native
+    //          `loadGlobalDefinitions()` returns false arithmetic still works, but 400-odd units and
+    //          every constant vanish silently — the same input then gets read as **something else**
+    //          and the printed answer is indistinguishable from a real one (§5o). This receipt is
+    //          therefore treated as "no engine answer this time": its result is not adopted and the
+    //          legacy parser takes over — the same road as an absent, timed-out or failed engine (the
+    //          `engine_definitions_unloaded` error string is resolved into a sentence by the
+    //          application layer).
+    //
+    //          **Only an explicit `'false'` counts**: a missing key (an older native side, a version
+    //          mismatch) keeps today's behaviour — the same rule as `kind`, which neither relaxes
+    //          what it cannot recognise nor invents a new failure.
+    //
+    //          It sits before the `ok` check because `false` is the **root cause**: the guard exit's
+    //          `ok=false` is only its consequence (no definitions = an empty symbol table = every call
+    //          name unknown), and the root cause should win.
+    if (payload['definitionsLoaded'] == 'false') {
+      return EngineReply.failure(
+        'engine_definitions_unloaded',
+        messages: messages,
+        aborted: aborted,
+      );
+    }
     if (payload['ok'] != 'true') {
       return EngineReply.failure(
         'engine_error: ${payload['error'] ?? ''}'.trim(),

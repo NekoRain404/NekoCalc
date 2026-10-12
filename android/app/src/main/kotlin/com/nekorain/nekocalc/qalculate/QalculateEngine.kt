@@ -42,11 +42,80 @@ import java.util.concurrent.Executors
  *          move: every line came across unchanged, only `private fun` became package-visible
  *          `internal fun`.
  */
-class QalculateEngine {
+class QalculateEngine(
+    // 中文：必须由宿主显式加载 libqalculate_swig.so。
+    //
+    // 这个 AAR 的 classes.jar 里一处 System.loadLibrary 都没有——SWIG 的 %pragma(java)
+    // jniclasscode 没有被写进 libqalculate.i，所以生成的 JNI 胶水不会自己加载动态库。
+    // 少了这一行，第一次 `Calculator()` 就抛 UnsatisfiedLinkError：
+    // 「No implementation found for long ...libqalculateJNI.new_Calculator__SWIG_0()」。
+    //
+    // 库名来自 libqalculate_swig.so 的 SONAME，不是文件名猜的。它 DT_NEEDED 的
+    // libqalculate / libgmp / libmpfr / libiconv / libxml2 / libc++_shared 都在同一个 AAR 里，
+    // 链接器会在同一个目录里把它们找齐。
+    //
+    // **它做成构造参数只为测试**：宿主 JVM 上没有那个 `.so`，`System.loadLibrary` 在那里必然抛
+    // `UnsatisfiedLinkError`，于是求值路径在单元测试里一步都走不动（`src/test` 里那份 JNI 替身
+    // 接得住 AAR 自己的胶水，接不住 JDK 这一句）。生产调用方用的是默认值，行为一字未改；
+    // 默认值与注入值的差别**只到这一行为止**——下面所有东西（`Calculator`、全局定义、回执）
+    // 两条路完全一样。
+    //
+    // English: The host must load libqalculate_swig.so explicitly.
+    //
+    // There is not a single System.loadLibrary call anywhere in this AAR's classes.jar — SWIG's
+    // %pragma(java) jniclasscode never made it into libqalculate.i, so the generated JNI glue does
+    // not load the shared library itself. Without this line the first `Calculator()` throws
+    // UnsatisfiedLinkError: "No implementation found for long
+    // ...libqalculateJNI.new_Calculator__SWIG_0()".
+    //
+    // The name comes from the SONAME of libqalculate_swig.so rather than from guessing at the file
+    // name. Everything it DT_NEEDs — libqalculate / libgmp / libmpfr / libiconv / libxml2 /
+    // libc++_shared — ships in the same AAR, so the linker finds them side by side.
+    //
+    // **It is a constructor parameter for tests only**: a host JVM has no such `.so`, so
+    // `System.loadLibrary` always throws `UnsatisfiedLinkError` there and the evaluation path cannot
+    // take a single step under a unit test (the JNI double under `src/test` catches the AAR's own
+    // glue, not this JDK call). Production passes the default and its behaviour is unchanged; the
+    // two differ **only up to this line** — everything below (`Calculator`, the global definitions,
+    // the receipt) is identical on both roads.
+    private val loadNativeLibrary: () -> Unit = { System.loadLibrary("qalculate_swig") },
+) {
 
     private val engineThread = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "qalculate-engine").apply { isDaemon = true }
     }
+
+    /**
+     * 中文：**`loadGlobalDefinitions()` 的结果——回执里那条事实的来源。** 它在第一次求值时被写一次
+     *       （下面 `calc` 里那一行），此后只读，读写都只在引擎线程上。
+     *
+     *       §5o 记下的缺陷正是「只写进 logcat、不带出这一层」：为 false 时算术照常工作，但 400 多个
+     *       单位与所有常数静默消失，而同一条输入会被引擎读成**别的东西**——Dart 分不出「引擎没有
+     *       单位」与「引擎给了一个答案」。现在它跟着每一份回执走（`definitionsLoaded`），调用方据此
+     *       拒绝这台引擎的答案（回落旧解析器），而不是把错值当真值。
+     *
+     *       初值 `false` 的含义是**「还没加载过」，不是「加载失败」**：真正的加载发生在第一次求值里，
+     *       而带这个字段的两条出口（调用名守卫、求值成功）都在加载**之后**才读它。异常出口（catch
+     *       那份 map）故意不带这个字段：那条路上回执已经是一份失败，「加载成没成」改变不了什么。
+     *
+     * English: **the result of `loadGlobalDefinitions()`, the source of the receipt's fact.** It is
+     *          written once, by the first evaluation (the line inside `calc` below), and only read
+     *          afterwards; both happen on the engine thread alone.
+     *
+     *          §5o recorded the defect as exactly "written to logcat and never carried out of this
+     *          layer": when it is false arithmetic still works but 400-odd units and every constant
+     *          vanish silently, and the same input gets read as **something else** — Dart could not
+     *          tell "the engine has no units" from "the engine gave an answer". It now travels with
+     *          every receipt (`definitionsLoaded`) so the caller refuses this engine's answers and
+     *          falls back to the legacy parser instead of taking a wrong value for a right one.
+     *
+     *          The initial `false` means **"not loaded yet", not "failed to load"**: the real load
+     *          happens inside the first evaluation, and the two exits that carry the field (the
+     *          call-name guard and the successful map) read it only after that. The exceptional exit
+     *          (the catch map) deliberately carries no such field: on that road the receipt is
+     *          already a failure and "did the load succeed" changes nothing.
+     */
+    private var globalDefinitionsLoaded = false
 
     // 中文：全局定义（单位、常数、函数）整个进程只加载一次，`by lazy` 把这份代价推迟到第一次求值。
     //       loadGlobalDefinitions() 的返回值必须记下来：它为 false 时算术照常工作，
@@ -63,6 +132,10 @@ class QalculateEngine {
         if (!loaded) {
             Log.w(TAG, "global definitions missing: units and constants will be unavailable")
         }
+        // 中文：记进回执那一份事实（见字段上的注释）——logcat 只留给人看，这里才是要带出去的那一份。
+        // English: recorded into the receipt's fact (see the field's note) — logcat stays for human
+        //          eyes; this is the copy that travels.
+        globalDefinitionsLoaded = loaded
         // 中文：精度提到 16 位**有效数字**。默认的 8 位会让 `decimal` 在 Dart 侧取整之前就已经失真：
         //       `1000000/3` 在 8 位下是 `333333.33`，用户把设置调到 8 位小数时显示成
         //       `333333.33000000`——凭空多出六位假的零。16 位有效数字在整个 double 量程内都足够
@@ -103,34 +176,6 @@ class QalculateEngine {
     }
 
     /**
-     * 中文：必须由宿主显式加载 libqalculate_swig.so。
-     *
-     * 这个 AAR 的 classes.jar 里一处 System.loadLibrary 都没有——SWIG 的 %pragma(java)
-     * jniclasscode 没有被写进 libqalculate.i，所以生成的 JNI 胶水不会自己加载动态库。
-     * 少了这一行，第一次 `Calculator()` 就抛 UnsatisfiedLinkError：
-     * 「No implementation found for long ...libqalculateJNI.new_Calculator__SWIG_0()」。
-     *
-     * 库名来自 libqalculate_swig.so 的 SONAME，不是文件名猜的。它 DT_NEEDED 的
-     * libqalculate / libgmp / libmpfr / libiconv / libxml2 / libc++_shared 都在同一个 AAR 里，
-     * 链接器会在同一个目录里把它们找齐。
-     *
-     * English: The host must load libqalculate_swig.so explicitly.
-     *
-     * There is not a single System.loadLibrary call anywhere in this AAR's classes.jar — SWIG's
-     * %pragma(java) jniclasscode never made it into libqalculate.i, so the generated JNI glue does
-     * not load the shared library itself. Without this line the first `Calculator()` throws
-     * UnsatisfiedLinkError: "No implementation found for long
-     * ...libqalculateJNI.new_Calculator__SWIG_0()".
-     *
-     * The name comes from the SONAME of libqalculate_swig.so rather than from guessing at the file
-     * name. Everything it DT_NEEDs — libqalculate / libgmp / libmpfr / libiconv / libxml2 /
-     * libc++_shared — ships in the same AAR, so the linker finds them side by side.
-     */
-    private fun loadNativeLibrary() {
-        System.loadLibrary("qalculate_swig")
-    }
-
-    /**
      * 中文：求值一次，返回可以直接跨 channel 传回 Dart 的字符串表。
      *       调用线程会阻塞到引擎线程给出答案为止。
      * English: Evaluate once and return a string map that can cross the channel as-is.
@@ -158,6 +203,16 @@ class QalculateEngine {
         return try {
             val engine = calc
             engine.clearMessages()
+
+            // 中文：**这台引擎到底有没有单位与常数**——回执里那条事实，在这里读一次、下面两条出口
+            //       （调用名守卫与求值成功那份 map）共用同一个键值对，两条路因此说不了两句话。
+            //       局部值本身是 `val`：一次求值里它不会变，加载就在上一行发生。
+            // English: **does this engine have its units and constants** — the receipt's fact, read
+            //          once here and shared by the two exits below (the call-name guard and the
+            //          successful map), so the two cannot say different things. The local is a
+            //          `val`: it cannot change within one evaluation, and the load happened on the
+            //          line above.
+            val definitionsLoadedEntry = "definitionsLoaded" to globalDefinitionsLoaded.toString()
 
             // 中文：角度单位落在 ParseOptions 上（不在 Calculator 上），而且解析与求值都要它：
             //       `sin(30)` 在 DEG 与 RAD 下是两个不同的数。三处 EvaluationOptions 都经过
@@ -218,13 +273,21 @@ class QalculateEngine {
             //          `ok=false`, so the caller treats it as "no engine answer this time" (fall back
             //          to the legacy parser = hard boundary 1).
             firstCallNameUnknownToEngine(engine, normalized)?.let { unknown ->
+                // 中文：这条出口**尤其**要带 `definitionsLoaded`：定义没加载时引擎的符号表是空的，
+                //       于是每一个调用名都不认识——「无法识别的标识符」正是缺定义的**后果**，Dart 侧
+                //       靠这个字段才认得出根因（见 `engine_definitions_unloaded` 那条判据）。
+                // English: this exit **especially** carries `definitionsLoaded`: with no definitions
+                //          loaded the engine's symbol table is empty, so every call name is unknown —
+                //          "unrecognised identifier" is the *consequence* of the missing definitions,
+                //          and only this field lets Dart name the root cause (see the
+                //          `engine_definitions_unloaded` rule).
                 return mapOf(
                     "expression" to expression,
                     "normalized" to normalized,
                     "ok" to "false",
                     "error" to "engine_unrecognised_identifier: $unknown",
                     "angleMode" to angleMode,
-                )
+                ) + definitionsLoadedEntry
             }
 
             // 中文：**一次求值，两次打印。** 这是整个调用里唯一会算的地方，因此带随机性的函数
@@ -568,7 +631,7 @@ class QalculateEngine {
                 "messages" to drainMessages(engine),
                 "kind" to kind,
                 "angleMode" to angleMode,
-            )
+            ) + definitionsLoadedEntry
         } catch (error: Throwable) {
             // 中文：System.loadLibrary 失败抛的是 Error 而不是 Exception，只有捕获 Throwable
             //       才能把「引擎没加载起来」变成一条可读日志，而不是一次崩溃。

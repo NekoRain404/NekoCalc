@@ -209,16 +209,67 @@ public final class libqalculateJNI {
     }
 
     // ------------------------------------------------------------------
-    // Calculator —— 只有三张符号表，别的 native 方法没有实现（也没被这几个测试碰到）。
-    //                Only the three symbol tables; the other native methods are not implemented
-    //                (and are not reached by these tests).
+    // Calculator —— 三张符号表 + 求值路径走到「调用名守卫」为止所需的那几个方法。
+    //                别的 native 方法没有实现（也没被这几个测试碰到）。
+    //                The three symbol tables, plus the handful of methods the evaluation path
+    //                needs to reach the call-name guard. The other native methods are not
+    //                implemented (and are not reached by these tests).
     // ------------------------------------------------------------------
+
+    /**
+     * 中文：`loadGlobalDefinitions()` 的返回值，**由测试摆**：真机上它是一次真实的加载
+     *       （400 多个单位与所有常数），这里只是一个可以被设成 `false` 的开关——那正是
+     *       `QalculateEngine` 必须记下来、又必须过 channel 的那条事实。默认 `true`（健康引擎）。
+     * English: what `loadGlobalDefinitions()` returns, **staged by the tests**: on a device it is a
+     *          real load (400-odd units and every constant); here it is a switch that can be set to
+     *          `false` — which is exactly the fact `QalculateEngine` has to record and has to send
+     *          across the channel. Defaults to `true` (a healthy engine).
+     */
+    private static boolean globalDefinitionsLoadable = true;
+
+    public static void setGlobalDefinitionsLoadable(boolean value) {
+        globalDefinitionsLoadable = value;
+    }
 
     public static long new_Calculator__SWIG_0() {
         return allocate();
     }
 
     public static void delete_Calculator(long pointer) {
+    }
+
+    public static boolean Calculator_loadGlobalDefinitions__SWIG_0(
+            long pointer, Calculator self) {
+        record("Calculator.loadGlobalDefinitions", globalDefinitionsLoadable);
+        return globalDefinitionsLoadable;
+    }
+
+    public static void Calculator_setPrecision__SWIG_0(
+            long pointer, Calculator self, int value) {
+        record("Calculator.precision", value);
+    }
+
+    public static void Calculator_useDecimalPoint__SWIG_0(
+            long pointer, Calculator self, boolean value) {
+        record("Calculator.use_decimal_point", value);
+    }
+
+    public static void Calculator_clearMessages(long pointer, Calculator self) {
+    }
+
+    /**
+     * 中文：原样返回输入串。真引擎会把本地化的函数名与符号换成内部写法，替身**不模拟**这一步
+     *       （那正是「只说得出递了什么、说不出引擎会怎么读」那条边界）；调用名守卫看到的因此
+     *       就是测试自己摆的那串字。
+     * English: returns its input unchanged. The real engine rewrites localised names and symbols into
+     *          its internal spelling; the double does **not** emulate that (that is exactly the
+     *          boundary "it can say what was handed over, never how the engine reads it"), so the
+     *          call-name guard sees the very string the test staged.
+     */
+    public static String Calculator_unlocalizeExpression__SWIG_0(
+            long pointer, Calculator self, String expression, long parseOptions,
+            ParseOptions parseOptionsSelf) {
+        return expression;
     }
 
     public static long Calculator_getFunction__SWIG_0(

@@ -247,6 +247,70 @@ void main() {
     });
   });
 
+  group('⚠️ 引擎没有单位与常数（定义没加载）：设计没动，补的是「回落也读不懂」那一支', () {
+    test('定义没加载 + 旧解析器读不懂 ⇒ 说根因，而不是「存在无法识别的内容」', () async {
+      // 中文：**这一条与上面超时那组同形，理由也一样。** 引擎层（`QalculateMathEngine._replyFrom`）
+      //       把 `definitionsLoaded: false` 的回执判成「这一次没有引擎答案」——定义没加载时引擎照样
+      //       算数，但 400 多个单位与所有常数静默消失，同一条输入会被读成**别的东西**，答案与真的
+      //       没有区别（§5o）。回落**读得懂**时照旧由旧解析器作答（下一条钉它）；**回落也读不懂**时，
+      //       屏幕上就不该是通用那句「存在无法识别的内容」——那句话在用户眼里是「`km` 打错了」，
+      //       而真正的原因是引擎没有单位与常数。
+      //
+      //       表达式用的是超时那组量过的同一个 `sum(1/x^2, 1, 200000, x)`：应用自己的解析器
+      //       **读得懂单位表达式**（`5 km to mi` 在它那里是一条换算），所以「旧解析器读不懂」的样本
+      //       不能拿单位来举——而这个函数名在定义没加载的引擎里同样不认识（符号表是空的）。
+      // English: **the same shape as the timeout group above, for the same reason.** The engine layer
+      //          (`QalculateMathEngine._replyFrom`) files a `definitionsLoaded: false` receipt as "no
+      //          engine answer this time" — with the definitions unloaded the engine still computes,
+      //          but 400-odd units and every constant vanish silently, the same input gets read as
+      //          **something else** and its answer is indistinguishable from a real one (§5o). When the
+      //          fallback **can** read the expression the legacy parser answers as before (the next
+      //          test pins that); when it **cannot** either, the screen must not carry the generic
+      //          "unrecognised content" — which reads as "you mistyped `km`" while the real cause is
+      //          that the engine has no units and constants.
+      //
+      //          The expression is the one the timeout group measured, `sum(1/x^2, 1, 200000, x)`:
+      //          this app's own parser **does** read unit expressions (`5 km to mi` is a conversion to
+      //          it), so a unit cannot serve as the "the fallback cannot read it" sample — while that
+      //          function name is just as unknown to a definitions-less engine (its symbol table is
+      //          empty).
+      final engine = _StubEngine(
+          EngineReply.failure('engine_definitions_unloaded'));
+      final controller = _controller(engine);
+
+      controller.setExpression('sum(1/x^2, 1, 200000, x)');
+      await controller.submit();
+
+      expect(controller.hasError, isTrue);
+      expect(controller.errorMessage, contains('引擎没加载单位和常数'));
+      expect(controller.errorMessage, isNot(contains('存在无法识别的内容')),
+          reason: '**这一条是本组的全部意义**：真正的原因是引擎没有单位与常数，不是用户打错了名字');
+
+      controller.dispose();
+    });
+
+    test('定义没加载 + 旧解析器**读得懂** ⇒ 照旧由它作答（设计没动）', () async {
+      // 中文：**反面，与超时那组的反面逐字同形。** `2+3` 旧解析器读得懂，所以引擎不可用
+      //       （这一次是「没有单位与常数」）之后屏幕上仍然是 `5`——引擎的失败对用户不可见，
+      //       硬性边界 1 一个字没动。
+      // English: **the reverse, byte-for-byte the shape of the timeout group's reverse.** The legacy
+      //          parser can read `2+3`, so with the engine unavailable (this time "no units and
+      //          constants") the screen still shows `5` — an engine failure stays invisible to the
+      //          user; hard boundary 1 is untouched.
+      final engine = _StubEngine(
+          EngineReply.failure('engine_definitions_unloaded'));
+      final controller = _controller(engine);
+
+      controller.setExpression('2+3');
+      await controller.submit();
+
+      expect(controller.hasError, isFalse);
+      expect(controller.result, '5');
+
+      controller.dispose();
+    });
+  });
+
   group('那一句话本身', () {
     test('英文侧一个汉字都没有，两种语言说的是同一件事', () {
       // 中文：**这句话是这一轮新加的文案，它得和别的文案同一条规矩。**

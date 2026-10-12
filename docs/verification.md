@@ -1249,10 +1249,31 @@ calculations" — the machinery the finding above says we should adopt.)
   intended use; what the bridge lacks is the engine's own threaded-calculation machinery (`startControl`), not a
   timer.** That converts this from "a design choice I declined to guess at" into **a documented path**:
   adopt the engine's threaded API rather than adding a timer to the hand-rolled executor.
-- **`loadGlobalDefinitions() == false` is logged and dropped.** The file's own comment says the return value
-  "must be recorded … 400-odd units and every constant vanish silently", but it never leaves logcat, so Dart
-  cannot tell "no units loaded" from a real answer. Fixing it needs **both** sides (a key in the result map plus
-  a Dart reader) — hence left whole rather than half done.
+- **`loadGlobalDefinitions() == false` is logged and dropped.** ✅ **Fixed (2026-10-12).** The file's own comment
+  said the return value "must be recorded … 400-odd units and every constant vanish silently", but it never left
+  logcat, so Dart could not tell "no units loaded" from a real answer. Both sides now exist, as this bullet said
+  they had to: the engine records the verdict and puts **`definitionsLoaded`** on **both exits that carry a
+  receipt** — the call-name guard (**the one a definitions-less engine actually hits**, since an empty symbol
+  table makes every call name unknown) and the success map, read from one shared value so the two cannot drift;
+  the catch map deliberately does not carry it. The Dart reader treats `'false'` as
+  **`engine_definitions_unloaded`** and does so **before** the `ok` check, because `false` is the **root cause**
+  and the guard's `ok=false` is only its consequence — and a *missing* key fails open, the same rule the reader
+  already applied to `kind`. At the app layer, a definitions-unloaded reply whose fallback **also** fails now
+  throws the verdict, so the user is told 「引擎没加载单位和常数，回落的解析器也读不出来」 instead of the
+  misleading sentence the fallback would otherwise produce.
+  ⚠️ **Verification level, stated plainly: unit level, not behaviour, and not on a device.** The Kotlin side is
+  **13 JVM tests, 0 failures** (2 new) — re-run here with `--rerun-tasks`, `50 actionable tasks: 50 executed`,
+  counts read from the result XMLs rather than from a report; the Dart side is covered at the reader, app and
+  strings layers. ⚠️ The **success-map** key has no JVM test: reaching it needs a live `MathStructure`
+  (`calculate`/`print` are native), and a double-staged tree would only prove the double — the limitation is
+  written into the new Kotlin test file's own header.
+  ⚠️ **The harness had to be fixed before any measurement was valid**, and the failure mode is worth keeping:
+  host-JVM tests use the AAR's **stub** `android.jar`, where `android.util.Log.i` **throws** — and the evaluation
+  path logs, so the first red run died on `Method e in android.util.Log not mocked` **from inside a catch**,
+  i.e. on a sentence unrelated to the assertion. The measurement was void, not red. `unitTests.isReturnDefaultValues = true`
+  (`android/app/build.gradle.kts`, host-JVM only, nothing in the APK) fixes the instrument, and it does **not**
+  weaken the loud-double property recorded above: the AAR's SWIG glue is caught by a **real class** in
+  `src/test/java/`, so a method the double lacks is still a `NoSuchMethodError`.
 
 **And the layer gained its first tests.** `android/app/src/test/` now holds **11 JVM tests** over the *pure*
 mapping logic (`QalculateOptions`'s option/print mapping, `QalculateResultKind`'s classification), plus a

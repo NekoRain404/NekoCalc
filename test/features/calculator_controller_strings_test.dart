@@ -72,6 +72,15 @@ void main() {
     //          All three measured inputs (`x^2=-1`, `1=2`, `x=x`) print `0`/`1`, so the sentence has to
     //          be right for both readings.
     expect(zh.friendlyRelationNoSolution, '这条方程没有解（或这个等式恒不成立）');
+    // 中文：**这一句也是新加的**（§5o 那个静默缺陷的收尾）。引擎的全局定义没加载时它照常算数，
+    //       但 400 多个单位与所有常数静默消失；回落旧解析器**也**读不懂时要说的是这句，
+    //       而不是通用那句「存在无法识别的内容」——后者在用户眼里是「`km` 打错了」。
+    // English: **this one is new too** (closing §5o's silent defect). With the engine's global
+    //          definitions unloaded it still computes, but 400-odd units and every constant vanish
+    //          silently; when the fallback cannot read the expression **either**, this sentence is
+    //          what gets said rather than the generic "unrecognised content" — which reads as "you
+    //          mistyped `km`".
+    expect(zh.friendlyEngineDefinitionsUnloaded, '引擎没加载单位和常数，回落的解析器也读不出来');
     expect(zh.friendlyGeneric, '表达式错误');
 
     // —— 记忆寄存器 ——
@@ -151,6 +160,7 @@ void main() {
       'friendlyNotFinite': zh.friendlyNotFinite,
       'friendlyUnitMismatch': zh.friendlyUnitMismatch,
       'friendlyRelationNoSolution': zh.friendlyRelationNoSolution,
+      'friendlyEngineDefinitionsUnloaded': zh.friendlyEngineDefinitionsUnloaded,
       'friendlyGeneric': zh.friendlyGeneric,
       'memoryRefusal': zh.memoryRefusal,
       'savedNoteTitle': zh.savedNoteTitle,
@@ -201,6 +211,7 @@ void main() {
       'friendlyNotFinite': en.friendlyNotFinite,
       'friendlyUnitMismatch': en.friendlyUnitMismatch,
       'friendlyRelationNoSolution': en.friendlyRelationNoSolution,
+      'friendlyEngineDefinitionsUnloaded': en.friendlyEngineDefinitionsUnloaded,
       'friendlyGeneric': en.friendlyGeneric,
       'memoryRefusal': en.memoryRefusal,
       'savedNoteTitle': en.savedNoteTitle,

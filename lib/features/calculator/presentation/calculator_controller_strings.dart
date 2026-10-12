@@ -134,6 +134,7 @@ class CalculatorControllerStrings {
     required this.friendlyUnitMismatch,
     required this.friendlyRelationNoSolution,
     required this.friendlyEngineTimeout,
+    required this.friendlyEngineDefinitionsUnloaded,
     required this.friendlyGeneric,
     required this.memoryRefusal,
     required this.angleModeDegrees,
@@ -225,6 +226,23 @@ class CalculatorControllerStrings {
   ///          **does not change the "a timeout falls back" design**: a readable expression still gets the
   ///          fallback's answer.
   final String friendlyEngineTimeout;
+
+  /// 中文：**引擎没有单位与常数（全局定义没加载），而回落旧解析器也读不懂这个式子。**
+  ///
+  ///       这句话说的是**根因**：定义没加载时引擎会把 `km`、`pi` 这类名字读成别的东西，而它印出来的
+  ///       答案与真的没有区别（§5o）——所以引擎层直接把那份回执判成「这一次没有引擎答案」。
+  ///       回落读得懂时照旧由旧解析器作答；读不懂时屏幕上不该是通用那句「存在无法识别的内容」
+  ///       （用户会以为 `km` 打错了），而应当是这一句。
+  /// English: **the engine has no units and constants (its global definitions never loaded) and the
+  ///          fallback could not read the expression either.**
+  ///
+  ///          This sentence states the **root cause**: with the definitions unloaded the engine reads
+  ///          names such as `km` and `pi` as something else, and the answer it prints is
+  ///          indistinguishable from a real one (§5o) — so the engine layer files that receipt as
+  ///          "no engine answer this time". When the fallback can read the expression the legacy
+  ///          parser answers as before; when it cannot, the screen must carry this sentence rather
+  ///          than the generic "unrecognised content" (which reads as "you mistyped `km`").
+  final String friendlyEngineDefinitionsUnloaded;
 
   final String friendlyGeneric;
 
@@ -344,6 +362,7 @@ class CalculatorControllerStrings {
     friendlyUnitMismatch: '单位不匹配：这两个单位不能互相换算',
     friendlyRelationNoSolution: '这条方程没有解（或这个等式恒不成立）',
     friendlyEngineTimeout: '引擎没在时限内算完，后面的式子也读不出来',
+    friendlyEngineDefinitionsUnloaded: '引擎没加载单位和常数，回落的解析器也读不出来',
     friendlyGeneric: '表达式错误',
     memoryRefusal: '当前值放不进记忆寄存器，寄存器未改动',
     angleModeDegrees: '${CalculatorReportLabels.zh.angleDegreesWord} DEG',
@@ -425,6 +444,8 @@ class CalculatorControllerStrings {
         'This equation has no solution (or the equality never holds)',
     friendlyEngineTimeout:
         'The engine did not finish in time, and the fallback could not read it either',
+    friendlyEngineDefinitionsUnloaded:
+        'The engine has no units or constants loaded, and the fallback could not read it either',
     friendlyGeneric: 'Expression error',
     memoryRefusal:
         'The current value does not fit the memory register, so the register is unchanged',

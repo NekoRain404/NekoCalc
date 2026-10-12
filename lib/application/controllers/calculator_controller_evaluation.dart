@@ -55,6 +55,17 @@ part of 'calculator_controller.dart';
 ///          for a problem that does not exist. (Measured; section 六 of `comparison-with-hiper.md`.)
 const String kEngineTimeoutVerdict = 'Engine timed out and the fallback could not read it';
 
+/// 中文：**这台引擎没有单位与常数，而且回落旧解析器也没读懂这个式子。** 形状与位置与超时那条相同：
+///       判据在引擎层（`QalculateMathEngine._replyFrom` 的 `definitionsLoaded`），这一条只是把它翻成
+///       一句人能读的话——理由与文案在
+///       [CalculatorControllerStrings.friendlyEngineDefinitionsUnloaded] 上。
+/// English: **this engine has no units and constants, and the fallback could not read the expression
+///          either.** Same shape and place as the timeout verdict: the judgement lives at the engine
+///          layer (`definitionsLoaded` in `QalculateMathEngine._replyFrom`); this only spells it out
+///          for a human — reasoning and wording are on the strings-table field named above.
+const String kEngineDefinitionsUnloadedVerdict =
+    'Engine has no units or constants loaded, and the fallback could not read it';
+
 const String kRelationTruthValueVerdict =
     'Relation has no numeric answer';
 mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
@@ -347,6 +358,13 @@ mixin _CalculatorEvaluation on _CalculatorState, _CalculatorEngineDisplay {
     } on FormatException {
       if (reply.error != null && reply.error!.startsWith('engine_timeout')) {
         throw const FormatException(kEngineTimeoutVerdict);
+      }
+      // 中文：定义没加载那条回执与超时同路（理由见常量上的注释）：回落读不懂时说的是**根因**。
+      // English: the definitions-not-loaded receipt travels the timeout road (see the constant's
+      //          own note): when the fallback cannot read it either, the **root cause** is said.
+      if (reply.error != null &&
+          reply.error!.startsWith('engine_definitions_unloaded')) {
+        throw const FormatException(kEngineDefinitionsUnloadedVerdict);
       }
       rethrow;
     }

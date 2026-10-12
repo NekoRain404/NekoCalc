@@ -64,6 +64,35 @@ android {
             }
         }
     }
+
+    testOptions {
+        // 中文：**只影响宿主 JVM 上的单元测试，不进 APK。** AAR 自带的那个 `android.jar` 是一份
+        //       桩：不打开这个开关时，`android.util.Log.i` 这类调用会**抛** RuntimeException
+        //       （"Method i in android.util.Log not mocked"）。求值路径里有日志（`calc` 里那次
+        //       加载结果的记录、catch 里的 Log.e），于是任何走到求值的测试都过不去——而且抛的是
+        //       一句与断言无关的话，测量本身失效。打开后这些桩方法返回默认值（Log.i 返回 0），
+        //       测试量到的才是被测代码的行为。
+        //
+        //       它**没有**削弱 §5o 记下的那条「替身要吵」的性质：AAR 的 SWIG 胶水由
+        //       `src/test/java/com/jherkenhoff/libqalculate/libqalculateJNI.java` 那份**真类**接住，
+        //       不是桩——替身里没实现的方法照样是 NoSuchMethodError，一声不响是做不到的。
+        //
+        // English: **Affects only the host-JVM unit tests; nothing enters the APK.** The `android.jar`
+        //          that ships with the AAR is a stub jar: with this switch off, calls such as
+        //          `android.util.Log.i` **throw** a RuntimeException ("Method i in android.util.Log
+        //          not mocked"). The evaluation path logs (the load result inside `calc`, and Log.e in
+        //          the catch), so any test that reaches an evaluation dies on a sentence that has
+        //          nothing to do with its assertion — the measurement itself is void. With it on,
+        //          those stub methods return defaults (Log.i returns 0) and the test measures the code
+        //          under test.
+        //
+        //          It does **not** weaken the "the double must be loud" property recorded in §5o: the
+        //          AAR's SWIG glue is caught by a **real class** at
+        //          `src/test/java/com/jherkenhoff/libqalculate/libqalculateJNI.java`, not by a stub —
+        //          a method the double does not implement is still a NoSuchMethodError, which cannot
+        //          pass silently.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 flutter {

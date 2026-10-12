@@ -360,6 +360,95 @@ void main() {
     expect(plain.result!.displayText, '5.656854249492380');
   });
 
+  test('refuses a receipt from an engine whose global definitions failed to load',
+      () async {
+    // 中文：**这就是 §5o 记下的那个静默缺陷的形状。** 原生侧 `loadGlobalDefinitions()` 回 false 时
+    //       算术照常工作，但 400 多个单位与所有常数静默消失——那时同一个输入会被引擎读成**别的
+    //       东西**，而印出来的答案与真的没有区别。「它加载了没有」这条事实跟着回执过来
+    //       （`definitionsLoaded`），这一层据此**不采用**这一份答案：按「这一次没有引擎答案」
+    //       处理，回落旧解析器，与引擎缺席、超时、失败走同一条路。
+    // English: **this is the shape of the silent defect §5o recorded.** When the native
+    //          `loadGlobalDefinitions()` returns false arithmetic still works but 400-odd units and
+    //          every constant vanish silently — the same input then gets read as **something else**
+    //          and the printed answer is indistinguishable from a real one. The fact "did it load"
+    //          travels with the receipt (`definitionsLoaded`), and this layer **refuses** that
+    //          receipt: it counts as "no engine answer this time" and falls back to the legacy
+    //          parser, the same road as an absent, timed-out or failed engine.
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '5',
+          'latex': '5',
+          'definitionsLoaded': 'false',
+        });
+
+    final reply = await engine.evaluate('5 km', angleMode: 'RAD');
+
+    expect(reply.ok, isFalse);
+    expect(reply.result, isNull);
+    expect(reply.error, contains('engine_definitions_unloaded'));
+  });
+
+  test('a refusal guard also reports the missing definitions as the cause', () async {
+    // 中文：符号表是空的引擎里，**每一个**调用名都不认识，于是「存在无法识别的内容」是那条
+    //       缺定义的后果、不是原因。原生侧在这条回执上照样带 `definitionsLoaded`，
+    //       这里让根因胜出——与上一条同一个判据，只是回执的 `ok` 也是 false。
+    // English: with an empty symbol table **every** call name is unknown, so "unrecognised content"
+    //          is a consequence of the missing definitions rather than the cause. The native side
+    //          carries `definitionsLoaded` on this receipt too, and here the root cause wins — the
+    //          same judgement as the test above, only with `ok` false as well.
+    respondWith((_) => <String, String>{
+          'ok': 'false',
+          'error': 'engine_unrecognised_identifier: sqrt',
+          'definitionsLoaded': 'false',
+        });
+
+    final reply = await engine.evaluate('sqrt(2)', angleMode: 'RAD');
+
+    expect(reply.ok, isFalse);
+    expect(reply.error, contains('engine_definitions_unloaded'));
+  });
+
+  test('an engine that did load its global definitions answers as before', () async {
+    // 中文：**没有新增任何行为。** 健康引擎（`definitionsLoaded: true`）的回执与加这条字段之前
+    //       逐字同路：`displayText` 保留引擎印出来的样子（带单位的量），`decimalText` 按既有规矩
+    //       为空（不是有限数 ⇒ 「这一次没有十进制形态」，见 `_replyFrom` 的注释）。
+    // English: **nothing new happens.** A healthy engine's receipt (`definitionsLoaded: true`) takes
+    //          the very road it took before this field existed: `displayText` keeps what the engine
+    //          printed (a quantity carrying a unit) and `decimalText` is empty by the existing rule
+    //          (not a finite number = "no decimal form this time"; see the note in `_replyFrom`).
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '3.106855961186670 mi',
+          'latex': r'\qty{3.106855961186670}{mi}',
+          'definitionsLoaded': 'true',
+        });
+
+    final reply = await engine.evaluate('5 km to mi', angleMode: 'RAD');
+
+    expect(reply.ok, isTrue);
+    expect(reply.result!.displayText, '3.106855961186670 mi');
+    expect(reply.result!.decimalText, isEmpty);
+  });
+
+  test("a native side that does not send the field keeps today's behaviour",
+      () async {
+    // 中文：**只有显式 `'false'` 才算数。** 键整个不在（旧的原生侧、版本不匹配）时按今天的行为
+    //       走——与 `kind` 那条同一条规矩：认不出来不放宽，也不新增失败。
+    // English: **only an explicit `'false'` counts.** A missing key (an older native side, a version
+    //          mismatch) keeps today's behaviour — the same rule as the `kind` field: what cannot be
+    //          recognised is neither relaxed nor turned into a new failure.
+    respondWith((_) => <String, String>{
+          'ok': 'true',
+          'decimal': '5',
+          'latex': '5',
+        });
+
+    final reply = await engine.evaluate('2+3', angleMode: 'RAD');
+
+    expect(reply.ok, isTrue);
+    expect(reply.result!.decimalText, '5');
+  });
+
   test('maps the native kind strings onto EngineResultKind, unit_mismatch included', () async {
     // 中文：`kind` 的取值是**原生侧写、这里读**的一份契约（`QalculateEngine.KIND_*`），所以每一个
     //       取值都走一遍。`unit_mismatch` 是「用户要的换算没发生」（`conversionLanded`），Dart 侧
