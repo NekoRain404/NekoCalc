@@ -6,6 +6,7 @@ import 'package:nekocalc/application/app_settings.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/domain/entities/tool_category.dart';
 import 'package:nekocalc/features/tools/presentation/tool_category_screen.dart';
+import 'package:nekocalc/features/tools/presentation/tool_widgets.dart';
 
 void main() {
   testWidgets('category empty search offers typo suggestions', (tester) async {
@@ -118,7 +119,8 @@ void main() {
     );
     final favoriteIcon = favoriteButton.icon as Icon;
     expect(favoriteIcon.icon, Icons.star);
-    expect(favoriteIcon.color, Colors.amber);
+    expect(favoriteIcon.color, favoriteStarColor,
+        reason: '收藏星的颜色是一条**决定**（见 tool_widgets.dart 里那个常量的注释），不是遗留');
   });
 }
 

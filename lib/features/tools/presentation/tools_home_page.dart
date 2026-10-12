@@ -582,7 +582,7 @@ class _RecentToolsSheetState extends State<_RecentToolsSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (widget.favoriteIds.contains(tool.id))
-                      const Icon(Icons.star, color: Colors.amber, size: 18),
+                      const Icon(Icons.star, color: favoriteStarColor, size: 18),
                     IconButton(
                       tooltip: ToolsStrings.of(context).removeRecentTooltip,
                       onPressed: _removingIds.contains(tool.id)

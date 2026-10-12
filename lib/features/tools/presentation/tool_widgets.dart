@@ -45,6 +45,29 @@ import 'tools_strings.dart';
 ///          assertion can name a line count the card does not use.
 const int toolDescriptionMaxLines = 4;
 
+/// 中文：**收藏星用的是"语义色"，不是主题色——这是一条决定，不是遗留。**
+///
+///       它刻意**不随调色板变化**：琥珀色的星是全行业一眼认得的"已收藏"；换成本项目某套调色板的强调色
+///       （紫罗兰 / 海洋 / 暖沙各有一枚）会让它在那些主题里读起来像**另一样东西**。这与本应用把错误色、
+///       指示色都主题化并不矛盾——那些是**状态**色，而"收藏"是一条**约定**。
+///
+///       ⚠️ **这段注释本身就是 §5t 那份清单的结案。** 那里记下的不是"颜色不对"✗，而是
+///       「**没有任何一句话记下它属于哪一种**」✓ —— 现在有了，而且测试断言的是**这个常量** ✓，
+///       所以它再也不会退回到"一个看起来像故意的事故" ✓。
+/// English: **the favourite star uses a *semantic* colour, not a thematic one — a decision, not a leftover.**
+///
+///          It deliberately does **not** follow the palette: an amber star is the industry-wide
+///          "favourited" at a glance, and switching it to one of this project's per-palette accents (violet,
+///          ocean and warm sand each have one) would make it read as something else in those themes. That is
+///          not in tension with the app theming its error and indicator colours — those are **state**
+///          colours; "favourite" is a **convention**.
+///
+///          ⚠️ **This comment is §5t's closing entry.** What that list recorded was not "the colour is
+///          wrong" ✗ but "**no sentence anywhere says which of the two it is meant to be**" ✓ — now there is
+///          one, and the test asserts **this constant** ✓, so it can no longer drift back into being an
+///          accident that merely looks deliberate.
+const Color favoriteStarColor = Colors.amber;
+
 class HorizontalToolList extends StatelessWidget {
   const HorizontalToolList({
     required this.tools,
@@ -312,7 +335,7 @@ class ToolListTile extends StatelessWidget {
       trailing: trailing ??
           (onFavoriteToggle == null
               ? favorite
-                  ? const Icon(Icons.star, color: Colors.amber, size: 18)
+                  ? const Icon(Icons.star, color: favoriteStarColor, size: 18)
                   : Icon(Icons.chevron_right, color: scheme.onSurfaceVariant)
               : IconButton(
                   tooltip: favorite
@@ -320,7 +343,7 @@ class ToolListTile extends StatelessWidget {
                       : ToolsStrings.of(context).favoriteAdd,
                   onPressed: onFavoriteToggle,
                   icon: Icon(favorite ? Icons.star : Icons.star_border,
-                      color: favorite ? Colors.amber : scheme.onSurfaceVariant),
+                      color: favorite ? favoriteStarColor : scheme.onSurfaceVariant),
                 )),
     );
   }

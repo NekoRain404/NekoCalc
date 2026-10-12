@@ -233,7 +233,7 @@ class _ToolDetailScreenState extends State<ToolDetailScreen> {
                       _detailController.favorite
                           ? Icons.star
                           : Icons.star_border,
-                      color: _detailController.favorite ? Colors.amber : null),
+                      color: _detailController.favorite ? favoriteStarColor : null),
                 ),
                 PopupMenuButton<String>(
                   tooltip: strings.more,
