@@ -43,7 +43,10 @@ flutter build apk --release --split-per-abi
   - `=` shows the result immediately and saves history once.
   - Degree/radian switching changes trigonometric results.
   - Memory keys update instantly and persist after restart.
-  - Mathematical symbol display and function-expression display both work.
+  - **Both live display modes work** — `数学符号` (math symbols) and `数学表达式` (math expression). ⚠️ This
+    bullet used to say 「函数表达式」 / "function-expression display", which is **no longer a mode**: it is a
+    legacy storage token that is migrated on read (`lib/application/app_settings.dart:32,89-92`). A tester
+    following the old wording would have hunted for an option that does not exist.
 
 - Tools:
   - Tool search works with Chinese, English, and tool ids.

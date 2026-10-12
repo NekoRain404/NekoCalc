@@ -1414,6 +1414,47 @@ awake — both consistent with **the owner using the phone**. Synthetic taps and
 are not harmless, so the device work stopped there and was **not** resumed. Anyone repeating this should
 check who is holding the phone before driving it.
 
+### 5r. The manual-QA block, audited bullet by bullet: **one real defect**, and a smaller device list (2026-10-12)
+
+`docs/release_checklist.md`'s Manual QA section had never been executed on a device. Before asking a human to
+run it, all **24 bullets** were audited against the suite: each bullet either names a test whose **assertion**
+proves the behaviour, or is reported as **not proven**. The standard mattered more than the tally, because this
+project has been bitten in both directions: §5p records a grep that found *nothing* being read as absence, and
+the mirror image — a grep that finds *something* — is worth just as little. A first, cruder pass reported
+"coverage exists in all six areas" (14–89 test files mention each keyword); **that number is not evidence**, and
+the bullet-by-bullet audit replaced it. Evidence base: 25 test files green on 2026-10-12
+(`flutter test --concurrency=16`), with ⚠️ `test/data/app_database_v7_test.dart` **self-skipping without
+`libsqlite3`** (`:62-65`) — so the Data-layer rows below rest on the in-memory fakes, not on real SQLite.
+
+**The headline is a defect, not a gap: the graph ignores the app's angle mode.**
+`graph_models.dart:98` hard-codes `ExpressionParser(parsed, degreeMode: false)`, while the calculator passes
+`degreeMode: angleMode == 'DEG'` (`calculator_controller_evaluation.dart:762`) and `GraphPage` cannot even reach
+the mode — its constructor takes only `db`, `restoreState`, `reloadToken` (`graph_page.dart:23-37`). So under
+DEG the curve, the markers solved on it (zeros, intersections, extrema), and the calculator **disagree on the
+same input**. ⚠️ **The sharpest form of description rot found so far is not in the docs but in the code**: the
+comment two lines above the defect (`:95-96`) claims the parser is shared 「保证计算器和图形函数语义一致」 —
+the comment asserted **exactly the property the code did not have**. Confirmed by reading, and fixed in this
+round; it is the one item here that was **known-wrong** rather than **known-unguarded**.
+
+**Two more findings, each worth its own paragraph.**
+
+- ⚠️ **The checklist had drifted from the product.** Its bullet "Mathematical symbol display and
+  function-expression display both work" names a mode that **no longer exists**: 「函数表达式」 is a legacy
+  storage token migrated on read (`lib/application/app_settings.dart:32,89-92`). A tester following the wording
+  would hunt for an option that is not there. Corrected in the checklist itself rather than left for the
+  tester to trip over.
+- ⚠️ **Destructive actions with zero coverage**: 清空历史 (clear history) and the graph row menu
+  (add/edit/hide/delete) mutate state, and **no test drives either** — `clearHistory` is referenced only as a
+  fake-db method and as display strings. This is §5n's class: not known-broken, **known-unguarded**.
+
+**What this does to the device work.** The irreducible list is narrower than "six areas": what genuinely needs
+a phone is **smoothness and immediacy** (fast input lag, `=` latency, pan/zoom, per-keystroke tool recompute),
+**persistence across a real relaunch** (memory, favourites/recents — every existing test uses an in-memory
+fake), and **rendered readability** (the fit chart in light/dark, which this project's own rule says needs a
+render check, not a token comparison). The audit handed back **14 further items that are testable without a
+device** — including one test that would have caught the graph defect as a *sequence*: tap DRG, type `sin(90)`,
+press `=`, assert `1`.
+
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
 All four guard the **same shape**: an action that did nothing looks exactly like one that ran
