@@ -446,6 +446,22 @@ void _writePathTests(void Function() requireFfi) {
 ///          condition that mattered here was not the harsher one (three lanes on one file) but the one it
 ///          actually failed under (the whole suite in parallel). Only a sighting *there*, plus the assertion
 ///          text rather than its name, settled it.
+///
+///          ⚠️ **Residual hazard, recorded rather than chased.** The fix above isolates the file that
+///          **deletes** the shared database. Others still write to the default path — most clearly
+///          `test/domain/notes_controller_test.dart`, which builds repositories over `AppDatabase.instance`
+///          and calls `saveNote` (`data_backup_repository_test.dart` is already isolated on its own). Files
+///          that only **read** can share a database safely; the **writers** among them cannot, in principle.
+///          Today's evidence says it is not biting (the suite ran **2/2 green** under deliberate load, and the
+///          three-lane harness **15/15**), so isolating the remaining writers is **hardening, not a fix** —
+///          left undone on purpose, and written here so the next person starts from a measured list rather
+///          than from "ten files share a database".
+///          ⚠️ **2026-10-12 残余隐患，只记录、不顺手改。** 上面的修复隔离的是**删库**那一个文件。仍然写在默认
+///          路径上的还有别的——最明确的是 `test/domain/notes_controller_test.dart`（把仓储建在
+///          `AppDatabase.instance` 上并调用 `saveNote`；`data_backup_repository_test.dart` 早已自带隔离）。
+///          **只读**的文件共用库是安全的；其中的**写者**原则上不是。今天的证据说它没在咬人（负载下 suite
+///          **2/2 全绿**、三通道装置 **15/15**），所以隔离剩下的写者属于**加固、不是修复**——故意没做，
+///          并写在这里，好让下一个人从一份**量出来的清单**出发，而不是从一句"十个文件共用一个库"。
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
