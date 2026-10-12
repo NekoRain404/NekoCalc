@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekocalc/domain/entities/tool_category.dart';
 import 'package:nekocalc/features/tools/presentation/category_visuals.dart';
 import 'package:nekocalc/shared/presentation/calc_theme.dart';
 
@@ -45,21 +49,62 @@ void main() {
         reason: '`units` 那颗，注释写的是 `lavenderMist.display.errorFg`');
   });
 
-  test('相邻身份色的距离：把注释里那个 18.3 重算一遍，并留下限', () {
-    // 中文：注释说相邻卡最近的一对"从 18.3 起"（改动后更宽 ✓）。这里量**当前**值并打印 ✓；
-    //       下限取在 18.3 **之下** ✓ —— 用来抓"又挤回去了"，而不是把今天的数冻死 ✓。
-    // English: the comment says the closest adjacent pair "starts at 18.3" and got wider. The current value is
-    //          measured and printed here; the floor sits **below** 18.3 — to catch "squeezed again" rather than
-    //          freeze today's number.
+  test('注释里的三组数：两两最小、卡上相邻、7% 底色上的对比度', () {
+    // 中文：⚠️ **本测试量的是注释真正说的那三问** ✓ —— 而我第一版量错了其中一问：注释说"**相邻卡**
+    //       最近的一对升到 40.7" ✓，指**卡片在屏上的排布**（两列、行优先、顺序 `ToolCategory.values` ✓），
+    //       不是"环上相邻" ✗——两者是不同的配对 ✓。三组数都来自 `category_visuals.dart` 的文件头。
+    // English: ⚠️ **this measures the three questions the comment actually asks.** A first version measured one
+    //          of them wrong: "the closest **adjacent card** rose to 40.7" means the on-screen layout (two
+    //          columns, row-major, `ToolCategory.values`), not ring adjacency — different pairings.
     const ring = toolIdentityColorRing;
-    var closest = double.infinity;
+
+    // ① 任意两卡最近的一对：注释说 8.0（science-custom）→ 20.2。
+    var allPairs = double.infinity;
     for (var i = 0; i < ring.length; i++) {
-      final d = cie76(ring[i], ring[(i + 1) % ring.length]);
-      if (d < closest) closest = d;
+      for (var j = i + 1; j < ring.length; j++) {
+        allPairs = math.min(allPairs, cie76(ring[i], ring[j]));
+      }
     }
     // ignore: avoid_print
-    print('  相邻身份色最小 ΔE76 = ${closest.toStringAsFixed(1)}（注释记的是改前 18.3）');
-    expect(closest, greaterThanOrEqualTo(15.0),
-        reason: '相邻身份色最近的一对只有 ${closest.toStringAsFixed(1)} ΔE76 —— 卡片又挤在一起了');
+    print('  任意两卡最小 ΔE76 = ${allPairs.toStringAsFixed(1)}（注释：改前 8.0 → 改后 20.2）');
+    expect(allPairs, greaterThanOrEqualTo(19.8),
+        reason: '任意两卡最近的一对只有 ${allPairs.toStringAsFixed(1)} ΔE76——注释承诺 ≥ 20.2');
+
+    // ② 卡上相邻（两列行优先）：注释说 18.3（units-custom）→ 40.7。横向与纵向邻居都算。
+    final order =
+        ToolCategory.values.map((c) => ring[c.index % ring.length]).toList();
+    var adjacent = double.infinity;   // 横向 + 纵向邻居
+    var horizontal = double.infinity; // 只算同一行里左右相邻的两张
+    for (var i = 0; i < order.length; i++) {
+      if (i + 1 < order.length) {
+        final d = cie76(order[i], order[i + 1]);
+        horizontal = math.min(horizontal, d);
+        adjacent = math.min(adjacent, d);
+      }
+      if (i + 2 < order.length) adjacent = math.min(adjacent, cie76(order[i], order[i + 2]));
+    }
+    // ignore: avoid_print
+    print('  卡上相邻最小 ΔE76 = ${adjacent.toStringAsFixed(1)}'
+        '（其中只算横向 ${horizontal.toStringAsFixed(1)}）；注释：改前 18.3 → 改后 40.7');
+    expect(adjacent, greaterThanOrEqualTo(18.3),
+        reason: '卡上相邻最近的一对只有 ${adjacent.toStringAsFixed(1)} ΔE76');
+
+    // ③ 图标对**自身 7% 底色**（压在 `#F4EAE4` 上）的对比度：注释给 1.90（橙）与 2.10 / 3.96 / 4.51 / 2.17。
+    const base = Color(0xFFF4EAE4);
+    final ratios = <double>[
+      for (final c in ring)
+        contrastRatio(c, Color.alphaBlend(c.withValues(alpha: 0.07), base)),
+    ]..sort();
+    // ignore: avoid_print
+    print('  7% 底色上的对比度（升序）= ${ratios.map((r) => r.toStringAsFixed(2)).join(' / ')}');
+    expect(ratios.first, closeTo(1.90, 0.05),
+        reason: '最低的仍是原来就有的橙 `#FF8A00`（1.90）——实测 ${ratios.first.toStringAsFixed(2)}');
+    for (final expected in <double>[2.10, 2.17, 3.96, 4.51]) {
+      expect(ratios.any((r) => (r - expected).abs() < 0.05), isTrue,
+          reason: '注释记的对比度 $expected 在实测里找不到（实测：'
+              '${ratios.map((r) => r.toStringAsFixed(2)).join(' / ')}）');
+    }
+    expect(ratios.last, lessThanOrEqualTo(4.6),
+        reason: '全落在既有的 1.90–4.51 区间内——上界超了说明有颜色越出了那条带');
   });
 }

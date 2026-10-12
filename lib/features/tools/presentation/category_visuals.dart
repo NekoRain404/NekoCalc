@@ -30,6 +30,14 @@ import '../../../domain/entities/tool_definition.dart';
 //       的对比度：最低的仍是原来就有的橙 `#FF8A00`（1.90），四个新值为 2.10 / 3.96 / 4.51 / 2.17，
 //       全落在既有的 1.90–4.51 区间内，没有一个是靠降低可读性换来的。
 //
+//       ⚠️ **2026-10-12：这三组数现在由 `test/features/tool_identity_colors_test.dart` 重算** ✓。
+//       重算结果分两半：
+//       ✅ **逐字复现**：任意两卡最小 **20.2** ✓；对比度 **1.90 / 2.10 / 2.17 / 3.96 / 4.51** 五处全中 ✓
+//          （实测另有 2.15 / 2.39 / 2.54 三处，是注释没逐条列的其余旧色 ✓；带顶 4.51 与这里写的区间端点一致 ✓）。
+//       ✗ **复现不出**：**「相邻卡升到 40.7」** —— 实测 **30.2** ✓，而且**横向与纵向两种口径都是 30.2** ✓，
+//          所以那个 40.7 属于**更早的一次排布** ✓。**方向仍然成立**（30.2 远高于改前的 18.3 ✓），
+//          但**「40.7」这个数不要再引用** ✗ —— 与拟合图注释里那两个数（琥珀 48.9、绿 75.3）同一种情况 ✓。
+//
 // English: Identity colours for categories and tools. **All eight values are taken byte-for-byte from
 //          existing tokens in `lib/shared/presentation/calc_theme.dart`** (bar the four legacy values
 //          already in use, listed below) — this is not a second private palette. Each value appears
