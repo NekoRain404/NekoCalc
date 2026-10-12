@@ -1635,6 +1635,37 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   kind of claim this project says needs a **render check**, not a token swap in the dark. The list is written
   down so the pass that changes colours starts from a measured list instead of from a grep count.
 
+### 5u. The documents that describe this project to outsiders, audited (2026-10-12)
+
+The same move as §5r and §5t — measure what the prose claims — applied to the texts a reader outside this
+project actually meets. **Three of them were wrong, and one of those was a privacy claim.**
+
+- ⚠️ **`PRIVACY.md` omitted a permission.** Its permissions section said "the vibration permission only", while
+  `AndroidManifest.xml` also declares `android.permission.INTERNET` — and that one is **used**: the
+  user-initiated "check for updates" action in Settings fetches the public release list from GitHub
+  (`github_release_checker.dart`). **A privacy policy that omits one of the permissions is worse than one that
+  lists none** — it lets the reader believe they have seen them all. It now lists both, with what each is for.
+- ⚠️ **The same false sentence stood in two more places** — `release_notes_v1.0.0.md` ("Removed unused network
+  permission … remains offline") and `CHANGELOG.md`'s v1.0.0 entry. Both are **records**, so both keep the
+  original line and carry a **dated correction beneath it** instead of being rewritten; and the CHANGELOG's
+  `Unreleased` list gained a bullet, because being told something untrue about permissions is something a user
+  should see acknowledged.
+- ⚠️ **`file_structure.md` contradicted `.gitignore`** — twice. It said `.flutter/` is "not committed", while
+  **51 of its files are tracked on purpose** (`.flutter/flutter_tools_gradle/` is referenced by path from
+  `android/settings.gradle.kts`), and it listed that same directory under "generated files that are not
+  committed". `.gitignore` had it right, and explained why.
+- ⚠️ **`architecture.md` pointed at a directory that no longer exists** ("the old root `app/` native module …"),
+  which sends a reader looking for something absent. The directory is not on disk at all.
+- ✅ **And one was clean, measured rather than assumed:** `README.md`'s version and status claims match
+  `pubspec.yaml` and `app_info.dart`, and its "three selectable colour themes … each with a light and a dark
+  variant" matches the palette exactly — `calc_theme.dart`'s three light `CalcTheme`s (`roseCream`,
+  `lavenderMist`, `peachSugar`) plus their three `_…Dark` constants, with the picker offering those three ids.
+
+⚠️ **The shape worth keeping separate from rot:** three of these four were **not** stale-but-once-true. They
+were **never true** — "removed the network permission" never happened. This document's whole vocabulary has been
+about rot (§5s, §5t: true when written, false when read), and a sentence can also simply be **wrong on day
+one**. Nothing distinguishes the two except reading the claim against the artifact it describes.
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
