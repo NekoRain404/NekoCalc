@@ -1373,15 +1373,46 @@ would be the same mistake in a new place.
 ⚠️ **The device's build predates this fix.** The APK installed during the release smoke test carries
 `1.2.0-beta.1` / versionCode 4009, so the report and the fix sit on opposite sides of it. The point of
 rebuilding and reinstalling in this round is that the fix should be **felt on the phone, not read in a
-report** — a green suite is not a user pressing ◀. **What was verified on the device, and what was not**:
-the rebuilt APK installed cleanly over the running one, and `am start -W` returned `Status: ok` with the
-process alive — so the release build launches. ⚠️ **Its UI was not seen.** The screen was asleep
-(`mWakefulness=Asleep`, which is why the first capture was a black frame — and note that `screencap -d 0`
-and `-d 1` silently produced **0-byte files**, because `-d` wants SurfaceFlinger's *physical* display id,
-not the logical one). After waking it the window stack reported `mCurrentFocus=null` behind the
-notification shade, and the capture guard refused to screenshot **the user's own screen** rather than
-learn anything from it. So: launches — measured; draws — **not** measured; the key press that this whole
-section is about is the user's to make.
+report** — a green suite is not a user pressing ◀. The rebuilt APK installed cleanly over the running one and
+`am start -W` returned `Status: ok` with the process alive, so the release build launches — **and unlike an
+earlier draft of this paragraph said, its UI *was* seen.** Two readings that looked like failures were
+instrument errors, and both are worth keeping:
+
+1. **"`mCurrentFocus=null`, so nothing is in front"** — wrong: `dumpsys window` prints **one focus line per
+   display**, and `grep -m1` took the **sub-screen's** `null` while a later line held
+   `Window{…com.nekorain.nekocalc/…}`. The window state was conclusive all along and better: `isVisible=true`,
+   `isOnScreen=true`, `mObscured=false`, **`mDrawState=HAS_DRAWN`**.
+2. **"the screen is asleep"** — true of the first capture only. And `screencap -d 0` / `-d 1` produce
+   **0-byte files**: `-d` wants SurfaceFlinger's *physical* display id. The map, read rather than guessed:
+   `4630946736638489730` = logical display 0, 1440×3200, `state ON` (the real panel);
+   `4630946457913958275` = logical display 2, **126×294**, `state OFF` (Xiaomi's sub-screen).
+
+Captured on the main panel, the release build shows the calculator with `12×12`, the result `= 144`, the
+orange ◀ ▶ keys in the first row — and **a single caret bar at the end of the expression with no highlight
+anywhere**, which is the exact asymmetry this section is about, now *seen* instead of argued.
+
+⚠️ **Then the instrument broke, and that is what it is called.** Driving the app toward the user's scenario
+(open the inline editor, select something), `screencap` on the main panel began failing — exit 1 and 0 bytes
+in both PNG and raw mode — while the sub-screen kept capturing (777 B / 148,192 B) and the app's layers
+stayed composed (`SurfaceFlinger --list` lists them) with the panel still `state ON`. **Cause not
+established**, and the honest record is "the capture path failed", never "the app vanished". Two further
+things came out of the attempt and are worth keeping:
+
+- ⚠️ **A synthetic long-press in the editor does not select text** — it triggers the app's own
+  `onPastePointerDown` affordance (「粘贴计算详情」). So a scripted gesture could not manufacture the
+  non-collapsed selection, and **the key press this section is about remains the user's to make.**
+- **Where a non-collapsed selection can come from is now a closed question**, searched rather than assumed:
+  the live writers in `lib/` are the inline editor's `onSelectionChanged` (`calculator_page.dart:498`, from
+  `_synchronizeToCalculator`, `inline_expression_editor.dart:92-103`) and the persisted restore
+  (`calculator_controller_persistence.dart:510`). `selectAll()` has **no caller in `lib/`**, and
+  `applyPastedText` collapses (`cursorIndex = expression.length`). The trigger set is those two — which is
+  what this section's explanation rests on, no more.
+
+⚠️ **And one operational rule this round broke: the writer stopped touching the device.** A main panel that
+refuses capture is what a `FLAG_SECURE` window on top looks like, and the screen had gone from asleep to
+awake — both consistent with **the owner using the phone**. Synthetic taps and key events sent at that moment
+are not harmless, so the device work stopped there and was **not** resumed. Anyone repeating this should
+check who is holding the phone before driving it.
 
 ## 6. Four mechanical checks that exist because of repeated mistakes
 
