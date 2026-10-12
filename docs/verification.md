@@ -1792,6 +1792,28 @@ unverifiable** — the three failures this section records (`hiper.txt`, `HANDOV
 **historical**, and each is now marked where it was cited. ⚠️ **A word-matching heuristic is not a reading**: the
 four files had to be opened to discover that the count had been wrong in the reassuring direction.
 
+### 5x. Measurements written into prose, and whether anything recomputes them (2026-10-12)
+
+Three findings this day were the same shape — **a measurement that exists only as a comment** — so the codebase
+was swept for the two vocabularies those findings used, and every hit was checked for a test that recomputes it.
+
+- **Colour vocabulary** (`ΔE` / `CIE76` / `WCAG` / `对比度`): **three** sites. Two now recompute —
+  `fit_chart_series_contrast_test.dart` and `tool_identity_colors_test.dart` — and the third
+  (`app_drawer.dart`'s 「两对颜色都是主题里配好对比度的」) is already backed by `calc_theme_test.dart`'s
+  token-contrast rule. ⚠️ **Five figures did not reproduce, and are labelled as such rather than deleted:** the
+  fit chart's amber **48.9 → 64.1** and green **75.3 → 109.0**, and the identity cards' adjacent-card
+  **40.7 → 30.2** (under *both* pairings tried). Each belongs to an **earlier arrangement**; the *direction* of
+  every claim still holds, and the comments now say which numbers may no longer be cited.
+- **Size vocabulary** (`dp` / `px` / 宽 / 高): concentrated in **one** file, `calculator_display.dart`, and
+  ⚠️ **already recomputed** — `calculator_display_test.dart` renders at exactly `panelHeight = 182`, measures the
+  result row's natural height *at* that floor, and checks that the row does not move between 182 and 230.
+  ✅ **And that file practised this section's rule before this section existed:** its comments keep two `176`s
+  deliberately, with the reason written beside them — 「那是在 176 上观测到的事实，改成 182 就成了一个没量过的说法」.
+- ⚠️ **A sweep is only as good as its vocabulary, and the first attempt proved it:** matching *any decimal
+  number* returned noise (78 "hits" in a file that merely does arithmetic), while matching the **measurement
+  words** returned three sites. **A count is not a reading** — the four pointer-only files in §5w had to be
+  opened for exactly that reason, and there the count had been wrong in the reassuring direction.
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
