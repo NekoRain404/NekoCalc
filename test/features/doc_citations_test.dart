@@ -82,6 +82,51 @@ void main() {
     expect(pastEndCitations(sizes, citations), isEmpty,
         reason: '有引用指到文件末尾之外——按符号找，别按行号找（docs/verification.md §5s）');
   });
+
+  test('§6 表里的路径必须存在：活检查的登记册，指向不存在的文件就是没人跑的检查', () {
+    // 中文：**判据窄到不会误报** ✓ —— 只查 `docs/verification.md` §6 那张表 ✓、只认**带斜杠的完整路径** ✓。
+    //       为什么必须这么窄：不带目录的裸文件名（`app_theme.dart`、`architecture.md`…）在文档里到处都是 ✓，
+    //       一刀切会在**当场 11 处以上**误报 —— 实测过 ✓✓；而且文档里**故意**引用着已经不在的东西
+    //       （`hiper.txt`、`HANDOVER.md`，见 §5u/§5w ✓），那些是**历史记录**，不该报 ✓。
+    //       而 §6 那张表不一样 ✓：它是**活检查的登记册** ✓ —— 一行指向一个已经不存在的文件，
+    //       就是一条**没人会跑到的检查** ✗（今天新加的四条护栏正是这张表最新的内容 ✓，也最容易漂 ✓）。
+    // English: **narrow enough not to cry wolf** — only §6's table in `docs/verification.md`, and only
+    //          **slash-qualified** paths. Bare file names are all over these docs and a blanket check cried
+    //          wolf in a dozen places when tried; and the docs **deliberately** cite things that are gone
+    //          (`hiper.txt`, `HANDOVER.md` — §5u/§5w), which are records and must not fire. That table is
+    //          different: it is the register of **live** checks, so a row naming a file that is gone is a check
+    //          nobody runs. Four of today's guards are its newest rows, and the newest rows drift first.
+    List<String> tablePaths(String doc) {
+      final heading = RegExp(r'^## 6\. ', multiLine: true).firstMatch(doc);
+      if (heading == null) return const [];
+      final after = doc.substring(heading.end);
+      final next = after.indexOf(RegExp(r'^## ', multiLine: true));
+      final section = next < 0 ? after : after.substring(0, next);
+      return <String>[
+        for (final row in RegExp(r'^\| `([^`]+)`', multiLine: true).allMatches(section))
+          if (row.group(1)!.contains('/')) row.group(1)!,
+      ];
+    }
+
+    List<String> missingPaths(List<String> paths) =>
+        <String>[for (final p in paths) if (!File(p).existsSync()) p];
+
+    // 中文：合成对照——给一条不存在的路径，判据必须报出来 ✓。
+    // English: synthetic control — feed it a path that is not there and it has to report it.
+    expect(tablePaths('## 6. X\n\n| `a/b.dart` | x |\n'),
+        <String>['a/b.dart'], reason: '抽路径这一步本身就不对');
+    expect(missingPaths(<String>['test/features/does_not_exist_9f3.dart']),
+        <String>['test/features/does_not_exist_9f3.dart']);
+
+    final rows = tablePaths(File('docs/verification.md').readAsStringSync());
+    // 中文：**先确认自己真抽到了东西**——"抽到零行"与"行行都在"在结果上长得一样。
+    // English: **first confirm the extraction found anything** — "zero rows" and "all rows fine" look alike.
+    expect(rows.length, greaterThan(5),
+        reason: '只抽到 ${rows.length} 行路径，这条检查多半根本没读对那张表');
+
+    expect(missingPaths(rows), isEmpty,
+        reason: '§6 表里这些路径不存在——那几行的检查没人会跑到');
+  });
 }
 
 /// 中文：**判据只有这一句**：在给定的行数表里，引用指向文件末尾之外的（按原顺序返回，输出稳定）。
