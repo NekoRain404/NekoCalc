@@ -1824,6 +1824,12 @@ was swept for the two vocabularies those findings used, and every hit was checke
   17.7:** the work *is* a careful transcription, and this day's demonstrated failure mode was exactly that — nine
   miscounted-indentation slips in one evening. **A test that enshrines a mis-transcription is worse than no test**,
   so the transcription is left for a sitting with attention to spare, and this paragraph is its brief.
+  ⚠️ **And a second constraint belongs in that brief, found by going looking for the first:** the fixture cannot
+  simply **embed** the vendor's screenshot. An image of another product's UI, committed into a public repository,
+  is a decision about **someone else's material** — not a verification step, and **not one of mine to make**. The
+  layout therefore has to enter as a **transcribed table**, with the screenshot cited as its source and the
+  reading itself recorded beside it — which is the other reason this wants a careful sitting rather than a spare
+  minute.
 
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
