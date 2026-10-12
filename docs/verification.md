@@ -1604,8 +1604,13 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   (`tool_widgets.dart:315,323`, `tools_home_page.dart:585`, `tool_detail_screen.dart:236`) — and the reason it
   survived is worth more than the finding: **a test pins it**
   (`tool_category_screen_test.dart` asserts `favoriteIcon.color == Colors.amber`), so the literal reads as
-  deliberate. A warm amber star inside the violet or ocean palette is a consistency defect that no token
-  comparison can see. Then `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` — a stray default
+  deliberate. ⚠️ **Whether that is a defect or a decision is a design call, not a measurement.** A favourite
+  star keeps a semantic amber in most apps, while this palette is thematic — so the question is whether
+  "favourite" is a *semantic* colour (keep amber, and say so in the code) or a *thematic* one (give it a token
+  per palette). What is **not** defensible is the present state: an amber literal that *looks* deliberate
+  because a test asserts it, with no sentence anywhere recording which of the two it is meant to be. Whoever
+  owns that call should write it down; this paragraph exists so it is at least visible as a call to make.
+  Then `graph_function_expression_dialog.dart:54`'s `Color(0xFF1677FF)` — a stray default
   blue in a themed dialog — and `app_chrome.dart:279,284,285,291`'s `Colors.white` + `Color(0xFFD8D3FF)` +
   `Color(0xFFE8ECF7)` (cool-toned colours from **before** the warm palette) + a hard-coded shadow.
 - ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
