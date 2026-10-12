@@ -1725,6 +1725,25 @@ than the documents it was checking**. The row's own evidence cell now says so. �
 one: a narrow check cannot cry wolf (§6), and a narrow check also has blind spots — the honest move is to
 **record the blind spot** rather than widen the check until it starts crying wolf.
 
+### 5w. The shape behind three of today's findings: evidence pointing into the scratch tree (2026-10-12)
+
+Three separate findings this day had **one shape** — a citation into the **gitignored** `.superpowers/` tree:
+
+- **`hiper.txt:728-745`** (the register's photo-solving row): the file is **gone from disk** (§5v).
+- **`HANDOVER.md`**: **nine** references, and the file is **neither tracked nor on disk** (§2's note).
+- **"(真机截图)"** on three register rows: **no path at all**, so there was nothing to check even while the
+  screenshots still existed.
+
+So the tree was swept once: **26 tracked files** mention `.superpowers/`. ⚠️ **And the sweep's answer is
+reassuring rather than damning** — the project's habit is already the right one. Most of those files say
+「**逐字抄本在** `.superpowers/…`」: **the content is copied inline and the scratch path is cited as provenance**,
+which is exactly the mitigation this section keeps prescribing. The failures were the exceptions: a pointer that
+was the **only** record, a cited file that later **vanished**, and a screenshot referred to **without a name**.
+
+⚠️ **The principle, stated once so it stops being rediscovered piecemeal:** evidence has to point at something
+**tracked**, or the thing itself has to be **quoted where it is cited**. The scratch tree is a working surface,
+not an archive — anything whose only copy lives there is **one cleanup away from being unverifiable**.
+
 ## 6. Seven mechanical checks that exist because of repeated mistakes
 
 All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
