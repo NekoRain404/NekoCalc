@@ -237,6 +237,33 @@ void main() {
 
     expect(find.text('47'), findsOneWidget,
         reason: '打了 10 mA / 4.7kΩ，屏幕上应当出现 47（粘贴那条测试就是这么断言的）');
+
+    // 中文：**顺手量掉那个悬着的问题**：主结果框到底渲不渲染？它的复制按钮（框内、`'复制主结果'`）
+    //       在**这条已绿测试的确切环境**里找得到 ⇒ **框渲染了** ✓✓。
+    //
+    //       ⚠️ 这条线索上我推错过两次，两次都留在这里，因为错法比结论更值得记：
+    //       ① 我先按"屏幕上恰好一个 47"推出"框没渲染" ✗ —— 但**框很可能渲染的是带单位的形式**（`47 V`），
+    //          于是 `find.text('47')` 的精确匹配只命中结果卡 ✓；**一个 47 与"框存在"并不矛盾** ✓。
+    //       ② 于是我把"框存在"当成了被测事实 ✓ —— 一量，它确实存在 ✓。
+    //       剩下的**假设**（未量 ✓）：我早先那版失败在**它自己的环境**上，最可能是 `scrollUntilVisible` 与
+    //       **惰性列表**相互作用——滚出视口就被卸载 ⇒ `Bad state: No element` ✓。**事实与假设，写法上分开。**
+    // English: **and measure the open question while we are here**: does the primary box render at all? Its copy
+    //          button (inside the box, `'复制主结果'`) **is findable in this already-green test's exact setup**
+    //          ⇒ **the box does render** ✓✓.
+    //
+    //          ⚠️ I got this thread wrong twice, and both mistakes stay here because the way they were wrong is
+    //          worth more than the answer:
+    //          (1) from "exactly one 47 on screen" I concluded "the box does not render" ✗ — but the box most
+    //              likely renders the value **with its unit** (`47 V`), so an exact `find.text('47')` only ever
+    //              hits the result card ✓; **one 47 does not contradict the box existing** ✓.
+    //          (2) so I then treated "the box exists" as the thing to be tested ✓ — and one measurement said it
+    //              does ✓.
+    //          What remains a **hypothesis** (not measured ✓): that my earlier failure lay in **that version's
+    //          own setup**, most likely `scrollUntilVisible` interacting with a **lazy list** — scrolled out of
+    //          the viewport means unbuilt, hence `Bad state: No element` ✓. **Facts and hypotheses are written
+    //          differently, on purpose.**
+    expect(find.byTooltip('复制主结果'), findsOneWidget,
+        reason: '主结果框应当在场（它的复制按钮就在框内）');
   });
 
   testWidgets('tool copied inputs can be parsed back as pasted parameters',
