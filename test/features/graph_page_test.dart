@@ -500,6 +500,50 @@ sin(x)
     expect(copied, isNotEmpty);
   });
 
+  testWidgets('只剩一个标记时，「上一个/下一个」是禁用的', (tester) async {
+    // 中文：**这条补的是审计 §5r 挂在旁边的那个洞。** 实现是在的（`graph_page_output.dart:200` 的
+    //       `_markers.length <= 1 ? null : …`），但**没有任何测试驱动过它**——把那个守卫删掉，
+    //       此前全部测试照样绿 ✗。
+    //
+    //       造场景的手法全用本文件已经驱动过的：隐藏 `sin(x)`（照「隐藏与显示」那条）✓，
+    //       再打开**极值**面板 ✓ —— 剩下的 `x²-3x+2` **只有一个极值** ⇒ `_markers.length == 1` ✓✓，
+    //       正是那个守卫要看的情形。
+    //
+    //       ⚠️ **断言只钉禁用态本身**（`onPressed == null`）✓，不去猜面板计数的文案形状 ✗ ——
+    //       那是两处维护一句话的入口，而不是这条测试要说的事。
+    // English: **this fills the hole audit §5r left beside the others.** The behaviour is implemented
+    //          (`graph_page_output.dart:200`, `_markers.length <= 1 ? null : …`) but **no test drove it** —
+    //          delete that guard and every test here stays green ✗.
+    //
+    //          The state is built entirely from affordances this file already drives: hide `sin(x)` (as the
+    //          「隐藏与显示」 test does), then open the **extremes** panel — the remaining `x²-3x+2` has
+    //          **exactly one extremum** ⇒ `_markers.length == 1` ✓✓, which is the case the guard is about.
+    //
+    //          ⚠️ **The assertion pins the disabled state itself** (`onPressed == null`) ✓, and does not guess
+    //          the panel counter's wording ✗ — that is an entrance to maintaining one sentence in two places,
+    //          not what this test is about.
+    await _pumpGraphPage(tester);
+    await _scrollToTop(tester);
+    await tester.tap(find.byTooltip('隐藏').at(0));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('极值'));
+    await tester.pumpAndSettle();
+
+    IconButton buttonWith(String tooltip) => tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byTooltip(tooltip),
+          matching: find.byType(IconButton),
+        ));
+
+    expect(buttonWith('下一个标记').onPressed, isNull,
+        reason: '只剩一个标记时，「下一个」必须是禁用的——把那个守卫删掉，这条就红');
+    expect(buttonWith('上一个标记').onPressed, isNull,
+        reason: '只剩一个标记时，「上一个」同样必须是禁用的');
+  });
+
   testWidgets('上一个/下一个标记按钮：在全部标记里环形切换', (tester) async {
     await _pumpGraphPage(tester);
     await _tapZeros(tester);
