@@ -1644,7 +1644,11 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   colour field** — so nothing draws it. It is a **latent** off-palette value that would surface only if a
   future change renders that preview as a curve. `app_chrome.dart:279,284,285,291`'s `Colors.white` +
   `Color(0xFFD8D3FF)` + `Color(0xFFE8ECF7)` sit on **fallback** branches taken only when the scheme is absent —
-  ⚠️ whether that branch is ever taken in the app was **not** established here. The honest split, then:
+  ⚠️ **whether that branch is ever taken is now answered — it is not.** `softPanel` (`app_chrome.dart:274`)
+  takes a **nullable** `BuildContext? context` and falls back only when it is null, and **all fifteen call
+  sites** in `lib/` and `test/` pass one. So those three literals are **never drawn**, and a colour comparison
+  could not have found them either way. ✅ They are **kept, not deleted**: a nullable parameter is an API
+  decision, and the honest record is "unreachable today" rather than a silent removal. The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
 - ⚠️ **Why this is recorded rather than fixed here:** not one of them is a rendering bug today — the app's own
