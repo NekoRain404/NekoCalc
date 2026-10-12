@@ -1672,15 +1672,15 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   pending, and this page owns a 70 ms debounce), the page was **unmounted** before the test ended, and the run was
   left to the framework's `--timeout 60s` instead of being killed by hand. Each variant produced the PNG and then
   hung; ⚠️ `--timeout` **never fired**, so the fake-async clock was stuck somewhere the test body could not reach.
-  ⚠️ **The test was deleted** — a hanging test cannot stay any more than a red one can — and with it went the
-  **pin**. The **observation** above is what survives, and it is the part that was actually wanted.
-  ⚠️ **A correction worth keeping:** an earlier version of this paragraph said the test "fails on teardown — the
-  page leaves a pending timer". That was **inference**, and reading the log showed otherwise: the error visible
-  there was **my own `timeout` killing the process mid-stream** (`Cannot close sink while adding stream`, from
-  `flutter_tools`). So the honest next step is not "fix the teardown" but: ⚠️ **try `tester.runAsync` for the image
-  half** — `toImage` / `toByteData` are `dart:ui` futures, and keeping them *out* of the fake-async zone is the
-  documented remedy in widget tests. They **did** complete here (the PNG exists), which is exactly why the
-  remaining hypothesis has to be about **what they leave behind**, not about whether they work.
+  ⚠️ **The fourth attempt landed it — and the fix was the one this record had just named.** The image half was
+  moved inside `tester.runAsync` (`dart:ui` futures kept **outside** the fake-async clock), and the test passes in
+  **under a second** where the previous three hung. ✅ **So the pin is in place**:
+  `test/features/favorite_star_render_test.dart` asserts that every favourite star's colour is
+  `favoriteStarColor`, rendering the tools home in `lavenderMist` — the palette that is that decision's only real
+  test — and the PNG it writes is the image described above. ⚠️ What made the fourth attempt cheap is worth
+  stating on its own: **the failure had been written down with its evidence, and that record needed exactly one
+  attempt to pay for itself.** The two corrections above — the "teardown" inference that reading the log refuted,
+  and the hypothesis that replaced it — are the whole reason this took **four tries instead of staying open**.
   The honest split, then:
   **visible today = the four amber stars, and only if that star is judged thematic; latent = the other three.**
   The count said 7; reading says the consequence is 4 at most, and **none of them is a rendering bug now**.
