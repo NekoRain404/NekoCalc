@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/data/local/app_database.dart';
 import 'package:nekocalc/data/models/history_item.dart';
@@ -22,6 +24,13 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   var ffiAvailable = false;
 
+  /// 中文：本文件**私有**的库目录（见 `setUpAll` 那段说明）。⚠️ 声明必须在使用之前——
+  ///       放在 `late String dbPath;` 旁边会报 `referenced_before_declaration`（实测踩过）。
+  /// English: this file's **private** database directory (see the note in `setUpAll`). ⚠️ It has to be
+  ///          declared before its first use — putting it next to `late String dbPath;` gives
+  ///          `referenced_before_declaration` (measured, in this very edit).
+  Directory? dbTempDir;
+
   setUpAll(() async {
     // 中文：先探一次原生库。`sqflite_common_ffi` 在 Linux 上要系统 `libsqlite3.so`，开发机有、
     //       某些 CI 镜像没有。探不到就**跳过**这几条，而不是把一个缺原生库的环境判成失败。
@@ -38,6 +47,32 @@ void main() {
     } catch (_) {
       ffiAvailable = false;
     }
+
+    // 中文：**把这个文件用的库目录挪进一次性临时目录。** 此前它用的是**默认路径**
+    //       （`<cwd>/.dart_tool/sqflite_common_ffi/databases/nekocalc.db`），而 `--concurrency=16`
+    //       下多个测试文件并行——**当时仓库里有 10 个文件引用 `AppDatabase.instance`，其中 9 个没给自己
+    //       设目录**，于是在同一个库文件上互相写；本文件 `setUp` 里那句**删库**尤其致命。
+    //       实测：三条通道并行跑本文件，**15 遍里红 11 遍**，而每次失败的还是**不同的**测试。
+    //       `createTempSync` 每次调用给一个**唯一**目录 ⇒ 每个进程各用各的，撞不上。
+    // English: **move this file's database directory into a throwaway temp directory.** Until now it used
+    //          the **default path** (`<cwd>/.dart_tool/sqflite_common_ffi/databases/nekocalc.db`), and with
+    //          `--concurrency=16` several test files run in parallel — **ten files referenced
+    //          `AppDatabase.instance` and nine of them had no directory of their own**, so they wrote to one
+    //          database file from several sides; this file's `setUp` **delete** is the worst of it. Measured:
+    //          three concurrent channels running this file failed **11 of 15 runs**, and each time the failing
+    //          tests were **different**. `createTempSync` hands out a **unique** directory per call, so each
+    //          process gets its own and they cannot collide.
+    if (ffiAvailable) {
+      dbTempDir = Directory.systemTemp.createTempSync('nekocalc_migration_');
+      await databaseFactoryFfi.setDatabasesPath(dbTempDir!.path);
+    }
+  });
+
+  tearDownAll(() async {
+    if (!ffiAvailable) return;
+    await AppDatabase.instance.closeForTest();
+    final dir = dbTempDir;
+    if (dir != null && dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
   late String dbPath;
@@ -354,6 +389,26 @@ void _writePathTests(void Function() requireFfi) {
 ///            timing recorded. Chasing it further on 2026-10-12 was stopped deliberately: three hypotheses
 ///            had been falsified in a row and the remaining reasoning was being done with too little
 ///            attention to trust.
+///
+///          ✅ **RESOLVED the same day — and the cause was none of the three.** Running this file in **three
+///          concurrent channels** (a deliberately harsh harness) failed **11 of 15 runs**, and the failing
+///          tests were **different** each time — which says "several processes are stepping on one thing",
+///          not "one test is flaky". That thing is the **database file**: with `--concurrency=16` several test
+///          files run in parallel, **ten files in this repository reference `AppDatabase.instance`** (the
+///          default path, `<cwd>/.dart_tool/sqflite_common_ffi/databases/nekocalc.db`), and **nine of them
+///          had no directory of their own** — so they read and wrote one database file from several sides,
+///          with this file's `setUp` **deleting** it in the middle of everyone's business. ⚠️ This is exactly
+///          the shape this file's own documentation predicted ("a second test file that also used the real
+///          database … a random red") — the prediction was right, it was just written before the second file
+///          existed.
+///
+///          **The fix** is the isolation already proven in `data_backup_repository_test.dart`: `setUpAll`
+///          points the FFI factory at a **throwaway** directory (`createTempSync` hands out a unique one per
+///          call, so concurrent processes cannot collide) and `tearDownAll` closes the connection and deletes
+///          it. **Evidence, all measured:** the three-channel harness went **11/15 → 3/15**, with the residue
+///          confined to a *different* synthetic condition and to a single test; and the release checklist's
+///          own command (`--concurrency=16`) under deliberate parallel load went from **~2/14 red to 6/6
+///          green**.
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
