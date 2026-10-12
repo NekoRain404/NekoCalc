@@ -1627,11 +1627,12 @@ rest of `lib/` returns **12 files**, and a count is not a finding. Reading every
   kind of claim this project says needs a **render check**, not a token swap in the dark. The list is written
   down so the pass that changes colours starts from a measured list instead of from a grep count.
 
-## 6. Six mechanical checks that exist because of repeated mistakes
+## 6. Seven mechanical checks that exist because of repeated mistakes
 
-All six guard one of **three** shapes: an action that did nothing looks exactly like one that ran and had no
-effect; a limit nobody is watching gets crossed without anything happening at all; or **a rule that lives in a
-file nothing reads — so deleting it looks like nothing at all.**
+All seven guard one of **four** shapes: an action that did nothing looks exactly like one that ran and had no
+effect; a limit nobody is watching gets crossed without anything happening at all; a rule that lives in a file
+nothing reads — so deleting it looks like nothing at all; or **a sentence that was true when written and false
+when read**, which is what a citation becomes the moment someone edits the file it points at.
 
 ⚠️ The two newest (the 800-line cap and the portrait lock) come from **the user's own stated rules** rather than
 from a mistake of mine, and the heading above is kept only because the failure mode is the same one: **a rule
@@ -1647,6 +1648,7 @@ would pass on a manifest whose attributes had been deleted.
 | `tool/install_debug_over_release.sh` | losing the device's debuggable build — it **sidesteps** the versionCode (build the debug variant at the installed one) instead of fighting the downgrade guard (§2) |
 | `test/features/file_size_limit_test.dart` | a source file under `lib/`, `test/` or `android/app/src/` **drifting past the user's 800-line cap**. The cap was kept by memory alone until 2026-10-12, when two slips of mine came from the same shape — a new test pushed `notes_controller_test.dart` to **817 lines**, and `calculator_controller_evaluation.dart` sat at **798**, two lines from the edge. Survey that day: **nothing over the line, 36 files above 700** — one small change between the pressure and the breach. The guard's own reading is `wc -l`-identical on purpose (see its header): an instrument that miscounts by one line would cry wolf, and a guard that cries wolf gets switched off. |
 | `test/features/manifest_portrait_lock_test.dart` | the **portrait lock** disappearing from `AndroidManifest.xml`. The user stated this rule twice (「不需要做屏幕旋转，**禁止屏幕旋转**」) and it lived only in that file, with nothing reading it. The manifest's own comment explains that `screenOrientation` **alone is not enough** under `targetSdk = 36`, so the guard asks for **both** halves — and it **strips XML comments first**, because that comment *names* both strings and a raw substring check would pass on a manifest whose attributes had been deleted. |
+| `test/features/doc_citations_test.dart` | a `file:line` citation in the docs **pointing past the end of the file it names**. On 2026-10-12 one citation was chased **three times in a single day** — `762 → 780 → 735` in `calculator_controller_evaluation.dart` — because **the fixes are what move the lines that document them**. The judgement is one sentence (the file exists ∧ the cited line is greater than its length) and deliberately does **not** fire on a missing file (a historical mention is legitimate) or on a `762 → 780 → 735` chain (a record of movement, not a citation) — ⚠️ that second cell was a **measured** false positive in the first version of the sweep, and a guard that cries wolf gets switched off. |
 
 ⚠️ **Measuring trap, learned the hard way**: `meetsGuideline` reports failures **asynchronously** —
 `expect(...)` does not throw. try/catch cannot be used to see whether it passes.
