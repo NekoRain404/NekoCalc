@@ -19,6 +19,19 @@ import 'package:nekocalc/features/calculator/presentation/keypad/keypad_definiti
 ///          而键面本来就在 `label` 上（`icon` 为 null 时画的就是这几个字 ✓，见 `keypad_definition.dart`
 ///          对 `label` 的注释 ✓）。**那次"找不到"是我的字段名错，不是键位错** ✓ —— 与 §5x 那句同形：
 ///          一个读数错了，结论就会整条错 ✓。
+///
+///       ⚠️ **三条各自的对照都做过，而且都当场红了** ✓✓（`trap` 还原、sha256 前后一致 ✓）：
+///       ① `number_rows.dart:242` 的 `label: 'CNST'` → `'gcd'` ⇒ `Expected: 'CNST' Actual: 'gcd'` ✓
+///       ② `band_key_rows.dart:203` 横带里的 `label: 'hyp'` → `'gcd'`（`1`/`2` 那一行不动）
+///          ⇒ 报「出现即说明键位被换回了旧版布局：**`[横带 gcd]`**」✓ —— 这一条证明的是**扫描**本身有效 ✓
+///       ③ `angle_matrix_row.dart:594` 相机键的键面 `'📷'` → `'x'` ⇒ `Expected: '📷' Actual: 'x'` ✓
+///       **三条都做过对照之后，它们才各自算一次测量** ✓ —— 今天已经吃过一次空对照：一个改不动的字符串
+///       让"通过"其实只是原样重跑 ✓✗。
+/// English: **all three assertions have been controlled, and each went red on the spot** (`trap`-restored,
+///          sha256 unchanged): ① `CNST`→`gcd`, ② a *band* cell →`gcd` while the `1`/`2` row is untouched
+///          (which proves the **scan** itself works), ③ the camera face `📷`→`x`. Only after a control does
+///          each of them count as a measurement — this day already produced one **void** control, where a
+///          string that did not exist made "passed" merely a re-run.
 /// English: **we follow the vendor's *current default* layout — two executable assertions, plus one
 ///          half-measured note.**
 ///
