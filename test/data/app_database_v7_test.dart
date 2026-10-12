@@ -331,26 +331,29 @@ void _writePathTests(void Function() requireFfi) {
 ///          Reading only `settings()` would keep an implementation that holds settings in memory green — the
 ///          only criterion for "it really is in the table" is the table.
 ///
-///          ⚠️ **A flake was measured in this file on 2026-10-12, and this test is one of the suspects.**
-///          What was measured, not inferred: running the full suite at `--concurrency=16` (the release
-///          checklist's own command) failed **twice** on `addHistory 派生：计算器→number，工具行→tool，显式
-///          opaque 不被形状覆盖` — a test in the **migration group**, not this one — and a three-run repeat
-///          gave **fail / pass / pass**. The same file run **alone** is green every time, and each test file
-///          is its own isolate, so the interference travels through the **filesystem or the working
-///          directory**, not through in-process state. ⚠️ **The named suspect is the singleton plus
-///          `closeForTest()`** — `AppDatabase.instance` is shared by every group in this file, and both
-///          `_toolTableTests` and this group drop its connection mid-file; whether a drop races a previous
-///          test's still-landing write is **not established**. ⚠️ **This test is not exempt**: it was added
-///          the same day, and the honest position is that its `closeForTest()` is as likely a trigger as the
-///          older ones. Reproducing it at will was not achieved in three runs, so the next step is a loop
-///          over the suite (not over this file — alone it never fails) with the timing recorded.
+///          ⚠️ **A flake was measured in this file on 2026-10-12.** What is measured, and what is
+///          **falsified**, both matter here — two rounds of reasoning were killed by measurement, and each
+///          falsification saves the next attempt from re-checking it:
 ///
-///          ⚠️ **Follow-up measurement, same day:** five consecutive full-suite runs afterwards were **all
-///          green** (0/5), which puts the observed rate near **2 in 13** — and it **refines the suspect
-///          rather than closing it**: both sightings happened while other work was running on this machine
-///          (one of them inside the very command that committed and pushed). That makes a **timing race** the
-///          leading hypothesis, and it gives the next attempt a sharper prescription: reproduce it by running
-///          the suite **under load**, not by running it more times on an idle machine.
+///          - **Measured:** running the release checklist's own command (`flutter test --concurrency=16`)
+///            failed **twice** on `addHistory 派生：计算器→number，工具行→tool，显式 opaque 不被形状覆盖` — a
+///            test in the **migration group**, not this one. A five-run loop was **all green** (0/5), putting
+///            the rate near **2 in 14**. Both sightings happened **while other work was running on this
+///            machine** (one of them inside the very command that committed and pushed), so **concurrent load
+///            is the only pattern measured so far.**
+///          - ✗ **Falsified: "the file alone is always green."** It failed **alone** too, on the run where the
+///            commit was happening in the same command — so the interference is **not** cross-file, and the
+///            isolate argument that pointed at the filesystem settles nothing.
+///          - ✗ **Falsified: the two obvious in-file races.** `setUp` **already** closes the singleton
+///            **before** deleting the database (`:47`), and `tearDown` closes it again (`:57`); and every
+///            test-local handle really is closed (`:142`, `:176`, `:198`, plus `:123`). The file is careful
+///            where it looks like it might not be.
+///          - **What is left:** the failing assertion is a **derivation** mismatch, i.e. a *write* landing
+///            somewhere other than expected. The next attempt should reproduce it **under load** (not by
+///            repeating runs on an idle machine) and then bisect **which test's write lands late** — with the
+///            timing recorded. Chasing it further on 2026-10-12 was stopped deliberately: three hypotheses
+///            had been falsified in a row and the remaining reasoning was being done with too little
+///            attention to trust.
 void _settingsPersistenceTests(void Function() requireFfi) {
   test('设置：写进 app_settings 表、查表可见、关库重开仍在', () async {
     requireFfi();
