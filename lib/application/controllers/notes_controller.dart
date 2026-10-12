@@ -242,16 +242,42 @@ class NotesController extends ChangeNotifier {
 
   Future<void> load() => _refresh(showLoading: true);
 
+  /// \u4e2d\u6587\uff1a\u7eaf\u6587\u5b57\u67e5\u8be2\u7684\u5f62\u72b6\uff08\u5b57\u6bcd/\u6570\u5b57/\u6c49\u5b57\uff0c\u7a7a\u683c\u5206\u9694\uff09\u3002**\u63d0\u5230 `static`\uff0c\u662f\u56e0\u4e3a `setQuery` \u6bcf\u6572\u4e00\u4e2a\u5b57
+  ///       \u90fd\u4f1a\u91cd\u8f7d\u4e00\u6b21**\uff0c\u800c\u6b64\u524d\u6bcf\u6b21\u8c03\u7528\u90fd\u73b0\u7f16\u4e00\u4e2a\u65b0\u6b63\u5219\u3002
+  /// English: the shape of a plain-text query (letters, digits, CJK, space-separated). **Hoisted to
+  ///          `static` because `setQuery` reloads on every keystroke**, where this used to compile a
+  ///          fresh pattern on each call.
+  static final RegExp _plainTextQuery =
+      RegExp(r'^[A-Za-z0-9\u4e00-\u9fff]+(?:\s+[A-Za-z0-9\u4e00-\u9fff]+)*$');
+
   String? get _databaseNoteQuery {
     final value = _query.trim();
     if (value.isEmpty) return null;
     // Dates and engineering symbols are normalized by matchesNoteQuery but
     // cannot be represented faithfully by the raw SQL LIKE search.
-    final plainText = RegExp(
-      r'^[A-Za-z0-9\u4e00-\u9fff]+(?:\s+[A-Za-z0-9\u4e00-\u9fff]+)*$',
-    );
-    return plainText.hasMatch(value) ? value : null;
+    return _plainTextQuery.hasMatch(value) ? value : null;
   }
+
+  /// \u4e2d\u6587\uff1a**\u67e5\u8be2\u53ea\u80fd\u672c\u5730\u8fc7\u6ee4\u65f6\uff0c\u7528\u8fd9\u4e2a\u4e0a\u9650\u53bb\u626b\u3002** \u65e5\u671f\u3001\u5de5\u7a0b\u7b26\u53f7\u4e0e\u6807\u70b9\u8fdb\u4e0d\u4e86 SQL \u7684 LIKE\uff08\u89c1\u4e0a\u9762\u90a3\u6761
+  ///       \u51b3\u5b9a\uff09\uff0c\u8fc7\u6ee4\u4e8e\u662f\u53ea\u80fd\u672c\u5730\u8dd1\uff1b\u800c\u672c\u5730\u82e5\u53ea\u770b\u5f97\u5230\u9ed8\u8ba4\u90a3\u4e00\u9875\uff0c\u5339\u914d\u9879\u843d\u5728\u7b2c 2 \u9875\u4e4b\u540e\u65f6\uff0c\u7528\u6237\u770b\u5230\u7684
+  ///       \u5c31\u662f\u300c\u641c\u4e86\uff0c\u6ca1\u6709\u300d\u2014\u2014\u90a3\u4e0d\u662f"\u6ca1\u627e\u5168"\uff0c\u90a3\u662f\u4e00\u53e5**\u5047\u8bdd**\u3002\u4e00\u5343\u6761\u8db3\u591f\u8986\u76d6\u4e00\u4e2a\u4eba\u7684\u7b14\u8bb0\u91cf\uff1b\u518d\u591a\uff0c
+  ///       \u884c\u4e3a\u4e5f\u53ea\u662f\u9000\u56de"\u9700\u8981\u5f80\u4e0b\u52a0\u8f7d"\uff0c\u800c\u4e0d\u4f1a\u7ed9\u51fa\u5047\u7b54\u6848\u3002
+  /// English: **the scan cap used when the query can only be filtered locally.** Dates, engineering symbols
+  ///          and punctuation cannot go through the SQL LIKE (the decision above), so filtering happens
+  ///          locally \u2014 and if "locally" only ever sees the default page, a match past it reads to the user
+  ///          as \u300csearched, nothing there\u300d: not an incomplete answer but a **false one**. A thousand
+  ///          covers a person's notes; beyond that the behaviour degrades to "load more", never to a lie.
+  static const _localFilterScanLimit = 1000;
+
+  /// \u4e2d\u6587\uff1a**\u666e\u901a\u67e5\u8be2\u4e0e\u65e0\u67e5\u8be2\u4ecd\u8d70 `_notePageSize`**\u2014\u2014\u300c\u53ea\u8bfb\u7b2c\u4e00\u9875\uff0c\u800c\u4e0d\u662f\u628a\u6240\u6709\u5339\u914d\u8bfb\u8fdb\u6765\u300d\u90a3\u4e2a\u51b3\u5b9a
+  ///       \u6ca1\u6709\u88ab\u6539\uff0c\u88ab\u6539\u7684\u53ea\u662f\u5b83\u7684\u540e\u679c\u3002
+  /// English: ordinary and empty queries still use `_notePageSize`: the decision to read one page rather
+  ///          than every match is untouched \u2014 only its consequence is.
+  bool get _filtersLocally =>
+      _query.trim().isNotEmpty && _databaseNoteQuery == null;
+
+  int get _noteLoadLimit =>
+      _filtersLocally ? _localFilterScanLimit : _notePageSize;
 
   Future<void> _refresh({required bool showLoading}) async {
     final token = ++_loadToken;
@@ -261,7 +287,7 @@ class NotesController extends ChangeNotifier {
     }
     try {
       final notes = await notesRepository.list(
-        limit: _notePageSize,
+        limit: _noteLoadLimit,
         query: _databaseNoteQuery,
         tag: _noteTag,
         archiveFilter: _noteArchiveFilter,
@@ -272,7 +298,7 @@ class NotesController extends ChangeNotifier {
           await notesRepository.tags(archiveFilter: _noteArchiveFilter);
       if (_disposed || token != _loadToken) return;
       _notes = notes;
-      _hasMoreNotes = notes.length == _notePageSize;
+      _hasMoreNotes = notes.length == _noteLoadLimit;
       _availableNoteTags = availableTags;
       _loadingMoreNotes = false;
       _history = history;
@@ -328,7 +354,7 @@ class NotesController extends ChangeNotifier {
     notifyListeners();
     try {
       final nextPage = await notesRepository.list(
-        limit: _notePageSize,
+        limit: _noteLoadLimit,
         offset: _notes.length,
         query: _databaseNoteQuery,
         tag: _noteTag,
@@ -341,7 +367,7 @@ class NotesController extends ChangeNotifier {
         ..._notes,
         ...nextPage.where((item) => knownIds.add(item.id)),
       ];
-      _hasMoreNotes = nextPage.length == _notePageSize;
+      _hasMoreNotes = nextPage.length == _noteLoadLimit;
       _error = null;
     } catch (error) {
       if (_disposed || token != _loadToken) return;

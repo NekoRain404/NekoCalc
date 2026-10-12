@@ -1487,10 +1487,20 @@ repository is called **with no query at all** and hands back its **first page** 
 `:263-269`); the filter at `:85` then runs over that page alone. A note that matches a date query on page 2+
 **cannot be found**: the search looks empty rather than incomplete. ⚠️ The comment beside it (`:248-249`)
 correctly explains why the SQL prefilter cannot carry dates — **that part is sound; what is missing is any
-handling of the consequence.** Not yet fixed: the fix requires a decision about fetching past the page when the
-filter can only run locally, and the existing test that pins the prefilter choice
-(`test/domain/notes_controller_test.dart`) has to change in the same commit — deliberately deferred rather than
-half-done, and written down here so it is not rediscovered as a surprise.
+handling of the consequence.**
+
+**Fixed (2026-10-12) — and the fix turned out not to need what this paragraph predicted.** The prediction was
+that the existing test pinning the prefilter would have to change in the same commit; **it did not**, because
+the decision itself is preserved: `_noteLoadLimit` still uses `_notePageSize` for empty and plain-text queries —
+`loads the first note page instead of reading every matching note` is untouched and still green — and only a
+query that **must** be filtered locally (dates, symbols, punctuation) raises the scan cap to
+`_localFilterScanLimit` (1000). What changed is the consequence, not the decision. ⚠️ **Red before the fix,
+measured against the unmodified controller**: `Expected: contains <151> / Actual: MappedListIterable<NoteItem,
+int>:[]` — an **empty** result — while the two neighbouring assertions (default load still 100, no query still
+reaching SQL) passed **in the same run**, which is what makes it the right red rather than a broken fixture.
+The test lives in its own file (`test/domain/notes_search_reach_test.dart`) because it pins *reach* where the
+other pins *how much is read* — and because folding it back pushed that file to **817 lines**, over this
+project's 800-line rule; the rule's own answer is to split by responsibility rather than delete the reasoning.
 
 ### 5s. The graph angle-mode fix, and the decision it deliberately did **not** make (2026-10-12)
 
