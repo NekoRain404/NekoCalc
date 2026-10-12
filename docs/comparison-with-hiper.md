@@ -17,11 +17,11 @@
 
 | 能力 | HiPER | 我们 | 证据 |
 |---|---|---|---|
-| 解方程（一元） | **手册 `solves`/方程解命中为 0** | ✅ `2x+1=7` → `x = 3` | 真机截图；`.superpowers/backup/engine-capability-probe.md`（⚠️ gitignore 的脚手架目录，**仓库读者打不开**）八 |
-| 方程组 | 同上 | ✅ `x+y=3; x-y=1` → `[ 2  1 ]` | 真机截图 |
+| 解方程（一元） | **手册 `solves`/方程解命中为 0** | ✅ `2x+1=7` → `x = 3` | 真机截图；`.superpowers/backup/engine-capability-probe.md`（⚠️ gitignore 的脚手架目录，**仓库读者打不开**）八；✅ **可复核的**：`test/core/expression_parser_test.dart` 里那条把 `2x+1=7`、`x^2-4=0`、`3y=12`、`y^2=9` 逐个喂进去的测试 |
+| 方程组 | 同上 | ✅ `x+y=3; x-y=1` → `[ 2  1 ]` | 真机截图；✅ **可复核的**：`test/domain/calculator_equation_test.dart` 与 `test/core/math/engine_expression_test.dart` |
 | 日期计算 | **`date`=0、`calendar`=0** | ✅ 工具（`date_calc`——原文的「#118」是当时工具清单的编号，删掉 23 个工具后已无从核对，故改记 id） | `8f79456` |
 | 不确定度传播 | **`uncertainty`=0、`±`=0** | ✅ 工具（`uncertainty`——同上，「#119」已无从核对，故改记 id） | `ae39b1f` |
-| 复制为 LaTeX | **`latex`=0** | ✅ 真机验证过 snackbar | 真机；`.superpowers/backup/engine-capability-probe.md` 六 |
+| 复制为 LaTeX | **`latex`=0** | ✅ 真机验证过 snackbar | 真机；`.superpowers/backup/engine-capability-probe.md` 六；✅ **可复核的**：`test/core/math/tex_emitter_test.dart`（LaTeX 输出本身）与 `test/core/expression_parser_test.dart` |
 | 罗马数字 | 手册 `roman`=2（**它有**） | ✅ `2026` → `MMXXVI` | 工具里那一行 |
 | 任意进制 | 未量 | ✅ 二进制…36 进制（`255 base 7` → `513`） | `883dcc1` |
 | 质因数分解 | 手册 `factor`=5（**它有**） | ✅ 且**比引擎对**，见第二节 | `261362d` |
