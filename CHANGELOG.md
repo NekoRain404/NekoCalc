@@ -7,6 +7,11 @@ device** yet — the entry gets a version when that changes.
 
 beta 之后的修复。**不给版本号**，因为其中还没有一条在**真机上被感受到**过——等到那一步，它们才会有版本号。
 
+- Corrected a **privacy statement**: the app declares `android.permission.INTERNET` and uses it for the
+  user-initiated "check for updates" action, while three documents said the permission had been removed and that
+  the app stays offline. Nothing is uploaded and the app remains local-first — but the permission was never
+  removed, so the sentence was false. Corrected in place, with dated notes, in `PRIVACY.md`,
+  `docs/release_notes_v1.0.0.md` and this file.
 - Fixed the `◀` `▶` cursor keys jumping to the ends: they now move **exactly one character** from the caret on
   screen. The cause was a non-collapsed selection the display band never draws (it renders a single caret at
   `selection.end`), which also survived a restart because `restoreState` persists and restores it — so the first
@@ -73,6 +78,18 @@ NekoCalc 1.0 是第一个正式稳定版，重点完善日常可用性、本地�
 
 - Promoted the app from beta to stable with public version `1.0.0+6`.
 - Added a formal privacy policy and removed the unused network permission.
+
+  ⚠️ **Corrected 2026-10-12 — the second half of that line is not true.** `AndroidManifest.xml` still declares
+  `android.permission.INTERNET`, and it is **used**: the user-initiated "check for updates" action in Settings
+  fetches the public release list from GitHub (`github_release_checker.dart`). Nothing is uploaded. The same
+  false claim stood in `docs/release_notes_v1.0.0.md` and in the privacy policy's permissions section; both were
+  corrected the same day. The line is kept as written with the correction under it, because a changelog entry is
+  a record.
+  ⚠️ **2026-10-12 更正——这一行的后半句不成立。** `AndroidManifest.xml` 里仍然声明着
+  `android.permission.INTERNET`，而且它**在用**：设置页里**由用户主动触发**的「检查更新」会从 GitHub 取公开的
+  发行列表（`github_release_checker.dart`）。不上传任何内容。同一句假话也出现在
+  `docs/release_notes_v1.0.0.md` 与隐私政策的权限一节，同日一并更正。原行**保留**、更正写在它下面——
+  变更记录是记录。
 - Added release signing support with local `key.properties` and split-ABI release packaging.
 - Improved calculator responsiveness by showing results before background SQLite writes.
 - Improved haptic feedback timing and added clearer settings for haptic strength.
