@@ -1463,7 +1463,6 @@ things came out of the attempt and are worth keeping:
   **removed, with the one test that used it**, since nothing on screen could reach it (§6's own rule about
   unreferenced code). `applyPastedText` collapses (`cursorIndex = expression.length`). The trigger set is those
   two, and that is what this section's explanation rests on — no more.
-  what this section's explanation rests on, no more.
 
 ⚠️ **And one operational rule this round broke: the writer stopped touching the device.** A main panel that
 refuses capture is what a `FLAG_SECURE` window on top looks like, and the screen had gone from asleep to
