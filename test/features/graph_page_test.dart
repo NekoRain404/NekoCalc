@@ -235,6 +235,298 @@ sin(x)
     expect(find.textContaining('找到 1 个零点'), findsOneWidget,
         reason: '角度制下 sin(x) 在 [-6, 6] 里只有 x = 0 一个零点');
   });
+
+  // ——— 缺口 1：函数行菜单（添加 / 编辑 / 隐藏 / 删除）此前没有任何测试驱动过 ———
+  // 中文：这一组**驱动真的菜单与真的对话框**（弹出菜单 → 对话框 → 页面重建），断言的是页面
+  //       **显示**出来的东西：函数行、状态句、零点个数、标记面板——不是"菜单项能被点到"。
+  // English: this group **drives the real menu and the real dialog** (popup menu → dialog → page
+  //          rebuild) and asserts what the page **shows**: the function rows, the status sentence, the
+  //          zero count, the marker panel — not that a menu item was tappable.
+  testWidgets('添加函数：新函数进列表并真的参与求值', (tester) async {
+    await _pumpGraphPage(tester);
+    expect(find.byType(FunctionRow), findsNWidgets(2));
+
+    await tester.tap(find.byTooltip('添加函数'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'x + 3');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('y = x + 3'), findsOneWidget);
+    expect(find.byType(FunctionRow), findsNWidgets(3));
+
+    await _scrollStatusIntoView(tester);
+    expect(find.text('已添加 y = x + 3'), findsOneWidget);
+
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 6 个零点'), findsOneWidget,
+        reason: 'x+3 在 x=-3 的零点与 sin 的零点不重合，必须真的多出一个');
+  });
+
+  testWidgets('编辑函数：新表达式换掉旧曲线，旧零点随之消失', (tester) async {
+    await _pumpGraphPage(tester);
+
+    await tester.tap(find.byTooltip('函数操作').at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑函数'));
+    await tester.pumpAndSettle();
+
+    expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        'sin(x)',
+        reason: '编辑对话框要拿当前表达式预填');
+
+    await tester.enterText(find.byType(TextField), 'x + 3');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('y = sin(x)'), findsNothing);
+    expect(find.text('y = x + 3'), findsOneWidget);
+    expect(find.byType(FunctionRow), findsNWidgets(2));
+
+    await _scrollStatusIntoView(tester);
+    expect(find.text('已更新 y = x + 3'), findsOneWidget);
+
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 3 个零点'), findsOneWidget);
+    expect(find.textContaining('3.141593'), findsNothing,
+        reason: 'π 是 sin 的零点，旧表达式被换掉后它不该再出现在任何标记上');
+  });
+
+  testWidgets('隐藏与显示：隐藏的曲线不再参与求值，解出的标记同时作废', (tester) async {
+    await _pumpGraphPage(tester);
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 5 个零点'), findsOneWidget);
+    expect(find.textContaining('零点 1/5'), findsOneWidget);
+
+    await _scrollToTop(tester);
+    await tester.tap(find.byTooltip('隐藏').at(0));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('显示'), findsOneWidget);
+    await _scrollStatusIntoView(tester);
+    expect(find.text('已隐藏 y = sin(x)'), findsOneWidget);
+    expect(find.textContaining('零点 1/5'), findsNothing,
+        reason: '标记是旧曲线上的解，隐藏后必须一起撤掉');
+
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 2 个零点'), findsOneWidget,
+        reason: '只剩抛物线，它的零点是在 x = 1 与 x = 2');
+
+    await _scrollToTop(tester);
+    await tester.tap(find.byTooltip('显示'));
+    await tester.pumpAndSettle();
+    await _scrollStatusIntoView(tester);
+    expect(find.text('已显示 y = sin(x)'), findsOneWidget);
+
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 5 个零点'), findsOneWidget,
+        reason: '重新显示后 sin 的零点要回来');
+  });
+
+  testWidgets('删除函数：行消失、标记作废；只剩一条时删除项被禁用', (tester) async {
+    await _pumpGraphPage(tester);
+
+    await tester.tap(find.byTooltip('函数操作').at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除函数'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已删除 y = sin(x)'), findsOneWidget);
+    expect(find.text('y = sin(x)'), findsNothing);
+    expect(find.byType(FunctionRow), findsOneWidget);
+
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 2 个零点'), findsOneWidget);
+
+    await _scrollToTop(tester);
+    await tester.tap(find.byTooltip('函数操作'));
+    await tester.pumpAndSettle();
+
+    final deleteItem = tester.widget<PopupMenuItem<String>>(
+        find.widgetWithText(PopupMenuItem<String>, '删除函数'));
+    expect(deleteItem.enabled, isFalse, reason: '最后一条函数不允许删除');
+
+    await tester.tap(find.text('删除函数'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(30, 30));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FunctionRow), findsOneWidget);
+    expect(find.text('已删除 y = x² - 3x + 2'), findsNothing);
+  });
+
+  // ——— 缺口 2：无效函数不许把页面弄崩 ———
+  testWidgets('对话框拦住无法解析的表达式：不添加、不崩，页面照常工作', (tester) async {
+    await _pumpGraphPage(tester);
+
+    await tester.tap(find.byTooltip('添加函数'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'sin(');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FunctionExpressionDialog), findsOneWidget,
+        reason: '无法计算的表达式不许关掉对话框');
+    expect(find.text('表达式无法计算，请检查函数名、括号或变量 x'), findsWidgets);
+    expect(find.textContaining('已添加'), findsNothing);
+    expect(find.byType(FunctionRow), findsNWidgets(2));
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FunctionExpressionDialog), findsNothing);
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 5 个零点'), findsOneWidget,
+        reason: '被拒绝的输入之后，页面仍然照常求值');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('定义域残缺的函数能被添加：页面照常渲染、照常解标记，不抛异常', (tester) async {
+    // 中文：`sqrt(x - 1)` 在 x < 1 上求不出值——五个探针（-2、-1、0、1、2）里只有两个有效，
+    //       仍够对话框放行（判据是"至少一个有效"），于是页面上真的多了一条半截曲线。
+    //       判据是这条函数进得了列表、页面照常求值解标记、整个过程没有异常逃出去。
+    //
+    //       **它测的到此为止——不要读成"它在测分段时丢点那条失败保护"。** 量过：把
+    //       `buildGraphPlotSegments` 里的 `inBand` 直接改成 `true`（即整条丢点保护拿掉，
+    //       不只是 NaN 那半个条件），这一条**照样全绿**（`+13: All tests passed!`）。原因是
+    //       画布对路径里的 NaN/Inf 点不抛异常，所以"不崩"这件事分辨不出保护在不在。
+    //       那条保护的证据在 **`test/domain/graph_function_test.dart` 里那条
+    //       "builds plot segments that break around discontinuities"**（纯函数级，断言 1/x
+    //       被断成 ≥2 段且每个点的坐标有限），不在这里。
+    // English: `sqrt(x - 1)` has no value for x < 1 — only two of the five probes (-2, -1, 0, 1, 2)
+    //          come back valid, still enough for the dialog to let it through (the rule is "at least
+    //          one valid"), so a genuinely half-drawn curve lands on the page. The evidence is that
+    //          it reaches the list, the page keeps evaluating and solving markers, and no exception
+    //          escapes anywhere along the way.
+    //
+    //          **That is the whole of what it measures — do not read it as "it measures the
+    //          drop-the-point fail-safe in segment building".** Measured: replacing the `inBand`
+    //          expression in `buildGraphPlotSegments` with a bare `true` (i.e. removing the whole
+    //          drop, not merely its NaN half) leaves this test **green** (`+13: All tests passed!`),
+    //          because the canvas does not throw on NaN/Inf points in a path — so "it does not
+    //          crash" cannot tell the guard's presence from its absence. The guard's evidence is
+    //          the pure-function test **"builds plot segments that break around discontinuities"**
+    //          in `test/domain/graph_function_test.dart` (1/x must come out as ≥2 segments with every
+    //          point finite); it is not here.
+    await _pumpGraphPage(tester);
+
+    await tester.tap(find.byTooltip('添加函数'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'sqrt(x - 1)');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FunctionRow), findsNWidgets(3));
+    await _scrollStatusIntoView(tester);
+    expect(find.text('已添加 y = sqrt(x - 1)'), findsOneWidget);
+
+    await _tapZeros(tester);
+    expect(find.textContaining('个零点'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  // ——— 缺口 3：标记的选择此前没有任何测试调用过 ———
+  testWidgets('点画布上的标记：选中的是点中的那一个，不是第一个', (tester) async {
+    await _pumpGraphPage(tester);
+    await _tapZeros(tester);
+    expect(find.textContaining('找到 5 个零点'), findsOneWidget);
+    expect(find.textContaining('零点 1/5'), findsOneWidget);
+
+    await _scrollToTop(tester);
+    final canvas = tester.getRect(_graphCanvas());
+    // 中文：默认视窗中心 (0,0)、跨度 12×12；x = 1 是抛物线 x²-3x+2 的零点，在标记表里排第 4。
+    // English: the default viewport is centred on (0,0) with a 12×12 span; x = 1 is a zero of the
+    //          parabola x²-3x+2 and sits fourth in the marker list.
+    await tester.tapAt(canvas.topLeft +
+        Offset(
+          defaultGraphViewport.toScreenX(1, canvas.size),
+          defaultGraphViewport.toScreenY(0, canvas.size),
+        ));
+    await tester.pumpAndSettle();
+    await _scrollStatusIntoView(tester);
+
+    expect(find.textContaining('零点 4/5'), findsOneWidget);
+    expect(find.textContaining('x = 1.000000'), findsWidgets);
+
+    await _scrollToTop(tester);
+    await tester.tapAt(canvas.topLeft +
+        Offset(
+          defaultGraphViewport.toScreenX(-3.141592653589793, canvas.size),
+          defaultGraphViewport.toScreenY(0, canvas.size),
+        ));
+    await tester.pumpAndSettle();
+    await _scrollStatusIntoView(tester);
+
+    expect(find.textContaining('零点 1/5'), findsOneWidget);
+    expect(find.textContaining('x = -3.141593'), findsWidgets);
+  });
+
+  testWidgets('上一个/下一个标记按钮：在全部标记里环形切换', (tester) async {
+    await _pumpGraphPage(tester);
+    await _tapZeros(tester);
+    expect(find.textContaining('零点 1/5'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('下一个标记'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('零点 2/5'), findsOneWidget);
+    expect(find.textContaining('x = 0.000000'), findsWidgets);
+
+    await tester.tap(find.byTooltip('上一个标记'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('零点 1/5'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('上一个标记'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('零点 5/5'), findsOneWidget,
+        reason: '第一个再往前要绕到最后一个');
+  });
+}
+
+Future<void> _pumpGraphPage(WidgetTester tester) async {
+  final settingsCompleter = Completer<Map<String, String>>()..complete({});
+  final db = _FakeGraphDatabase(settingsCompleter);
+  await tester.pumpWidget(MaterialApp(
+    home: Scaffold(
+      body: GraphPage(
+        db: db,
+        restoreState: false,
+      ),
+    ),
+  ));
+  await tester.pumpAndSettle();
+}
+
+/// 中文：滚回列表顶部——函数行与画布都在上半部分。
+/// English: scroll back to the top of the list, where the function rows and the canvas live.
+Future<void> _scrollToTop(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView), const Offset(0, 900));
+  await tester.pumpAndSettle();
+}
+
+/// 中文：把状态条那句话滚进构建范围。**列表停在顶部时它没有被建出来**——这一条是量出来的
+///       （`find.byType(Text)` 在那个偏移下数得到画布为止，状态条与标记面板都不在树里），
+///       不是猜的；所以断言状态句之前必须先滚一下，否则断言量到的是"没建"而不是"没写"。
+/// English: scrolls the status strip's sentence into the build range. **While the list rests at the
+///          top it is not built** — measured (`find.byType(Text)` counts up to the canvas at that
+///          offset; the status strip and the marker panel are not in the tree), not guessed. So a
+///          status assertion has to scroll first, or it measures "not built" rather than "not written".
+Future<void> _scrollStatusIntoView(WidgetTester tester) async {
+  await tester.drag(find.byType(ListView), const Offset(0, -420));
+  await tester.pumpAndSettle();
+}
+
+/// 中文：画布那块 `CustomPaint`——按 painter 的类型认，避免与 Material 内部可能出现的
+///       `CustomPaint` 混在一起。
+/// English: the canvas `CustomPaint`, recognised by its painter's type so it cannot be confused with
+///          any `CustomPaint` Material might insert.
+Finder _graphCanvas() {
+  return find.byWidgetPredicate(
+      (widget) => widget is CustomPaint && widget.painter is GraphPainter);
 }
 
 Future<void> _tapZeros(WidgetTester tester) async {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekocalc/core/utils/backup_snapshot_validator.dart';
@@ -8,6 +9,8 @@ import 'package:nekocalc/features/settings/presentation/settings_backup_messages
 import 'package:nekocalc/features/settings/presentation/settings_backup_strings.dart';
 import 'package:nekocalc/features/settings/presentation/settings_backup_text.dart';
 import 'package:nekocalc/l10n/app_language.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   test('export backup packages json preview file name and messages', () async {
@@ -212,6 +215,44 @@ void main() {
     expect(report.after.totalRows, 7);
     expect(db.importCallCount, 1);
     expect(db.replaceExisting, isFalse);
+  });
+
+  // ——— 缺口 4：此前没有任何一条 fixture 让**本机侧从零开始** ———
+  // 中文：这一条补的是报告算术那一层（本机 0 条 ⇒ 增量必须等于备份的行数），真库那一层在下面的
+  //       `_freshInstallImportTests()` 里，判据是表本身。
+  // English: this covers the report arithmetic layer (local zero ⇒ every delta equals the backup's
+  //          count); the real-database layer is in `_freshInstallImportTests()` below, where the
+  //          criterion is the tables themselves.
+  test('新装：本机五张表全空时，覆盖导入后每张表的行数就是备份里的那个数', () async {
+    final db = _FakeDatabase({
+      for (final tableName in backupTableNames) tableName: 0,
+    });
+    final repository = DataBackupRepository(db);
+    const backupCounts = {
+      'calculation_history': 4,
+      'notes': 2,
+      'favorite_tools': 0,
+      'recent_tools': 3,
+      'app_settings': 2,
+    };
+
+    final report = await repository.importJson(
+      _snapshotJson(backupCounts),
+      replaceExisting: true,
+    );
+
+    expect(report.before.totalRows, 0, reason: '这一侧的前提就是一条本机记录都没有');
+    expect(report.after.totalRows, 11);
+    for (final tableName in backupTableNames) {
+      expect(report.sourceFor(tableName), backupCounts[tableName]);
+      expect(report.afterFor(tableName), backupCounts[tableName],
+          reason: '$tableName：导入后的行数必须就是备份里的行数，多一行就是幽灵行');
+      expect(report.deltaFor(tableName), backupCounts[tableName],
+          reason: '本机从零开始，增量就是备份的行数');
+      expect(report.skippedFor(tableName), 0, reason: '覆盖导入不裁剪、不跳过任何一行');
+    }
+    expect(backupReportResultLabel(report, _zh), '已恢复 11 条记录');
+    expect(db.replaceExisting, isTrue);
   });
 
   test('import plans compare source local and expected table counts', () async {
@@ -422,6 +463,194 @@ void main() {
     );
     expect(db.importCallCount, 0);
     expect(db.replaceExisting, isNull);
+  });
+
+  _freshInstallImportTests();
+}
+
+/// 中文：**在一个真的新装的库上做一次导入。** 上面那些用例用的都是假库——假库报回来的行数是假库
+///       自己算的，所以"导入之后每张表的行数就是备份的行数"这句话在假库上量不到底。这一组用真的
+///       SQLite（系统 `libsqlite3`，经 `sqflite_common_ffi`）：库从**零**建起（`onCreate` 真的跑），
+///       走用户那条路（`DataBackupRepository.importJson`：解析 → 校验 → 清空 → 写入 → 重数），最后
+///       **直接查表**核对行数与内容。
+///
+///       **"新装"与"接近全新"这两个前提都是量出来的**，不是假设的：第一条先数一遍五张表（必须全 0），
+///       第二条先往五张表各写一行本机数据（必须各 1）。第二条才是"幽灵行"真正的判据——备份里没有的
+///       那些本机行（一条收藏、一条最近、一个本机独有的设置项）必须**在这个世界上消失**。
+///
+///       **为什么这一组能住在这个文件里、不去挤 `app_database_v7_test.dart`**：那里记过一条教训——
+///       `AppDatabase` 走的是真库的**默认路径**（`getDatabasesPath()` 下的 `nekocalc.db`），而
+///       `flutter test` 按文件并行，第二个用真库的文件会和它抢同一个文件。这一组在 `setUp` 里把 FFI
+///       工厂的 databases 路径换成**自己的一次性临时目录**，于是连默认那个文件都不碰；这不是口头
+///       保证，下面有一条断言直接量它（库文件落在本组的临时目录里）。
+///
+///       **缺原生库时跳过**（并留下可见说明），与 `app_database_v7_test.dart` 同一套办法。
+/// English: **one import, on a genuinely fresh real database** — the fakes above report counts their own
+///          arithmetic produced, so "afterwards each table holds exactly what the backup holds" cannot
+///          be settled there. Real SQLite, built from **zero** (`onCreate` really runs), walked through
+///          the user's path (`importJson`: parse → validate → clear → write → re-count), with **the
+///          tables themselves** queried at the end. Both preconditions are **measured**, not assumed
+///          (first case: the five tables must all be 0; second: one local row each), and the second is
+///          where "phantom rows" is decided — the local rows the backup lacks must cease to exist. The
+///          group lives here rather than in `app_database_v7_test.dart` (which records why a second
+///          real-database file would fight it over the default path) because it points the FFI
+///          factory's databases path at **its own throwaway directory**; one assertion below measures
+///          that. **Skipped when the native library is missing**, as in that file.
+void _freshInstallImportTests() {
+  group('真实 SQLite：新装上的导入', () {
+    var ffiAvailable = false;
+    late Directory tempDir;
+
+    setUpAll(() async {
+      try {
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+        final probe =
+            await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+        await probe.close();
+        ffiAvailable = true;
+      } catch (_) {
+        ffiAvailable = false;
+      }
+    });
+
+    setUp(() async {
+      if (!ffiAvailable) return;
+      await AppDatabase.instance.closeForTest();
+      tempDir = Directory.systemTemp.createTempSync('nekocalc_fresh_import_');
+      // 中文：`DatabaseFactory` 这个公开接口上只有 `setDatabasesPath`（带 `OrNull` 的那个住在
+      //       `sqflite_common` 的私有 mixin 里，公开类型够不着）。行为是同一个：把工厂的
+      //       databases 路径换成下面这个一次性目录。
+      // English: the public `DatabaseFactory` interface only has `setDatabasesPath` (the `OrNull`
+      //          variant lives on a private mixin in `sqflite_common` and is not reachable through the
+      //          public type). It does the same thing: point the factory's databases path at the
+      //          throwaway directory below.
+      await databaseFactoryFfi.setDatabasesPath(tempDir.path);
+    });
+
+    tearDown(() async {
+      if (!ffiAvailable) return;
+      await AppDatabase.instance.closeForTest();
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+
+    /// 中文：缺原生库时**跳过**，并留下可见的说明——不把一个缺库的环境判成失败。
+    /// English: skips when the native library is missing, leaving a visible note rather than failing
+    ///          an environment that lacks it.
+    void skipMissingFfi() {
+      markTestSkipped('系统缺少 libsqlite3，跳过真实 SQLite 的新装导入测试');
+    }
+
+    test('新装（五张表全空）：覆盖导入后每张表的行数就是备份里的那个数', () async {
+      if (!ffiAvailable) {
+        skipMissingFfi();
+        return;
+      }
+      final db = AppDatabase.instance;
+
+      // 中文：先把库真的开出来（`onCreate` 建表），再数一遍——"新装"这句话的判据。
+      expect(
+        await db.backupTableCounts(),
+        {for (final tableName in backupTableNames) tableName: 0},
+        reason: '这一侧的前提是五张表全空，先确认再往下测',
+      );
+      expect(File(p.join(tempDir.path, 'nekocalc.db')).existsSync(), isTrue,
+          reason: '库必须落在本组自己的临时目录里——并行跑的那个文件在用默认路径');
+
+      const backupCounts = {
+        'calculation_history': 3,
+        'notes': 2,
+        'favorite_tools': 0,
+        'recent_tools': 2,
+        'app_settings': 2,
+      };
+      final repository = DataBackupRepository(db);
+      final report = await repository.importJson(
+        _snapshotJson(backupCounts),
+        replaceExisting: true,
+      );
+
+      expect(report.before.totalRows, 0);
+      expect(report.after.totalRows, 9);
+      for (final tableName in backupTableNames) {
+        expect(report.sourceFor(tableName), backupCounts[tableName]);
+        expect(report.afterFor(tableName), backupCounts[tableName],
+            reason: '$tableName：导入后的行数必须就是备份里的行数，多一行就是幽灵行');
+        expect(report.skippedFor(tableName), 0, reason: '覆盖导入不裁剪、不跳过任何一行');
+      }
+
+      // 中文：**表才是判据。** 上面那些数是仓库报的，这里直接查表：行数与内容都要对得上。
+      final raw = await db.database;
+      for (final tableName in backupTableNames) {
+        expect(await raw.query(tableName), hasLength(backupCounts[tableName]!),
+            reason: '$tableName 表里的真实行数');
+      }
+      expect(
+        (await raw.query('calculation_history', orderBy: 'id'))
+            .map((row) => row['expression']),
+        ['2+1', '2+2', '2+3'],
+      );
+      expect(
+        (await raw.query('notes', orderBy: 'id')).map((row) => row['title']),
+        ['笔记 1', '笔记 2'],
+      );
+      expect(await db.favoriteToolIds(), isEmpty);
+      expect(await db.recentToolIds(),
+          unorderedEquals(<String>['recent_tool_1', 'recent_tool_2']));
+      expect(await db.settings(), {
+        'setting_1': 'value_1',
+        'setting_2': 'value_2',
+      });
+    });
+
+    test('接近全新（本机每张表各留一行）：覆盖导入把本机残留清干净，不留幽灵行', () async {
+      if (!ffiAvailable) {
+        skipMissingFfi();
+        return;
+      }
+      final db = AppDatabase.instance;
+      await db.addHistory(expression: '1+1', result: '2');
+      await db.addNote('本机残留的笔记', '本机');
+      await db.setFavorite('ohms_law', true);
+      await db.markRecent('ohms_law');
+      await db.setSetting('local_only', '本机');
+
+      // 中文：先把"接近全新"这件事本身量一遍。
+      expect((await db.backupTableCounts()).values, everyElement(1),
+          reason: '这一侧的前提是每张表正好一行本机残留');
+
+      const backupCounts = {
+        'calculation_history': 2,
+        'notes': 1,
+        'favorite_tools': 0,
+        'recent_tools': 0,
+        'app_settings': 1,
+      };
+      final repository = DataBackupRepository(db);
+      final report = await repository.importJson(
+        _snapshotJson(backupCounts),
+        replaceExisting: true,
+      );
+
+      expect(report.before.totalRows, 5);
+      expect(report.after.totalRows, 4);
+      for (final tableName in backupTableNames) {
+        expect(report.afterFor(tableName), backupCounts[tableName],
+            reason: '$tableName：覆盖后应当只剩备份里的那些行');
+      }
+
+      // 中文：**本机独有、备份里没有的那些行必须消失**——留下一条就是幽灵行。
+      expect(await db.favoriteToolIds(), isEmpty,
+          reason: '本机残留的收藏不该活过覆盖导入');
+      expect(await db.recentToolIds(), isEmpty,
+          reason: '本机残留的"最近使用"不该活过覆盖导入');
+      expect(await db.settings(), {'setting_1': 'value_1'},
+          reason: '本机独有的设置项不许留下');
+      expect((await db.history()).map((item) => item.expression),
+          unorderedEquals(<String>['2+1', '2+2']));
+      expect((await db.notes()).map((note) => note.title),
+          unorderedEquals(<String>['笔记 1']));
+    });
   });
 }
 
