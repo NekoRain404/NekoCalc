@@ -1584,10 +1584,17 @@ load-bearing**, and where a line number describes a state that no longer exists,
 (as done in §5r) rather than quietly updating it, so a reader can still tell "this moved" from "this was always
 wrong".
 
-## 6. Five mechanical checks that exist because of repeated mistakes
+## 6. Six mechanical checks that exist because of repeated mistakes
 
-All five guard one of **two** shapes: an action that did nothing looks exactly like one that ran and had no
-effect; or **a limit nobody is watching gets crossed without anything happening at all.**
+All six guard one of **three** shapes: an action that did nothing looks exactly like one that ran and had no
+effect; a limit nobody is watching gets crossed without anything happening at all; or **a rule that lives in a
+file nothing reads — so deleting it looks like nothing at all.**
+
+⚠️ The two newest (the 800-line cap and the portrait lock) come from **the user's own stated rules** rather than
+from a mistake of mine, and the heading above is kept only because the failure mode is the same one: **a rule
+that only memory enforces is a rule that breaks silently.** That is also why the portrait guard strips XML
+comments before judging — the manifest's own comment *names* both strings it requires, so a raw substring check
+would pass on a manifest whose attributes had been deleted.
 
 | Check | Guards against |
 |---|---|
@@ -1596,6 +1603,7 @@ effect; or **a limit nobody is watching gets crossed without anything happening 
 | `tool/pull_device_db.sh` | pulling the SQLite database **without its `-wal`** (reads a stale value) |
 | `tool/install_debug_over_release.sh` | losing the device's debuggable build — it **sidesteps** the versionCode (build the debug variant at the installed one) instead of fighting the downgrade guard (§2) |
 | `test/features/file_size_limit_test.dart` | a source file under `lib/`, `test/` or `android/app/src/` **drifting past the user's 800-line cap**. The cap was kept by memory alone until 2026-10-12, when two slips of mine came from the same shape — a new test pushed `notes_controller_test.dart` to **817 lines**, and `calculator_controller_evaluation.dart` sat at **798**, two lines from the edge. Survey that day: **nothing over the line, 36 files above 700** — one small change between the pressure and the breach. The guard's own reading is `wc -l`-identical on purpose (see its header): an instrument that miscounts by one line would cry wolf, and a guard that cries wolf gets switched off. |
+| `test/features/manifest_portrait_lock_test.dart` | the **portrait lock** disappearing from `AndroidManifest.xml`. The user stated this rule twice (「不需要做屏幕旋转，**禁止屏幕旋转**」) and it lived only in that file, with nothing reading it. The manifest's own comment explains that `screenOrientation` **alone is not enough** under `targetSdk = 36`, so the guard asks for **both** halves — and it **strips XML comments first**, because that comment *names* both strings and a raw substring check would pass on a manifest whose attributes had been deleted. |
 
 ⚠️ **Measuring trap, learned the hard way**: `meetsGuideline` reports failures **asynchronously** —
 `expect(...)` does not throw. try/catch cannot be used to see whether it passes.
