@@ -1666,6 +1666,16 @@ were **never true** — "removed the network permission" never happened. This do
 about rot (§5s, §5t: true when written, false when read), and a sentence can also simply be **wrong on day
 one**. Nothing distinguishes the two except reading the claim against the artifact it describes.
 
+✅ **And the *current* release notes hold** — `docs/release_notes_v1.2.0-beta.1.md` was audited last, because
+its claims are the ones a user reads *before installing*: its version matches `pubspec.yaml` and `app_info.dart`,
+its ABI list matches the three split APKs actually built (4009 / 3009 / 6009), and its samplable bullets check out
+one by one — 204 test files (the "broader coverage" claim), the controller split into **14 `part`s** (the
+"decoupled" claim), and the structured result objects it names (`CalculatorSubmitResult`,
+`BackupImportReport`, …) really exist. ⚠️ It does **not** mention the cursor-key fix — and that is **correct**:
+the fix postdates this release and lives in the CHANGELOG's `Unreleased` list. A pre-release note should not
+reach forward to work that came after it, and the absence reads as a gap only if you forget which side of the
+release you are on.
+
 ### 5v. The capability register itself, audited — and it holds (2026-10-12)
 
 `docs/comparison-with-hiper.md` is the 496-line, 88-row register of "what this app has that HiPER does not". It
